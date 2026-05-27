@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: raventech
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: raventech
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raventech -d raventech"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "--no-auth-warning",
+          "-a",
+          "${REDIS_PASSWORD:?REDIS_PASSWORD is required}",
+          "ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      DATABASE_URL: postgresql+asyncpg://raventech:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/raventech
+      TEST_DATABASE_URL: postgresql+asyncpg://raventech:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/raventech_test
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      CHROMA_DATA_PATH: /data/chroma
+    volumes:
+      - ./backend:/app
+      - reports_data:/data/reports
+      - chroma_data:/data/chroma
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  celery-worker:
+    build:
+      context: ./backend
+      target: development
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      DATABASE_URL: postgresql+asyncpg://raventech:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/raventech
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      CHROMA_DATA_PATH: /data/chroma
+    volumes:
+      - ./backend:/app
+      - reports_data:/data/reports
+      - chroma_data:/data/chroma
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=info --pool=prefork --concurrency=2
+
+volumes:
+  postgres_data:
+  redis_data:
+  reports_data:
+  chroma_data:
