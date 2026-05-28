@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 
 import pytest
-
 from app.core.config import settings
 from app.models.report import Report
 from app.services.report_export import DOCX_MEDIA_TYPE, PDF_MEDIA_TYPE, export_report
