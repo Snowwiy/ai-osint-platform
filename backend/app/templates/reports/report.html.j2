@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ context.investigation.title }} {{ context.report_type|title }} Report</title>
+  <style>
+    body {
+      color: #172026;
+      font-family: Arial, sans-serif;
+      line-height: 1.5;
+      margin: 32px;
+    }
+    h1, h2, h3 {
+      color: #0f2d3a;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #cfd8dc;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #edf4f7;
+    }
+    .meta {
+      color: #465a64;
+      font-size: 0.95rem;
+    }
+    .pill {
+      background: #edf4f7;
+      border-radius: 4px;
+      display: inline-block;
+      padding: 2px 6px;
+    }
+  </style>
+</head>
+<body>
+  <h1>{{ context.investigation.title }} {{ context.report_type|title }} Report</h1>
+  <p class="meta">Investigation ID: {{ context.investigation.id }}</p>
+
+  <h2>Executive Summary</h2>
+  <p>{{ context.analysis_summary }}</p>
+
+  <h2>Scope and Authorization</h2>
+  <p><strong>Authorization:</strong> {{ context.investigation.authorization_statement }}</p>
+  <p><strong>Scope:</strong> {{ context.investigation.scope_definition or "No scope note provided." }}</p>
+
+  <h2>Methodology</h2>
+  <p>
+    This report uses stored passive recon entities, threat intelligence findings,
+    correlation findings, and local defensive knowledge citations. No live scans,
+    external providers, or LLM calls are performed during report generation.
+  </p>
+
+  <h2>Key Findings</h2>
+  {% if context.findings %}
+  <table>
+    <thead>
+      <tr>
+        <th>Severity</th>
+        <th>Finding</th>
+        <th>Risk</th>
+        <th>Confidence</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for finding in context.findings %}
+      <tr>
+        <td><span class="pill">{{ finding.severity }}</span></td>
+        <td>{{ finding.title }}</td>
+        <td>{{ finding.risk_score }}</td>
+        <td>{{ finding.confidence_score }}</td>
+        <td>{{ finding.source }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No correlation findings are currently stored.</p>
+  {% endif %}
+
+  <h2>Risk Summary</h2>
+  <ul>
+    <li>Overall level: {{ context.risk_summary.level }}</li>
+    <li>Highest score: {{ context.risk_summary.highest_score }}</li>
+    <li>Finding count: {{ context.risk_summary.finding_count }}</li>
+  </ul>
+
+  <h2>Technical Evidence</h2>
+  {% if context.evidence %}
+  <ul>
+    {% for item in context.evidence %}
+    <li>{{ item.source }}: {{ item.description }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No technical evidence records are currently stored.</p>
+  {% endif %}
+
+  <h2>MITRE/OWASP/NIST/ISO Mapping</h2>
+  {% if context.framework_mappings %}
+  <ul>
+    {% for mapping in context.framework_mappings %}
+    <li>
+      <strong>{{ mapping.framework }}</strong>:
+      {{ mapping.control }} - {{ mapping.rationale }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No framework mappings were derived from stored evidence.</p>
+  {% endif %}
+
+  <h2>Recommendations</h2>
+  <ul>
+    {% for recommendation in context.recommendations %}
+    <li>{{ recommendation }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Appendix</h2>
+  <ul>
+    <li>Recon entities: {{ context.recon_entities|length }}</li>
+    <li>Threat intel findings: {{ context.threat_findings|length }}</li>
+    <li>Knowledge citations: {{ context.knowledge_citations|length }}</li>
+  </ul>
+  {% if context.knowledge_citations %}
+  <h3>Knowledge Citations</h3>
+  <ul>
+    {% for citation in context.knowledge_citations %}
+    <li>
+      [{{ citation.id }}] {{ citation.framework }}:
+      {{ citation.title }} ({{ citation.source }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</body>
+</html>

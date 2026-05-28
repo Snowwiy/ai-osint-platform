@@ -10,6 +10,7 @@ from app.api.v1 import (
     investigations,
     knowledge,
     recon,
+    reports,
     targets,
     threat_intel,
     users,
@@ -25,4 +26,5 @@ api_router.include_router(investigations.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(targets.router)
 api_router.include_router(recon.router)
+api_router.include_router(reports.router)
 api_router.include_router(threat_intel.router)
