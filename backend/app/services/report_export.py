@@ -12,7 +12,6 @@ from app.core.config import settings
 from app.models.report import Report
 from app.schemas.report import ReportDownloadFormat
 
-
 PDF_MEDIA_TYPE = "application/pdf"
 DOCX_MEDIA_TYPE = (
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"

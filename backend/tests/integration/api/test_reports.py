@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.finding import Finding
@@ -12,6 +8,9 @@ from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.threat_finding import ThreatFinding
 from app.schemas.report import ReportDetailResponse, ReportResponse
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def test_create_report_renders_html_markdown_and_preserves_citations(
