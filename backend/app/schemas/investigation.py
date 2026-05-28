@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.schemas.recon import (
+    EntityType,
+    JsonProperties,
+    ReconStatus,
+    RelationshipType,
+    TargetType,
+)
 
 
 class InvestigationCreate(BaseModel):
@@ -92,3 +101,54 @@ class MemberResponse(BaseModel):
     user_id: uuid.UUID
     role: str
     added_at: datetime
+
+
+class InvestigationGraphNode(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    entity_type: EntityType
+    value: str
+    display_name: str | None
+    properties: JsonProperties
+    source: str | None
+    first_seen: datetime
+    last_seen: datetime
+
+
+class InvestigationGraphEdge(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    source_entity_id: uuid.UUID
+    target_entity_id: uuid.UUID
+    relationship_type: RelationshipType
+    properties: JsonProperties
+    source: str | None
+    created_at: datetime
+
+
+class InvestigationGraphRiskSummary(BaseModel):
+    total_entities: int
+    entity_counts: dict[EntityType, int]
+    risk_level: Literal["not_assessed"] = "not_assessed"
+    signals: list[str]
+
+
+class InvestigationGraphTimelineEvent(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    target_type: TargetType
+    target_value: str
+    status: ReconStatus
+    summary: JsonProperties
+    created_at: datetime
+
+
+class InvestigationGraphResponse(BaseModel):
+    investigation_id: uuid.UUID
+    nodes: list[InvestigationGraphNode]
+    edges: list[InvestigationGraphEdge]
+    risk_summary: InvestigationGraphRiskSummary
+    timeline: list[InvestigationGraphTimelineEvent]

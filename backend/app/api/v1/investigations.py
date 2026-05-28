@@ -11,6 +11,7 @@ from app.models.investigation_member import InvestigationMember
 from app.models.user import User
 from app.schemas.investigation import (
     InvestigationCreate,
+    InvestigationGraphResponse,
     InvestigationListResponse,
     InvestigationResponse,
     InvestigationUpdate,
@@ -18,6 +19,7 @@ from app.schemas.investigation import (
     MemberResponse,
     MemberUpdateRequest,
 )
+from app.schemas.recon import EntityType, RelationshipType
 from app.services.investigation import (
     ForbiddenError,
     InvestigationNotFoundError,
@@ -27,6 +29,7 @@ from app.services.investigation import (
     archive_investigation,
     create_investigation,
     get_investigation,
+    get_investigation_graph,
     list_investigations,
     list_members,
     remove_member,
@@ -76,6 +79,32 @@ async def get_endpoint(
 ) -> Investigation:
     try:
         return await get_investigation(db, current_user, investigation_id)
+    except InvestigationNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found",
+        ) from exc
+
+
+@router.get("/{investigation_id}/graph", response_model=InvestigationGraphResponse)
+async def get_graph_endpoint(
+    investigation_id: uuid.UUID,
+    entity_types: list[EntityType] | None = Query(default=None, alias="entity_type"),
+    relationship_types: list[RelationshipType] | None = Query(
+        default=None,
+        alias="relationship_type",
+    ),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InvestigationGraphResponse:
+    try:
+        return await get_investigation_graph(
+            db,
+            current_user,
+            investigation_id,
+            entity_types=entity_types,
+            relationship_types=relationship_types,
+        )
     except InvestigationNotFoundError as exc:
         raise HTTPException(
             status_code=404,
