@@ -11,8 +11,8 @@ from app.schemas.analysis import (
     AnalysisRecommendation,
     AnalysisResponse,
     CitedAnalysisText,
-    IocAnalysisRequest,
     InvestigationAnalysisRequest,
+    IocAnalysisRequest,
     ThreatContextAnalysisRequest,
 )
 from app.schemas.finding import FindingSeverity
@@ -389,7 +389,7 @@ def _severity_from_items(items: list[EvidenceItem]) -> FindingSeverity:
     for item in items:
         raw = item.metadata.get("severity")
         if raw in _SEVERITY_RANK and _SEVERITY_RANK[raw] > _SEVERITY_RANK[severity]:
-            severity = cast(FindingSeverity, raw)
+            severity = raw
         risk = item.metadata.get("risk_score")
         if isinstance(risk, int):
             severity = _higher_severity(severity, _severity_from_risk(risk))
@@ -516,9 +516,7 @@ def _risk_sort_key(item: EvidenceItem) -> tuple[int, int]:
     severity = item.metadata.get("severity")
     return (
         risk if isinstance(risk, int) else 0,
-        _SEVERITY_RANK.get(cast(FindingSeverity, severity), 0)
-        if severity in _SEVERITY_RANK
-        else 0,
+        _SEVERITY_RANK.get(severity, 0) if severity in _SEVERITY_RANK else 0,
     )
 
 

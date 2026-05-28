@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
     OBSIDIAN_WIKI_PATH: str = ""
 
+    REPORT_COMPANY_NAME: str = "RavenTech"
+    REPORT_LOGO_PATH: str = ""
+    REPORT_PRIMARY_COLOR: str = "#7C3AED"
+    REPORT_SECONDARY_COLOR: str = "#111827"
+
     SHODAN_API_KEY: str = ""
     VT_API_KEY: str = ""
     ABUSEIPDB_API_KEY: str = ""

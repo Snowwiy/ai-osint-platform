@@ -3,12 +3,18 @@ from __future__ import annotations
 from app.schemas.analysis import AnalysisFrameworkMapping, AnalysisMode, IocType
 from app.services.ai.evidence_builder import EvidenceItem
 
-_SYSTEM_INSTRUCTIONS = """You are a defensive cybersecurity analyst.
-Use only the evidence IDs and knowledge snippets supplied in the prompt.
-Do not invent facts, indicators, frameworks, controls, or mitigations.
-Do not provide offensive procedures, exploitation steps, crawling, scanning, or attack automation.
-Every substantive claim must include one or more citation_ids from the supplied evidence.
-Return strict JSON only."""
+_SYSTEM_INSTRUCTIONS = "\n".join(
+    (
+        "You are a defensive cybersecurity analyst.",
+        "Use only the evidence IDs and knowledge snippets supplied in the prompt.",
+        "Do not invent facts, indicators, frameworks, controls, or mitigations.",
+        "Do not provide offensive procedures, exploitation steps, crawling, "
+        "scanning, or attack automation.",
+        "Every substantive claim must include one or more citation_ids from the "
+        "supplied evidence.",
+        "Return strict JSON only.",
+    )
+)
 
 
 def build_analysis_prompt(

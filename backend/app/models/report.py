@@ -3,8 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from typing import Any
+
 from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text, func, text
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,6 +23,10 @@ class Report(Base):
         CheckConstraint(
             "status IN ('pending', 'generating', 'ready', 'failed')",
             name="ck_reports_status",
+        ),
+        CheckConstraint(
+            "report_type IN ('executive', 'technical')",
+            name="ck_reports_type",
         ),
     )
 
@@ -41,6 +47,12 @@ class Report(Base):
         nullable=True,
     )
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    report_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="technical",
+        server_default="technical",
+    )
     report_format: Mapped[str] = mapped_column(
         String(10),
         nullable=False,
@@ -55,6 +67,14 @@ class Report(Base):
     )
     file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    html_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    markdown_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    report_metadata: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
