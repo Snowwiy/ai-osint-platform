@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence, cast
+from typing import cast
 
 from app.schemas.knowledge import KnowledgeFramework
 
