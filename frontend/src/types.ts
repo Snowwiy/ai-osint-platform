@@ -36,6 +36,85 @@ export interface InvestigationListResponse {
   items: Investigation[];
 }
 
+export interface InvestigationCreateRequest {
+  title: string;
+  description?: string | null;
+  authorization_statement: string;
+  scope_definition?: string | null;
+}
+
+export interface InvestigationUpdateRequest {
+  title?: string;
+  description?: string | null;
+  status?: InvestigationStatus;
+  scope_definition?: string | null;
+}
+
+export type TargetType = "domain" | "ip" | "url";
+
+export interface Target {
+  id: string;
+  investigation_id: string;
+  target_type: TargetType;
+  target_value: string;
+  label: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface TargetListResponse {
+  total: number;
+  items: Target[];
+}
+
+export interface TargetCreateRequest {
+  investigation_id: string;
+  target_type: TargetType;
+  target_value: string;
+  label?: string | null;
+  notes?: string | null;
+}
+
+export interface ReconResponse {
+  investigation_id: string | null;
+  enrichment_id: string | null;
+  target_type: TargetType;
+  target_value: string;
+  status: "completed" | "partial" | "failed";
+  entities: NormalizedEntity[];
+  relationships: NormalizedRelationship[];
+  errors: ReconError[];
+  dns?: unknown;
+  rdap?: unknown;
+  certificates?: unknown;
+  ip?: unknown;
+  http?: unknown;
+}
+
+export interface NormalizedEntity {
+  entity_type: string;
+  value: string;
+  display_name: string | null;
+  properties: Record<string, unknown>;
+  source: string | null;
+}
+
+export interface NormalizedRelationship {
+  relationship_type: string;
+  source_type: string;
+  source_value: string;
+  target_type: string;
+  target_value: string;
+  properties: Record<string, unknown>;
+  source: string | null;
+}
+
+export interface ReconError {
+  source: string;
+  message: string;
+}
+
 export interface GraphNode {
   id: string;
   entity_type: string;
@@ -99,6 +178,8 @@ export interface Finding {
   tags: string[];
 }
 
+export type FindingStatus = "open" | "validated" | "false_positive" | "resolved";
+
 export interface FindingEvidence {
   id: string;
   finding_id: string;
@@ -161,14 +242,23 @@ export interface CorrelationResponse {
   edges: CorrelationEdge[];
 }
 
+export type ReportType = "executive" | "technical";
+export type ReportFormat = "html" | "md" | "pdf" | "docx";
+export type ReportStatus = "pending" | "generating" | "ready" | "failed";
+
+export interface ReportCreateRequest {
+  report_type: ReportType;
+  title?: string | null;
+}
+
 export interface ReportSummary {
   id: string;
   investigation_id: string;
   generated_by: string | null;
   title: string | null;
-  report_type: "executive" | "technical";
+  report_type: ReportType;
   report_format: string;
-  status: string;
+  status: ReportStatus;
   file_size_bytes: number | null;
   report_metadata: Record<string, unknown>;
   error_message: string | null;
@@ -203,6 +293,9 @@ export interface AnalysisResponse {
   provider: string;
   model: string | null;
   investigation_id: string;
+  target_type?: string | null;
+  target_value?: string | null;
+  retrieval_mode?: string;
   executive_summary: CitedText;
   technical_summary: CitedText;
   observed_indicators: CitedText[];

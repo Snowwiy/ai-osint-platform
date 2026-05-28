@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { InvestigationTabs } from "../components/InvestigationTabs";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getInvestigationGraph } from "../lib/api";
@@ -22,6 +23,7 @@ export function ReconResultsPage(): JSX.Element {
   return (
     <>
       <PageHeader title="Recon Results" eyebrow="Passive entities" />
+      <InvestigationTabs />
       {graph.data?.nodes.length ? (
         <div className="grid gap-5 xl:grid-cols-[1fr_0.9fr]">
           <section className="overflow-hidden rounded-lg border border-raven-border">
@@ -76,4 +78,3 @@ export function ReconResultsPage(): JSX.Element {
     </>
   );
 }
-

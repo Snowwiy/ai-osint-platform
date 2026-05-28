@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 
 import {
   ApiError,
+  AUTH_EXPIRED_EVENT,
   clearTokens,
   getAccessToken,
   getMe,
@@ -40,6 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
     void bootstrap();
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleExpiredSession(): void {
+      setUser(null);
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleExpiredSession);
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, handleExpiredSession);
     };
   }, []);
 

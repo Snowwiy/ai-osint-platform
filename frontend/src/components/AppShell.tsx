@@ -23,6 +23,7 @@ const topNav = [
 
 const investigationNav = [
   { label: "Detail", path: "", icon: BarChart3 },
+  { label: "Targets", path: "targets", icon: ShieldCheck },
   { label: "Recon", path: "recon", icon: Network },
   { label: "Findings", path: "findings", icon: ShieldAlert },
   { label: "Timeline", path: "timeline", icon: Clock3 },

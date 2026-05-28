@@ -3,10 +3,20 @@ import type {
   CorrelationResponse,
   Finding,
   Investigation,
+  InvestigationCreateRequest,
   InvestigationGraphResponse,
   InvestigationListResponse,
+  InvestigationUpdateRequest,
   KnowledgeSearchResponse,
+  ReportCreateRequest,
+  ReportFormat,
+  ReconResponse,
   ReportListResponse,
+  ReportSummary,
+  Target,
+  TargetCreateRequest,
+  TargetListResponse,
+  TargetType,
   TimelineResponse,
   TokenResponse,
   UserProfile,
@@ -17,6 +27,8 @@ const API_BASE_URL =
 
 const ACCESS_TOKEN_KEY = "raventech.accessToken";
 const REFRESH_TOKEN_KEY = "raventech.refreshToken";
+const DEFAULT_TIMEOUT_MS = 30_000;
+export const AUTH_EXPIRED_EVENT = "raventech:auth-expired";
 
 export class ApiError extends Error {
   constructor(
@@ -77,14 +89,75 @@ export async function listInvestigations(): Promise<InvestigationListResponse> {
   return request<InvestigationListResponse>("/investigations/");
 }
 
+export async function createInvestigation(
+  body: InvestigationCreateRequest,
+): Promise<Investigation> {
+  return request<Investigation>("/investigations/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function getInvestigation(id: string): Promise<Investigation> {
   return request<Investigation>(`/investigations/${id}`);
+}
+
+export async function updateInvestigation(
+  id: string,
+  body: InvestigationUpdateRequest,
+): Promise<Investigation> {
+  return request<Investigation>(`/investigations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteInvestigation(id: string): Promise<void> {
+  return request<void>(`/investigations/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export async function getInvestigationGraph(
   id: string,
 ): Promise<InvestigationGraphResponse> {
   return request<InvestigationGraphResponse>(`/investigations/${id}/graph`);
+}
+
+export async function listTargets(
+  investigationId: string,
+): Promise<TargetListResponse> {
+  const params = new URLSearchParams({ investigation_id: investigationId });
+  return request<TargetListResponse>(`/targets/?${params.toString()}`);
+}
+
+export async function createTarget(body: TargetCreateRequest): Promise<Target> {
+  return request<Target>("/targets/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function runPassiveRecon({
+  investigationId,
+  targetType,
+  targetValue,
+  authorizationStatement,
+}: {
+  investigationId: string;
+  targetType: TargetType;
+  targetValue: string;
+  authorizationStatement: string;
+}): Promise<ReconResponse> {
+  return request<ReconResponse>(`/recon/${targetType}`, {
+    method: "POST",
+    body: JSON.stringify({
+      investigation_id: investigationId,
+      target: targetValue,
+      authorization_statement: authorizationStatement,
+    }),
+    timeoutMs: 45_000,
+  });
 }
 
 export async function listFindings(id: string): Promise<Finding[]> {
@@ -103,9 +176,20 @@ export async function listReports(id: string): Promise<ReportListResponse> {
   return request<ReportListResponse>(`/investigations/${id}/reports`);
 }
 
+export async function createReport(
+  investigationId: string,
+  body: ReportCreateRequest,
+): Promise<ReportSummary> {
+  return request<ReportSummary>(`/investigations/${investigationId}/reports`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    timeoutMs: 45_000,
+  });
+}
+
 export async function downloadReport(
   reportId: string,
-  format: "html" | "md" | "pdf" | "docx",
+  format: ReportFormat,
 ): Promise<Blob> {
   return requestBlob(`/reports/${reportId}/download?format=${format}`);
 }
@@ -124,35 +208,67 @@ export async function analyzeInvestigation(id: string): Promise<AnalysisResponse
 
 interface RequestInitWithAuth extends RequestInit {
   skipAuth?: boolean;
+  timeoutMs?: number;
 }
 
 async function request<T>(
   path: string,
   options: RequestInitWithAuth = {},
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: buildHeaders(options),
-    credentials: "include",
-  });
-  if (!response.ok) {
-    throw await apiError(response);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: buildHeaders(options),
+      credentials: "include",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = await apiError(response);
+      handleAuthFailure(error, options);
+      throw error;
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError("Request timed out", 408);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
 }
 
 async function requestBlob(path: string): Promise<Blob> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: buildHeaders({}),
-    credentials: "include",
-  });
-  if (!response.ok) {
-    throw await apiError(response);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: buildHeaders({}),
+      credentials: "include",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = await apiError(response);
+      handleAuthFailure(error, {});
+      throw error;
+    }
+    return response.blob();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError("Request timed out", 408);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
   }
-  return response.blob();
 }
 
 function buildHeaders(options: RequestInitWithAuth): HeadersInit {
@@ -174,11 +290,27 @@ async function apiError(response: Response): Promise<ApiError> {
     const payload = (await response.json()) as { detail?: unknown };
     if (typeof payload.detail === "string") {
       message = payload.detail;
+    } else if (Array.isArray(payload.detail)) {
+      message = payload.detail
+        .map((item) => {
+          if (typeof item === "object" && item !== null && "msg" in item) {
+            return String(item.msg);
+          }
+          return String(item);
+        })
+        .join("; ");
     }
   } catch {
     // Keep the status-based fallback.
   }
   return new ApiError(message, response.status);
+}
+
+function handleAuthFailure(error: ApiError, options: RequestInitWithAuth): void {
+  if (error.status === 401 && !options.skipAuth) {
+    clearTokens();
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
 }
 
 export function apiBaseUrl(): string {
