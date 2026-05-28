@@ -468,7 +468,11 @@ def _strings_from_property(value: object) -> list[str]:
     if isinstance(value, str):
         return [value.strip()] if value.strip() else []
     if isinstance(value, list):
-        return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+        return [
+            item.strip()
+            for item in value 
+            if isinstance(item, str) and item.strip()
+            ]
     return []
 
 

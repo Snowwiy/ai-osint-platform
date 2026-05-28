@@ -323,7 +323,10 @@ def _event_from_ai_analysis(
         severity=_severity_from_ai_risk(analysis.risk_assessment),
         source="ai_analysis",
         title="Stored AI analysis artifact",
-        summary=f"Analysis artifact stored for {target.target_type} {target.target_value}.",
+        summary=
+        f"Analysis artifact stored for " 
+        f"{target.target_type} "
+        f"{target.target_value}.",
         related_finding_ids=list(analysis.finding_ids),
         confidence=80 if analysis.risk_assessment != "none" else 55,
         metadata={
@@ -342,7 +345,10 @@ def _event_from_report(report: Report) -> TimelineEvent:
         severity="info",
         source="report",
         title=report.title or "Investigation report generated",
-        summary=f"{report.report_type.title()} report generated with status {report.status}.",
+        summary=
+        f"{report.report_type.title()} "
+        f"report generated with status "
+        f"{report.status}.",
         confidence=90 if report.status == "ready" else 50,
         metadata={
             "report_type": report.report_type,
