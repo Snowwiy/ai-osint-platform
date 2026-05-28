@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -389,13 +390,15 @@ def _safe_properties(value: dict[str, object]) -> JsonProperties:
     return safe
 
 
-def _safe_list(value: list[object]) -> list[str] | list[int] | list[float] | list[bool] | None:
+def _safe_list(
+    value: list[object],
+) -> list[str] | list[int] | list[float] | list[bool] | None:
     if all(isinstance(item, str) for item in value):
         return [str(item) for item in value]
     if all(isinstance(item, bool) for item in value):
         return [bool(item) for item in value]
     if all(isinstance(item, int) and not isinstance(item, bool) for item in value):
-        return [int(item) for item in value]
+        return [cast(int, item) for item in value]
     if all(isinstance(item, float) for item in value):
-        return [float(item) for item in value]
+        return [cast(float, item) for item in value]
     return None

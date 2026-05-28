@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from typing import Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,9 +167,7 @@ async def _run_analysis(
     )
     if response is None:
         fallback.status = "malformed_response"
-        fallback.errors.append(
-            "LLM response did not include valid evidence citations."
-        )
+        fallback.errors.append("LLM response did not include valid evidence citations.")
         return fallback
     response.citations = citations_from_items(all_items)
     return response
@@ -226,8 +223,7 @@ def _response_from_llm(
         attack_hypotheses=hypotheses,
         severity=severity,
         confidence=confidence,
-        recommended_next_steps=recommendations
-        or _fallback_recommendations(all_items),
+        recommended_next_steps=recommendations or _fallback_recommendations(all_items),
         framework_mappings=_merge_frameworks(llm_frameworks, framework_mappings),
         citations=citations_from_items(all_items),
         errors=[],
@@ -416,11 +412,7 @@ def _higher_severity(
     current: FindingSeverity,
     candidate: FindingSeverity,
 ) -> FindingSeverity:
-    return (
-        candidate
-        if _SEVERITY_RANK[candidate] > _SEVERITY_RANK[current]
-        else current
-    )
+    return candidate if _SEVERITY_RANK[candidate] > _SEVERITY_RANK[current] else current
 
 
 def _confidence(items: list[EvidenceItem]) -> int:
@@ -445,9 +437,7 @@ def _bounded_int(value: object, *, default: int) -> int:
 
 def _fallback_indicators(items: list[EvidenceItem]) -> list[CitedAnalysisText]:
     indicators = [
-        item
-        for item in items
-        if item.source_type in ("recon_entity", "threat_finding")
+        item for item in items if item.source_type in ("recon_entity", "threat_finding")
     ]
     return [
         CitedAnalysisText(text=item.title, citation_ids=[item.id])
@@ -482,7 +472,9 @@ def _fallback_hypotheses(items: list[EvidenceItem]) -> list[CitedAnalysisText]:
     ]
 
 
-def _fallback_recommendations(items: list[EvidenceItem]) -> list[AnalysisRecommendation]:
+def _fallback_recommendations(
+    items: list[EvidenceItem],
+) -> list[AnalysisRecommendation]:
     if not items:
         return [
             AnalysisRecommendation(
