@@ -254,7 +254,12 @@ def _add_pdf_cover(
     story.append(
         platypus.Paragraph(html.escape(branding.company_name), styles["RavenHeading"])
     )
-    story.append(platypus.Paragraph(html.escape(_report_title(report)), styles["RavenTitle"]))
+    story.append(
+        platypus.Paragraph(
+            html.escape(_report_title(report)),
+            styles["RavenTitle"],
+        )
+    )
     story.append(
         platypus.Paragraph(
             html.escape(f"{_clean_text(report.report_type).title()} report"),
@@ -264,7 +269,11 @@ def _add_pdf_cover(
     story.append(platypus.Spacer(1, 14))
     risk_data = [
         ["Risk Level", "Risk Score", "Findings"],
-        [_risk_level(report).upper(), str(_highest_score(report)), str(_finding_count(report))],
+        [
+            _risk_level(report).upper(),
+            str(_highest_score(report)),
+            str(_finding_count(report)),
+        ],
     ]
     table = platypus.Table(risk_data, hAlign="LEFT")
     table.setStyle(
@@ -372,7 +381,12 @@ def _append_pdf_code(
     platypus: Any,
     content: str,
 ) -> None:
-    story.append(platypus.Preformatted(_clean_text(content) or " ", styles["RavenCode"]))
+    story.append(
+        platypus.Preformatted(
+            _clean_text(content) or " ",
+            styles["RavenCode"],
+        )
+    )
 
 
 def _append_pdf_table(
@@ -384,7 +398,10 @@ def _append_pdf_table(
 ) -> None:
     data = [
         [
-            platypus.Paragraph(html.escape(_inline_text(cell)), styles["RavenTableCell"])
+            platypus.Paragraph(
+                html.escape(_inline_text(cell)),
+                styles["RavenTableCell"],
+            )
             for cell in row
         ]
         for row in rows
