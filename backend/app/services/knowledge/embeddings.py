@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import import_module
 from typing import Any, Protocol
 
 _MODEL_NAME = "BAAI/bge-small-en-v1.5"
@@ -37,8 +38,9 @@ class LocalSentenceTransformerEmbedder:
 
     def _load_model(self) -> Any:
         if self._model is None:
-            from sentence_transformers import (
-                SentenceTransformer,  # type: ignore[import-not-found]
+            SentenceTransformer = getattr(
+                import_module("sentence_transformers"),
+                "SentenceTransformer",
             )
 
             self._model = SentenceTransformer(self._model_name)

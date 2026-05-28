@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,7 @@ class VectorChunk:
 class ChromaKnowledgeStore:
     def __init__(self, persist_directory: str) -> None:
         self._persist_directory = str(Path(persist_directory))
-        self._collection = None
+        self._collection: Any | None = None
 
     def upsert_chunks(self, chunks: list[VectorChunk]) -> None:
         if not chunks:
@@ -79,7 +80,7 @@ class ChromaKnowledgeStore:
 
     def _get_collection(self) -> Any:
         if self._collection is None:
-            import chromadb  # type: ignore[import-not-found]
+            chromadb = import_module("chromadb")
 
             client = chromadb.PersistentClient(path=self._persist_directory)
             self._collection = client.get_or_create_collection(_COLLECTION_NAME)

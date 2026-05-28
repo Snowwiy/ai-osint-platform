@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from importlib import import_module
+from typing import Any
+
 from app.core.config import settings
-from celery import Celery  # type: ignore[import-untyped]
+
+Celery: Any = import_module("celery").Celery
 
 celery_app = Celery(
     "raventech",
