@@ -13,6 +13,7 @@ from app.api.v1 import (
     reports,
     targets,
     threat_intel,
+    timeline,
     users,
 )
 
@@ -28,3 +29,4 @@ api_router.include_router(targets.router)
 api_router.include_router(recon.router)
 api_router.include_router(reports.router)
 api_router.include_router(threat_intel.router)
+api_router.include_router(timeline.router)
