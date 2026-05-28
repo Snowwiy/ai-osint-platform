@@ -208,6 +208,66 @@ async def test_analysis_requires_auth(
     assert response.status_code == 401
 
 
+async def test_knowledge_search_endpoint_returns_citations(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        "/api/v1/analysis/knowledge/search",
+        headers=analyst_headers,
+        json={"query": "exposed RDP", "top_k": 3},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["matched_chunks"]
+    assert body["citation_ids"] == [item["id"] for item in body["citations"]]
+    assert "CIS Controls" in body["frameworks"]
+
+
+async def test_knowledge_search_filters_by_framework(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        "/api/v1/analysis/knowledge/search",
+        headers=analyst_headers,
+        json={
+            "query": "security misconfiguration headers",
+            "frameworks": ["OWASP Top 10"],
+            "top_k": 5,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["matched_chunks"]
+    assert set(body["frameworks"]) == {"OWASP Top 10"}
+    assert all(chunk["framework"] == "OWASP Top 10" for chunk in body["matched_chunks"])
+
+
+async def test_knowledge_search_rejects_blank_query(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+) -> None:
+    response = await client.post(
+        "/api/v1/analysis/knowledge/search",
+        headers=analyst_headers,
+        json={"query": "   "},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_knowledge_search_requires_auth(client: AsyncClient) -> None:
+    response = await client.post(
+        "/api/v1/analysis/knowledge/search",
+        json={"query": "exposed RDP"},
+    )
+
+    assert response.status_code == 401
+
+
 async def _add_analysis_data(db: AsyncSession, investigation_id) -> Finding:
     entity = ReconEntity(
         investigation_id=investigation_id,
