@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast
 
 from app.schemas.knowledge import KnowledgeFramework
 
@@ -419,5 +418,5 @@ def _dedupe_frameworks(
     for framework in frameworks:
         if framework not in seen:
             seen.add(framework)
-            deduped.append(cast(KnowledgeFramework, framework))
+            deduped.append(framework)
     return deduped
