@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { InvestigationTabs } from "../components/InvestigationTabs";
 import { PageHeader } from "../components/PageHeader";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
@@ -54,6 +55,7 @@ export function TimelinePage(): JSX.Element {
           </select>
         }
       />
+      <InvestigationTabs />
 
       {filtered.length ? (
         <div className="relative space-y-4 before:absolute before:left-3 before:top-2 before:h-full before:w-px before:bg-raven-border">
@@ -84,4 +86,3 @@ export function TimelinePage(): JSX.Element {
     </>
   );
 }
-

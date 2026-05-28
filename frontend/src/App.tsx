@@ -12,6 +12,7 @@ import { KnowledgeSearchPage } from "./pages/KnowledgeSearchPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ReconResultsPage } from "./pages/ReconResultsPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { TargetsPage } from "./pages/TargetsPage";
 import { TimelinePage } from "./pages/TimelinePage";
 
 const router = createBrowserRouter([
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
             path: "investigations/:investigationId",
             children: [
               { index: true, element: <InvestigationDetailPage /> },
+              { path: "targets", element: <TargetsPage /> },
               { path: "recon", element: <ReconResultsPage /> },
               { path: "findings", element: <FindingsPage /> },
               { path: "timeline", element: <TimelinePage /> },
@@ -50,4 +52,3 @@ const router = createBrowserRouter([
 export function App(): JSX.Element {
   return <RouterProvider router={router} />;
 }
-
