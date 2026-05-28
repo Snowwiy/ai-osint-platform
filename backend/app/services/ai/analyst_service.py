@@ -11,8 +11,8 @@ from app.schemas.analysis import (
     AnalysisRecommendation,
     AnalysisResponse,
     CitedAnalysisText,
-    IocAnalysisRequest,
     InvestigationAnalysisRequest,
+    IocAnalysisRequest,
     ThreatContextAnalysisRequest,
 )
 from app.schemas.finding import FindingSeverity

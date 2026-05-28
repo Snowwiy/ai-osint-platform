@@ -49,7 +49,9 @@ def map_frameworks(
                     ),
                     AnalysisFrameworkMapping(
                         framework="CIS Controls",
-                        control="Secure Configuration of Enterprise Assets and Software",
+                        control=(
+                            "Secure Configuration of Enterprise Assets and Software"
+                        ),
                         rationale=(
                             "Technology disclosure should be reviewed as part of "
                             "secure configuration management."

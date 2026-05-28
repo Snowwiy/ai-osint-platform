@@ -7,8 +7,8 @@ from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.analysis import (
     AnalysisResponse,
-    IocAnalysisRequest,
     InvestigationAnalysisRequest,
+    IocAnalysisRequest,
     ThreatContextAnalysisRequest,
 )
 from app.services.ai.analyst_service import (

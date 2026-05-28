@@ -37,7 +37,9 @@ class LocalSentenceTransformerEmbedder:
 
     def _load_model(self) -> Any:
         if self._model is None:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+            from sentence_transformers import (
+                SentenceTransformer,  # type: ignore[import-not-found]
+            )
 
             self._model = SentenceTransformer(self._model_name)
         return self._model
