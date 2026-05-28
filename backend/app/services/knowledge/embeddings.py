@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from importlib import import_module
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 _MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
@@ -38,10 +38,11 @@ class LocalSentenceTransformerEmbedder:
 
     def _load_model(self) -> Any:
         if self._model is None:
-            SentenceTransformer = getattr(
+            sentence_transformers = cast(
+                Any,
                 import_module("sentence_transformers"),
-                "SentenceTransformer",
             )
+            SentenceTransformer = sentence_transformers.SentenceTransformer
 
             self._model = SentenceTransformer(self._model_name)
         return self._model
