@@ -21,6 +21,7 @@ from app.services.report import (
     get_report,
     list_reports,
 )
+from app.services.report_export import export_report
 
 router = APIRouter(tags=["reports"])
 
@@ -86,17 +87,10 @@ async def download_report_endpoint(
     except (ReportNotFoundError, InvestigationNotFoundError) as exc:
         raise HTTPException(status_code=404, detail="Report not found") from exc
 
-    if format == "html":
-        content = report.html_content or ""
-        media_type = "text/html; charset=utf-8"
-        extension = "html"
-    else:
-        content = report.markdown_content or ""
-        media_type = "text/markdown; charset=utf-8"
-        extension = "md"
-    filename = f"report-{report.id}.{extension}"
+    exported = export_report(report, format)
+    filename = f"report-{report.id}.{exported.extension}"
     return Response(
-        content=content,
-        media_type=media_type,
+        content=exported.content,
+        media_type=exported.media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

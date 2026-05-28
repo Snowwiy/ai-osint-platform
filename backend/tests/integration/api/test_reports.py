@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -7,9 +12,6 @@ from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.threat_finding import ThreatFinding
 from app.schemas.report import ReportDetailResponse, ReportResponse
-from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def test_create_report_renders_html_markdown_and_preserves_citations(
@@ -67,9 +69,15 @@ async def test_list_and_get_report_require_membership(
         f"/api/v1/reports/{report_id}",
         headers=other_headers,
     )
+    download_response = await client.get(
+        f"/api/v1/reports/{report_id}/download",
+        headers=other_headers,
+        params={"format": "pdf"},
+    )
 
     assert list_response.status_code == 404
     assert get_response.status_code == 404
+    assert download_response.status_code == 404
     reports = (await db.execute(select(Report))).scalars().all()
     assert len(reports) == 1
 
@@ -139,10 +147,20 @@ async def test_report_download_formats(
         headers=analyst_headers,
         params={"format": "md"},
     )
-    invalid = await client.get(
+    pdf = await client.get(
         f"/api/v1/reports/{report_id}/download",
         headers=analyst_headers,
         params={"format": "pdf"},
+    )
+    docx = await client.get(
+        f"/api/v1/reports/{report_id}/download",
+        headers=analyst_headers,
+        params={"format": "docx"},
+    )
+    invalid = await client.get(
+        f"/api/v1/reports/{report_id}/download",
+        headers=analyst_headers,
+        params={"format": "xlsx"},
     )
 
     assert html.status_code == 200
@@ -151,7 +169,40 @@ async def test_report_download_formats(
     assert markdown.status_code == 200
     assert "text/markdown" in markdown.headers["content-type"]
     assert markdown.text.startswith("#")
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+    assert docx.status_code == 200
+    assert docx.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert docx.content.startswith(b"PK")
     assert invalid.status_code == 422
+
+
+async def test_report_download_missing_logo_fallback(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    test_investigation,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setattr(settings, "REPORT_LOGO_PATH", str(tmp_path / "missing.png"))
+    created = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/reports",
+        headers=analyst_headers,
+        json={"report_type": "executive"},
+    )
+    report_id = created.json()["id"]
+
+    response = await client.get(
+        f"/api/v1/reports/{report_id}/download",
+        headers=analyst_headers,
+        params={"format": "pdf"},
+    )
+
+    assert response.status_code == 200
+    assert response.content.startswith(b"%PDF")
 
 
 async def _add_report_data(db: AsyncSession, investigation_id) -> None:

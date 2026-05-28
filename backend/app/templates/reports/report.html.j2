@@ -44,6 +44,31 @@
 
   <h2>Executive Summary</h2>
   <p>{{ context.analysis_summary }}</p>
+  <h3>Business Impact</h3>
+  <p>{{ context.business_impact }}</p>
+  <h3>Severity Heatmap</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Critical</th>
+        <th>High</th>
+        <th>Medium</th>
+        <th>Low</th>
+        <th>Info</th>
+        <th>Risk Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ context.severity_heatmap.critical }}</td>
+        <td>{{ context.severity_heatmap.high }}</td>
+        <td>{{ context.severity_heatmap.medium }}</td>
+        <td>{{ context.severity_heatmap.low }}</td>
+        <td>{{ context.severity_heatmap.info }}</td>
+        <td>{{ context.risk_summary.highest_score }}</td>
+      </tr>
+    </tbody>
+  </table>
 
   <h2>Scope and Authorization</h2>
   <p><strong>Authorization:</strong> {{ context.investigation.authorization_statement }}</p>
@@ -100,6 +125,34 @@
   </ul>
   {% else %}
   <p>No technical evidence records are currently stored.</p>
+  {% endif %}
+  {% if context.report_type == "technical" %}
+  <h3>Indicators and Entities</h3>
+  {% if context.indicator_summary %}
+  <ul>
+    {% for indicator in context.indicator_summary %}
+    <li>{{ indicator }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No recon entities or threat indicators are stored.</p>
+  {% endif %}
+  <h3>Evidence Chain</h3>
+  {% if context.evidence_chain %}
+  <ul>
+    {% for item in context.evidence_chain %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No linked evidence chain records are stored.</p>
+  {% endif %}
+  <h3>Analyst Notes</h3>
+  <ul>
+    {% for note in context.analyst_notes %}
+    <li>{{ note }}</li>
+    {% endfor %}
+  </ul>
   {% endif %}
 
   <h2>MITRE/OWASP/NIST/ISO Mapping</h2>

@@ -10,7 +10,7 @@ from app.schemas.recon import JsonProperties
 
 ReportType = Literal["executive", "technical"]
 ReportStatus = Literal["pending", "generating", "ready", "failed"]
-ReportDownloadFormat = Literal["html", "md"]
+ReportDownloadFormat = Literal["html", "md", "pdf", "docx"]
 
 
 class ReportCreateRequest(BaseModel):

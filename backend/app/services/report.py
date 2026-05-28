@@ -40,6 +40,11 @@ class ReportContext:
     recommendations: list[str]
     risk_summary: dict[str, object]
     analysis_summary: str
+    business_impact: str
+    severity_heatmap: dict[str, int]
+    indicator_summary: list[str]
+    evidence_chain: list[str]
+    analyst_notes: list[str]
 
 
 async def create_report(
@@ -117,6 +122,19 @@ def render_markdown_report(context: ReportContext) -> str:
         "",
         context.analysis_summary,
         "",
+        "### Business Impact",
+        "",
+        context.business_impact,
+        "",
+        "### Severity Heatmap",
+        "",
+        f"- Critical: {context.severity_heatmap['critical']}",
+        f"- High: {context.severity_heatmap['high']}",
+        f"- Medium: {context.severity_heatmap['medium']}",
+        f"- Low: {context.severity_heatmap['low']}",
+        f"- Info: {context.severity_heatmap['info']}",
+        f"- Risk score: {context.risk_summary['highest_score']}",
+        "",
         "## Scope and Authorization",
         "",
         f"Authorization: {context.investigation.authorization_statement}",
@@ -163,6 +181,23 @@ def render_markdown_report(context: ReportContext) -> str:
             lines.append(f"- {item.source}: {item.description}")
     else:
         lines.append("- No technical evidence records are currently stored.")
+
+    if context.report_type == "technical":
+        lines.extend(["", "### Indicators and Entities", ""])
+        if context.indicator_summary:
+            for indicator in context.indicator_summary:
+                lines.append(f"- {indicator}")
+        else:
+            lines.append("- No recon entities or threat indicators are stored.")
+        lines.extend(["", "### Evidence Chain", ""])
+        if context.evidence_chain:
+            for evidence in context.evidence_chain:
+                lines.append(f"- {evidence}")
+        else:
+            lines.append("- No linked evidence chain records are stored.")
+        lines.extend(["", "### Analyst Notes", ""])
+        for note in context.analyst_notes:
+            lines.append(f"- {note}")
 
     lines.extend(["", "## MITRE/OWASP/NIST/ISO Mapping", ""])
     if context.framework_mappings:
@@ -224,6 +259,11 @@ async def _build_context(
         recommendations=_recommendations(findings, knowledge_citations),
         risk_summary=_risk_summary(findings),
         analysis_summary=_analysis_summary(findings),
+        business_impact=_business_impact(findings),
+        severity_heatmap=_severity_heatmap(findings),
+        indicator_summary=_indicator_summary(recon_entities, threat_findings),
+        evidence_chain=_evidence_chain(evidence),
+        analyst_notes=_analyst_notes(),
     )
 
 
@@ -346,6 +386,20 @@ def _risk_summary(findings: list[Finding]) -> dict[str, object]:
     }
 
 
+def _severity_heatmap(findings: list[Finding]) -> dict[str, int]:
+    heatmap = {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "info": 0,
+    }
+    for finding in findings:
+        if finding.severity in heatmap:
+            heatmap[finding.severity] += 1
+    return heatmap
+
+
 def _analysis_summary(findings: list[Finding]) -> str:
     if not findings:
         return (
@@ -360,6 +414,57 @@ def _analysis_summary(findings: list[Finding]) -> str:
         f"{len(findings)} stored findings were reviewed. "
         f"{high_count} findings are high or critical severity."
     )
+
+
+def _business_impact(findings: list[Finding]) -> str:
+    if not findings:
+        return (
+            "Business impact has not been assessed because no validated findings "
+            "are currently stored for this investigation."
+        )
+    high_count = sum(
+        1 for finding in findings if finding.severity in ("high", "critical")
+    )
+    if high_count:
+        return (
+            "High-priority findings may affect operational resilience, customer "
+            "trust, or audit readiness until remediation is validated."
+        )
+    return (
+        "Current findings indicate limited business impact, but remediation "
+        "tracking should continue until all evidence is validated."
+    )
+
+
+def _indicator_summary(
+    recon_entities: list[ReconEntity],
+    threat_findings: list[ThreatFinding],
+) -> list[str]:
+    indicators = [
+        f"{entity.entity_type}: {entity.value}"
+        for entity in recon_entities[:10]
+    ]
+    indicators.extend(
+        f"{finding.provider}: {finding.target_type} {finding.target_value} "
+        f"({finding.verdict})"
+        for finding in threat_findings[:10]
+    )
+    return indicators[:15]
+
+
+def _evidence_chain(evidence: list[FindingEvidence]) -> list[str]:
+    return [
+        f"{item.source} -> {item.evidence_type}: {item.description}"
+        for item in evidence[:15]
+    ]
+
+
+def _analyst_notes() -> list[str]:
+    return [
+        "Report generation used stored investigation data only.",
+        "No LLM calls, live provider requests, crawling, or active scanning ran.",
+        "Validate owners, scope, and remediation status before external sharing.",
+    ]
 
 
 def _recommendations(
@@ -384,6 +489,7 @@ def _recommendations(
 
 
 def _metadata(context: ReportContext) -> dict[str, Any]:
+    highest_score = context.risk_summary["highest_score"]
     return {
         "report_type": context.report_type,
         "finding_count": len(context.findings),
@@ -391,4 +497,5 @@ def _metadata(context: ReportContext) -> dict[str, Any]:
         "threat_finding_count": len(context.threat_findings),
         "knowledge_citation_count": len(context.knowledge_citations),
         "risk_level": str(context.risk_summary["level"]),
+        "highest_score": highest_score if isinstance(highest_score, int) else 0,
     }
