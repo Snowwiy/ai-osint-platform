@@ -6,9 +6,32 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.investigation import Investigation
+from app.models.investigation_enrichment import InvestigationEnrichment
 from app.models.investigation_member import InvestigationMember
+from app.models.recon_entity import ReconEntity
+from app.models.recon_relationship import ReconRelationship
 from app.models.user import User
-from app.schemas.investigation import InvestigationCreate, InvestigationUpdate
+from app.schemas.investigation import (
+    InvestigationCreate,
+    InvestigationGraphEdge,
+    InvestigationGraphNode,
+    InvestigationGraphResponse,
+    InvestigationGraphRiskSummary,
+    InvestigationGraphTimelineEvent,
+    InvestigationUpdate,
+)
+from app.schemas.recon import EntityType, RelationshipType
+
+_RECON_ENTITY_TYPES: tuple[EntityType, ...] = (
+    "Domain",
+    "Subdomain",
+    "IPAddress",
+    "ASN",
+    "Certificate",
+    "Organization",
+    "Service",
+    "Technology",
+)
 
 
 class InvestigationNotFoundError(Exception):
@@ -187,6 +210,95 @@ async def list_members(
         .order_by(InvestigationMember.added_at)
     )
     return list(result.scalars().all())
+
+
+async def get_investigation_graph(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+    *,
+    entity_types: list[EntityType] | None = None,
+    relationship_types: list[RelationshipType] | None = None,
+) -> InvestigationGraphResponse:
+    await get_investigation(db, user, investigation_id)
+
+    entity_stmt = select(ReconEntity).where(
+        ReconEntity.investigation_id == investigation_id
+    )
+    if entity_types:
+        entity_stmt = entity_stmt.where(ReconEntity.entity_type.in_(entity_types))
+    entity_stmt = entity_stmt.order_by(ReconEntity.entity_type, ReconEntity.value)
+    entity_result = await db.execute(entity_stmt)
+    nodes = list(entity_result.scalars().all())
+    node_ids = {node.id for node in nodes}
+
+    edges: list[ReconRelationship] = []
+    if node_ids:
+        relationship_stmt = select(ReconRelationship).where(
+            ReconRelationship.investigation_id == investigation_id,
+            ReconRelationship.source_entity_id.in_(node_ids),
+            ReconRelationship.target_entity_id.in_(node_ids),
+        )
+        if relationship_types:
+            relationship_stmt = relationship_stmt.where(
+                ReconRelationship.relationship_type.in_(relationship_types)
+            )
+        relationship_stmt = relationship_stmt.order_by(
+            ReconRelationship.relationship_type,
+            ReconRelationship.created_at,
+        )
+        relationship_result = await db.execute(relationship_stmt)
+        edges = list(relationship_result.scalars().all())
+
+    timeline_result = await db.execute(
+        select(InvestigationEnrichment)
+        .where(InvestigationEnrichment.investigation_id == investigation_id)
+        .order_by(InvestigationEnrichment.created_at.desc())
+    )
+    timeline = list(timeline_result.scalars().all())
+
+    return InvestigationGraphResponse(
+        investigation_id=investigation_id,
+        nodes=[InvestigationGraphNode.model_validate(node) for node in nodes],
+        edges=[InvestigationGraphEdge.model_validate(edge) for edge in edges],
+        risk_summary=_build_graph_risk_summary(nodes),
+        timeline=[
+            InvestigationGraphTimelineEvent.model_validate(event) for event in timeline
+        ],
+    )
+
+
+def _build_graph_risk_summary(
+    entities: list[ReconEntity],
+) -> InvestigationGraphRiskSummary:
+    counts: dict[EntityType, int] = {
+        entity_type: 0 for entity_type in _RECON_ENTITY_TYPES
+    }
+    for entity in entities:
+        if entity.entity_type in counts:
+            counts[entity.entity_type] += 1
+
+    signals: list[str] = [
+        "Phase 1C placeholder only: risk scoring is not performed yet."
+    ]
+    service_count = counts["Service"]
+    ip_count = counts["IPAddress"]
+    certificate_count = counts["Certificate"]
+    if service_count:
+        signals.append(f"{service_count} service entities are present in the graph.")
+    if ip_count:
+        signals.append(f"{ip_count} IP address entities are present in the graph.")
+    if certificate_count:
+        signals.append(
+            f"{certificate_count} certificate entities are present in the graph."
+        )
+
+    return InvestigationGraphRiskSummary(
+        total_entities=len(entities),
+        entity_counts=counts,
+        risk_level="not_assessed",
+        signals=signals,
+    )
 
 
 async def add_member(
