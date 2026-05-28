@@ -4,8 +4,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.finding import FindingSeverity, FindingStatus
 from app.schemas.recon import (
     EntityType,
     JsonProperties,
@@ -146,9 +147,29 @@ class InvestigationGraphTimelineEvent(BaseModel):
     created_at: datetime
 
 
+class InvestigationGraphFinding(BaseModel):
+    id: uuid.UUID
+    title: str
+    severity: FindingSeverity
+    status: FindingStatus
+    risk_score: int
+    source: str
+    linked_entity_ids: list[uuid.UUID]
+    threat_finding_ids: list[uuid.UUID]
+
+
+class InvestigationGraphFindingEdge(BaseModel):
+    finding_id: uuid.UUID
+    entity_id: uuid.UUID | None = None
+    threat_finding_id: uuid.UUID | None = None
+    relationship_type: Literal["EVIDENCED_BY"] = "EVIDENCED_BY"
+
+
 class InvestigationGraphResponse(BaseModel):
     investigation_id: uuid.UUID
     nodes: list[InvestigationGraphNode]
     edges: list[InvestigationGraphEdge]
     risk_summary: InvestigationGraphRiskSummary
     timeline: list[InvestigationGraphTimelineEvent]
+    findings: list[InvestigationGraphFinding] = Field(default_factory=list)
+    finding_edges: list[InvestigationGraphFindingEdge] = Field(default_factory=list)

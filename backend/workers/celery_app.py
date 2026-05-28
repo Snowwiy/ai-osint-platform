@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.core.config import settings
-from celery import Celery
+from celery import Celery  # type: ignore[import-untyped]
 
 celery_app = Celery(
     "raventech",

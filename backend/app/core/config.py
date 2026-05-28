@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     CHROMA_DATA_PATH: str = "/data/chroma"
 
     ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
     OBSIDIAN_WIKI_PATH: str = ""
 
     SHODAN_API_KEY: str = ""

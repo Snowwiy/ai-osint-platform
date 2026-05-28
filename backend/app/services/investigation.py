@@ -5,6 +5,8 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.finding import Finding
+from app.models.finding_evidence import FindingEvidence
 from app.models.investigation import Investigation
 from app.models.investigation_enrichment import InvestigationEnrichment
 from app.models.investigation_member import InvestigationMember
@@ -14,6 +16,8 @@ from app.models.user import User
 from app.schemas.investigation import (
     InvestigationCreate,
     InvestigationGraphEdge,
+    InvestigationGraphFinding,
+    InvestigationGraphFindingEdge,
     InvestigationGraphNode,
     InvestigationGraphResponse,
     InvestigationGraphRiskSummary,
@@ -256,6 +260,7 @@ async def get_investigation_graph(
         .order_by(InvestigationEnrichment.created_at.desc())
     )
     timeline = list(timeline_result.scalars().all())
+    graph_findings, finding_edges = await _graph_findings(db, investigation_id)
 
     return InvestigationGraphResponse(
         investigation_id=investigation_id,
@@ -265,6 +270,8 @@ async def get_investigation_graph(
         timeline=[
             InvestigationGraphTimelineEvent.model_validate(event) for event in timeline
         ],
+        findings=graph_findings,
+        finding_edges=finding_edges,
     )
 
 
@@ -299,6 +306,65 @@ def _build_graph_risk_summary(
         risk_level="not_assessed",
         signals=signals,
     )
+
+
+async def _graph_findings(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> tuple[list[InvestigationGraphFinding], list[InvestigationGraphFindingEdge]]:
+    finding_result = await db.execute(
+        select(Finding)
+        .where(Finding.investigation_id == investigation_id)
+        .order_by(Finding.risk_score.desc(), Finding.created_at.desc())
+    )
+    findings = list(finding_result.scalars().all())
+    if not findings:
+        return [], []
+
+    finding_ids = [finding.id for finding in findings]
+    evidence_result = await db.execute(
+        select(FindingEvidence).where(FindingEvidence.finding_id.in_(finding_ids))
+    )
+    evidence_by_finding: dict[uuid.UUID, list[FindingEvidence]] = {}
+    edges: list[InvestigationGraphFindingEdge] = []
+    for evidence in evidence_result.scalars().all():
+        evidence_by_finding.setdefault(evidence.finding_id, []).append(evidence)
+        if (
+            evidence.recon_entity_id is not None
+            or evidence.threat_finding_id is not None
+        ):
+            edges.append(
+                InvestigationGraphFindingEdge(
+                    finding_id=evidence.finding_id,
+                    entity_id=evidence.recon_entity_id,
+                    threat_finding_id=evidence.threat_finding_id,
+                )
+            )
+
+    graph_findings: list[InvestigationGraphFinding] = []
+    for finding in findings:
+        evidence_items = evidence_by_finding.get(finding.id, [])
+        graph_findings.append(
+            InvestigationGraphFinding(
+                id=finding.id,
+                title=finding.title,
+                severity=finding.severity,  # type: ignore[arg-type]
+                status=finding.status,  # type: ignore[arg-type]
+                risk_score=finding.risk_score,
+                source=finding.source,
+                linked_entity_ids=[
+                    item.recon_entity_id
+                    for item in evidence_items
+                    if item.recon_entity_id is not None
+                ],
+                threat_finding_ids=[
+                    item.threat_finding_id
+                    for item in evidence_items
+                    if item.threat_finding_id is not None
+                ],
+            )
+        )
+    return graph_findings, edges
 
 
 async def add_member(

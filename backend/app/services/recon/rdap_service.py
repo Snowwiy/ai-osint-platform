@@ -93,7 +93,7 @@ async def _lookup_whois_domain(domain: str) -> WhoisFallbackData | None:
 
 def _lookup_whois_domain_sync(domain: str) -> WhoisFallbackData | None:
     try:
-        import whois
+        import whois  # type: ignore[import-untyped]
     except Exception:
         return None
 

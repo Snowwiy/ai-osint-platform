@@ -2,6 +2,8 @@ FROM python:3.12-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/models/huggingface
+ENV SENTENCE_TRANSFORMERS_HOME=/models/sentence-transformers
 
 WORKDIR /app
 
@@ -11,6 +13,11 @@ RUN apt-get update \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+ARG PRELOAD_EMBEDDING_MODEL=true
+RUN if [ "$PRELOAD_EMBEDDING_MODEL" = "true" ]; then \
+      python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')" ; \
+    fi
 
 FROM base AS development
 
