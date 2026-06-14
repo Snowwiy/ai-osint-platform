@@ -120,10 +120,7 @@ async def update_finding_status_endpoint(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except MemberValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except MemberValidationError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
+  
 @router.patch("/findings/{finding_id}/assign", response_model=FindingResponse)
 async def assign_finding_endpoint(
     finding_id: uuid.UUID,

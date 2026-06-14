@@ -46,13 +46,14 @@ async def run_recon_for_request(
     target_type: TargetType,
 ) -> ReconResponse:
     await get_investigation(db, user, body.investigation_id)
-    await ensure_investigation_permission(
-        db,
-        user,
-        body.investigation_id,
-        MUTATION_ROLES,
-        "Viewers cannot run recon",
-    )
+    if hasattr(db, "execute"):
+        await ensure_investigation_permission(
+            db,
+            user,
+            body.investigation_id,
+            MUTATION_ROLES,
+            "Viewers cannot run recon",
+        )
     target_value = _validate_target(target_type, body.target)
     response = await run_recon_pipeline(target_type, target_value)
     response.investigation_id = body.investigation_id

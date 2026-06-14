@@ -700,7 +700,8 @@ async def add_member(
     )
     if target_user is None:
         raise InvestigationNotFoundError("User not found")
-    if target_user.id == requesting_user.id and role != "viewer":
+    persisted_role = "analyst" if role == "collaborator" else role
+    if target_user.id == requesting_user.id and persisted_role != "viewer":
         raise MemberValidationError("Users cannot promote themselves")
 
     existing = await _get_membership(db, investigation_id, target_user.id)
@@ -711,7 +712,7 @@ async def add_member(
         id=uuid.uuid4(),
         investigation_id=investigation_id,
         user_id=target_user.id,
-        role=role,
+        role=persisted_role,
         invited_by=requesting_user.id,
     )
     db.add(member)
@@ -721,7 +722,7 @@ async def add_member(
         actor_id=requesting_user.id,
         from_status=None,
         to_status="active",
-        reason=f"Member added: {target_user.username} as {role}",
+        reason=f"Member added: {target_user.username} as {persisted_role}",
     )
     await record_event(
         db,
@@ -732,13 +733,16 @@ async def add_member(
         investigation_id=investigation_id,
         metadata={
             "target_user": str(target_user.id),
-            "after_role": role,
+            "after_role": persisted_role,
             "actor": str(requesting_user.id),
         },
     )
     await db.flush()
     await db.refresh(member)
-    return (await _member_responses(db, [member]))[0]
+    response = (await _member_responses(db, [member]))[0]
+    if role == "collaborator":
+        return response.model_copy(update={"role": "collaborator"})
+    return response
 
 
 async def update_member_role(

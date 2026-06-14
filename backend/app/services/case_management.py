@@ -21,6 +21,7 @@ from app.schemas.case_management import (
     InvestigationTaskCreate,
     InvestigationTaskStatusUpdate,
     InvestigationTaskUpdate,
+    normalize_note_type,
 )
 from app.services.audit import record_event
 from app.services.investigation import (
@@ -96,7 +97,7 @@ async def create_note(
         updated_by=user.id,
         title=_sanitize_text(data.title),
         content=_sanitize_markdown(data.content),
-        note_type=data.note_type,
+        note_type=normalize_note_type(data.note_type),
         pinned=data.pinned,
     )
     db.add(note)
@@ -134,7 +135,7 @@ async def update_note(
     if "content" in updates and updates["content"] is not None:
         note.content = _sanitize_markdown(str(updates["content"]))
     if "note_type" in updates and updates["note_type"] is not None:
-        note.note_type = str(updates["note_type"])
+        note.note_type = normalize_note_type(updates["note_type"])
     if "pinned" in updates and updates["pinned"] is not None:
         note.pinned = bool(updates["pinned"])
     if "archived" in updates and updates["archived"] is not None:

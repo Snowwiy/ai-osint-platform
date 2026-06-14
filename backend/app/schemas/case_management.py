@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
@@ -24,6 +24,15 @@ NoteType = Literal[
     "executive_note",
     "timeline_note",
 ]
+LegacyNoteType = Literal[
+    "analyst",
+    "evidence",
+    "recommendation",
+    "executive",
+    "remediation",
+    "timeline",
+]
+NoteTypeInput = NoteType | LegacyNoteType
 TaskStatus = Literal["open", "in_progress", "blocked", "completed", "cancelled", "todo"]
 TaskPriority = Literal["critical", "high", "medium", "low", "urgent"]
 EvidenceReviewStatus = Literal["collected", "reviewed", "validated", "dismissed"]
@@ -63,13 +72,8 @@ class InvestigationNoteCreate(BaseModel):
         min_length=1,
         validation_alias=AliasChoices("content", "note"),
     )
-    note_type: NoteType = "analyst_note"
+    note_type: NoteTypeInput = "analyst_note"
     pinned: bool = False
-
-    @field_validator("note_type", mode="before")
-    @classmethod
-    def normalize_note_type(cls, value: object) -> object:
-        return _NOTE_TYPE_ALIASES.get(str(value), value)
 
     @field_validator("title", "content")
     @classmethod
@@ -87,16 +91,9 @@ class InvestigationNoteUpdate(BaseModel):
         min_length=1,
         validation_alias=AliasChoices("content", "note"),
     )
-    note_type: NoteType | None = None
+    note_type: NoteTypeInput | None = None
     pinned: bool | None = None
     archived: bool | None = None
-
-    @field_validator("note_type", mode="before")
-    @classmethod
-    def normalize_optional_note_type(cls, value: object) -> object:
-        if value is None:
-            return None
-        return _NOTE_TYPE_ALIASES.get(str(value), value)
 
     @field_validator("title", "content")
     @classmethod
@@ -120,7 +117,7 @@ class InvestigationNoteResponse(BaseModel):
     title: str
     content: str
     note: str
-    note_type: NoteType
+    note_type: NoteTypeInput
     pinned: bool
     archived: bool
     created_at: datetime
@@ -303,4 +300,9 @@ _NOTE_TYPE_ALIASES = {
     "recommendation": "analyst_note",
     "executive": "executive_note",
     "remediation": "remediation_note",
+    "timeline": "timeline_note",
 }
+
+
+def normalize_note_type(value: NoteTypeInput) -> NoteType:
+    return cast(NoteType, _NOTE_TYPE_ALIASES.get(value, value))

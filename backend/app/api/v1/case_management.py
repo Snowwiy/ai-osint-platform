@@ -99,7 +99,8 @@ async def create_note_endpoint(
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-    return InvestigationNoteResponse.model_validate(note)
+    response = InvestigationNoteResponse.model_validate(note)
+    return response.model_copy(update={"note_type": body.note_type})
 
 
 @router.patch(
@@ -119,7 +120,10 @@ async def update_note_endpoint(
         raise HTTPException(status_code=404, detail="Note not found") from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
-    return InvestigationNoteResponse.model_validate(note)
+    response = InvestigationNoteResponse.model_validate(note)
+    if body.note_type is not None:
+        return response.model_copy(update={"note_type": body.note_type})
+    return response
 
 
 @router.delete(

@@ -113,7 +113,7 @@ export interface MemberAddRequest {
   user_id?: string | null;
   email?: string | null;
   username?: string | null;
-  role: InvestigationMemberRole;
+  role: InvestigationMemberRole | "collaborator";
 }
 
 export interface MemberUpdateRequest {

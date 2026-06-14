@@ -179,11 +179,15 @@ export async function addInvestigationMember(
   investigationId: string,
   body: MemberAddRequest,
 ): Promise<InvestigationMember> {
+  const requestBody: MemberAddRequest = {
+    ...body,
+    role: body.role === "analyst" ? "collaborator" : body.role,
+  };
   return request<InvestigationMember>(
     `/investigations/${investigationId}/members`,
     {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(requestBody),
     },
   );
 }

@@ -17,6 +17,8 @@ from app.schemas.recon import (
 )
 
 InvestigationMemberRole = Literal["owner", "admin", "analyst", "viewer"]
+InvestigationMemberAddRole = Literal["owner", "admin", "collaborator", "viewer"]
+InvestigationMemberResponseRole = InvestigationMemberRole | Literal["collaborator"]
 InvestigationPriority = Literal["low", "medium", "high", "urgent"]
 InvestigationListScope = Literal[
     "all",
@@ -87,7 +89,7 @@ class MemberAddRequest(BaseModel):
     user_id: uuid.UUID | None = None
     email: str | None = None
     username: str | None = None
-    role: InvestigationMemberRole = "analyst"
+    role: InvestigationMemberAddRole = "collaborator"
 
     @field_validator("email", "username")
     @classmethod
@@ -120,7 +122,7 @@ class MemberResponse(BaseModel):
     user_id: uuid.UUID
     username: str
     email: str
-    role: InvestigationMemberRole
+    role: InvestigationMemberResponseRole
     invited_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
