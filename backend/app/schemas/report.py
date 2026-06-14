@@ -6,8 +6,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.recon import JsonProperties
-
 ReportType = Literal["executive", "technical"]
 ReportStatus = Literal["pending", "generating", "ready", "failed"]
 ReportDownloadFormat = Literal["html", "md", "pdf", "docx"]
@@ -29,7 +27,7 @@ class ReportResponse(BaseModel):
     report_format: str
     status: ReportStatus
     file_size_bytes: int | None
-    report_metadata: JsonProperties
+    report_metadata: dict[str, object]
     error_message: str | None
     created_at: datetime
 

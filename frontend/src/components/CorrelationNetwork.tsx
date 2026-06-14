@@ -1,6 +1,7 @@
 import { useMemo, useState, type PointerEvent, type WheelEvent } from "react";
 import clsx from "clsx";
 
+import { LongValue } from "./LongValue";
 import type { CorrelationEdge, CorrelationNode } from "../types";
 
 interface PositionedNode extends CorrelationNode {
@@ -230,9 +231,20 @@ function SelectionPanel({
         </p>
         <h3 className="mt-2 font-semibold">{edge.correlation_type}</h3>
         <p className="mt-2 text-sm text-raven-muted">{edge.summary}</p>
-        <p className="mt-3 text-xs text-raven-muted">
-          {source?.label ?? edge.source_node_id} to {target?.label ?? edge.target_node_id}
-        </p>
+        <div className="mt-3 grid gap-2 text-xs">
+          <LongValue
+            label="Source"
+            value={source?.label ?? edge.source_node_id}
+            secondary={source ? `${source.node_type} ${source.id}` : edge.source_node_id}
+            maxLength={44}
+          />
+          <LongValue
+            label="Target"
+            value={target?.label ?? edge.target_node_id}
+            secondary={target ? `${target.node_type} ${target.id}` : edge.target_node_id}
+            maxLength={44}
+          />
+        </div>
       </div>
     );
   }
@@ -242,10 +254,16 @@ function SelectionPanel({
         <p className="text-xs uppercase tracking-wide text-raven-muted">
           Selected Node
         </p>
-        <h3 className="mt-2 font-semibold">{node.label}</h3>
+        <LongValue value={node.label} className="mt-2 font-semibold" maxLength={48} />
         <p className="mt-2 text-sm text-raven-muted">
           {node.category} from {node.source}
         </p>
+        <LongValue
+          label="Node ID"
+          value={node.id}
+          className="mt-3 text-xs"
+          maxLength={34}
+        />
       </div>
     );
   }

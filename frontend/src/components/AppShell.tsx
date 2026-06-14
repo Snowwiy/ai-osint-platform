@@ -1,7 +1,10 @@
 import {
   BarChart3,
+  Bookmark,
   BrainCircuit,
+  BookOpenCheck,
   Clock3,
+  ClipboardList,
   FileText,
   GitGraph,
   Home,
@@ -10,10 +13,14 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  UsersRound,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useParams } from "react-router-dom";
 
+import { getBackendHealth } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
+import type { HealthResponse } from "../types";
 
 const topNav = [
   { label: "Home", to: "/", icon: Home },
@@ -23,9 +30,12 @@ const topNav = [
 
 const investigationNav = [
   { label: "Detail", path: "", icon: BarChart3 },
+  { label: "Members", path: "members", icon: UsersRound },
   { label: "Targets", path: "targets", icon: ShieldCheck },
+  { label: "Bookmarks", path: "bookmarks", icon: Bookmark },
   { label: "Recon", path: "recon", icon: Network },
   { label: "Findings", path: "findings", icon: ShieldAlert },
+  { label: "Playbooks", path: "playbooks", icon: BookOpenCheck },
   { label: "Timeline", path: "timeline", icon: Clock3 },
   { label: "Correlations", path: "correlations", icon: GitGraph },
   { label: "Reports", path: "reports", icon: FileText },
@@ -36,6 +46,16 @@ export function AppShell(): JSX.Element {
   const { user, logout } = useAuth();
   const params = useParams();
   const investigationId = params.investigationId;
+  const health = useQuery({
+    queryKey: ["backend-health"],
+    queryFn: getBackendHealth,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+  const visibleTopNav =
+    user?.role === "admin"
+      ? [...topNav, { label: "Audit", to: "/admin/audit", icon: ClipboardList }]
+      : topNav;
 
   return (
     <div className="min-h-screen text-raven-text">
@@ -51,7 +71,7 @@ export function AppShell(): JSX.Element {
         </div>
 
         <nav className="mt-8 space-y-1">
-          {topNav.map((item) => (
+          {visibleTopNav.map((item) => (
             <ShellLink key={item.to} to={item.to} label={item.label} icon={item.icon} />
           ))}
         </nav>
@@ -81,6 +101,11 @@ export function AppShell(): JSX.Element {
         ) : null}
 
         <div className="absolute bottom-5 left-4 right-4 rounded-lg border border-raven-border bg-raven-panel p-3">
+          <HealthIndicator
+            health={health.data}
+            isError={health.isError}
+            onRetry={() => void health.refetch()}
+          />
           <p className="truncate text-sm font-medium">{user?.username}</p>
           <p className="text-xs text-raven-muted">{user?.role}</p>
           <button
@@ -110,7 +135,7 @@ export function AppShell(): JSX.Element {
             </button>
           </div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {topNav.map((item) => (
+            {visibleTopNav.map((item) => (
               <MobileLink key={item.to} to={item.to} label={item.label} />
             ))}
             {investigationId
@@ -129,6 +154,38 @@ export function AppShell(): JSX.Element {
         </main>
       </div>
     </div>
+  );
+}
+
+function HealthIndicator({
+  health,
+  isError,
+  onRetry,
+}: {
+  health: HealthResponse | undefined;
+  isError: boolean;
+  onRetry: () => void;
+}): JSX.Element {
+  const status = isError ? "error" : health?.status ?? "checking";
+  const tone =
+    status === "ok"
+      ? "bg-emerald-400"
+      : status === "degraded" || status === "checking"
+        ? "bg-amber-300"
+        : "bg-rose-400";
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      className="mb-3 flex w-full items-center justify-between rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-left text-xs text-raven-muted hover:text-raven-text"
+      title="Backend health status. Click to refresh."
+    >
+      <span className="inline-flex items-center gap-2">
+        <span className={["h-2 w-2 rounded-full", tone].join(" ")} />
+        Backend
+      </span>
+      <span className="capitalize">{status}</span>
+    </button>
   );
 }
 

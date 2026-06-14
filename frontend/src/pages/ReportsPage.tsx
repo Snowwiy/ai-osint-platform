@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { BookmarkButton } from "../components/BookmarkButton";
+import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -123,6 +125,7 @@ export function ReportsPage(): JSX.Element {
                     </h2>
                   </div>
                   <div className="mt-3 grid gap-2 text-sm text-raven-muted sm:grid-cols-2">
+                    <ReportMetric label="Report ID" value={report.id} />
                     <ReportMetric label="Type" value={report.report_type} />
                     <ReportMetric label="Status" value={report.status} />
                     <ReportMetric
@@ -141,6 +144,11 @@ export function ReportsPage(): JSX.Element {
                   ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <BookmarkButton
+                    investigationId={investigationId}
+                    reportId={report.id}
+                    title={`Report: ${report.title ?? report.report_type}`}
+                  />
                   {formats.map((format) => {
                     const key = `${report.id}:${format}`;
                     return (
@@ -182,7 +190,7 @@ function ReportMetric({
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2">
       <p className="text-xs uppercase tracking-wide">{label}</p>
-      <p className="mt-1 break-all text-raven-text">{value}</p>
+      <LongValue value={String(value)} className="mt-1" maxLength={44} />
     </div>
   );
 }

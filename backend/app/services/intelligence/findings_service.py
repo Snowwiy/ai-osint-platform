@@ -11,13 +11,16 @@ from app.models.finding_evidence import FindingEvidence
 from app.models.finding_tag import FindingTag
 from app.models.user import User
 from app.schemas.finding import (
+    FindingAssignRequest,
+    FindingEvidenceChainItem,
     FindingEvidenceResponse,
+    FindingFrameworkMapping,
     FindingResponse,
     FindingSeverity,
     FindingStatus,
     FindingSummaryResponse,
 )
-from app.services.intelligence.correlation_service import (
+from app.services.intelligence.findings_engine import (
     generate_findings_for_investigation,
 )
 from app.services.intelligence.risk_engine import (
@@ -25,7 +28,15 @@ from app.services.intelligence.risk_engine import (
     RiskSignal,
     calculate_risk_v2,
 )
-from app.services.investigation import get_investigation
+from app.services.audit import record_event
+from app.services.investigation import (
+    ForbiddenError,
+    MUTATION_ROLES,
+    ensure_investigation_permission,
+    ensure_user_is_member,
+    get_membership,
+    get_investigation,
+)
 
 
 class FindingNotFoundError(Exception):
@@ -42,12 +53,13 @@ async def list_findings_for_investigation(
     source: str | None = None,
 ) -> list[FindingResponse]:
     await get_investigation(db, user, investigation_id)
-    await generate_findings_for_investigation(db, user, investigation_id)
+    if await _can_generate_findings(db, user, investigation_id):
+        await generate_findings_for_investigation(db, user, investigation_id)
     filters = [Finding.investigation_id == investigation_id]
     if severity is not None:
         filters.append(Finding.severity == severity)
     if status is not None:
-        filters.append(Finding.status == status)
+        filters.append(Finding.status.in_(_status_filter_values(status)))
     if source is not None:
         filters.append(Finding.source == source)
 
@@ -59,13 +71,31 @@ async def list_findings_for_investigation(
     return await _build_finding_responses(db, list(result.scalars().all()))
 
 
+async def generate_findings_response_for_investigation(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+) -> list[FindingResponse]:
+    await get_investigation(db, user, investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot generate findings",
+    )
+    findings = await generate_findings_for_investigation(db, user, investigation_id)
+    return await _build_finding_responses(db, findings)
+
+
 async def summarize_findings_for_investigation(
     db: AsyncSession,
     user: User,
     investigation_id: uuid.UUID,
 ) -> FindingSummaryResponse:
     await get_investigation(db, user, investigation_id)
-    await generate_findings_for_investigation(db, user, investigation_id)
+    if await _can_generate_findings(db, user, investigation_id):
+        await generate_findings_for_investigation(db, user, investigation_id)
     result = await db.execute(
         select(Finding).where(Finding.investigation_id == investigation_id)
     )
@@ -96,12 +126,130 @@ async def update_finding_status(
     user: User,
     finding_id: uuid.UUID,
     status: FindingStatus,
+    *,
+    review_notes: str | None = None,
+    remediation_notes: str | None = None,
+    validation_notes: str | None = None,
 ) -> FindingResponse:
     finding = await db.get(Finding, finding_id)
     if finding is None:
         raise FindingNotFoundError("Finding not found")
     await get_investigation(db, user, finding.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        finding.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot update finding status",
+    )
+    previous_status = finding.status
     finding.status = status
+    if review_notes is not None:
+        finding.review_notes = _clean_note(review_notes)
+    if remediation_notes is not None:
+        finding.remediation_notes = _clean_note(remediation_notes)
+    if validation_notes is not None:
+        finding.validation_notes = _clean_note(validation_notes)
+    _append_review_history(
+        finding,
+        actor_id=user.id,
+        action="status_changed",
+        metadata={
+            "from_status": previous_status,
+            "to_status": status,
+        },
+    )
+    await record_event(
+        db,
+        action="finding.reviewed",
+        actor_id=user.id,
+        resource_type="finding",
+        resource_id=finding.id,
+        investigation_id=finding.investigation_id,
+        metadata={
+            "from_status": previous_status,
+            "to_status": status,
+        },
+    )
+    db.add(finding)
+    await db.flush()
+    await db.refresh(finding)
+    responses = await _build_finding_responses(db, [finding])
+    return responses[0]
+
+
+async def assign_finding(
+    db: AsyncSession,
+    user: User,
+    finding_id: uuid.UUID,
+    body: FindingAssignRequest,
+) -> FindingResponse:
+    finding = await db.get(Finding, finding_id)
+    if finding is None:
+        raise FindingNotFoundError("Finding not found")
+    await get_investigation(db, user, finding.investigation_id)
+    membership = await ensure_investigation_permission(
+        db,
+        user,
+        finding.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot assign findings",
+    )
+    if body.assigned_to is not None:
+        await ensure_user_is_member(
+            db,
+            finding.investigation_id,
+            body.assigned_to,
+            "Assignee must be an investigation member",
+        )
+    if body.reviewed_by is not None:
+        await ensure_user_is_member(
+            db,
+            finding.investigation_id,
+            body.reviewed_by,
+            "Reviewer must be an investigation member",
+        )
+    if (
+        user.role != "admin"
+        and membership is not None
+        and membership.role == "analyst"
+        and (
+            body.reviewed_by is not None
+            or (body.assigned_to is not None and body.assigned_to != user.id)
+        )
+    ):
+        raise ForbiddenError("Analysts can only assign findings to themselves")
+    finding.assigned_to = body.assigned_to
+    finding.reviewed_by = body.reviewed_by
+    _append_review_history(
+        finding,
+        actor_id=user.id,
+        action="assignment_changed",
+        metadata={
+            "assigned_to": str(body.assigned_to) if body.assigned_to else None,
+            "reviewed_by": str(body.reviewed_by) if body.reviewed_by else None,
+        },
+    )
+    if body.assigned_to is not None:
+        await record_event(
+            db,
+            action="finding.assigned",
+            actor_id=user.id,
+            resource_type="finding",
+            resource_id=finding.id,
+            investigation_id=finding.investigation_id,
+            metadata={"assigned_to": str(body.assigned_to)},
+        )
+    if body.reviewed_by is not None:
+        await record_event(
+            db,
+            action="finding.review_assigned",
+            actor_id=user.id,
+            resource_type="finding",
+            resource_id=finding.id,
+            investigation_id=finding.investigation_id,
+            metadata={"reviewed_by": str(body.reviewed_by)},
+        )
     db.add(finding)
     await db.flush()
     await db.refresh(finding)
@@ -145,6 +293,22 @@ async def _build_finding_responses(
             risk_score=finding.risk_score,
             source=finding.source,
             status=finding.status,  # type: ignore[arg-type]
+            assigned_to=finding.assigned_to,
+            reviewed_by=finding.reviewed_by,
+            review_notes=finding.review_notes,
+            remediation_notes=finding.remediation_notes,
+            remediation_status=finding.remediation_status,
+            remediation_owner=finding.remediation_owner,
+            remediation_due_date=finding.remediation_due_date,
+            verification_notes=finding.verification_notes,
+            verified_by=finding.verified_by,
+            verified_at=finding.verified_at,
+            validation_notes=finding.validation_notes,
+            confidence_reasoning=finding.confidence_reasoning,
+            evidence_summary=finding.evidence_summary or _evidence_summary(
+                evidence_by_finding.get(finding.id, [])
+            ),
+            review_history=finding.review_history,
             created_by=finding.created_by,
             created_at=finding.created_at,
             updated_at=finding.updated_at,
@@ -153,8 +317,115 @@ async def _build_finding_responses(
                 for evidence in evidence_by_finding.get(finding.id, [])
             ],
             tags=tags_by_finding.get(finding.id, []),
+            summary=_summary(finding),
+            evidence_chain=[
+                _evidence_chain_item(evidence)
+                for evidence in evidence_by_finding.get(finding.id, [])
+            ],
+            affected_targets=_string_list(finding.normalized_data, "affected_targets"),
+            framework_mappings=_framework_mappings(finding.normalized_data),
+            remediation_guidance=_string_list(
+                finding.normalized_data,
+                "remediation_guidance",
+            ),
+            analyst_notes=_string_list(finding.normalized_data, "analyst_notes"),
+            references=_references(finding),
         )
         for finding in findings
+    ]
+
+
+def _summary(finding: Finding) -> str:
+    value = finding.normalized_data.get("summary")
+    if isinstance(value, str) and value.strip():
+        return value
+    return finding.description.split(".")[0].strip() + "."
+
+
+def _evidence_chain_item(evidence: FindingEvidence) -> FindingEvidenceChainItem:
+    return FindingEvidenceChainItem(
+        id=evidence.id,
+        source=evidence.source,
+        evidence_type=evidence.evidence_type,
+        description=evidence.description,
+        recon_entity_id=evidence.recon_entity_id,
+        threat_finding_id=evidence.threat_finding_id,
+        created_at=evidence.created_at,
+    )
+
+
+def _string_list(data: dict[str, object], key: str) -> list[str]:
+    value = data.get(key)
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _framework_mappings(data: dict[str, object]) -> list[FindingFrameworkMapping]:
+    value = data.get("framework_mappings")
+    if not isinstance(value, list):
+        return []
+    mappings: list[FindingFrameworkMapping] = []
+    for item in value:
+        if isinstance(item, dict):
+            mappings.append(
+                FindingFrameworkMapping.model_validate(
+                    {str(key): candidate for key, candidate in item.items()}
+                )
+            )
+    return mappings
+
+
+def _references(finding: Finding) -> list[str]:
+    return _string_list(finding.normalized_data, "references") or list(
+        finding.evidence_urls
+    )
+
+
+async def _can_generate_findings(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+) -> bool:
+    if user.role == "admin":
+        return True
+    membership = await get_membership(db, investigation_id, user.id)
+    return membership is not None and membership.role in MUTATION_ROLES
+
+
+def _status_filter_values(status: FindingStatus) -> list[str]:
+    if status == "open":
+        return ["open", "new"]
+    if status == "resolved":
+        return ["resolved", "mitigated"]
+    return [status]
+
+
+def _evidence_summary(evidence: list[FindingEvidence]) -> str | None:
+    if not evidence:
+        return None
+    return f"{len(evidence)} evidence item(s) support this finding."
+
+
+def _clean_note(value: str) -> str:
+    return value.strip()
+
+
+def _append_review_history(
+    finding: Finding,
+    *,
+    actor_id: uuid.UUID,
+    action: str,
+    metadata: dict[str, object],
+) -> None:
+    current = finding.review_history if isinstance(finding.review_history, list) else []
+    finding.review_history = [
+        *current,
+        {
+            "actor_id": str(actor_id),
+            "action": action,
+            "metadata": metadata,
+        },
     ]
 
 
@@ -198,8 +469,13 @@ _FINDING_SEVERITIES: tuple[FindingSeverity, ...] = (
     "critical",
 )
 _FINDING_STATUSES: tuple[FindingStatus, ...] = (
-    "open",
+    "new",
+    "under_review",
     "validated",
+    "accepted_risk",
+    "mitigated",
     "false_positive",
+    "archived",
+    "open",
     "resolved",
 )

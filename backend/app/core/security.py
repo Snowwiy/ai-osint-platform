@@ -11,8 +11,8 @@ from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def hash_password(password: str) -> str:
@@ -52,4 +52,9 @@ def create_refresh_token(user_id: str) -> tuple[str, str]:
 
 
 def decode_token(token: str) -> dict[str, Any]:
-    return jwt.decode(token, settings.APP_SECRET_KEY, algorithms=["HS256"])
+    return jwt.decode(
+        token,
+        settings.APP_SECRET_KEY,
+        algorithms=["HS256"],
+        options={"require": ["exp", "sub", "type"]},
+    )

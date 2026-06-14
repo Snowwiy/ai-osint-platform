@@ -3,6 +3,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import {
@@ -12,12 +13,19 @@ import {
   runPassiveRecon,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
-import type { ReconResponse, Target, TargetType } from "../types";
+import type {
+  NormalizedEntity,
+  ReconError,
+  ReconResponse,
+  Target,
+  TargetType,
+} from "../types";
 
 const targetTypes: TargetType[] = ["domain", "ip", "url"];
+const MIN_AUTH_LENGTH = 100;
 
 interface ReconState {
-  status: "success" | "partial" | "failed";
+  status: "completed" | "completed_with_warnings" | "failed";
   response?: ReconResponse;
   error?: string;
 }
@@ -40,6 +48,11 @@ export function TargetsPage(): JSX.Element {
     queryFn: () => listTargets(investigationId),
   });
 
+  const cleanTarget = targetValue.trim();
+  const cleanAuth = authorizationStatement.trim();
+  const hasValidTarget = cleanTarget.length > 0;
+  const hasValidAuth = cleanAuth.length >= MIN_AUTH_LENGTH;
+
   const createMutation = useMutation({
     mutationFn: createTarget,
     onSuccess: async () => {
@@ -50,9 +63,14 @@ export function TargetsPage(): JSX.Element {
     },
   });
 
+  const canSubmit = hasValidTarget && hasValidAuth && !createMutation.isPending;
+
   const reconMutation = useMutation({
     mutationFn: async (target: Target) => {
-      const auth = authorizationForTarget(target, investigation.data?.authorization_statement);
+      const auth = authorizationForTarget(
+        target,
+        investigation.data?.authorization_statement,
+      );
       return runPassiveRecon({
         investigationId,
         targetType: target.target_type,
@@ -64,7 +82,7 @@ export function TargetsPage(): JSX.Element {
       setReconResults((current) => ({
         ...current,
         [target.id]: {
-          status: response.status === "completed" ? "success" : response.status,
+          status: reconDisplayStatus(response),
           response,
         },
       }));
@@ -99,14 +117,14 @@ export function TargetsPage(): JSX.Element {
 
   function handleCreate(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const cleanTarget = targetValue.trim();
-    const cleanAuth = authorizationStatement.trim();
-    if (!cleanTarget) {
-      setValidationError("Target value is required.");
+    if (!hasValidTarget) {
+      setValidationError("Enter a domain, IP address, or URL before adding a target.");
       return;
     }
-    if (cleanAuth.length < 100) {
-      setValidationError("Authorization statement must be at least 100 characters.");
+    if (!hasValidAuth) {
+      setValidationError(
+        `Authorization statement needs at least ${MIN_AUTH_LENGTH} characters.`,
+      );
       return;
     }
     setValidationError(null);
@@ -160,23 +178,50 @@ export function TargetsPage(): JSX.Element {
               <input
                 id="target-value"
                 value={targetValue}
-                onChange={(event) => setTargetValue(event.target.value)}
-                placeholder={targetType === "ip" ? "203.0.113.10" : "example.com"}
+                onChange={(event) => {
+                  setTargetValue(event.target.value);
+                  setValidationError(null);
+                }}
+                placeholder={targetPlaceholder(targetType)}
                 className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
               />
+              <p className="mt-1 text-xs leading-5 text-raven-muted">
+                Passive recon accepts one authorized domain, IP address, or URL.
+              </p>
             </div>
 
             <div>
-              <label className="block text-sm text-raven-muted" htmlFor="target-auth">
-                Authorization statement
-              </label>
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  className="block text-sm text-raven-muted"
+                  htmlFor="target-auth"
+                >
+                  Authorization statement
+                </label>
+                <span
+                  className={[
+                    "text-xs",
+                    hasValidAuth ? "text-raven-emerald" : "text-raven-muted",
+                  ].join(" ")}
+                >
+                  {cleanAuth.length}/{MIN_AUTH_LENGTH}
+                </span>
+              </div>
               <textarea
                 id="target-auth"
                 value={authorizationStatement}
-                onChange={(event) => setAuthorizationStatement(event.target.value)}
+                onChange={(event) => {
+                  setAuthorizationStatement(event.target.value);
+                  setValidationError(null);
+                }}
                 rows={5}
+                placeholder="Document who authorized this passive recon, the approved scope, and any reference or ticket number."
                 className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
               />
+              <p className="mt-1 text-xs leading-5 text-raven-muted">
+                This text is stored with the target and reused when you run passive
+                recon from this page.
+              </p>
             </div>
 
             {validationError ?? createMutation.error?.message ? (
@@ -187,8 +232,8 @@ export function TargetsPage(): JSX.Element {
 
             <button
               type="submit"
-              disabled={createMutation.isPending}
-              className="w-full rounded-md bg-raven-violet px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-60"
+              disabled={!canSubmit}
+              className="w-full rounded-md bg-raven-violet px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {createMutation.isPending ? "Adding target" : "Add target"}
             </button>
@@ -220,13 +265,15 @@ export function TargetsPage(): JSX.Element {
                     className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"
                   >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-raven-cyan">
-                          {target.target_type}
+                          {target.target_type} target
                         </p>
-                        <h2 className="mt-1 break-all font-semibold">
-                          {target.target_value}
-                        </h2>
+                        <LongValue
+                          value={target.target_value}
+                          className="mt-1 font-semibold"
+                          maxLength={72}
+                        />
                         <p className="mt-2 text-sm text-raven-muted">
                           Added {new Date(target.created_at).toLocaleString()}
                         </p>
@@ -273,31 +320,83 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
     return <></>;
   }
 
+  const entities = uniqueEntities(response.entities);
+  const grouped = groupEntities(entities);
+  const errors = uniqueErrors(response.errors);
+  const hasStoredData = entities.length > 0 || response.relationships.length > 0;
+  const status = reconDisplayStatus(response);
+  const summary = reconSummary(response, hasStoredData, errors.length);
+
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium">Recon {response.status}</span>
+        <StatusPill status={status} />
         <span className="text-raven-muted">
-          {response.entities.length} entities · {response.relationships.length} relationships
+          {response.target_type} recon - {entities.length} unique entities -{" "}
+          {response.relationships.length} relationships
         </span>
       </div>
-      {response.errors.length ? (
-        <div className="mt-3 rounded-md border border-amber-300/30 bg-amber-400/10 p-3 text-sm text-amber-100">
-          Partial failures: {response.errors.map((error) => error.source).join(", ")}
-        </div>
+      <p className="mt-2 text-sm leading-6 text-raven-muted">{summary}</p>
+
+      {errors.length ? (
+        <details className="mt-3 rounded-md border border-amber-300/30 bg-amber-400/10">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm text-amber-100">
+            <span>Partial source failures ({errors.length})</span>
+            <span className="text-xs text-amber-100/70">Open details</span>
+          </summary>
+          <div className="border-t border-amber-300/20 px-3 py-3">
+            <div className="flex flex-wrap gap-2">
+              {errors.map((error) => (
+                <span
+                  key={`${error.source}-${error.message}`}
+                  className="rounded border border-amber-300/30 px-2 py-1 text-xs text-amber-100"
+                >
+                  {providerLabel(error.source)}
+                </span>
+              ))}
+            </div>
+            <ul className="mt-3 space-y-2 text-sm text-amber-100/85">
+              {errors.map((error) => (
+                <li key={`${error.source}-${error.message}`}>
+                  <span className="font-medium">{providerLabel(error.source)}:</span>{" "}
+                  {friendlyErrorMessage(error)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </details>
       ) : null}
-      {response.entities.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {response.entities.slice(0, 8).map((entity) => (
-            <span
-              key={`${entity.entity_type}-${entity.value}`}
-              className="rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
+
+      {grouped.length ? (
+        <div className="mt-3 grid gap-3">
+          {grouped.map((group) => (
+            <div
+              key={group.entityType}
+              className="rounded border border-raven-border bg-raven-bg/40 p-3"
             >
-              {entity.entity_type}: {entity.value}
-            </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs uppercase tracking-wide text-raven-cyan">
+                  {group.entityType}
+                </p>
+                <span className="text-xs text-raven-muted">
+                  {group.items.length} stored
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {group.items.slice(0, 8).map((entity) => (
+                  <div
+                    key={`${entity.entity_type}-${entity.value}`}
+                    className="max-w-full rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
+                  >
+                    <LongValue value={entity.value} maxLength={56} />
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : null}
+
       <details className="mt-3">
         <summary className="flex cursor-pointer items-center gap-2 text-sm text-raven-cyan">
           <ChevronDown className="h-4 w-4" aria-hidden="true" />
@@ -311,12 +410,138 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
   );
 }
 
+function StatusPill({
+  status,
+}: {
+  status: ReconState["status"];
+}): JSX.Element {
+  const classes: Record<ReconState["status"], string> = {
+    completed: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
+    completed_with_warnings:
+      "border-amber-300/30 bg-amber-400/10 text-amber-100",
+    failed: "border-rose-400/30 bg-rose-500/10 text-rose-100",
+  };
+  return (
+    <span
+      className={[
+        "rounded border px-2 py-1 text-xs font-medium",
+        classes[status],
+      ].join(" ")}
+    >
+      {status}
+    </span>
+  );
+}
+
+function reconDisplayStatus(response: ReconResponse): ReconState["status"] {
+  const hasStoredData =
+    response.entities.length > 0 || response.relationships.length > 0;
+  if (response.errors.length > 0 && hasStoredData) {
+    return "completed_with_warnings";
+  }
+  if (response.status === "failed" && !hasStoredData) {
+    return "failed";
+  }
+  if (response.status === "partial") {
+    return hasStoredData ? "completed_with_warnings" : "failed";
+  }
+  return "completed";
+}
+
+function reconSummary(
+  response: ReconResponse,
+  hasStoredData: boolean,
+  errorCount: number,
+): string {
+  if (!errorCount) {
+    return "Passive recon completed and stored normalized entities.";
+  }
+  if (hasStoredData && response.target_type === "ip") {
+    return "IP recon stored valid entities, but some enrichment providers failed.";
+  }
+  if (hasStoredData) {
+    return "Recon stored valid entities, with warnings from some passive sources.";
+  }
+  return "Recon did not store entities because all required passive sources failed.";
+}
+
+function uniqueEntities(entities: NormalizedEntity[]): NormalizedEntity[] {
+  const seen = new Set<string>();
+  return entities.filter((entity) => {
+    const key = `${entity.entity_type}:${entity.value}`.toLowerCase();
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function groupEntities(
+  entities: NormalizedEntity[],
+): Array<{ entityType: string; items: NormalizedEntity[] }> {
+  const groups = new Map<string, NormalizedEntity[]>();
+  for (const entity of entities) {
+    const items = groups.get(entity.entity_type) ?? [];
+    items.push(entity);
+    groups.set(entity.entity_type, items);
+  }
+  return Array.from(groups.entries())
+    .map(([entityType, items]) => ({ entityType, items }))
+    .sort((left, right) => left.entityType.localeCompare(right.entityType));
+}
+
+function uniqueErrors(errors: ReconError[]): ReconError[] {
+  const seen = new Set<string>();
+  return errors.filter((error) => {
+    const key = `${error.source}:${friendlyErrorMessage(error)}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function providerLabel(source: string): string {
+  const labels: Record<string, string> = {
+    "ip-rdap": "IP RDAP",
+    rdap: "RDAP",
+    "crt.sh": "crt.sh certificates",
+    certificates: "Certificates",
+    dns: "DNS",
+    http: "HTTP/TLS",
+  };
+  return labels[source] ?? source.replace(/[-_]/g, " ");
+}
+
+function friendlyErrorMessage(error: ReconError): string {
+  const raw = error.message || "Provider did not return data.";
+  if (raw.includes("timed out") || raw.toLowerCase().includes("timeout")) {
+    return "Request timed out.";
+  }
+  if (raw.includes("HTTPStatusError")) {
+    return "Provider returned an HTTP error.";
+  }
+  return raw;
+}
+
+function targetPlaceholder(type: TargetType): string {
+  if (type === "ip") {
+    return "203.0.113.10";
+  }
+  if (type === "url") {
+    return "https://example.com/login";
+  }
+  return "example.com";
+}
+
 function authorizationForTarget(
   target: Target,
   investigationAuthorization: string | undefined,
 ): string {
   const targetAuthorization = target.notes?.trim();
-  if (targetAuthorization && targetAuthorization.length >= 100) {
+  if (targetAuthorization && targetAuthorization.length >= MIN_AUTH_LENGTH) {
     return targetAuthorization;
   }
   return investigationAuthorization ?? "";

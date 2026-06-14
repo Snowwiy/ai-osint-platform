@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.target import Target
 from app.models.user import User
 from app.schemas.target import TargetCreate, TargetListResponse, TargetResponse
+from app.services.audit import record_event
 from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.target import (
     TargetConflictError,
@@ -53,17 +54,20 @@ async def list_targets_endpoint(
 )
 async def create_target_endpoint(
     body: TargetCreate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Target:
     try:
-        return await create_target(db, current_user, body)
+        target = await create_target(db, current_user, body)
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except TargetValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except TargetConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await _record_target_audit(db, request, current_user, target, "target.added")
+    return target
 
 
 @router.get("/{target_id}", response_model=TargetResponse)
@@ -81,12 +85,38 @@ async def get_target_endpoint(
 @router.delete("/{target_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_target_endpoint(
     target_id: uuid.UUID,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     try:
+        target = await get_target(db, current_user, target_id)
         await delete_target(db, current_user, target_id)
     except (TargetNotFoundError, InvestigationNotFoundError) as exc:
         raise HTTPException(status_code=404, detail="Target not found") from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+    await _record_target_audit(db, request, current_user, target, "target.deleted")
+
+
+async def _record_target_audit(
+    db: AsyncSession,
+    request: Request,
+    user: User,
+    target: Target,
+    action: str,
+) -> None:
+    await record_event(
+        db,
+        action=action,
+        actor_id=user.id,
+        resource_type="target",
+        resource_id=target.id,
+        investigation_id=target.investigation_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={
+            "target_type": target.target_type,
+            "target_value": target.target_value,
+        },
+    )

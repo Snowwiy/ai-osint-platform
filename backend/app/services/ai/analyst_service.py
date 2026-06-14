@@ -32,7 +32,11 @@ from app.services.ai.llm_provider import (
     ProviderCompletion,
 )
 from app.services.ai.prompt_builder import build_analysis_prompt
-from app.services.investigation import get_investigation
+from app.services.investigation import (
+    MUTATION_ROLES,
+    ensure_investigation_permission,
+    get_investigation,
+)
 
 _SEVERITIES: tuple[FindingSeverity, ...] = (
     "info",
@@ -58,6 +62,13 @@ async def analyze_investigation(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_investigation_evidence(db, user, body.investigation_id)
     return await _run_analysis(
         db,
@@ -75,6 +86,13 @@ async def analyze_ioc(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_ioc_evidence(
         db,
         user,
@@ -100,6 +118,13 @@ async def analyze_threat_context(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_threat_context_evidence(
         db,
         user,

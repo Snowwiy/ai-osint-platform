@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -9,9 +11,24 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.session import AsyncSessionLocal
+from app.models.audit_log import AuditLog
+from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
 from app.models.investigation import Investigation
+from app.models.investigation_member import InvestigationMember
+from app.models.investigation_evidence import InvestigationEvidence
+from app.models.investigation_note import InvestigationNote
+from app.models.investigation_task import InvestigationTask
+from app.models.investigation_tag import InvestigationTag, InvestigationTagLink
+from app.models.investigation_workflow_event import InvestigationWorkflowEvent
+from app.models.playbook import (
+    DefensivePlaybook,
+    PlaybookRun,
+    PlaybookRunStep,
+    PlaybookStep,
+)
 from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.threat_finding import ThreatFinding
@@ -19,12 +36,36 @@ from app.models.user import User
 from app.schemas.report import ReportCreateRequest
 from app.services.ai.evidence_builder import EvidenceItem
 from app.services.ai.framework_mapper import map_frameworks
-from app.services.investigation import get_investigation
+from app.services.investigation import MUTATION_ROLES, ensure_investigation_permission, get_investigation
 from app.services.knowledge.retriever import KnowledgeCitation, retrieve_context
+
+logger = logging.getLogger(__name__)
 
 
 class ReportNotFoundError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class PlaybookStepContext:
+    title: str
+    step_type: str
+    status: str
+    analyst_note: str | None
+    expected_output: str | None
+
+
+@dataclass(frozen=True)
+class PlaybookRunContext:
+    id: uuid.UUID
+    finding_id: uuid.UUID
+    playbook_name: str
+    status: str
+    started_at: datetime
+    completed_at: datetime | None
+    completed_steps: int
+    total_steps: int
+    steps: list[PlaybookStepContext]
 
 
 @dataclass(frozen=True)
@@ -33,6 +74,15 @@ class ReportContext:
     report_type: str
     findings: list[Finding]
     evidence: list[FindingEvidence]
+    case_evidence: list[InvestigationEvidence]
+    notes: list[InvestigationNote]
+    tasks: list[InvestigationTask]
+    workflow_events: list[InvestigationWorkflowEvent]
+    audit_events: list[AuditLog]
+    members: list[InvestigationMember]
+    playbook_runs: list[PlaybookRunContext]
+    bookmarks: list[EvidenceBookmark]
+    tags: list[InvestigationTag]
     recon_entities: list[ReconEntity]
     threat_findings: list[ThreatFinding]
     knowledge_citations: list[KnowledgeCitation]
@@ -45,6 +95,7 @@ class ReportContext:
     indicator_summary: list[str]
     evidence_chain: list[str]
     analyst_notes: list[str]
+    remediation_progress: dict[str, int]
 
 
 async def create_report(
@@ -54,6 +105,13 @@ async def create_report(
     body: ReportCreateRequest,
 ) -> Report:
     investigation = await get_investigation(db, user, investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot generate reports",
+    )
     context = await _build_context(db, investigation, body.report_type)
     markdown = render_markdown_report(context)
     html = render_html_report(context)
@@ -122,6 +180,17 @@ def render_markdown_report(context: ReportContext) -> str:
         "",
         context.analysis_summary,
         "",
+        f"Workflow status: {context.investigation.status}",
+        f"Case owner: {context.investigation.owner_id}",
+        f"Reviewer: {context.investigation.reviewer_id or 'Unassigned'}",
+        f"Members: {len(context.members)}",
+        f"Priority: {context.investigation.priority}",
+        (
+            "Due date: "
+            f"{context.investigation.due_date or 'No investigation due date set'}"
+        ),
+        "Tags: " + (", ".join(tag.name for tag in context.tags) or "None"),
+        "",
         "### Business Impact",
         "",
         context.business_impact,
@@ -134,6 +203,11 @@ def render_markdown_report(context: ReportContext) -> str:
         f"- Low: {context.severity_heatmap['low']}",
         f"- Info: {context.severity_heatmap['info']}",
         f"- Risk score: {context.risk_summary['highest_score']}",
+        f"- Open remediation tasks: {context.remediation_progress['open']}",
+        f"- Validated findings: {context.remediation_progress['validated_findings']}",
+        f"- Unresolved findings: {context.remediation_progress['unresolved_findings']}",
+        f"- Accepted risks: {context.remediation_progress['accepted_risk_findings']}",
+        f"- Completed playbooks: {context.remediation_progress['playbooks_completed']}",
         "",
         "## Scope and Authorization",
         "",
@@ -196,8 +270,114 @@ def render_markdown_report(context: ReportContext) -> str:
         else:
             lines.append("- No linked evidence chain records are stored.")
         lines.extend(["", "### Analyst Notes", ""])
-        for note in context.analyst_notes:
-            lines.append(f"- {note}")
+        if context.analyst_notes:
+            for note in context.analyst_notes:
+                lines.append(f"- {note}")
+        else:
+            lines.append("- No active analyst notes are stored.")
+        lines.extend(["", "### Bookmarked Evidence", ""])
+        if context.bookmarks:
+            for bookmark in context.bookmarks:
+                reference = (
+                    bookmark.entity_id or bookmark.finding_id or bookmark.report_id
+                )
+                lines.append(
+                    f"- {bookmark.title}: {reference}"
+                    + (f" - {bookmark.note}" if bookmark.note else "")
+                )
+        else:
+            lines.append("- No evidence bookmarks are currently stored.")
+        lines.extend(["", "### Workflow History", ""])
+        if context.workflow_events:
+            for event in context.workflow_events[:10]:
+                lines.append(
+                    f"- {event.created_at}: {event.from_status or 'new'} "
+                    f"-> {event.to_status}"
+                )
+        else:
+            lines.append("- No workflow history events are stored.")
+        lines.extend(["", "### Audit Summary", ""])
+        if context.audit_events:
+            for audit_event in context.audit_events[:10]:
+                lines.append(
+                    f"- {audit_event.created_at}: {audit_event.action} "
+                    f"on {audit_event.resource_type or 'resource'}"
+                )
+        else:
+            lines.append("- No investigation-scoped audit events are stored.")
+        lines.extend(["", "### Case Evidence", ""])
+        if context.case_evidence:
+            for case_item in context.case_evidence:
+                lines.append(
+                    f"- {case_item.evidence_type}: {case_item.title} "
+                    f"(review {case_item.review_status}, "
+                    f"confidence {case_item.confidence_score})"
+                )
+        else:
+            lines.append("- No case evidence metadata records are stored.")
+
+    lines.extend(["", "## Remediation Tracking", ""])
+    lines.extend(
+        [
+            f"- Total tasks: {context.remediation_progress['total']}",
+            f"- Completed tasks: {context.remediation_progress['completed']}",
+            f"- Blocked tasks: {context.remediation_progress['blocked']}",
+            f"- Open tasks: {context.remediation_progress['open']}",
+            f"- Overdue tasks: {context.remediation_progress['overdue']}",
+        ]
+    )
+    if context.tasks:
+        for task in context.tasks[:10]:
+            lines.append(f"- {task.status}: {task.title} ({task.priority})")
+    lines.extend(["", "### Defensive Playbook Progress", ""])
+    if context.playbook_runs:
+        for playbook_run in context.playbook_runs[:10]:
+            completed_steps = sum(
+                1
+                for step in playbook_run.steps
+                if step.status in {"completed", "skipped"}
+            )
+            lines.append(
+                f"- {playbook_run.playbook_name}: {playbook_run.status} "
+                f"({completed_steps}/{len(playbook_run.steps)} steps)"
+            )
+            if context.report_type == "technical":
+                for step in playbook_run.steps:
+                    note = f" - {step.analyst_note}" if step.analyst_note else ""
+                    lines.append(
+                        f"  - {step.status}: {step.title} "
+                        f"[{step.step_type}]{note}"
+                    )
+    else:
+        lines.append("- No defensive playbook runs are stored.")
+    if context.report_type == "technical":
+        lines.extend(["", "### Finding Verification Notes", ""])
+        verification_items = [
+            finding
+            for finding in context.findings
+            if finding.verification_notes or finding.remediation_notes
+        ]
+        if verification_items:
+            for finding in verification_items:
+                lines.append(
+                    f"- {finding.title}: remediation "
+                    f"{finding.remediation_status}; "
+                    f"{finding.verification_notes or finding.remediation_notes}"
+                )
+        else:
+            lines.append("- No finding verification notes are stored.")
+    if context.report_type == "executive":
+        executive_notes = [
+            case_note
+            for case_note in context.notes
+            if case_note.note_type == "executive_note"
+        ]
+        lines.extend(["", "### Analyst Summary and Recommendations", ""])
+        if executive_notes:
+            for executive_note in executive_notes[:8]:
+                lines.append(f"- {executive_note.title}: {executive_note.content}")
+        else:
+            lines.append("- No executive analyst notes are currently stored.")
 
     lines.extend(["", "## MITRE/OWASP/NIST/ISO Mapping", ""])
     if context.framework_mappings:
@@ -218,9 +398,18 @@ def render_markdown_report(context: ReportContext) -> str:
         [
             f"- Recon entities: {len(context.recon_entities)}",
             f"- Threat intel findings: {len(context.threat_findings)}",
+            f"- Analyst notes: {len(context.notes)}",
+            f"- Bookmarked evidence: {len(context.bookmarks)}",
+            f"- Investigation tags: {len(context.tags)}",
+            f"- Case evidence records: {len(context.case_evidence)}",
+            f"- Investigation members: {len(context.members)}",
             f"- Knowledge citations: {len(context.knowledge_citations)}",
         ]
     )
+    if context.members:
+        lines.extend(["", "### Collaboration Summary", ""])
+        for member in context.members:
+            lines.append(f"- {member.role}: {member.user_id}")
     if context.knowledge_citations:
         lines.extend(["", "### Knowledge Citations", ""])
         for citation in context.knowledge_citations:
@@ -240,6 +429,15 @@ async def _build_context(
     evidence = await _finding_evidence(db, [finding.id for finding in findings])
     recon_entities = await _recon_entities(db, investigation.id)
     threat_findings = await _threat_findings(db, investigation.id)
+    notes = await _notes(db, investigation.id)
+    tasks = await _tasks(db, investigation.id)
+    case_evidence = await _case_evidence(db, investigation.id)
+    workflow_events = await _workflow_events(db, investigation.id)
+    audit_events = await _audit_events(db, investigation.id)
+    members = await _members(db, investigation.id)
+    playbook_runs = await _playbook_runs(db, investigation.id)
+    bookmarks = await _bookmarks(db, investigation.id)
+    tags = await _tags(db, investigation.id)
     knowledge_citations = _knowledge_citations(findings, recon_entities)
     evidence_items = _evidence_items(findings)
     knowledge_items = _knowledge_items(knowledge_citations)
@@ -252,6 +450,15 @@ async def _build_context(
         report_type=report_type,
         findings=findings,
         evidence=evidence,
+        case_evidence=case_evidence,
+        notes=notes,
+        tasks=tasks,
+        workflow_events=workflow_events,
+        audit_events=audit_events,
+        members=members,
+        playbook_runs=playbook_runs,
+        bookmarks=bookmarks,
+        tags=tags,
         recon_entities=recon_entities,
         threat_findings=threat_findings,
         knowledge_citations=knowledge_citations,
@@ -259,11 +466,12 @@ async def _build_context(
         recommendations=_recommendations(findings, knowledge_citations),
         risk_summary=_risk_summary(findings),
         analysis_summary=_analysis_summary(findings),
-        business_impact=_business_impact(findings),
+        business_impact=investigation.business_impact or _business_impact(findings),
         severity_heatmap=_severity_heatmap(findings),
         indicator_summary=_indicator_summary(recon_entities, threat_findings),
-        evidence_chain=_evidence_chain(evidence),
-        analyst_notes=_analyst_notes(),
+        evidence_chain=_evidence_chain(evidence, case_evidence),
+        analyst_notes=_analyst_notes(notes),
+        remediation_progress=_remediation_progress(tasks, findings, playbook_runs),
     )
 
 
@@ -277,6 +485,175 @@ async def _findings(
         .order_by(Finding.risk_score.desc(), Finding.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def _notes(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationNote]:
+    result = await db.execute(
+        select(InvestigationNote)
+        .where(
+            InvestigationNote.investigation_id == investigation_id,
+            InvestigationNote.archived.is_(False),
+        )
+        .order_by(
+            InvestigationNote.pinned.desc(),
+            InvestigationNote.updated_at.desc(),
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def _bookmarks(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[EvidenceBookmark]:
+    result = await db.execute(
+        select(EvidenceBookmark)
+        .where(EvidenceBookmark.investigation_id == investigation_id)
+        .order_by(EvidenceBookmark.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def _tags(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationTag]:
+    result = await db.execute(
+        select(InvestigationTag)
+        .join(
+            InvestigationTagLink,
+            InvestigationTagLink.tag_id == InvestigationTag.id,
+        )
+        .where(InvestigationTagLink.investigation_id == investigation_id)
+        .order_by(InvestigationTag.name)
+    )
+    return list(result.scalars().all())
+
+
+async def _members(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationMember]:
+    result = await db.execute(
+        select(InvestigationMember)
+        .where(InvestigationMember.investigation_id == investigation_id)
+        .order_by(InvestigationMember.role, InvestigationMember.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def _tasks(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationTask]:
+    result = await db.execute(
+        select(InvestigationTask)
+        .where(InvestigationTask.investigation_id == investigation_id)
+        .order_by(InvestigationTask.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def _playbook_runs(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[PlaybookRunContext]:
+    run_result = await db.execute(
+        select(PlaybookRun, DefensivePlaybook)
+        .join(
+            DefensivePlaybook,
+            PlaybookRun.playbook_id == DefensivePlaybook.id,
+        )
+        .where(PlaybookRun.investigation_id == investigation_id)
+        .order_by(PlaybookRun.created_at.desc())
+    )
+    rows = list(run_result.all())
+    if not rows:
+        return []
+    run_ids = [run.id for run, _playbook in rows]
+    step_result = await db.execute(
+        select(PlaybookRunStep, PlaybookStep)
+        .join(PlaybookStep, PlaybookRunStep.playbook_step_id == PlaybookStep.id)
+        .where(PlaybookRunStep.playbook_run_id.in_(run_ids))
+        .order_by(PlaybookRunStep.playbook_run_id, PlaybookStep.order_index)
+    )
+    steps_by_run: dict[uuid.UUID, list[PlaybookStepContext]] = {}
+    for run_step, step in step_result.all():
+        steps_by_run.setdefault(run_step.playbook_run_id, []).append(
+            PlaybookStepContext(
+                title=step.title,
+                step_type=step.step_type,
+                status=run_step.status,
+                analyst_note=run_step.analyst_note,
+                expected_output=step.expected_output,
+            )
+        )
+    return [
+        PlaybookRunContext(
+            id=run.id,
+            finding_id=run.finding_id,
+            playbook_name=playbook.name,
+            status=run.status,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            completed_steps=sum(
+                1
+                for step in steps_by_run.get(run.id, [])
+                if step.status in {"completed", "skipped"}
+            ),
+            total_steps=len(steps_by_run.get(run.id, [])),
+            steps=steps_by_run.get(run.id, []),
+        )
+        for run, playbook in rows
+    ]
+
+
+async def _case_evidence(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationEvidence]:
+    result = await db.execute(
+        select(InvestigationEvidence)
+        .where(InvestigationEvidence.investigation_id == investigation_id)
+        .order_by(InvestigationEvidence.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def _workflow_events(
+    db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[InvestigationWorkflowEvent]:
+    result = await db.execute(
+        select(InvestigationWorkflowEvent)
+        .where(InvestigationWorkflowEvent.investigation_id == investigation_id)
+        .order_by(InvestigationWorkflowEvent.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def _audit_events(
+    _db: AsyncSession,
+    investigation_id: uuid.UUID,
+) -> list[AuditLog]:
+    try:
+        async with AsyncSessionLocal() as audit_db:
+            result = await audit_db.execute(
+                select(AuditLog)
+                .where(AuditLog.investigation_id == investigation_id)
+                .order_by(AuditLog.created_at.desc())
+                .limit(20)
+            )
+            return list(result.scalars().all())
+    except Exception as exc:
+        logger.warning(
+            "Skipping report audit summary because audit logs are unavailable: %s",
+            exc,
+        )
+        return []
 
 
 async def _finding_evidence(
@@ -452,19 +829,74 @@ def _indicator_summary(
     return indicators[:15]
 
 
-def _evidence_chain(evidence: list[FindingEvidence]) -> list[str]:
-    return [
+def _evidence_chain(
+    evidence: list[FindingEvidence],
+    case_evidence: list[InvestigationEvidence],
+) -> list[str]:
+    chain = [
         f"{item.source} -> {item.evidence_type}: {item.description}"
         for item in evidence[:15]
     ]
+    chain.extend(
+        f"{item.source} -> {item.evidence_type}: {item.title}"
+        for item in case_evidence[:15]
+    )
+    return chain[:20]
 
 
-def _analyst_notes() -> list[str]:
-    return [
+def _analyst_notes(notes: list[InvestigationNote]) -> list[str]:
+    analyst_notes = [
+        f"{note.note_type}: {note.title} - {note.content}" for note in notes[:10]
+    ]
+    analyst_notes.extend(
+        [
         "Report generation used stored investigation data only.",
         "No LLM calls, live provider requests, crawling, or active scanning ran.",
         "Validate owners, scope, and remediation status before external sharing.",
-    ]
+        ]
+    )
+    return analyst_notes
+
+
+def _remediation_progress(
+    tasks: list[InvestigationTask],
+    findings: list[Finding],
+    playbook_runs: list[PlaybookRunContext],
+) -> dict[str, int]:
+    return {
+        "total": len(tasks),
+        "completed": sum(1 for task in tasks if task.status == "completed"),
+        "blocked": sum(1 for task in tasks if task.status == "blocked"),
+        "open": sum(
+            1 for task in tasks if task.status not in {"completed", "cancelled"}
+        ),
+        "overdue": sum(1 for task in tasks if _task_overdue(task)),
+        "validated_findings": sum(
+            1 for finding in findings if finding.status == "validated"
+        ),
+        "unresolved_findings": sum(
+            1
+            for finding in findings
+            if finding.status in {"new", "under_review", "accepted_risk"}
+        ),
+        "accepted_risk_findings": sum(
+            1
+            for finding in findings
+            if finding.remediation_status == "accepted_risk"
+        ),
+        "remediated_findings": sum(
+            1 for finding in findings if finding.remediation_status == "remediated"
+        ),
+        "playbooks_completed": sum(
+            1 for run in playbook_runs if run.status == "completed"
+        ),
+    }
+
+
+def _task_overdue(task: InvestigationTask) -> bool:
+    if task.due_date is None or task.status in {"completed", "cancelled"}:
+        return False
+    return task.due_date < datetime.now(task.due_date.tzinfo)
 
 
 def _recommendations(
@@ -496,6 +928,39 @@ def _metadata(context: ReportContext) -> dict[str, Any]:
         "recon_entity_count": len(context.recon_entities),
         "threat_finding_count": len(context.threat_findings),
         "knowledge_citation_count": len(context.knowledge_citations),
+        "note_count": len(context.notes),
+        "task_count": len(context.tasks),
+        "case_evidence_count": len(context.case_evidence),
+        "member_count": len(context.members),
+        "playbook_run_count": len(context.playbook_runs),
+        "bookmark_count": len(context.bookmarks),
+        "tags": [tag.name for tag in context.tags],
+        "priority": context.investigation.priority,
+        "business_impact": context.investigation.business_impact,
+        "due_date": (
+            context.investigation.due_date.isoformat()
+            if context.investigation.due_date
+            else None
+        ),
+        "playbook_completed_count": sum(
+            1 for run in context.playbook_runs if run.status == "completed"
+        ),
+        "member_roles": _member_role_counts(context.members),
+        "workflow_status": context.investigation.status,
+        "owner_id": str(context.investigation.owner_id),
+        "reviewer_id": (
+            str(context.investigation.reviewer_id)
+            if context.investigation.reviewer_id
+            else None
+        ),
+        "audit_event_count": len(context.audit_events),
         "risk_level": str(context.risk_summary["level"]),
         "highest_score": highest_score if isinstance(highest_score, int) else 0,
     }
+
+
+def _member_role_counts(members: list[InvestigationMember]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for member in members:
+        counts[member.role] = counts.get(member.role, 0) + 1
+    return counts

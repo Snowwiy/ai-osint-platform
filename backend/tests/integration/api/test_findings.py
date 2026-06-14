@@ -76,6 +76,34 @@ async def test_findings_generated_from_recon_and_threat_intel(
     assert titles["Risky server disclosure for example.com"].severity == "low"
     assert titles["Exposed internal metadata for example.com"].severity == "medium"
     assert titles["Suspicious SPF policy for example.com"].severity == "low"
+    disclosed = titles["Risky server disclosure for example.com"]
+    assert disclosed.summary
+    assert disclosed.evidence_chain
+    assert "example.com" in disclosed.affected_targets
+    assert disclosed.remediation_guidance
+    assert disclosed.analyst_notes
+    assert disclosed.references
+
+
+async def test_generate_findings_endpoint_returns_enriched_findings(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    db: AsyncSession,
+    test_investigation,
+) -> None:
+    await _add_intelligence_data(db, test_investigation.id)
+
+    response = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/findings/generate",
+        headers=analyst_headers,
+    )
+
+    assert response.status_code == 200
+    parsed = [FindingResponse.model_validate(item) for item in response.json()]
+    assert parsed
+    assert all(finding.summary for finding in parsed)
+    assert any(finding.framework_mappings for finding in parsed)
+    assert any(finding.remediation_guidance for finding in parsed)
 
 
 async def test_findings_filters_by_severity_status_and_source(

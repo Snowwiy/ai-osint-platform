@@ -1,4 +1,11 @@
-import { CalendarDays, Pencil, ShieldAlert, Target, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  Pencil,
+  ShieldAlert,
+  Tags,
+  Target,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -20,8 +27,10 @@ import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
   createInvestigation,
   deleteInvestigation,
+  getInvestigationTags,
   listFindings,
-  listInvestigations,
+  listInvestigationsWithScope,
+  listTags,
   listTargets,
   updateInvestigation,
 } from "../lib/api";
@@ -32,17 +41,42 @@ export function InvestigationsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
   const [editing, setEditing] = useState<Investigation | null>(null);
   const [deleting, setDeleting] = useState<Investigation | null>(null);
+  const [scope, setScope] = useState("all");
+  const [selectedTag, setSelectedTag] = useState("all");
   const [toast, setToast] = useState<ToastState | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const investigations = useQuery({
-    queryKey: ["investigations"],
-    queryFn: listInvestigations,
+    queryKey: ["investigations", scope],
+    queryFn: () => listInvestigationsWithScope(scope),
   });
-  const visibleInvestigations =
-    investigations.data?.items.filter((item) => item.status !== "archived") ?? [];
+  const availableTags = useQuery({
+    queryKey: ["tags"],
+    queryFn: listTags,
+  });
+  const scopedInvestigations =
+    investigations.data?.items.filter(
+      (item) => scope === "archived" || item.status !== "archived",
+    ) ?? [];
+  const investigationTags = useQueries({
+    queries: scopedInvestigations.map((item) => ({
+      queryKey: ["investigation-tags", item.id],
+      queryFn: () => getInvestigationTags(item.id),
+    })),
+  });
+  const tagIdsByInvestigation = new Map(
+    scopedInvestigations.map((item, index) => [
+      item.id,
+      investigationTags[index]?.data?.items.map((tag) => tag.id) ?? [],
+    ]),
+  );
+  const visibleInvestigations = scopedInvestigations.filter(
+    (item) =>
+      selectedTag === "all" ||
+      tagIdsByInvestigation.get(item.id)?.includes(selectedTag),
+  );
   const targetCounts = useQueries({
     queries: visibleInvestigations.map((item) => ({
       queryKey: ["targets", item.id],
@@ -120,6 +154,48 @@ export function InvestigationsPage(): JSX.Element {
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {[
+          ["all", "All accessible"],
+          ["owned_by_me", "Owned by me"],
+          ["assigned_to_me", "Assigned to me"],
+          ["member_of", "Member of"],
+          ["viewer_only", "Viewer only"],
+          ["active", "Active"],
+          ["archived", "Archived"],
+          ["needs_review", "Needs review"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setScope(value)}
+            className={[
+              "rounded-md border px-3 py-2 text-sm",
+              scope === value
+                ? "border-raven-violet bg-raven-violet text-white"
+                : "border-raven-border text-raven-muted hover:border-raven-violet hover:text-raven-text",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        ))}
+        <label className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted">
+          <Tags className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Filter by tag</span>
+          <select
+            value={selectedTag}
+            onChange={(event) => setSelectedTag(event.target.value)}
+            className="bg-transparent text-raven-text outline-none"
+          >
+            <option value="all">All tags</option>
+            {availableTags.data?.items.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {visibleInvestigations.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {visibleInvestigations.map((item, index) => {
@@ -130,6 +206,12 @@ export function InvestigationsPage(): JSX.Element {
               user?.id,
               user?.role,
             );
+            const itemTags =
+              investigationTags[
+                scopedInvestigations.findIndex(
+                  (investigation) => investigation.id === item.id,
+                )
+              ]?.data?.items ?? [];
             return (
               <article
                 key={item.id}
@@ -166,6 +248,28 @@ export function InvestigationsPage(): JSX.Element {
                     label={`${findingTotal ?? "—"} findings`}
                   />
                   <Metric label={ownerContext(item, user?.id, user?.role)} />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span
+                    className={[
+                      "rounded border px-2 py-1 text-xs capitalize",
+                      item.priority === "urgent"
+                        ? "border-rose-400/40 text-rose-100"
+                        : item.priority === "high"
+                          ? "border-orange-400/40 text-orange-100"
+                          : "border-raven-border text-raven-muted",
+                    ].join(" ")}
+                  >
+                    {item.priority} priority
+                  </span>
+                  {itemTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan"
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

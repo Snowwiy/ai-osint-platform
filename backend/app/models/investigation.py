@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text, text
+from sqlalchemy.dialects.postgresql import DATE
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,7 +15,10 @@ class Investigation(Base, TimestampMixin):
     __tablename__ = "investigations"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('draft', 'active', 'completed', 'archived')",
+            "status IN ("
+            "'draft', 'active', 'triage', 'monitoring', 'remediation', "
+            "'validated', 'archived', 'review', 'remediated'"
+            ")",
             name="ck_investigations_status",
         ),
         CheckConstraint(
@@ -21,7 +26,13 @@ class Investigation(Base, TimestampMixin):
             name="ck_investigations_auth_statement",
         ),
         Index("idx_investigations_owner", "owner_id"),
+        Index("idx_investigations_reviewer", "reviewer_id"),
         Index("idx_investigations_status", "status"),
+        Index("idx_investigations_priority", "priority"),
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high', 'urgent')",
+            name="ck_investigations_priority",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -37,6 +48,11 @@ class Investigation(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
+    reviewer_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -45,3 +61,11 @@ class Investigation(Base, TimestampMixin):
     )
     authorization_statement: Mapped[str] = mapped_column(Text, nullable=False)
     scope_definition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    priority: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        default="medium",
+        server_default="medium",
+    )
+    business_impact: Mapped[str | None] = mapped_column(Text, nullable=True)
+    due_date: Mapped[date | None] = mapped_column(DATE, nullable=True)

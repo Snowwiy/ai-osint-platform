@@ -16,7 +16,7 @@ export function ErrorBlock({ message }: { message: string }): JSX.Element {
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />
         <span>Unable to load data</span>
       </div>
-      <p className="mt-2 text-rose-100/80">{message}</p>
+      <p className="mt-2 whitespace-pre-line text-rose-100/80">{message}</p>
     </div>
   );
 }
@@ -29,4 +29,3 @@ export function EmptyBlock({ message }: { message: string }): JSX.Element {
     </div>
   );
 }
-

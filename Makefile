@@ -1,7 +1,13 @@
-.PHONY: dev dev-bg down test test-unit test-int migrate migration lint format shell create-admin check build logs
+.PHONY: dev dev-bg prod prod-down down test test-unit test-int migrate migration lint format shell create-admin check build logs backup
 
 dev:
 	docker compose up --build
+
+prod:
+	docker compose -f docker-compose.prod.yml up --build -d
+
+prod-down:
+	docker compose -f docker-compose.prod.yml down
 
 dev-bg:
 	docker compose up --build -d
@@ -43,5 +49,9 @@ format:
 
 create-admin:
 	docker compose exec backend python scripts/create_admin.py
+
+backup:
+	@test -n "$(out)" || (echo "Usage: make backup out=./backups/manual" && exit 1)
+	docker compose exec backend python scripts/export_backup.py --output "$(out)"
 
 check: lint test

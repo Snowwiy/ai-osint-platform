@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
@@ -314,7 +315,7 @@ function CitationCard({
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
       <p className="break-words text-sm font-medium">{citation.title}</p>
-      <p className="mt-1 text-xs text-raven-muted">{citation.id}</p>
+      <LongValue value={citation.id} className="mt-1 text-xs" maxLength={44} />
       <p className="mt-2 text-sm leading-6 text-raven-muted">{citation.summary}</p>
     </div>
   );
@@ -348,13 +349,13 @@ function CitationChips({
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {citationIds.map((id) => (
-        <span
+        <div
           key={id}
-          className="max-w-full truncate rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
+          className="max-w-full rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
           title={id}
         >
-          {id}
-        </span>
+          <LongValue value={id} maxLength={38} />
+        </div>
       ))}
     </div>
   );

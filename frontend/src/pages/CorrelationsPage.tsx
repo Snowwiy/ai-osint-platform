@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { CorrelationNetwork } from "../components/CorrelationNetwork";
+import { BookmarkButton } from "../components/BookmarkButton";
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getCorrelations } from "../lib/api";
@@ -73,7 +75,11 @@ export function CorrelationsPage(): JSX.Element {
             <CorrelationNetwork nodes={data.nodes} edges={data.edges} />
           ) : null}
           {viewMode === "cards" ? (
-            <RelationshipCards edges={data.edges} nodeById={nodeById} />
+            <RelationshipCards
+              investigationId={investigationId}
+              edges={data.edges}
+              nodeById={nodeById}
+            />
           ) : null}
           {viewMode === "table" ? (
             <RelationshipTable edges={data.edges} nodeById={nodeById} />
@@ -111,9 +117,11 @@ function SummaryStrip({
 }
 
 function RelationshipCards({
+  investigationId,
   edges,
   nodeById,
 }: {
+  investigationId: string;
   edges: CorrelationEdge[];
   nodeById: Map<string, CorrelationNode>;
 }): JSX.Element {
@@ -145,7 +153,47 @@ function RelationshipCards({
           <p className="mt-4 text-xs text-raven-muted">
             Evidence count: {edge.evidence_count}
           </p>
+          <CorrelationBookmarkActions
+            investigationId={investigationId}
+            edge={edge}
+            source={nodeById.get(edge.source_node_id)}
+            target={nodeById.get(edge.target_node_id)}
+          />
         </article>
+      ))}
+    </div>
+  );
+}
+
+function CorrelationBookmarkActions({
+  investigationId,
+  edge,
+  source,
+  target,
+}: {
+  investigationId: string;
+  edge: CorrelationEdge;
+  source: CorrelationNode | undefined;
+  target: CorrelationNode | undefined;
+}): JSX.Element | null {
+  const nodes = [source, target].filter(
+    (node): node is CorrelationNode =>
+      Boolean(node?.entity_id || node?.finding_id || node?.report_id),
+  );
+  if (!nodes.length) {
+    return null;
+  }
+  return (
+    <div className="mt-4 flex flex-wrap gap-2 border-t border-raven-border pt-3">
+      {nodes.map((node) => (
+        <BookmarkButton
+          key={`${edge.id}:${node.id}`}
+          investigationId={investigationId}
+          entityId={node.entity_id ?? undefined}
+          findingId={node.finding_id ?? undefined}
+          reportId={node.report_id ?? undefined}
+          title={`Correlation evidence: ${node.label}`}
+        />
       ))}
     </div>
   );
@@ -160,36 +208,46 @@ function RelationshipTable({
 }): JSX.Element {
   return (
     <section className="overflow-hidden rounded-lg border border-raven-border">
-      <table className="w-full min-w-[860px] text-left text-sm">
-        <thead className="bg-raven-panelSoft text-xs uppercase text-raven-muted">
-          <tr>
-            <th className="px-4 py-3">Relationship</th>
-            <th className="px-4 py-3">Source</th>
-            <th className="px-4 py-3">Target</th>
-            <th className="px-4 py-3">Confidence</th>
-            <th className="px-4 py-3">Evidence</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-raven-border bg-raven-panel/70">
-          {edges.map((edge) => (
-            <tr key={edge.id}>
-              <td className="px-4 py-3 text-raven-cyan">
-                {edge.correlation_type.replace(/_/g, " ")}
-              </td>
-              <td className="px-4 py-3">
-                {nodeById.get(edge.source_node_id)?.label ?? edge.source_node_id}
-              </td>
-              <td className="px-4 py-3">
-                {nodeById.get(edge.target_node_id)?.label ?? edge.target_node_id}
-              </td>
-              <td className="px-4 py-3 capitalize text-raven-muted">
-                {edge.confidence}
-              </td>
-              <td className="px-4 py-3 text-raven-muted">{edge.evidence_count}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] text-left text-sm">
+          <thead className="bg-raven-panelSoft text-xs uppercase text-raven-muted">
+            <tr>
+              <th className="px-4 py-3">Relationship</th>
+              <th className="px-4 py-3">Source</th>
+              <th className="px-4 py-3">Target</th>
+              <th className="px-4 py-3">Confidence</th>
+              <th className="px-4 py-3">Evidence</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-raven-border bg-raven-panel/70">
+            {edges.map((edge) => (
+              <tr key={edge.id}>
+                <td className="px-4 py-3 text-raven-cyan">
+                  {edge.correlation_type.replace(/_/g, " ")}
+                </td>
+                <td className="px-4 py-3">
+                  <NodeLabel
+                    node={nodeById.get(edge.source_node_id)}
+                    fallback={edge.source_node_id}
+                  />
+                </td>
+                <td className="px-4 py-3">
+                  <NodeLabel
+                    node={nodeById.get(edge.target_node_id)}
+                    fallback={edge.target_node_id}
+                  />
+                </td>
+                <td className="px-4 py-3 capitalize text-raven-muted">
+                  {edge.confidence}
+                </td>
+                <td className="px-4 py-3 text-raven-muted">
+                  {edge.evidence_count}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -250,10 +308,33 @@ function NodePill({
 }): JSX.Element {
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
-      <p className="break-words text-sm font-medium">{node?.label ?? fallback}</p>
+      <LongValue value={node?.label ?? fallback} maxLength={54} />
       <p className="mt-1 text-xs capitalize text-raven-muted">
         {node?.node_type.replace(/_/g, " ") ?? "unknown"}
       </p>
+      {node?.id ? (
+        <LongValue
+          value={node.id}
+          className="mt-2 text-xs text-raven-muted"
+          maxLength={26}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function NodeLabel({
+  node,
+  fallback,
+}: {
+  node: CorrelationNode | undefined;
+  fallback: string;
+}): JSX.Element {
+  return (
+    <LongValue
+      value={node?.label ?? fallback}
+      secondary={node ? `${node.node_type} ${node.id}` : fallback}
+      maxLength={52}
+    />
   );
 }

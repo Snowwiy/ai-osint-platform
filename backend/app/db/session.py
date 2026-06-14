@@ -12,9 +12,15 @@ from app.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.APP_ENVIRONMENT == "development",
+    echo=settings.debug_enabled,
+    connect_args={
+        "server_settings": {
+            "statement_timeout": str(settings.DATABASE_STATEMENT_TIMEOUT_MS),
+        },
+    },
     max_overflow=20,
     pool_pre_ping=True,
+    pool_recycle=1800,
     pool_size=10,
 )
 

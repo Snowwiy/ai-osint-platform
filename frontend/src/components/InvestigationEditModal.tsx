@@ -5,7 +5,10 @@ import type { Investigation, InvestigationStatus } from "../types";
 const statuses: InvestigationStatus[] = [
   "draft",
   "active",
-  "completed",
+  "triage",
+  "monitoring",
+  "remediation",
+  "validated",
   "archived",
 ];
 

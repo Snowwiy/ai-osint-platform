@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
@@ -14,7 +14,8 @@ from app.schemas.report import (
     ReportListResponse,
     ReportResponse,
 )
-from app.services.investigation import InvestigationNotFoundError
+from app.services.audit import record_event
+from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.report import (
     ReportNotFoundError,
     create_report,
@@ -40,6 +41,8 @@ async def create_report_endpoint(
         report = await create_report(db, current_user, investigation_id, body)
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     return ReportResponse.model_validate(report)
 
 
@@ -78,6 +81,7 @@ async def get_report_endpoint(
 @router.get("/reports/{report_id}/download")
 async def download_report_endpoint(
     report_id: uuid.UUID,
+    request: Request,
     format: ReportDownloadFormat = Query(default="html"),  # noqa: A002
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -88,6 +92,17 @@ async def download_report_endpoint(
         raise HTTPException(status_code=404, detail="Report not found") from exc
 
     exported = export_report(report, format)
+    await record_event(
+        db,
+        action="report.downloaded",
+        actor_id=current_user.id,
+        resource_type="report",
+        resource_id=report.id,
+        investigation_id=report.investigation_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={"format": format},
+    )
     filename = f"report-{report.id}.{exported.extension}"
     return Response(
         content=exported.content,

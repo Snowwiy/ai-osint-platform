@@ -1,0 +1,99 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: raventech
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: raventech
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raventech -d raventech"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "--no-auth-warning",
+          "-a",
+          "${REDIS_PASSWORD:?REDIS_PASSWORD is required}",
+          "ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENVIRONMENT: production
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      APP_ALLOWED_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      DATABASE_URL: postgresql+asyncpg://raventech:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/raventech
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      CHROMA_DATA_PATH: /data/chroma
+    volumes:
+      - reports_data:/data/reports
+      - chroma_data:/data/chroma
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  celery-worker:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENVIRONMENT: production
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      APP_ALLOWED_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
+      DATABASE_URL: postgresql+asyncpg://raventech:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/raventech
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+      CHROMA_DATA_PATH: /data/chroma
+    volumes:
+      - reports_data:/data/reports
+      - chroma_data:/data/chroma
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=warning --pool=prefork --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+
+volumes:
+  postgres_data:
+  redis_data:
+  reports_data:
+  chroma_data:

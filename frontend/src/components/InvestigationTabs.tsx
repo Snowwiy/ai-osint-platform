@@ -2,9 +2,14 @@ import { NavLink, useParams } from "react-router-dom";
 
 const tabs = [
   { label: "Overview", path: "" },
+  { label: "Members", path: "members" },
   { label: "Targets", path: "targets" },
+  { label: "Notes", path: "notes" },
+  { label: "Bookmarks", path: "bookmarks" },
+  { label: "Tasks", path: "tasks" },
   { label: "Recon", path: "recon" },
   { label: "Findings", path: "findings" },
+  { label: "Playbooks", path: "playbooks" },
   { label: "Timeline", path: "timeline" },
   { label: "Correlations", path: "correlations" },
   { label: "Reports", path: "reports" },

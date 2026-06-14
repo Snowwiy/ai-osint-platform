@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.schemas.threat_intel import ThreatIntelRequest, ThreatIntelResponse
-from app.services.investigation import InvestigationNotFoundError
+from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.target import TargetValidationError
 from app.services.threat_intel.threat_service import run_threat_intel_for_request
 
@@ -28,6 +28,8 @@ async def enrich_ip_threat_intel(
         )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except TargetValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -47,6 +49,8 @@ async def enrich_domain_threat_intel(
         )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except TargetValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -66,5 +70,7 @@ async def enrich_url_threat_intel(
         )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except TargetValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -44,6 +44,22 @@
 
   <h2>Executive Summary</h2>
   <p>{{ context.analysis_summary }}</p>
+  <p><strong>Workflow status:</strong> {{ context.investigation.status }}</p>
+  <p><strong>Case owner:</strong> {{ context.investigation.owner_id }}</p>
+  <p><strong>Reviewer:</strong> {{ context.investigation.reviewer_id or "Unassigned" }}</p>
+  <p><strong>Members:</strong> {{ context.members|length }}</p>
+  <p><strong>Priority:</strong> {{ context.investigation.priority }}</p>
+  <p><strong>Due date:</strong> {{ context.investigation.due_date or "Not set" }}</p>
+  <p>
+    <strong>Tags:</strong>
+    {% if context.tags %}
+      {% for tag in context.tags %}
+      <span class="pill">{{ tag.name }}</span>
+      {% endfor %}
+    {% else %}
+      None
+    {% endif %}
+  </p>
   <h3>Business Impact</h3>
   <p>{{ context.business_impact }}</p>
   <h3>Severity Heatmap</h3>
@@ -56,6 +72,11 @@
         <th>Low</th>
         <th>Info</th>
         <th>Risk Score</th>
+        <th>Open Tasks</th>
+        <th>Validated Findings</th>
+        <th>Unresolved Findings</th>
+        <th>Accepted Risk</th>
+        <th>Completed Playbooks</th>
       </tr>
     </thead>
     <tbody>
@@ -66,6 +87,11 @@
         <td>{{ context.severity_heatmap.low }}</td>
         <td>{{ context.severity_heatmap.info }}</td>
         <td>{{ context.risk_summary.highest_score }}</td>
+        <td>{{ context.remediation_progress.open }}</td>
+        <td>{{ context.remediation_progress.validated_findings }}</td>
+        <td>{{ context.remediation_progress.unresolved_findings }}</td>
+        <td>{{ context.remediation_progress.accepted_risk_findings }}</td>
+        <td>{{ context.remediation_progress.playbooks_completed }}</td>
       </tr>
     </tbody>
   </table>
@@ -73,6 +99,32 @@
   <h2>Scope and Authorization</h2>
   <p><strong>Authorization:</strong> {{ context.investigation.authorization_statement }}</p>
   <p><strong>Scope:</strong> {{ context.investigation.scope_definition or "No scope note provided." }}</p>
+
+  <h2>Collaboration Summary</h2>
+  {% if context.members %}
+  <table>
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Role</th>
+        <th>Invited By</th>
+        <th>Joined</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for member in context.members %}
+      <tr>
+        <td>{{ member.user_id }}</td>
+        <td>{{ member.role }}</td>
+        <td>{{ member.invited_by or "Unknown" }}</td>
+        <td>{{ member.created_at }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No collaboration membership data is stored.</p>
+  {% endif %}
 
   <h2>Methodology</h2>
   <p>
@@ -148,11 +200,166 @@
   <p>No linked evidence chain records are stored.</p>
   {% endif %}
   <h3>Analyst Notes</h3>
+  {% if context.analyst_notes %}
   <ul>
     {% for note in context.analyst_notes %}
     <li>{{ note }}</li>
     {% endfor %}
   </ul>
+  {% else %}
+  <p>No active analyst notes are stored.</p>
+  {% endif %}
+  <h3>Bookmarked Evidence</h3>
+  {% if context.bookmarks %}
+  <ul>
+    {% for bookmark in context.bookmarks %}
+    <li>
+      <strong>{{ bookmark.title }}</strong>:
+      {{ bookmark.entity_id or bookmark.finding_id or bookmark.report_id }}
+      {% if bookmark.note %}- {{ bookmark.note }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No evidence bookmarks are currently stored.</p>
+  {% endif %}
+  <h3>Workflow History</h3>
+  {% if context.workflow_events %}
+  <ul>
+    {% for event in context.workflow_events[:10] %}
+    <li>
+      {{ event.created_at }}:
+      {{ event.from_status or "new" }} -> {{ event.to_status }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No workflow history events are stored.</p>
+  {% endif %}
+  <h3>Audit Summary</h3>
+  {% if context.audit_events %}
+  <ul>
+    {% for event in context.audit_events[:10] %}
+    <li>
+      {{ event.created_at }}:
+      {{ event.action }} on {{ event.resource_type or "resource" }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No investigation-scoped audit events are stored.</p>
+  {% endif %}
+  <h3>Case Evidence</h3>
+  {% if context.case_evidence %}
+  <ul>
+    {% for item in context.case_evidence %}
+    <li>
+      {{ item.evidence_type }}: {{ item.title }}
+      (review {{ item.review_status }}, confidence {{ item.confidence_score }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No case evidence metadata records are stored.</p>
+  {% endif %}
+  {% endif %}
+
+  <h2>Remediation Tracking</h2>
+  <ul>
+    <li>Total tasks: {{ context.remediation_progress.total }}</li>
+    <li>Completed tasks: {{ context.remediation_progress.completed }}</li>
+    <li>Blocked tasks: {{ context.remediation_progress.blocked }}</li>
+    <li>Open tasks: {{ context.remediation_progress.open }}</li>
+    <li>Overdue tasks: {{ context.remediation_progress.overdue }}</li>
+    <li>Remediated findings: {{ context.remediation_progress.remediated_findings }}</li>
+    <li>Accepted risks: {{ context.remediation_progress.accepted_risk_findings }}</li>
+    <li>Completed playbooks: {{ context.remediation_progress.playbooks_completed }}</li>
+  </ul>
+  {% if context.tasks %}
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Priority</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for task in context.tasks[:10] %}
+      <tr>
+        <td>{{ task.title }}</td>
+        <td>{{ task.status }}</td>
+        <td>{{ task.priority }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <h3>Defensive Playbook Progress</h3>
+  {% if context.playbook_runs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Playbook</th>
+        <th>Finding</th>
+        <th>Status</th>
+        <th>Progress</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for run in context.playbook_runs[:10] %}
+      <tr>
+        <td>{{ run.playbook_name }}</td>
+        <td>{{ run.finding_id }}</td>
+        <td>{{ run.status }}</td>
+        <td>{{ run.completed_steps }} / {{ run.total_steps }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if context.report_type == "technical" %}
+    {% for run in context.playbook_runs[:10] %}
+    <h4>{{ run.playbook_name }} steps</h4>
+    <ul>
+      {% for step in run.steps %}
+      <li>
+        {{ step.status }}: {{ step.title }} ({{ step.step_type }})
+        {% if step.analyst_note %}- {{ step.analyst_note }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  {% endif %}
+  {% else %}
+  <p>No defensive playbook runs are stored.</p>
+  {% endif %}
+  {% if context.report_type == "technical" %}
+  <h3>Finding Verification Notes</h3>
+  <ul>
+    {% for finding in context.findings %}
+      {% if finding.verification_notes or finding.remediation_notes %}
+      <li>
+        <strong>{{ finding.title }}</strong>:
+        remediation {{ finding.remediation_status }};
+        {{ finding.verification_notes or finding.remediation_notes }}
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if context.report_type == "executive" %}
+  <h3>Analyst Summary and Recommendations</h3>
+  {% if context.notes %}
+  <ul>
+    {% for note in context.notes[:8] %}
+    {% if note.note_type == "executive_note" %}
+    <li><strong>{{ note.title }}</strong>: {{ note.content }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No executive analyst notes are currently stored.</p>
+  {% endif %}
   {% endif %}
 
   <h2>MITRE/OWASP/NIST/ISO Mapping</h2>
@@ -180,6 +387,10 @@
   <ul>
     <li>Recon entities: {{ context.recon_entities|length }}</li>
     <li>Threat intel findings: {{ context.threat_findings|length }}</li>
+    <li>Analyst notes: {{ context.notes|length }}</li>
+    <li>Bookmarked evidence: {{ context.bookmarks|length }}</li>
+    <li>Investigation tags: {{ context.tags|length }}</li>
+    <li>Case evidence records: {{ context.case_evidence|length }}</li>
     <li>Knowledge citations: {{ context.knowledge_citations|length }}</li>
   </ul>
   {% if context.knowledge_citations %}

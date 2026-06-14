@@ -37,7 +37,7 @@ async def get_current_user(
     except jwt.InvalidTokenError:
         raise credentials_exception from None
 
-    if payload.get("type") != "access":
+    if payload.get("type") != "access" or not payload.get("jti"):
         raise credentials_exception
 
     sub = payload.get("sub")
