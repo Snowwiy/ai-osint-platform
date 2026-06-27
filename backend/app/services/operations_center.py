@@ -109,6 +109,53 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
             "Access token expiration is configured.",
             "Token expiration must be greater than zero.",
         ),
+        EnvironmentValidationItem(
+            name="PUBLIC_REGISTRATION_ENABLED",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "Public registration is enabled."
+                if settings.PUBLIC_REGISTRATION_ENABLED
+                else "Public registration is disabled by default."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="REGISTRATION_REQUIRES_APPROVAL",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "New registered users require administrator approval."
+                if settings.REGISTRATION_REQUIRES_APPROVAL
+                else "New registered users are active immediately."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="REGISTRATION_INVITE_CODE",
+            scope="backend",
+            status=(
+                "configured"
+                if settings.REGISTRATION_INVITE_CODE.strip()
+                else "missing"
+            ),
+            required=False,
+            detail=(
+                "Registration invite code is configured."
+                if settings.REGISTRATION_INVITE_CODE.strip()
+                else "No registration invite code is configured."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="DEFAULT_REGISTERED_USER_ROLE",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "Registered users are never created as admins. Effective role: "
+                f"{settings.effective_registered_user_role}."
+            ),
+        ),
         _configured(
             "ANTHROPIC_API_KEY",
             "ai",
@@ -442,6 +489,7 @@ def _redact(value: str) -> str:
         settings.OPENAI_API_KEY,
         settings.VT_API_KEY,
         settings.ABUSEIPDB_API_KEY,
+        settings.REGISTRATION_INVITE_CODE,
     )
     for secret in sensitive_values:
         if secret and len(secret) >= 4:

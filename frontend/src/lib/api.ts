@@ -107,6 +107,9 @@ import type {
   ReportTemplateUpdateRequest,
   ReportingCenterFilters,
   ReportingCenterResponse,
+  RegisterRequest,
+  RegisterResponse,
+  RegistrationPolicyResponse,
   RetentionSettings,
   RetentionStatusResponse,
   ReconResponse,
@@ -205,6 +208,34 @@ export async function login(identifier: string, password: string): Promise<Token
   }
   setTokens(response.access_token, response.refresh_token);
   return response;
+}
+
+export async function getRegistrationPolicy(): Promise<RegistrationPolicyResponse> {
+  return request<RegistrationPolicyResponse>("/auth/registration-policy", {
+    skipAuth: true,
+  });
+}
+
+export async function registerAccount(
+  body: RegisterRequest,
+): Promise<RegisterResponse> {
+  try {
+    return await request<RegisterResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+      skipAuth: true,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && [403, 409, 422].includes(error.status)) {
+      throw new ApiError(
+        error.metadata.detail || error.message,
+        error.status,
+        error.endpoint,
+        error.metadata,
+      );
+    }
+    throw error;
+  }
 }
 
 export async function logout(): Promise<void> {

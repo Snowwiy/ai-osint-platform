@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -15,6 +16,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
+from app.schemas.auth import RegisterRequest, RegisterResponse
 
 _REFRESH_TTL = int(timedelta(days=7).total_seconds())
 
@@ -40,6 +42,18 @@ class InactiveUserError(AuthError):
 
 
 class TokenError(AuthError):
+    pass
+
+
+class RegistrationDisabledError(AuthError):
+    pass
+
+
+class RegistrationInviteError(AuthError):
+    pass
+
+
+class RegistrationConflictError(AuthError):
     pass
 
 
@@ -133,3 +147,65 @@ async def change_password(
         raise InvalidCredentialsError("Current password is incorrect")
     user.hashed_password = hash_password(new_password)
     db.add(user)
+
+
+def registration_policy() -> dict[str, object]:
+    return {
+        "public_registration_enabled": settings.PUBLIC_REGISTRATION_ENABLED,
+        "requires_approval": settings.REGISTRATION_REQUIRES_APPROVAL,
+        "invite_code_required": bool(settings.REGISTRATION_INVITE_CODE.strip()),
+        "default_role": settings.effective_registered_user_role,
+    }
+
+
+async def register_user(
+    db: AsyncSession,
+    data: RegisterRequest,
+) -> RegisterResponse:
+    if not settings.PUBLIC_REGISTRATION_ENABLED:
+        raise RegistrationDisabledError("Public registration is currently disabled.")
+
+    configured_invite = settings.REGISTRATION_INVITE_CODE.strip()
+    if configured_invite and data.invite_code != configured_invite:
+        raise RegistrationInviteError("Registration invite code is invalid.")
+
+    username = data.username.strip().lower()
+    email = str(data.email).strip().lower()
+    existing = await db.execute(
+        select(User).where((User.email == email) | (User.username == username))
+    )
+    user = existing.scalar_one_or_none()
+    if user is not None:
+        if user.email == email:
+            raise RegistrationConflictError("A user with that email already exists.")
+        raise RegistrationConflictError("A user with that username already exists.")
+
+    role = settings.effective_registered_user_role
+    is_active = not settings.REGISTRATION_REQUIRES_APPROVAL
+    registered = User(
+        username=username,
+        email=email,
+        hashed_password=hash_password(data.password),
+        role=role,
+        is_active=is_active,
+    )
+    db.add(registered)
+    await db.flush()
+    await db.refresh(registered)
+    status: Literal["active", "pending"] = (
+        "active" if registered.is_active else "pending"
+    )
+    message = (
+        "Account created. You can sign in now."
+        if registered.is_active
+        else "Account created and pending administrator approval."
+    )
+    return RegisterResponse(
+        id=registered.id,
+        username=registered.username,
+        email=registered.email,
+        role=registered.role,
+        is_active=registered.is_active,
+        account_status=status,
+        message=message,
+    )

@@ -59,10 +59,25 @@ and apply `alembic upgrade head` before changing code.
 ## Login Problems
 
 - Wrong credentials should show `Invalid username or password.`
+- Public registration is disabled by default; disabled registration should show
+  a clean message instead of a raw endpoint error.
+- Pending or disabled accounts cannot access protected areas. Existing admin
+  bootstrap accounts should remain active.
+- Invite codes are backend-only secrets and should never be displayed in the UI
+  or logs.
 - Session expiry should redirect to login.
 - Backend `401` responses outside login usually mean the access token expired
   or was cleared.
 - Do not expose request IDs in the normal login card.
+
+## Deployment Preflight
+
+- Use `DEPLOYMENT_PREFLIGHT.md` before pointing the platform at a hosted
+  PostgreSQL database or public domain.
+- Supabase is supported as hosted PostgreSQL only. Do not expose `DATABASE_URL`
+  to the frontend and do not enable Supabase Auth for this architecture.
+- For domain setup, align `FRONTEND_URL`, `BACKEND_CORS_ORIGINS`, and
+  `VITE_API_BASE_URL` exactly.
 
 ## Report Issues
 

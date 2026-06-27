@@ -6,12 +6,16 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 EnvironmentName = Literal["development", "staging", "production"]
+RegisteredUserRole = Literal["viewer", "analyst"]
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "RavenTech OSINT"
     APP_VERSION: str = "5.0.0-rc1"
-    APP_RELEASE_CHANNEL: str = "release-candidate"
+    APP_RELEASE_CHANNEL: str = Field(
+        default="release-candidate",
+        validation_alias=AliasChoices("APP_RELEASE_CHANNEL", "RELEASE_CHANNEL"),
+    )
     APP_BUILD_DATE: str = "local"
     APP_GIT_COMMIT: str = ""
     APP_SECRET_KEY: str = Field(
@@ -23,7 +27,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     APP_ALLOWED_ORIGINS: str = Field(
         default="http://localhost:5173",
-        validation_alias=AliasChoices("APP_ALLOWED_ORIGINS", "CORS_ORIGINS"),
+        validation_alias=AliasChoices(
+            "APP_ALLOWED_ORIGINS",
+            "CORS_ORIGINS",
+            "BACKEND_CORS_ORIGINS",
+        ),
     )
     MAX_REQUEST_BODY_BYTES: int = 2_000_000
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -60,6 +68,10 @@ class Settings(BaseSettings):
     REPORT_PRIMARY_COLOR: str = "#7C3AED"
     REPORT_SECONDARY_COLOR: str = "#111827"
     ENABLE_DEMO_MODE: bool = False
+    PUBLIC_REGISTRATION_ENABLED: bool = False
+    REGISTRATION_REQUIRES_APPROVAL: bool = True
+    REGISTRATION_INVITE_CODE: str = Field(default="", exclude=True)
+    DEFAULT_REGISTERED_USER_ROLE: RegisteredUserRole = "viewer"
 
     SHODAN_API_KEY: str = ""
     VT_API_KEY: str = ""
@@ -155,6 +167,11 @@ class Settings(BaseSettings):
             warnings.append(
                 "ENABLE_DEMO_MODE is ignored in production; demo data remains disabled."
             )
+        if self.is_production and self.PUBLIC_REGISTRATION_ENABLED:
+            warnings.append(
+                "PUBLIC_REGISTRATION_ENABLED is true in production; verify invite "
+                "and approval policy before exposing the service."
+            )
         return warnings
 
     def validate_for_startup(self) -> None:
@@ -162,6 +179,12 @@ class Settings(BaseSettings):
         if errors:
             joined = " ".join(errors)
             raise RuntimeError(f"Invalid application configuration. {joined}")
+
+    @property
+    def effective_registered_user_role(self) -> str:
+        # Platform users currently support admin/analyst. Public registration never
+        # creates admins; viewer access is represented at investigation membership.
+        return "analyst"
 
     model_config = SettingsConfigDict(
         env_file=".env",

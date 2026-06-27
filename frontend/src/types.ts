@@ -45,6 +45,31 @@ export interface UserProfile {
   last_login: string | null;
 }
 
+export interface RegistrationPolicyResponse {
+  public_registration_enabled: boolean;
+  requires_approval: boolean;
+  invite_code_required: boolean;
+  default_role: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  full_name?: string;
+  invite_code?: string;
+}
+
+export interface RegisterResponse {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  account_status: "active" | "pending";
+  message: string;
+}
+
 export interface AuditLogEntry {
   id: number;
   actor_id: string | null;

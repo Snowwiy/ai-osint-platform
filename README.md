@@ -25,6 +25,7 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - FastAPI backend with async SQLAlchemy, Alembic, PostgreSQL, Redis, and Celery
 - React/Vite/TypeScript frontend with a RavenTech dark analyst workspace
 - JWT authentication, RBAC, investigation membership, and admin controls
+- Config-gated user registration with approval and invite-code controls
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -91,6 +92,13 @@ npm run dev
 
 `npm run dev` must be run from the `frontend/` directory.
 
+Public registration is disabled by default. To enable it in a local or staging
+environment, review `PUBLIC_REGISTRATION_ENABLED`,
+`REGISTRATION_REQUIRES_APPROVAL`, `REGISTRATION_INVITE_CODE`, and
+`DEFAULT_REGISTERED_USER_ROLE` in `.env.example`. Public registration never
+creates admin users; continue using the admin bootstrap workflow for platform
+administrators.
+
 ## Validation Commands
 
 ```powershell
@@ -130,6 +138,10 @@ recommended screenshots.
 
 For release packaging, see [RELEASE_NOTES_RC1.md](RELEASE_NOTES_RC1.md) and
 [RELEASE_CANDIDATE_CHECKLIST.md](RELEASE_CANDIDATE_CHECKLIST.md).
+
+For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
+planning, and registration controls, see
+[DEPLOYMENT_PREFLIGHT.md](DEPLOYMENT_PREFLIGHT.md).
 
 ## Screenshot Placeholders
 
