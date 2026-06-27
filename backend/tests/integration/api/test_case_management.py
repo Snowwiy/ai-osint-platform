@@ -19,18 +19,18 @@ async def test_workflow_transition_validation(
     invalid = await client.put(
         f"/api/v1/investigations/{test_investigation.id}",
         headers=analyst_headers,
-        json={"status": "remediated"},
+        json={"status": "completed"},
     )
     valid = await client.put(
         f"/api/v1/investigations/{test_investigation.id}",
         headers=analyst_headers,
-        json={"status": "review"},
+        json={"status": "monitoring"},
     )
 
     assert invalid.status_code == 409
     assert "Invalid workflow transition" in invalid.json()["detail"]
     assert valid.status_code == 200
-    assert valid.json()["status"] == "review"
+    assert valid.json()["status"] == "monitoring"
 
 
 async def test_notes_crud_and_sanitization(

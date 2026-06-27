@@ -8,6 +8,7 @@ import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
+  ApiError,
   addInvestigationMember,
   listInvestigationMembers,
   removeInvestigationMember,
@@ -46,7 +47,7 @@ export function MembersPage(): JSX.Element {
     onError: (error) => {
       setToast({
         kind: "error",
-        message: error instanceof Error ? error.message : "Unable to add member.",
+        message: memberErrorMessage(error, "add"),
       });
     },
   });
@@ -71,8 +72,7 @@ export function MembersPage(): JSX.Element {
     onError: (error) => {
       setToast({
         kind: "error",
-        message:
-          error instanceof Error ? error.message : "Unable to update member role.",
+        message: memberErrorMessage(error, "update"),
       });
     },
   });
@@ -86,7 +86,7 @@ export function MembersPage(): JSX.Element {
     onError: (error) => {
       setToast({
         kind: "error",
-        message: error instanceof Error ? error.message : "Unable to remove member.",
+        message: memberErrorMessage(error, "remove"),
       });
     },
   });
@@ -95,7 +95,15 @@ export function MembersPage(): JSX.Element {
     return <LoadingBlock label="Loading members" />;
   }
   if (members.isError) {
-    return <ErrorBlock message={members.error.message} />;
+    return (
+      <ErrorBlock
+        message={
+          members.error instanceof ApiError && members.error.status === 403
+            ? "You do not have permission to view investigation members."
+            : "Members could not be loaded. Refresh the page or confirm your investigation access."
+        }
+      />
+    );
   }
 
   return (
@@ -119,6 +127,20 @@ export function MembersPage(): JSX.Element {
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
 
+      <RoleSummary />
+      {!canManage ? (
+        <details className="mb-5 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+          <summary className="cursor-pointer text-sm font-medium text-raven-cyan">
+            Why can&apos;t I do this?
+          </summary>
+          <p className="mt-3 text-sm leading-6 text-raven-muted">
+            Membership changes affect investigation governance. Only the case
+            owner or a platform administrator can invite users, change roles, or
+            transfer ownership.
+          </p>
+        </details>
+      ) : null}
+
       {members.data?.length ? (
         <div className="space-y-3">
           {members.data.map((member) => (
@@ -138,6 +160,9 @@ export function MembersPage(): JSX.Element {
                   </div>
                   <h2 className="mt-3 font-semibold">{member.username}</h2>
                   <p className="mt-1 text-sm text-raven-muted">{member.email}</p>
+                  <p className="mt-2 max-w-2xl text-sm text-raven-muted">
+                    {rolePermissionHint(member.role)}
+                  </p>
                   <div className="mt-3 grid gap-2 text-xs text-raven-muted">
                     <LongValue label="User ID" value={member.user_id} maxLength={48} />
                     <LongValue
@@ -145,7 +170,13 @@ export function MembersPage(): JSX.Element {
                       value={member.id}
                       maxLength={48}
                     />
-                    <span>Joined {new Date(member.created_at).toLocaleString()}</span>
+                    <span>Joined {formatMembershipDate(member.created_at)}</span>
+                    <span>
+                      Last activity{" "}
+                      {member.last_activity_at
+                        ? formatMembershipDate(member.last_activity_at)
+                        : "No recorded case activity"}
+                    </span>
                     {member.invited_by ? (
                       <LongValue
                         label="Invited by"
@@ -207,13 +238,22 @@ export function MembersPage(): JSX.Element {
           ))}
         </div>
       ) : (
-        <EmptyBlock message="No members are visible for this investigation." />
+        <EmptyBlock
+          title="No case members visible"
+          message="Members define who can view, contribute to, or manage this authorized investigation."
+          nextStep="Ask the case owner to add an existing user by username or email."
+          permission="Only owners or platform administrators can manage membership."
+        />
       )}
 
       {showAdd ? (
         <AddMemberModal
           isSaving={addMutation.isPending}
-          error={addMutation.error?.message}
+          error={
+            addMutation.error
+              ? memberErrorMessage(addMutation.error, "add")
+              : undefined
+          }
           onClose={() => {
             addMutation.reset();
             setShowAdd(false);
@@ -222,6 +262,39 @@ export function MembersPage(): JSX.Element {
         />
       ) : null}
     </>
+  );
+}
+
+function RoleSummary(): JSX.Element {
+  const summaries: Array<{
+    role: InvestigationMemberRole;
+    description: string;
+  }> = [
+    { role: "viewer", description: "Read-only investigation visibility." },
+    {
+      role: "analyst",
+      description: "Findings, remediation, reports, notes, and passive recon.",
+    },
+    {
+      role: "admin",
+      description: "Case resource and workspace administration.",
+    },
+    { role: "owner", description: "Governance control and ownership transfer." },
+  ];
+  return (
+    <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {summaries.map((item) => (
+        <article
+          key={item.role}
+          className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"
+        >
+          <RoleBadge role={item.role} />
+          <p className="mt-3 text-sm leading-6 text-raven-muted">
+            {item.description}
+          </p>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -247,12 +320,25 @@ function AddMemberModal({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (!lookup.trim()) {
-      setValidationError("Enter a username, email, or user UUID.");
+    const clean = lookup.trim();
+    if (!clean) {
+      setValidationError("Enter the existing user's username or email.");
+      return;
+    }
+    if (clean.includes("@") && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      setValidationError("Enter a valid email address.");
+      return;
+    }
+    if (!clean.includes("@") && !isUuid(clean) && clean.length < 2) {
+      setValidationError("Usernames must contain at least two characters.");
+      return;
+    }
+    if (!clean.includes("@") && !isUuid(clean) && /\s/.test(clean)) {
+      setValidationError("Usernames cannot contain spaces.");
       return;
     }
     setValidationError(null);
-    onSubmit({ lookup: lookup.trim(), role });
+    onSubmit({ lookup: clean, role });
   }
 
   return (
@@ -279,13 +365,13 @@ function AddMemberModal({
         </div>
 
         <label className="mt-5 block text-sm text-raven-muted" htmlFor="member">
-          User
+          Username or email
         </label>
         <input
           id="member"
           value={lookup}
           onChange={(event) => setLookup(event.target.value)}
-          placeholder="analyst@example.com, username, or UUID"
+          placeholder="analyst@example.com or analyst_username"
           className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
         />
 
@@ -300,10 +386,13 @@ function AddMemberModal({
         >
           {roles.map((item) => (
             <option key={item} value={item}>
-              {roleDescription(item)}
+              {item}
             </option>
           ))}
         </select>
+        <p className="mt-2 text-sm leading-6 text-raven-muted">
+          {rolePermissionHint(role)}
+        </p>
 
         {validationError ?? error ? (
           <div className="mt-4 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
@@ -322,7 +411,7 @@ function AddMemberModal({
           </button>
           <button
             type="submit"
-            disabled={isSaving}
+            disabled={isSaving || lookup.trim().length < 2}
             className="rounded-md bg-raven-violet px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-60"
           >
             {isSaving ? "Adding" : "Add member"}
@@ -393,12 +482,12 @@ function RoleBadge({ role }: { role: InvestigationMemberRole }): JSX.Element {
   );
 }
 
-function roleDescription(role: InvestigationMemberRole): string {
+function rolePermissionHint(role: InvestigationMemberRole): string {
   const descriptions: Record<InvestigationMemberRole, string> = {
-    owner: "owner - full case control",
-    admin: "admin - manage case resources",
-    analyst: "analyst - contribute and run recon",
-    viewer: "viewer - read only",
+    owner: "Full case control, including members, ownership, archive, and restore.",
+    admin: "Can manage case resources, targets, recon, findings, notes, and tasks.",
+    analyst: "Can contribute analysis, run approved recon, and manage assigned work.",
+    viewer: "Read-only access. Cannot change investigation data or run actions.",
   };
   return descriptions[role];
 }
@@ -407,6 +496,37 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   );
+}
+
+function formatMembershipDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function memberErrorMessage(
+  error: unknown,
+  action: "add" | "update" | "remove",
+): string {
+  if (error instanceof ApiError) {
+    if (action === "add" && error.status === 404) {
+      return "No RavenTech user matches that username or email.";
+    }
+    if (action === "add" && error.status === 409) {
+      return "This user is already a member of the investigation.";
+    }
+    if (error.status === 403) {
+      return "Only the case owner or a platform administrator can manage members.";
+    }
+    if (error.status === 400 || error.status === 422) {
+      return "Review the user and role, then try again.";
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return `Unable to ${action} this member.`;
 }
 
 async function invalidateMembers(

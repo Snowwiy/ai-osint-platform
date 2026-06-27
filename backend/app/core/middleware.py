@@ -5,6 +5,8 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -15,6 +17,8 @@ from app.core.errors import error_payload
 from app.core.logging import reset_request_id, set_request_id
 from app.core.security import decode_token
 from app.db.session import AsyncSessionLocal
+from app.models.investigation import Investigation
+from app.models.user import User
 from app.services.audit import record_event
 
 logger = logging.getLogger(__name__)
@@ -140,6 +144,12 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
 
         try:
             async with AsyncSessionLocal() as db:
+                user_id = await _existing_uuid(db, User, user_id)
+                investigation_id = await _existing_uuid(
+                    db,
+                    Investigation,
+                    investigation_id,
+                )
                 await record_event(
                     db,
                     action=action,
@@ -162,6 +172,17 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 request.method,
                 request.url.path,
             )
+
+
+async def _existing_uuid(
+    db: AsyncSession,
+    model: type[User] | type[Investigation],
+    value: uuid.UUID | None,
+) -> uuid.UUID | None:
+    if value is None:
+        return None
+    result = await db.execute(select(model.id).where(model.id == value))
+    return value if result.scalar_one_or_none() is not None else None
 
 
 def _should_audit(request: Request, status_code: int) -> bool:

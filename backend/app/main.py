@@ -11,7 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import select, text
 from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
@@ -25,6 +25,8 @@ from app.core.middleware import (
 )
 from app.core.rate_limit import limiter
 from app.db.session import AsyncSessionLocal
+from app.models.user import User
+from app.services.demo import set_demo_workspace_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     for warning in settings.startup_warnings():
         logger.warning("configuration warning: %s", warning)
     await _connect_database()
+    await _bootstrap_demo_mode()
     app.state.redis = await _connect_redis()
     yield
     await app.state.redis.aclose()
@@ -45,7 +48,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="RavenTech OSINT Platform",
         description="Authorized, defensive digital footprint analysis.",
-        version="1.0.0",
+        version=settings.APP_VERSION,
         docs_url="/docs" if not settings.is_production else None,
         redoc_url="/redoc" if not settings.is_production else None,
         openapi_url="/openapi.json" if not settings.is_production else None,
@@ -73,12 +76,24 @@ def create_app() -> FastAPI:
         request: Request,
         exc: HTTPException,
     ) -> JSONResponse:
+        detail_code = (
+            exc.detail.get("code")
+            if isinstance(exc.detail, dict)
+            and isinstance(exc.detail.get("code"), str)
+            else None
+        )
+        detail_message = (
+            exc.detail.get("message")
+            if isinstance(exc.detail, dict)
+            and isinstance(exc.detail.get("message"), str)
+            else None
+        )
         return JSONResponse(
             status_code=exc.status_code,
             headers=exc.headers,
             content=error_payload(
-                code=_error_code(exc.status_code),
-                message=_error_message(exc.status_code),
+                code=detail_code or _error_code(exc.status_code),
+                message=detail_message or _error_message(exc.status_code),
                 detail=exc.detail,
                 request=request,
             ),
@@ -169,6 +184,32 @@ async def _connect_database() -> None:
                 break
             await _sleep(settings.DATABASE_CONNECT_RETRY_SECONDS)
     raise RuntimeError("Unable to connect to PostgreSQL during startup") from last_error
+
+
+async def _bootstrap_demo_mode() -> None:
+    if not settings.ENABLE_DEMO_MODE or settings.is_production:
+        return
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(User)
+                .where(User.role == "admin", User.is_active.is_(True))
+                .order_by(User.created_at.asc())
+                .limit(1)
+            )
+            admin = result.scalar_one_or_none()
+            if admin is None:
+                logger.warning(
+                    "Demo mode is enabled but no active admin can own demo data."
+                )
+                return
+            await set_demo_workspace_enabled(db, admin, enabled=True)
+            await db.commit()
+            logger.info("Defensive demo workspace is ready.")
+    except Exception:
+        logger.exception(
+            "Demo mode is enabled, but the demo workspace could not be prepared."
+        )
 
 
 async def _sleep(seconds: float) -> None:

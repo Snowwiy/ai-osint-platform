@@ -62,6 +62,15 @@ class Finding(Base):
             ")",
             name="ck_findings_remediation_status",
         ),
+        CheckConstraint(
+            "validation_status IN ("
+            "'not_validated', 'validation_pending', 'validated', "
+            "'validation_failed', 'accepted_risk'"
+            ")",
+            name="ck_findings_validation_status",
+        ),
+        Index("idx_findings_validation_status", "validation_status"),
+        Index("idx_findings_validation_owner", "validation_owner"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -170,6 +179,18 @@ class Finding(Base):
         nullable=True,
     )
     validation_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    validation_status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="not_validated",
+        server_default="not_validated",
+    )
+    validation_owner: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    validation_failure_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
     evidence_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_history: Mapped[list[dict[str, Any]]] = mapped_column(

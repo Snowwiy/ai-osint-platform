@@ -16,8 +16,8 @@ class Investigation(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint(
             "status IN ("
-            "'draft', 'active', 'triage', 'monitoring', 'remediation', "
-            "'validated', 'archived', 'review', 'remediated'"
+            "'intake', 'active', 'monitoring', 'remediation', "
+            "'validation', 'completed', 'archived'"
             ")",
             name="ck_investigations_status",
         ),
@@ -33,6 +33,14 @@ class Investigation(Base, TimestampMixin):
             "priority IN ('low', 'medium', 'high', 'urgent')",
             name="ck_investigations_priority",
         ),
+        CheckConstraint(
+            "stage IN ("
+            "'intake', 'scoping', 'recon', 'analysis', 'remediation', "
+            "'validation', 'reporting', 'completed', 'archived'"
+            ")",
+            name="ck_investigations_stage",
+        ),
+        Index("idx_investigations_stage", "stage"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -56,8 +64,14 @@ class Investigation(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default="active",
-        server_default="active",
+        default="intake",
+        server_default="intake",
+    )
+    stage: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="intake",
+        server_default="intake",
     )
     authorization_statement: Mapped[str] = mapped_column(Text, nullable=False)
     scope_definition: Mapped[str | None] = mapped_column(Text, nullable=True)

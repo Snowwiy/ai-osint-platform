@@ -35,6 +35,9 @@ async def record_event(
                 "audit.record_event skipped because audit_logs is not migrated"
             )
             return
+        policy_key = _audit_policy_key(action)
+        if policy_key is not None and not await _audit_policy_enabled(db, policy_key):
+            return
         effective_actor_id = actor_id or user_id
         event_metadata = metadata if metadata is not None else details or {}
         db.add(
@@ -171,3 +174,43 @@ async def _audit_schema_available(db: AsyncSession) -> bool:
         await db.rollback()
         return False
     return int(result.scalar_one()) == 4
+
+
+def _audit_policy_key(action: str) -> str | None:
+    if action in {"auth.login.success", "auth.logout"}:
+        return "audit_login_events"
+    if action == "report.downloaded":
+        return "audit_report_downloads"
+    if action == "recon.executed":
+        return "audit_recon_runs"
+    if action.startswith("investigation.member_") or action in {
+        "investigation.owner_transferred",
+        "investigation.owner_changed",
+    }:
+        return "audit_member_changes"
+    if action in {"data.exported", "audit.exported"}:
+        return "audit_data_exports"
+    return None
+
+
+async def _audit_policy_enabled(db: AsyncSession, policy_key: str) -> bool:
+    table_exists = await db.execute(
+        text("SELECT to_regclass('admin_settings') IS NOT NULL")
+    )
+    if not bool(table_exists.scalar_one()):
+        return True
+    result = await db.execute(
+        text(
+            """
+            SELECT COALESCE(
+                (audit_policy ->> :policy_key)::boolean,
+                true
+            )
+            FROM admin_settings
+            LIMIT 1
+            """
+        ),
+        {"policy_key": policy_key},
+    )
+    value = result.scalar_one_or_none()
+    return True if value is None else bool(value)

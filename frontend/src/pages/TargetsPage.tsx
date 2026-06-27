@@ -141,7 +141,7 @@ export function TargetsPage(): JSX.Element {
     return <LoadingBlock label="Loading targets" />;
   }
   if (error) {
-    return <ErrorBlock message={error.message} />;
+    return <ErrorBlock message={error} />;
   }
 
   return (
@@ -299,7 +299,12 @@ export function TargetsPage(): JSX.Element {
               })}
             </div>
           ) : (
-            <EmptyBlock message="No targets are stored yet. Add a domain, IP, or URL to run passive recon." />
+            <EmptyBlock
+              title="No authorized targets"
+              message="Targets identify the domain, IP address, or URL included in this investigation."
+              nextStep="Add a domain, IP, or URL that you are authorized to assess."
+              permission="Viewers cannot add targets or run passive recon."
+            />
           )}
         </section>
       </div>
@@ -488,7 +493,9 @@ function groupEntities(
   }
   return Array.from(groups.entries())
     .map(([entityType, items]) => ({ entityType, items }))
-    .sort((left, right) => left.entityType.localeCompare(right.entityType));
+    .sort((left, right) =>
+      String(left.entityType ?? "").localeCompare(String(right.entityType ?? "")),
+    );
 }
 
 function uniqueErrors(errors: ReconError[]): ReconError[] {

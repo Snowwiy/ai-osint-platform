@@ -1,9 +1,11 @@
 import {
+  Archive,
   Ban,
   BookOpenCheck,
   CheckCircle2,
   CircleDot,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +19,7 @@ import {
   listInvestigationMembers,
   listPlaybookRuns,
   updatePlaybookRun,
+  updatePlaybookRunArchive,
   updatePlaybookRunStep,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
@@ -40,9 +43,10 @@ export function PlaybooksPage(): JSX.Element {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const runs = useQuery({
-    queryKey: ["playbook-runs", investigationId],
-    queryFn: () => listPlaybookRuns(investigationId),
+    queryKey: ["playbook-runs", investigationId, showArchived],
+    queryFn: () => listPlaybookRuns(investigationId, showArchived),
   });
   const members = useQuery({
     queryKey: ["members", investigationId],
@@ -108,17 +112,49 @@ export function PlaybooksPage(): JSX.Element {
       });
     },
   });
+  const archiveMutation = useMutation({
+    mutationFn: ({ runId, archived }: { runId: string; archived: boolean }) =>
+      updatePlaybookRunArchive(runId, archived),
+    onSuccess: async (_run, variables) => {
+      await invalidatePlaybooks(queryClient, investigationId);
+      setToast({
+        kind: "success",
+        message: variables.archived
+          ? "Playbook run archived."
+          : "Playbook run restored.",
+      });
+    },
+    onError: (error) => {
+      setToast({ kind: "error", message: error.message });
+    },
+  });
 
   if (runs.isLoading) {
     return <LoadingBlock label="Loading defensive playbooks" />;
   }
   if (runs.isError) {
-    return <ErrorBlock message={runs.error.message} />;
+    return <ErrorBlock message={runs.error} />;
   }
 
   return (
     <>
-      <PageHeader title="Playbooks" eyebrow="Defensive remediation workflow" />
+      <PageHeader
+        title="Playbooks"
+        eyebrow="Defensive remediation workflow"
+        actions={
+          user?.role === "admin" ? (
+            <label className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+                className="accent-violet-500"
+              />
+              Show archived
+            </label>
+          ) : null
+        }
+      />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
 
@@ -130,7 +166,14 @@ export function PlaybooksPage(): JSX.Element {
               run={run}
               canUpdate={canUpdate}
               canCancel={canCancel}
-              isUpdating={runMutation.isPending || stepMutation.isPending}
+              isUpdating={
+                runMutation.isPending ||
+                stepMutation.isPending ||
+                archiveMutation.isPending
+              }
+              onArchive={(archived) =>
+                archiveMutation.mutate({ runId: run.id, archived })
+              }
               onRunStatus={(status) =>
                 runMutation.mutate({ runId: run.id, status })
               }
@@ -146,7 +189,12 @@ export function PlaybooksPage(): JSX.Element {
           ))}
         </div>
       ) : (
-        <EmptyBlock message="No playbook runs are active. Open a finding to review deterministic defensive playbook recommendations." />
+        <EmptyBlock
+          title="No defensive playbook runs"
+          message="Playbooks provide analyst-approved guidance for evidence validation and remediation."
+          nextStep="Open an evidence-backed finding to review recommended defensive playbooks."
+          permission="Viewers can inspect runs but cannot start or update thee."
+        />
       )}
     </>
   );
@@ -158,6 +206,7 @@ function PlaybookRunCard({
   canCancel,
   isUpdating,
   onRunStatus,
+  onArchive,
   onStepStatus,
 }: {
   run: PlaybookRun;
@@ -165,6 +214,7 @@ function PlaybookRunCard({
   canCancel: boolean;
   isUpdating: boolean;
   onRunStatus: (status: PlaybookRunStatus) => void;
+  onArchive: (archived: boolean) => void;
   onStepStatus: (
     step: PlaybookRunStep,
     status: PlaybookRunStepStatus,
@@ -186,6 +236,11 @@ function PlaybookRunCard({
             <BookOpenCheck className="h-5 w-5 text-raven-cyan" aria-hidden="true" />
             <h2 className="font-semibold">{run.playbook_name}</h2>
             <WorkflowBadge value={run.status} />
+            {run.archived_at ? (
+              <span className="rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
+                archived
+              </span>
+            ) : null}
           </div>
           <p className="mt-2 text-sm text-raven-muted">
             Finding: {run.finding_title}
@@ -195,9 +250,10 @@ function PlaybookRunCard({
             <LongValue label="Finding ID" value={run.finding_id} maxLength={52} />
           </div>
         </div>
-        {canUpdate && !["completed", "cancelled"].includes(run.status) ? (
+        {canUpdate && !run.archived_at ? (
           <div className="flex flex-wrap gap-2">
-            {run.status !== "in_progress" ? (
+            {!["completed", "cancelled"].includes(run.status) &&
+            run.status !== "in_progress" ? (
               <button
                 type="button"
                 disabled={isUpdating}
@@ -207,7 +263,8 @@ function PlaybookRunCard({
                 Continue
               </button>
             ) : null}
-            {run.status !== "blocked" ? (
+            {!["completed", "cancelled"].includes(run.status) &&
+            run.status !== "blocked" ? (
               <button
                 type="button"
                 disabled={isUpdating}
@@ -217,7 +274,7 @@ function PlaybookRunCard({
                 Block
               </button>
             ) : null}
-            {canCancel ? (
+            {canCancel && !["completed", "cancelled"].includes(run.status) ? (
               <button
                 type="button"
                 disabled={isUpdating}
@@ -228,7 +285,28 @@ function PlaybookRunCard({
                 Cancel
               </button>
             ) : null}
+            {canCancel ? (
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => onArchive(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted hover:text-raven-text disabled:opacity-50"
+              >
+                <Archive className="h-4 w-4" aria-hidden="true" />
+                Archive
+              </button>
+            ) : null}
           </div>
+        ) : canCancel && run.archived_at ? (
+          <button
+            type="button"
+            disabled={isUpdating}
+            onClick={() => onArchive(false)}
+            className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm hover:border-raven-violet disabled:opacity-50"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            Restore
+          </button>
         ) : null}
       </div>
 
@@ -253,7 +331,9 @@ function PlaybookRunCard({
             key={step.id}
             step={step}
             canUpdate={
-              canUpdate && !["completed", "cancelled"].includes(run.status)
+              canUpdate &&
+              !run.archived_at &&
+              !["completed", "cancelled"].includes(run.status)
             }
             isUpdating={isUpdating}
             onUpdate={(status, note) => onStepStatus(step, status, note)}

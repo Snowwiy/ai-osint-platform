@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.config import settings
 from app.models.investigation import Investigation
 from app.models.recon_entity import ReconEntity
 from app.models.threat_finding import ThreatFinding
@@ -96,10 +97,13 @@ async def test_admin_can_access_any_investigation_threat_intel(
 
 
 async def test_missing_api_keys_return_provider_unavailable(
+    monkeypatch,
     client: AsyncClient,
     analyst_headers: dict[str, str],
     test_investigation,
 ) -> None:
+    monkeypatch.setattr(settings, "VT_API_KEY", "")
+
     response = await client.post(
         "/api/v1/threat-intel/domain",
         headers=analyst_headers,

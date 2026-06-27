@@ -13,7 +13,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TIMESTAMP
+from sqlalchemy.dialects.postgresql import ARRAY, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,10 +25,15 @@ class InvestigationNote(Base):
     __table_args__ = (
         CheckConstraint(
             "note_type IN ("
-            "'analyst_note', 'evidence_note', 'remediation_note', "
-            "'executive_note', 'timeline_note'"
+            "'analyst_note', 'triage_note', 'remediation_note', "
+            "'escalation_note', 'validation_note', 'closure_note', "
+            "'evidence_note', 'executive_note', 'timeline_note'"
             ")",
             name="ck_investigation_notes_type",
+        ),
+        CheckConstraint(
+            "visibility IN ('investigation', 'owners')",
+            name="ck_investigation_notes_visibility",
         ),
         Index("idx_investigation_notes_investigation", "investigation_id"),
         Index("idx_investigation_notes_created_by", "created_by"),
@@ -76,6 +81,18 @@ class InvestigationNote(Base):
         nullable=False,
         default=False,
         server_default=text("false"),
+    )
+    visibility: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="investigation",
+        server_default="investigation",
+    )
+    references: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        nullable=False,
+        default=list,
+        server_default=text("'{}'::text[]"),
     )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),

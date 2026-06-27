@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.analysis import (
     AnalysisFrameworkMapping,
+    AnalysisProviderDiagnostics,
     AnalysisRecommendation,
     AnalysisResponse,
     CitedAnalysisText,
@@ -252,6 +253,7 @@ def _response_from_llm(
         framework_mappings=_merge_frameworks(llm_frameworks, framework_mappings),
         citations=citations_from_items(all_items),
         errors=[],
+        provider_diagnostics=_provider_diagnostics(completion),
     )
 
 
@@ -304,6 +306,18 @@ def _fallback_response(
         framework_mappings=framework_mappings,
         citations=citations_from_items(all_items),
         errors=[completion.error] if completion.error else [],
+        provider_diagnostics=_provider_diagnostics(completion),
+    )
+
+
+def _provider_diagnostics(
+    completion: ProviderCompletion,
+) -> AnalysisProviderDiagnostics:
+    return AnalysisProviderDiagnostics(
+        provider_configured=completion.status != "provider_unavailable",
+        model=completion.model,
+        feature_enabled=True,
+        last_error_category=completion.error_category,
     )
 
 

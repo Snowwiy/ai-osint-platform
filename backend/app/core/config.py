@@ -9,6 +9,11 @@ EnvironmentName = Literal["development", "staging", "production"]
 
 
 class Settings(BaseSettings):
+    APP_NAME: str = "RavenTech OSINT"
+    APP_VERSION: str = "5.0.0-rc1"
+    APP_RELEASE_CHANNEL: str = "release-candidate"
+    APP_BUILD_DATE: str = "local"
+    APP_GIT_COMMIT: str = ""
     APP_SECRET_KEY: str = Field(
         default="dev-only-change-me-raventech-secret-key",
         validation_alias=AliasChoices("APP_SECRET_KEY", "SECRET_KEY"),
@@ -46,7 +51,7 @@ class Settings(BaseSettings):
     CHROMA_DATA_PATH: str = "/data/chroma"
 
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     OPENAI_API_KEY: str = ""
     OBSIDIAN_WIKI_PATH: str = ""
 
@@ -54,6 +59,7 @@ class Settings(BaseSettings):
     REPORT_LOGO_PATH: str = ""
     REPORT_PRIMARY_COLOR: str = "#7C3AED"
     REPORT_SECONDARY_COLOR: str = "#111827"
+    ENABLE_DEMO_MODE: bool = False
 
     SHODAN_API_KEY: str = ""
     VT_API_KEY: str = ""
@@ -132,13 +138,23 @@ class Settings(BaseSettings):
     def startup_warnings(self) -> list[str]:
         warnings: list[str] = []
         if not self.is_production and self.APP_SECRET_KEY.startswith("dev-"):
-            warnings.append("Using development SECRET_KEY; do not use this in production.")
+            warnings.append(
+                "Using development SECRET_KEY; do not use this in production."
+            )
         if self.is_staging and self.debug_enabled:
             warnings.append("Staging should not run with debug behavior enabled.")
         if not self.ANTHROPIC_API_KEY:
-            warnings.append("ANTHROPIC_API_KEY is empty; AI analysis returns fallback status.")
+            warnings.append(
+                "ANTHROPIC_API_KEY is empty; AI analysis returns fallback status."
+            )
         if not self.REPORT_LOGO_PATH:
-            warnings.append("REPORT_LOGO_PATH is empty; report exports use text branding.")
+            warnings.append(
+                "REPORT_LOGO_PATH is empty; report exports use text branding."
+            )
+        if self.is_production and self.ENABLE_DEMO_MODE:
+            warnings.append(
+                "ENABLE_DEMO_MODE is ignored in production; demo data remains disabled."
+            )
         return warnings
 
     def validate_for_startup(self) -> None:

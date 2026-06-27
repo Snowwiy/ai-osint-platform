@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
+from app.models.investigation import Investigation
+from app.models.investigation_member import InvestigationMember
 from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
 from app.models.report import Report
@@ -20,6 +24,10 @@ from app.schemas.correlation import (
     CorrelationNode,
     CorrelationResponse,
     CorrelationType,
+    CrossInvestigationCorrelationResponse,
+    CrossInvestigationOccurrence,
+    CrossInvestigationSignal,
+    CrossInvestigationSignalType,
 )
 from app.schemas.recon import JsonProperties
 from app.services.investigation import get_investigation
@@ -45,6 +53,167 @@ async def get_investigation_correlations(
     builder = _CorrelationBuilder(dataset)
     response = builder.build(investigation_id)
     return response
+
+
+async def get_cross_investigation_correlations(
+    db: AsyncSession,
+    user: User,
+    *,
+    signal_type: CrossInvestigationSignalType | None = None,
+    top_k: int = 100,
+) -> CrossInvestigationCorrelationResponse:
+    investigations = await _accessible_investigations(db, user)
+    investigation_ids = [item.id for item in investigations]
+    titles = {item.id: item.title for item in investigations}
+    if not investigation_ids:
+        return CrossInvestigationCorrelationResponse(
+            generated_at=datetime.now(UTC),
+            total_signals=0,
+            signals=[],
+        )
+    entity_result = await db.execute(
+        select(ReconEntity).where(
+            ReconEntity.investigation_id.in_(investigation_ids)
+        )
+    )
+    finding_result = await db.execute(
+        select(Finding).where(Finding.investigation_id.in_(investigation_ids))
+    )
+    entities = list(entity_result.scalars().all())
+    findings = list(finding_result.scalars().all())
+    evidence: list[FindingEvidence] = []
+    if findings:
+        evidence_result = await db.execute(
+            select(FindingEvidence).where(
+                FindingEvidence.finding_id.in_([item.id for item in findings])
+            )
+        )
+        evidence = list(evidence_result.scalars().all())
+    findings_by_id = {item.id: item for item in findings}
+    occurrences: defaultdict[
+        tuple[CrossInvestigationSignalType, str],
+        dict[uuid.UUID, CrossInvestigationOccurrence],
+    ] = defaultdict(dict)
+
+    def add(
+        kind: CrossInvestigationSignalType,
+        value: str,
+        investigation_id: uuid.UUID,
+        resource_id: uuid.UUID | None,
+    ) -> None:
+        clean = re.sub(r"\s+", " ", value).strip()
+        if not clean or (signal_type is not None and kind != signal_type):
+            return
+        occurrences[(kind, clean.lower())][investigation_id] = (
+            CrossInvestigationOccurrence(
+                investigation_id=investigation_id,
+                investigation_title=titles[investigation_id],
+                resource_id=resource_id,
+            )
+        )
+
+    entity_kinds: dict[str, CrossInvestigationSignalType] = {
+        "Domain": "domain",
+        "Subdomain": "subdomain",
+        "IPAddress": "ip",
+        "Technology": "technology",
+    }
+    for entity in entities:
+        kind = entity_kinds.get(entity.entity_type)
+        if kind is not None:
+            add(kind, entity.value, entity.investigation_id, entity.id)
+        for technology in _technologies_from_entity(entity):
+            add(
+                "technology",
+                technology,
+                entity.investigation_id,
+                entity.id,
+            )
+    for finding in findings:
+        add("finding", finding.title, finding.investigation_id, finding.id)
+        for framework in _finding_frameworks(finding):
+            add("framework", framework, finding.investigation_id, finding.id)
+    for item in evidence:
+        evidence_finding = findings_by_id.get(item.finding_id)
+        if evidence_finding is not None:
+            add(
+                "evidence",
+                f"{item.source}: {item.description}",
+                evidence_finding.investigation_id,
+                item.id,
+            )
+
+    signals = [
+        CrossInvestigationSignal(
+            signal_type=kind,
+            value=_display_signal_value(kind, key, items),
+            investigation_count=len(items),
+            confidence=_confidence_from_count(len(items)),
+            investigations=sorted(
+                items.values(),
+                key=lambda item: (
+                    item.investigation_title.lower(),
+                    str(item.investigation_id),
+                ),
+            ),
+        )
+        for (kind, key), items in occurrences.items()
+        if len(items) >= 2
+    ]
+    signals.sort(
+        key=lambda item: (
+            -item.investigation_count,
+            item.signal_type,
+            item.value.lower(),
+        )
+    )
+    selected = signals[:top_k]
+    return CrossInvestigationCorrelationResponse(
+        generated_at=datetime.now(UTC),
+        total_signals=len(signals),
+        signals=selected,
+    )
+
+
+async def _accessible_investigations(
+    db: AsyncSession,
+    user: User,
+) -> list[Investigation]:
+    statement = select(Investigation)
+    if user.role != "admin":
+        statement = statement.join(
+            InvestigationMember,
+            InvestigationMember.investigation_id == Investigation.id,
+        ).where(InvestigationMember.user_id == user.id)
+    result = await db.execute(statement)
+    return list(result.scalars().unique().all())
+
+
+def _finding_frameworks(finding: Finding) -> list[str]:
+    values: list[str] = []
+    for key in ("frameworks", "framework_mappings"):
+        raw = finding.normalized_data.get(key)
+        if isinstance(raw, str) and raw.strip():
+            values.append(raw.strip())
+        elif isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, str) and item.strip():
+                    values.append(item.strip())
+                elif isinstance(item, dict):
+                    framework = item.get("framework")
+                    if isinstance(framework, str) and framework.strip():
+                        values.append(framework.strip())
+    return list(dict.fromkeys(values))
+
+
+def _display_signal_value(
+    kind: CrossInvestigationSignalType,
+    normalized_value: str,
+    items: dict[uuid.UUID, CrossInvestigationOccurrence],
+) -> str:
+    if kind == "evidence":
+        return normalized_value[:240]
+    return normalized_value
 
 
 async def _load_dataset(

@@ -3,15 +3,19 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import UTC, date, datetime
-from typing import cast
+from typing import Literal, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.investigation import Investigation
+from app.models.investigation_enrichment import InvestigationEnrichment
+from app.models.investigation_member import InvestigationMember
+from app.models.investigation_note import InvestigationNote
 from app.models.investigation_tag import InvestigationTag, InvestigationTagLink
+from app.models.investigation_task import InvestigationTask
 from app.models.playbook import PlaybookRun
 from app.models.recon_entity import ReconEntity
 from app.models.report import Report
@@ -29,7 +33,12 @@ from app.schemas.productivity import (
     RemediationProgress,
     SummaryFinding,
 )
-from app.schemas.investigation import InvestigationPriority
+from app.schemas.investigation import (
+    InvestigationPriority,
+    InvestigationReadinessResponse,
+    InvestigationStage,
+    ReadinessComponent,
+)
 from app.services.audit import record_event
 from app.services.investigation import (
     CASE_ADMIN_ROLES,
@@ -50,6 +59,18 @@ class ProductivityValidationError(Exception):
 
 class BookmarkAlreadyExistsError(ProductivityValidationError):
     pass
+
+
+_READINESS_SIGNALS: tuple[tuple[str, str, int], ...] = (
+    ("targets", "Authorized targets", 10),
+    ("recon", "Passive recon evidence", 15),
+    ("findings", "Evidence-backed findings", 15),
+    ("remediation", "Remediation workflow", 15),
+    ("notes", "Analyst notes", 10),
+    ("bookmarks", "Bookmarked evidence", 10),
+    ("reports", "Generated reports", 15),
+    ("analyst", "Assigned analyst", 10),
+)
 
 
 async def list_bookmarks(
@@ -368,6 +389,168 @@ async def generate_investigation_summary(
     return response
 
 
+async def get_investigation_readiness(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+) -> InvestigationReadinessResponse:
+    investigation = await get_investigation(db, user, investigation_id)
+    counts = {
+        "targets": await _count(
+            db,
+            select(func.count())
+            .select_from(Target)
+            .where(Target.investigation_id == investigation_id),
+        ),
+        "recon": await _count(
+            db,
+            select(func.count())
+            .select_from(InvestigationEnrichment)
+            .where(
+                InvestigationEnrichment.investigation_id == investigation_id,
+                InvestigationEnrichment.status.in_(("completed", "partial")),
+            ),
+        ),
+        "findings": await _count(
+            db,
+            select(func.count())
+            .select_from(Finding)
+            .where(Finding.investigation_id == investigation_id),
+        ),
+        "remediation": await _count(
+            db,
+            select(func.count())
+            .select_from(InvestigationTask)
+            .where(
+                InvestigationTask.investigation_id == investigation_id,
+                InvestigationTask.archived_at.is_(None),
+            ),
+        ),
+        "notes": await _count(
+            db,
+            select(func.count())
+            .select_from(InvestigationNote)
+            .where(
+                InvestigationNote.investigation_id == investigation_id,
+                InvestigationNote.archived.is_(False),
+            ),
+        ),
+        "bookmarks": await _count(
+            db,
+            select(func.count())
+            .select_from(EvidenceBookmark)
+            .where(EvidenceBookmark.investigation_id == investigation_id),
+        ),
+        "reports": await _count(
+            db,
+            select(func.count())
+            .select_from(Report)
+            .where(
+                Report.investigation_id == investigation_id,
+                Report.status.in_(("ready", "archived")),
+            ),
+        ),
+        "analyst": await _count(
+            db,
+            select(func.count())
+            .select_from(InvestigationMember)
+            .where(
+                InvestigationMember.investigation_id == investigation_id,
+                InvestigationMember.role.in_(("admin", "analyst")),
+            ),
+        ),
+    }
+    if investigation.reviewer_id is not None:
+        counts["analyst"] = max(1, counts["analyst"])
+    if counts["recon"] == 0:
+        counts["recon"] = await _count(
+            db,
+            select(func.count())
+            .select_from(ReconEntity)
+            .where(ReconEntity.investigation_id == investigation_id),
+        )
+
+    components = [
+        ReadinessComponent(
+            key=key,
+            label=label,
+            points=max_points if counts[key] > 0 else 0,
+            max_points=max_points,
+            complete=counts[key] > 0,
+            detail=_readiness_detail(key, counts[key]),
+        )
+        for key, label, max_points in _READINESS_SIGNALS
+    ]
+    score = sum(component.points for component in components)
+    return InvestigationReadinessResponse(
+        investigation_id=investigation_id,
+        score=score,
+        category=_readiness_category(score),
+        stage=cast(InvestigationStage, investigation.stage),
+        components=components,
+        guidance=_readiness_guidance(counts),
+        generated_at=datetime.now(UTC),
+    )
+
+
+async def _count(db: AsyncSession, statement: Select[tuple[int]]) -> int:
+    result = await db.execute(statement)
+    return int(result.scalar_one())
+
+
+def _readiness_category(
+    score: int,
+) -> Literal[
+    "Not Started",
+    "Scoping",
+    "Evidence Collection",
+    "Analysis Ready",
+    "Reporting Ready",
+]:
+    if score <= 20:
+        return "Not Started"
+    if score <= 40:
+        return "Scoping"
+    if score <= 60:
+        return "Evidence Collection"
+    if score <= 80:
+        return "Analysis Ready"
+    return "Reporting Ready"
+
+
+def _readiness_detail(key: str, count: int) -> str:
+    labels = {
+        "targets": "authorized targets",
+        "recon": "stored recon runs or entities",
+        "findings": "stored findings",
+        "remediation": "active remediation tasks",
+        "notes": "active analyst notes",
+        "bookmarks": "evidence bookmarks",
+        "reports": "ready reports",
+        "analyst": "assigned analysts",
+    }
+    return f"{count} {labels[key]}"
+
+
+def _readiness_guidance(counts: dict[str, int]) -> list[str]:
+    guidance: list[str] = []
+    if counts["targets"] == 0:
+        guidance.append("Add an authorized target first.")
+    if counts["recon"] == 0:
+        guidance.append("Run passive recon to gather defensive evidence.")
+    if counts["findings"] == 0:
+        guidance.append("Generate findings after evidence exists.")
+    if counts["remediation"] == 0:
+        guidance.append("Create remediation tasks for unresolved risk.")
+    if counts["reports"] == 0:
+        guidance.append("Generate a report to summarize investigation outcomes.")
+    if not guidance:
+        guidance.append(
+            "Continue analyst review and preserve current evidence and decisions."
+        )
+    return guidance
+
+
 async def _validate_bookmark_reference(
     db: AsyncSession,
     investigation_id: uuid.UUID,
@@ -452,7 +635,10 @@ async def _playbook_runs(
 ) -> list[PlaybookRun]:
     result = await db.execute(
         select(PlaybookRun)
-        .where(PlaybookRun.investigation_id == investigation_id)
+        .where(
+            PlaybookRun.investigation_id == investigation_id,
+            PlaybookRun.archived_at.is_(None),
+        )
         .order_by(PlaybookRun.created_at.desc())
     )
     return list(result.scalars().all())

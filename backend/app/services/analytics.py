@@ -71,15 +71,13 @@ _STATUSES: tuple[FindingStatus, ...] = (
     "resolved",
 )
 _INVESTIGATION_STATUSES: tuple[InvestigationWorkflowStatus, ...] = (
-    "draft",
+    "intake",
     "active",
-    "triage",
     "monitoring",
     "remediation",
-    "validated",
+    "validation",
+    "completed",
     "archived",
-    "review",
-    "remediated",
 )
 _SEVERITY_RANK: dict[FindingSeverity, int] = {
     "critical": 5,
@@ -343,7 +341,8 @@ async def _load_tasks(
         return []
     result = await db.execute(
         select(InvestigationTask).where(
-            InvestigationTask.investigation_id.in_(investigation_ids)
+            InvestigationTask.investigation_id.in_(investigation_ids),
+            InvestigationTask.archived_at.is_(None),
         )
     )
     return list(result.scalars().all())
@@ -410,8 +409,14 @@ def _build_investigation_summary(
         counts[status] += 1
     return InvestigationDashboardSummary(
         total=len(investigations),
-        active=counts["active"] + counts["triage"] + counts["monitoring"],
-        closed=counts["validated"] + counts["archived"] + counts["remediated"],
+        active=(
+            counts["intake"]
+            + counts["active"]
+            + counts["monitoring"]
+            + counts["remediation"]
+            + counts["validation"]
+        ),
+        closed=counts["completed"] + counts["archived"],
         by_status=counts,
     )
 
@@ -773,4 +778,4 @@ _OPEN_STATUSES: set[FindingStatus] = {
     "accepted_risk",
     "open",
 }
-_CLOSED_TASK_STATUSES = {"completed", "cancelled"}
+_CLOSED_TASK_STATUSES = {"completed"}

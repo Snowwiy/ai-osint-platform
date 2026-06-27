@@ -19,8 +19,12 @@ import type { InvestigationNote, NoteType } from "../types";
 
 const noteTypes: NoteType[] = [
   "analyst_note",
-  "evidence_note",
+  "triage_note",
   "remediation_note",
+  "escalation_note",
+  "validation_note",
+  "closure_note",
+  "evidence_note",
   "executive_note",
   "timeline_note",
 ];
@@ -100,8 +104,9 @@ export function NotesPage(): JSX.Element {
     return <LoadingBlock label="Loading notes" />;
   }
   if (notes.isError) {
-    return <ErrorBlock message={notes.error.message} />;
+    return <ErrorBlock message={notes.error} />;
   }
+  const noteItems = notes.data?.items ?? [];
 
   return (
     <>
@@ -160,9 +165,9 @@ export function NotesPage(): JSX.Element {
         </label>
       </section>
 
-      {notes.data?.items.length ? (
+      {noteItems.length ? (
         <div className="grid gap-4 xl:grid-cols-2">
-          {notes.data.items.map((note) => (
+          {noteItems.map((note) => (
             <article
               key={note.id}
               className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"
@@ -182,6 +187,9 @@ export function NotesPage(): JSX.Element {
                       Archived
                     </span>
                   ) : null}
+                  <span className="ml-2 rounded border border-raven-border px-2 py-1 text-xs capitalize text-raven-muted">
+                    {note.visibility}
+                  </span>
                   <h2 className="mt-3 font-semibold">{note.title}</h2>
                   <p className="mt-1 text-xs text-raven-muted">
                     Updated {new Date(note.updated_at).toLocaleString()}
@@ -225,11 +233,33 @@ export function NotesPage(): JSX.Element {
                 ) : null}
               </div>
               <MarkdownPreview value={note.content} />
+              {note.references.length ? (
+                <div className="mt-4 border-t border-raven-border pt-3">
+                  <p className="text-xs uppercase tracking-wide text-raven-muted">
+                    References
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {note.references.map((reference) => (
+                      <span
+                        key={reference}
+                        className="max-w-full break-all rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan"
+                      >
+                        {reference}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>
       ) : (
-        <EmptyBlock message="No analyst notes are stored yet. Add notes for evidence, recommendations, executive context, or remediation tracking." />
+        <EmptyBlock
+          title="No analyst notes"
+          message="Notes preserve evidence context, recommendations, executive observations, and remediation decisions."
+          nextStep="Create a note to document the next analyst action or important context."
+          permission="Contributors can create notes; viewers have read-only access."
+        />
       )}
 
       {isCreating ? (
@@ -266,6 +296,8 @@ interface NoteFormValues {
   content: string;
   note_type: NoteType;
   pinned?: boolean;
+  visibility?: "investigation" | "owners";
+  references?: string[];
 }
 
 function NoteModal({
@@ -289,6 +321,12 @@ function NoteModal({
     note?.note_type ?? "analyst_note",
   );
   const [pinned, setPinned] = useState(note?.pinned ?? false);
+  const [visibility, setVisibility] = useState<"investigation" | "owners">(
+    note?.visibility ?? "investigation",
+  );
+  const [references, setReferences] = useState(
+    note?.references.join("\n") ?? "",
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -303,6 +341,11 @@ function NoteModal({
       content: body.trim(),
       note_type: noteType,
       pinned,
+      visibility,
+      references: references
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
     });
   }
 
@@ -369,6 +412,33 @@ function NoteModal({
           />
           Pin this note
         </label>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block text-sm text-raven-muted">
+            Visibility
+            <select
+              value={visibility}
+              onChange={(event) =>
+                setVisibility(
+                  event.target.value as "investigation" | "owners",
+                )
+              }
+              className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text"
+            >
+              <option value="investigation">Investigation members</option>
+              <option value="owners">Owners and admins</option>
+            </select>
+          </label>
+          <label className="block text-sm text-raven-muted">
+            References
+            <textarea
+              value={references}
+              onChange={(event) => setReferences(event.target.value)}
+              rows={4}
+              placeholder="One evidence, finding, task, or report reference per line"
+              className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text"
+            />
+          </label>
+        </div>
 
         {validationError ?? error ? (
           <div className="mt-4 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">

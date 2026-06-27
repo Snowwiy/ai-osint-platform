@@ -1,4 +1,5 @@
 import {
+  ArchiveRestore,
   CalendarDays,
   Pencil,
   ShieldAlert,
@@ -21,6 +22,7 @@ import {
   type InvestigationEditValues,
 } from "../components/InvestigationEditModal";
 import { PageHeader } from "../components/PageHeader";
+import { PurgeInvestigationModal } from "../components/PurgeInvestigationModal";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { StatusBadge } from "../components/StatusBadge";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -32,6 +34,8 @@ import {
   listInvestigationsWithScope,
   listTags,
   listTargets,
+  purgeInvestigation,
+  restoreInvestigation,
   updateInvestigation,
 } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
@@ -41,6 +45,7 @@ export function InvestigationsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
   const [editing, setEditing] = useState<Investigation | null>(null);
   const [deleting, setDeleting] = useState<Investigation | null>(null);
+  const [purging, setPurging] = useState<Investigation | null>(null);
   const [scope, setScope] = useState("all");
   const [selectedTag, setSelectedTag] = useState("all");
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -56,10 +61,12 @@ export function InvestigationsPage(): JSX.Element {
     queryKey: ["tags"],
     queryFn: listTags,
   });
+  const investigationItems = investigations.data?.items ?? [];
+  const availableTagItems = availableTags.data?.items ?? [];
   const scopedInvestigations =
-    investigations.data?.items.filter(
+    investigationItems.filter(
       (item) => scope === "archived" || item.status !== "archived",
-    ) ?? [];
+    );
   const investigationTags = useQueries({
     queries: scopedInvestigations.map((item) => ({
       queryKey: ["investigation-tags", item.id],
@@ -69,7 +76,7 @@ export function InvestigationsPage(): JSX.Element {
   const tagIdsByInvestigation = new Map(
     scopedInvestigations.map((item, index) => [
       item.id,
-      investigationTags[index]?.data?.items.map((tag) => tag.id) ?? [],
+      (investigationTags[index]?.data?.items ?? []).map((tag) => tag.id),
     ]),
   );
   const visibleInvestigations = scopedInvestigations.filter(
@@ -118,7 +125,7 @@ export function InvestigationsPage(): JSX.Element {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["investigations"] });
       setDeleting(null);
-      setToast({ kind: "success", message: "Investigation deleted." });
+      setToast({ kind: "success", message: "Investigation archived." });
     },
     onError: (error) => {
       setToast({
@@ -126,7 +133,45 @@ export function InvestigationsPage(): JSX.Element {
         message:
           error instanceof Error
             ? error.message
-            : "Unable to delete investigation.",
+            : "Unable to archive investigation.",
+      });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: restoreInvestigation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["investigations"] });
+      setToast({ kind: "success", message: "Investigation restored." });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to restore investigation.",
+      });
+    },
+  });
+  const purgeMutation = useMutation({
+    mutationFn: purgeInvestigation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["investigations"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-executive"] });
+      setPurging(null);
+      setToast({
+        kind: "success",
+        message: "Archived investigation permanently deleted.",
+      });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to permanently delete investigation.",
       });
     },
   });
@@ -135,7 +180,7 @@ export function InvestigationsPage(): JSX.Element {
     return <LoadingBlock label="Loading investigations" />;
   }
   if (investigations.isError) {
-    return <ErrorBlock message={investigations.error.message} />;
+    return <ErrorBlock message={investigations.error} />;
   }
 
   return (
@@ -188,7 +233,7 @@ export function InvestigationsPage(): JSX.Element {
             className="bg-transparent text-raven-text outline-none"
           >
             <option value="all">All tags</option>
-            {availableTags.data?.items.map((tag) => (
+            {availableTagItems.map((tag) => (
               <option key={tag.id} value={tag.id}>
                 {tag.name}
               </option>
@@ -219,12 +264,19 @@ export function InvestigationsPage(): JSX.Element {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <Link
-                      to={`/investigations/${item.id}`}
-                      className="font-semibold text-raven-text hover:text-raven-cyan"
-                    >
-                      {item.title}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        to={`/investigations/${item.id}`}
+                        className="font-semibold text-raven-text hover:text-raven-cyan"
+                      >
+                        {item.title}
+                      </Link>
+                      {item.title.startsWith("[DEMO]") ? (
+                        <span className="rounded border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-100">
+                          Synthetic demo
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-2 line-clamp-2 text-sm text-raven-muted">
                       {item.description ??
                         item.scope_definition ??
@@ -278,37 +330,83 @@ export function InvestigationsPage(): JSX.Element {
                   </p>
                   {canManage ? (
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateMutation.reset();
-                          setEditing(item);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-1.5 text-sm text-raven-text hover:border-raven-violet"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          deleteMutation.reset();
-                          setDeleting(item);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete
-                      </button>
+                      {item.status === "archived" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => restoreMutation.mutate(item.id)}
+                            disabled={
+                              restoreMutation.isPending || purgeMutation.isPending
+                            }
+                            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 px-3 py-1.5 text-sm text-emerald-100 hover:bg-emerald-500/10 disabled:opacity-60"
+                          >
+                            <ArchiveRestore
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                            Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              purgeMutation.reset();
+                              setPurging(item);
+                            }}
+                            disabled={
+                              restoreMutation.isPending || purgeMutation.isPending
+                            }
+                            className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10 disabled:opacity-60"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Delete permanently
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateMutation.reset();
+                              setEditing(item);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-1.5 text-sm text-raven-text hover:border-raven-violet"
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deleteMutation.reset();
+                              setDeleting(item);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Archive
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : null}
                 </div>
+                {item.status === "archived" ? (
+                  <p className="mt-3 text-xs leading-5 text-raven-muted">
+                    Preserved by data governance. Restore to resume work, or use
+                    permanent deletion only when allowed by governance policy.
+                  </p>
+                ) : null}
               </article>
             );
           })}
         </div>
       ) : (
-        <EmptyBlock message="No active investigations are available for this account." />
+        <EmptyBlock
+          title="No investigations yet"
+          message="Investigations define an authorized defensive assessment scope and preserve its evidence, findings, and analyst workflow."
+          nextStep="Create an investigation to define scope and authorization."
+          permission="Analysts and administrators can create investigations."
+        />
       )}
       {isCreating ? (
         <NewInvestigationModal onClose={() => setIsCreating(false)} />
@@ -337,6 +435,18 @@ export function InvestigationsPage(): JSX.Element {
             setDeleting(null);
           }}
           onConfirm={() => deleteMutation.mutate(deleting.id)}
+        />
+      ) : null}
+      {purging ? (
+        <PurgeInvestigationModal
+          investigation={purging}
+          error={purgeMutation.error?.message}
+          isPurging={purgeMutation.isPending}
+          onClose={() => {
+            purgeMutation.reset();
+            setPurging(null);
+          }}
+          onConfirm={() => purgeMutation.mutate(purging.id)}
         />
       ) : null}
     </>

@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, require_feature
 from app.models.user import User
 from app.schemas.playbook import (
     DefensivePlaybookResponse,
@@ -35,7 +35,10 @@ from app.services.playbook import (
     update_playbook_run_step,
 )
 
-router = APIRouter(tags=["playbooks"])
+router = APIRouter(
+    tags=["playbooks"],
+    dependencies=[Depends(require_feature("enable_playbooks"))],
+)
 
 
 @router.get("/playbooks", response_model=list[DefensivePlaybookResponse])
@@ -104,11 +107,17 @@ async def start_playbook_endpoint(
 )
 async def list_playbook_runs_endpoint(
     investigation_id: uuid.UUID,
+    include_archived: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[PlaybookRunResponse]:
     try:
-        return await list_playbook_runs(db, current_user, investigation_id)
+        return await list_playbook_runs(
+            db,
+            current_user,
+            investigation_id,
+            include_archived=include_archived,
+        )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
 

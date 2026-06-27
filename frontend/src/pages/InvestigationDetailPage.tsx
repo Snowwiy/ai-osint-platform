@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   FileText,
   GitGraph,
+  Gauge,
+  ArchiveRestore,
   ListTodo,
   Network,
   Pencil,
@@ -15,9 +17,11 @@ import {
   Tags,
   Target,
   Trash2,
+  UserPlus,
+  Wrench,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { DeleteInvestigationModal } from "../components/DeleteInvestigationModal";
@@ -26,18 +30,27 @@ import {
   type InvestigationEditValues,
 } from "../components/InvestigationEditModal";
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { OperationalCoordinationPanel } from "../components/OperationalCoordinationPanel";
 import { PageHeader } from "../components/PageHeader";
+import { PurgeInvestigationModal } from "../components/PurgeInvestigationModal";
 import { StatCard } from "../components/StatCard";
 import { ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { StatusBadge } from "../components/StatusBadge";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
   deleteInvestigation,
+  closeCase,
+  decideCaseReview,
   generateInvestigationSummary,
   getCorrelations,
+  getExecutiveInvestigationSummary,
   getInvestigation,
   getInvestigationAnalytics,
   getInvestigationGraph,
+  getInvestigationReadiness,
+  getInvestigationRiskScore,
+  getCaseReview,
+  getEvidenceCompleteness,
   getInvestigationTags,
   getTimeline,
   listFindings,
@@ -49,19 +62,30 @@ import {
   listTags,
   listTargets,
   listTasks,
+  purgeInvestigation,
+  restoreInvestigation,
+  submitCaseReview,
   updateInvestigation,
   updateInvestigationPriority,
+  updateInvestigationStage,
   updateInvestigationTags,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { rememberInvestigation } from "../lib/recentInvestigations";
 import { useAuth } from "../lib/useAuth";
 import type {
   CountItem,
+  CaseReviewResponse,
+  EvidenceCompletenessResponse,
+  ExecutiveInvestigationSummaryResponse,
   Finding,
   Investigation,
   InvestigationAnalyticsResponse,
   InvestigationNote,
   InvestigationPriority,
+  InvestigationReadinessResponse,
+  InvestigationRiskScoreResponse,
+  InvestigationStage,
   InvestigationSummaryResponse,
   InvestigationTag,
   InvestigationStatus,
@@ -77,6 +101,7 @@ export function InvestigationDetailPage(): JSX.Element {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const investigation = useQuery({
@@ -94,6 +119,18 @@ export function InvestigationDetailPage(): JSX.Element {
   const analytics = useQuery({
     queryKey: ["investigation-analytics", investigationId],
     queryFn: () => getInvestigationAnalytics(investigationId),
+  });
+  const readiness = useQuery({
+    queryKey: ["investigation-readiness", investigationId],
+    queryFn: () => getInvestigationReadiness(investigationId),
+  });
+  const executiveSummary = useQuery({
+    queryKey: ["executive-summary", investigationId],
+    queryFn: () => getExecutiveInvestigationSummary(investigationId),
+  });
+  const riskScore = useQuery({
+    queryKey: ["investigation-risk-score", investigationId],
+    queryFn: () => getInvestigationRiskScore(investigationId),
   });
   const findings = useQuery({
     queryKey: ["findings", investigationId],
@@ -134,6 +171,14 @@ export function InvestigationDetailPage(): JSX.Element {
   const tags = useQuery({
     queryKey: ["investigation-tags", investigationId],
     queryFn: () => getInvestigationTags(investigationId),
+  });
+  const caseReview = useQuery({
+    queryKey: ["case-review", investigationId],
+    queryFn: () => getCaseReview(investigationId),
+  });
+  const completeness = useQuery({
+    queryKey: ["evidence-completeness", investigationId],
+    queryFn: () => getEvidenceCompleteness(investigationId),
   });
   const availableTags = useQuery({
     queryKey: ["tags"],
@@ -181,9 +226,61 @@ export function InvestigationDetailPage(): JSX.Element {
         state: {
           toast: {
             kind: "success",
-            message: "Investigation deleted.",
+            message: "Investigation archived.",
           } satisfies ToastState,
         },
+      });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: () => restoreInvestigation(investigationId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["investigation", investigationId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["investigations"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] }),
+        queryClient.invalidateQueries({ queryKey: ["timeline", investigationId] }),
+      ]);
+      setToast({ kind: "success", message: "Investigation restored." });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to restore investigation.",
+      });
+    },
+  });
+  const purgeMutation = useMutation({
+    mutationFn: () => purgeInvestigation(investigationId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["investigations"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-analytics"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-executive"] }),
+      ]);
+      navigate("/investigations", {
+        replace: true,
+        state: {
+          toast: {
+            kind: "success",
+            message: "Archived investigation permanently deleted.",
+          } satisfies ToastState,
+        },
+      });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to permanently delete investigation.",
       });
     },
   });
@@ -233,18 +330,90 @@ export function InvestigationDetailPage(): JSX.Element {
       setToast({ kind: "error", message: error.message });
     },
   });
+  const stageMutation = useMutation({
+    mutationFn: ({
+      stage,
+      reason,
+    }: {
+      stage: InvestigationStage;
+      reason: string;
+    }) => updateInvestigationStage(investigationId, stage, reason),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["investigation", investigationId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["investigation-readiness", investigationId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["timeline", investigationId] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-highlights"] }),
+      ]);
+      setToast({ kind: "success", message: "Investigation stage updated." });
+    },
+    onError: (error) => {
+      setToast({ kind: "error", message: error.message });
+    },
+  });
+  const reviewMutation = useMutation({
+    mutationFn: async (action: {
+      kind: "submit" | "approve" | "reject" | "request_changes" | "close";
+      notes?: string;
+      overrideReason?: string | null;
+    }) => {
+      if (action.kind === "submit") {
+        return submitCaseReview(investigationId, action.notes);
+      }
+      if (action.kind === "close") {
+        return closeCase(investigationId, {
+          closure_reason: action.notes ?? "Case closure approved.",
+          override_reason: action.overrideReason ?? null,
+        });
+      }
+      const decision = (
+        action.kind === "request_changes" ? "request_changes" : action.kind
+      ) as "approve" | "reject" | "request_changes";
+      return decideCaseReview(investigationId, {
+        decision,
+        notes: action.notes ?? "Reviewed in case workflow.",
+      });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["case-review", investigationId] }),
+        queryClient.invalidateQueries({
+          queryKey: ["evidence-completeness", investigationId],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["timeline", investigationId] }),
+        queryClient.invalidateQueries({ queryKey: ["review-board"] }),
+        queryClient.invalidateQueries({ queryKey: ["investigation", investigationId] }),
+      ]);
+      setToast({ kind: "success", message: "Case review workflow updated." });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to update case review workflow.",
+      });
+    },
+  });
+  useEffect(() => {
+    if (investigation.data) {
+      rememberInvestigation(investigation.data);
+    }
+  }, [investigation.data]);
 
   if (investigation.isLoading) {
     return <LoadingBlock label="Loading investigation" />;
   }
   if (investigation.isError) {
-    return <ErrorBlock message={investigation.error.message} />;
+    return <ErrorBlock message={investigation.error} />;
   }
 
   const item = investigation.data;
-  if (item?.status === "archived") {
-    return <Navigate to="/investigations" replace />;
-  }
   const currentMember = members.data?.find((member) => member.user_id === user?.id);
   const canManage = item
     ? canManageInvestigation(
@@ -254,6 +423,8 @@ export function InvestigationDetailPage(): JSX.Element {
         currentMember?.role,
       )
     : false;
+  const canSubmitReview =
+    canManage || currentMember?.role === "analyst" || user?.role === "admin";
   return (
     <>
       <PageHeader
@@ -262,33 +433,68 @@ export function InvestigationDetailPage(): JSX.Element {
         actions={
           canManage ? (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  updateMutation.reset();
-                  setIsEditing(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  deleteMutation.reset();
-                  setIsDeleting(true);
-                }}
-                className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-2 text-sm text-rose-100 hover:bg-rose-500/10"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Delete
-              </button>
+              {item?.status === "archived" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => restoreMutation.mutate()}
+                    disabled={restoreMutation.isPending || purgeMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/10 disabled:opacity-60"
+                  >
+                    <ArchiveRestore className="h-4 w-4" aria-hidden="true" />
+                    {restoreMutation.isPending ? "Restoring" : "Restore"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      purgeMutation.reset();
+                      setIsPurging(true);
+                    }}
+                    disabled={restoreMutation.isPending || purgeMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-2 text-sm text-rose-100 hover:bg-rose-500/10 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Delete permanently
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateMutation.reset();
+                      setIsEditing(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      deleteMutation.reset();
+                      setIsDeleting(true);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-2 text-sm text-rose-100 hover:bg-rose-500/10"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Archive
+                  </button>
+                </>
+              )}
             </>
           ) : null
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      {item?.status === "archived" ? (
+        <div className="mb-5 rounded-lg border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+          This investigation is archived and preserved by the configured retention
+          policy. Restore it before making case changes, or permanently delete it
+          if governance policy allows removal.
+        </div>
+      ) : null}
       <InvestigationTabs />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <StatCard
@@ -300,7 +506,7 @@ export function InvestigationDetailPage(): JSX.Element {
           label="Entities"
           value={
             analytics.data?.recon_summary.total_entities ??
-            graph.data?.nodes.length ??
+            (graph.data?.nodes ?? []).length ??
             0
           }
           icon={<Network className="h-5 w-5" aria-hidden="true" />}
@@ -337,7 +543,8 @@ export function InvestigationDetailPage(): JSX.Element {
         <StatCard
           label="Open tasks"
           value={
-            tasks.data?.items.filter((task) => !taskClosed(task.status)).length ?? 0
+            (tasks.data?.items ?? []).filter((task) => !taskClosed(task.status))
+              .length
           }
           icon={<ListTodo className="h-5 w-5" aria-hidden="true" />}
         />
@@ -356,16 +563,79 @@ export function InvestigationDetailPage(): JSX.Element {
         />
       </div>
 
+      <CaseReviewPanel
+        review={caseReview.data}
+        completeness={completeness.data}
+        canSubmit={canSubmitReview}
+        canReview={canManage}
+        isSaving={reviewMutation.isPending}
+        onSubmit={() => {
+          const notes = window.prompt("Optional submission notes") ?? undefined;
+          reviewMutation.mutate({ kind: "submit", notes });
+        }}
+        onDecision={(kind) => {
+          const notes = window.prompt("Review notes") ?? "";
+          if (notes.trim()) {
+            reviewMutation.mutate({ kind, notes });
+          }
+        }}
+        onClose={() => {
+          const notes = window.prompt("Closure reason") ?? "";
+          if (notes.trim()) {
+            const overrideReason =
+              caseReview.data?.review_status === "approved"
+                ? null
+                : window.prompt("Override reason required") ?? "";
+            reviewMutation.mutate({
+              kind: "close",
+              notes,
+              overrideReason,
+            });
+          }
+        }}
+      />
+
+      <ExecutiveSummaryPanel
+        summary={executiveSummary.data}
+        risk={riskScore.data}
+        isLoading={executiveSummary.isLoading || riskScore.isLoading}
+        error={executiveSummary.error ?? riskScore.error}
+        onRefresh={() => {
+          void executiveSummary.refetch();
+          void riskScore.refetch();
+        }}
+      />
+
       <AnalyticsOverview
         analytics={analytics}
         onRefresh={() => void analytics.refetch()}
       />
       <CaseWorkflowPanel
-        status={item?.status ?? "draft"}
+        status={item?.status ?? "intake"}
         notes={notes.data?.items ?? []}
         tasks={tasks.data?.items ?? []}
         currentUserId={user?.id}
       />
+      {item ? (
+        <InvestigationMaturityPanel
+          investigation={item}
+          readiness={readiness.data}
+          isLoading={readiness.isLoading}
+          canManage={canManage}
+          isSaving={stageMutation.isPending}
+          onStageChange={(stage, reason) =>
+            stageMutation.mutate({ stage, reason })
+          }
+        />
+      ) : null}
+      {item ? <WorkspaceQuickActions investigationId={item.id} /> : null}
+      {item ? (
+        <OperationalCoordinationPanel
+          investigation={item}
+          currentUserId={user?.id}
+          platformRole={user?.role}
+        />
+      ) : null}
       {item ? (
         <ProductivityWorkspace
           investigation={item}
@@ -409,7 +679,7 @@ export function InvestigationDetailPage(): JSX.Element {
             <div className="flex items-center justify-between gap-4">
               <dt className="text-raven-muted">Status</dt>
               <dd>
-                <StatusBadge status={item?.status ?? "draft"} />
+                <StatusBadge status={item?.status ?? "intake"} />
               </dd>
             </div>
             <Detail
@@ -425,8 +695,9 @@ export function InvestigationDetailPage(): JSX.Element {
             <Detail
               label="Open tasks"
               value={`${
-                tasks.data?.items.filter((task) => !taskClosed(task.status)).length ??
-                0
+                (tasks.data?.items ?? []).filter(
+                  (task) => !taskClosed(task.status),
+                ).length
               }`}
             />
             <Detail
@@ -474,7 +745,214 @@ export function InvestigationDetailPage(): JSX.Element {
           onConfirm={() => deleteMutation.mutate()}
         />
       ) : null}
+      {item && isPurging ? (
+        <PurgeInvestigationModal
+          investigation={item}
+          error={purgeMutation.error?.message}
+          isPurging={purgeMutation.isPending}
+          onClose={() => {
+            purgeMutation.reset();
+            setIsPurging(false);
+          }}
+          onConfirm={() => purgeMutation.mutate()}
+        />
+      ) : null}
     </>
+  );
+}
+
+function ExecutiveSummaryPanel({
+  summary,
+  risk,
+  isLoading,
+  error,
+  onRefresh,
+}: {
+  summary: ExecutiveInvestigationSummaryResponse | undefined;
+  risk: InvestigationRiskScoreResponse | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  onRefresh: () => void;
+}): JSX.Element {
+  if (isLoading) {
+    return (
+      <section className="mt-6">
+        <LoadingBlock label="Building executive intelligence" />
+      </section>
+    );
+  }
+  if (error || !summary || !risk) {
+    return (
+      <section className="mt-6">
+        <ErrorBlock
+          message={error?.message ?? "Executive intelligence is unavailable."}
+        />
+      </section>
+    );
+  }
+  return (
+    <section className="mt-6 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-raven-cyan">
+            Executive intelligence
+          </p>
+          <h2 className="mt-1 text-xl font-semibold">Investigation Summary</h2>
+          <p className="mt-3 max-w-4xl break-words text-sm leading-6 text-raven-muted">
+            {summary.objective}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="rounded-md border border-raven-violet bg-raven-violet/10 px-4 py-3 text-right">
+            <p className="text-3xl font-semibold">{risk.score}/100</p>
+            <p className="text-xs text-violet-100">{risk.category}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="rounded-md border border-raven-border p-2 text-raven-muted hover:text-raven-text"
+            title="Refresh executive intelligence"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+        <ExecutiveTextCard
+          title="Authorized scope"
+          text={summary.authorized_scope}
+        />
+        <ExecutiveTextCard
+          title="Business impact"
+          text={summary.business_impact}
+        />
+        <ExecutiveTextCard
+          title="Remediation urgency"
+          text={summary.remediation_urgency}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-md border border-raven-border bg-raven-panelSoft p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-semibold">Key findings</h3>
+            <span className="text-xs text-raven-muted">
+              Defensive confidence {summary.confidence}%
+            </span>
+          </div>
+          {summary.key_findings.length ? (
+            <div className="mt-3 space-y-3">
+              {summary.key_findings.map((finding) => (
+                <article
+                  key={finding.id}
+                  className="rounded-md border border-raven-border bg-raven-bg/50 p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <p className="min-w-0 break-words text-sm font-medium">
+                      {finding.title}
+                    </p>
+                    <span
+                      className={[
+                        "rounded border px-2 py-1 text-xs capitalize",
+                        severityBadgeClass(finding.severity),
+                      ].join(" ")}
+                    >
+                      {finding.severity}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-raven-muted">
+                    Risk {finding.risk_score}/100 | Confidence{" "}
+                    {finding.confidence_score}%
+                  </p>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-raven-muted">
+              No unresolved evidence-backed findings are stored.
+            </p>
+          )}
+        </div>
+        <div className="space-y-4">
+          <ExecutiveListCard
+            title="Defensive concerns"
+            items={summary.defensive_concerns}
+          />
+          <ExecutiveListCard
+            title="Recurring issues"
+            items={summary.recurring_issues}
+            empty="No recurrence is visible across accessible investigations."
+          />
+          <ExecutiveListCard
+            title="Notable technologies"
+            items={summary.notable_technologies}
+            empty="No technology observations are stored."
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {risk.contributors.map((contributor) => (
+          <div
+            key={contributor.key}
+            className="rounded-md border border-raven-border bg-raven-panelSoft p-3"
+          >
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span>{contributor.label}</span>
+              <span className="text-raven-cyan">
+                {contributor.points}/{contributor.max_points}
+              </span>
+            </div>
+            <p className="mt-2 break-words text-xs leading-5 text-raven-muted">
+              {contributor.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExecutiveTextCard({
+  title,
+  text,
+}: {
+  title: string;
+  text: string;
+}): JSX.Element {
+  return (
+    <div className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-4">
+      <p className="text-xs uppercase tracking-wide text-raven-muted">{title}</p>
+      <p className="mt-2 break-words text-sm leading-6">{text}</p>
+    </div>
+  );
+}
+
+function ExecutiveListCard({
+  title,
+  items,
+  empty = "No elevated concerns are currently established.",
+}: {
+  title: string;
+  items: string[];
+  empty?: string;
+}): JSX.Element {
+  return (
+    <div className="rounded-md border border-raven-border bg-raven-panelSoft p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {items.length ? (
+        <ul className="mt-2 space-y-2 text-sm text-raven-muted">
+          {items.map((item) => (
+            <li key={item} className="break-words">
+              {item}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-raven-muted">{empty}</p>
+      )}
+    </div>
   );
 }
 
@@ -816,7 +1294,7 @@ function AnalyticsOverview({
   if (analytics.isError) {
     return (
       <section className="mt-6">
-        <ErrorBlock message={analytics.error?.message ?? "Analytics failed"} />
+        <ErrorBlock message={analytics.error ?? "Analytics failed"} />
       </section>
     );
   }
@@ -859,11 +1337,11 @@ function AnalyticsOverview({
 
       <div className="grid gap-4 xl:grid-cols-3">
       <div className="rounded-lg border border-raven-border bg-raven-panel/85 p-5">
-        <h2 className="text-lg font-semibold">Risk Overview</h2>
+        <h2 className="text-lg font-semibold">Finding Signal Overview</h2>
         <p className="mt-2 text-sm text-raven-muted">
           {data.risk_summary.risk_score === 0
-            ? "No elevated risk score is available yet."
-            : `${data.risk_summary.risk_level} posture at ${data.risk_summary.risk_score}/100`}
+            ? "No elevated finding signal is currently recorded."
+            : `${data.risk_summary.risk_level} highest stored finding signal at ${data.risk_summary.risk_score}/100`}
         </p>
         <div className="mt-4 grid grid-cols-5 gap-2 text-center text-xs">
           {(["critical", "high", "medium", "low", "info"] as const).map((severity) => (
@@ -1014,6 +1492,220 @@ function LatestActivityList({
   );
 }
 
+const maturityStages: InvestigationStage[] = [
+  "intake",
+  "scoping",
+  "recon",
+  "analysis",
+  "remediation",
+  "validation",
+  "reporting",
+  "completed",
+  "archived",
+];
+
+const allowedStageTransitions: Record<InvestigationStage, InvestigationStage[]> = {
+  intake: ["scoping"],
+  scoping: ["intake", "recon"],
+  recon: ["scoping", "analysis"],
+  analysis: ["recon", "remediation"],
+  remediation: ["analysis", "validation"],
+  validation: ["remediation", "reporting"],
+  reporting: ["validation", "completed"],
+  completed: ["reporting", "archived"],
+  archived: ["completed"],
+};
+
+function InvestigationMaturityPanel({
+  investigation,
+  readiness,
+  isLoading,
+  canManage,
+  isSaving,
+  onStageChange,
+}: {
+  investigation: Investigation;
+  readiness: InvestigationReadinessResponse | undefined;
+  isLoading: boolean;
+  canManage: boolean;
+  isSaving: boolean;
+  onStageChange: (stage: InvestigationStage, reason: string) => void;
+}): JSX.Element {
+  const [nextStage, setNextStage] = useState<InvestigationStage>(
+    allowedStageTransitions[investigation.stage][0] ?? investigation.stage,
+  );
+  const [reason, setReason] = useState("Analyst workflow progression.");
+
+  useEffect(() => {
+    setNextStage(
+      allowedStageTransitions[investigation.stage][0] ?? investigation.stage,
+    );
+  }, [investigation.stage]);
+
+  const activeIndex = maturityStages.indexOf(investigation.stage);
+  return (
+    <section className="mt-6 rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Gauge className="h-5 w-5 text-raven-cyan" aria-hidden="true" />
+            <h2 className="text-lg font-semibold">Investigation readiness</h2>
+            <span className="rounded border border-raven-border px-2 py-1 text-xs capitalize text-raven-muted">
+              {investigation.stage}
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-raven-muted">
+            Deterministic maturity from authorized scope, stored evidence, analyst
+            review, remediation, and reporting.
+          </p>
+        </div>
+        <div className="text-left xl:text-right">
+          <p className="text-3xl font-semibold">
+            {isLoading ? "..." : `${readiness?.score ?? 0}/100`}
+          </p>
+          <p className="text-sm text-raven-cyan">
+            {readiness?.category ?? "Calculating readiness"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-x-auto pb-2">
+        <div className="flex min-w-[820px] items-center gap-2">
+          {maturityStages.map((stage, index) => (
+            <div key={stage} className="flex min-w-0 flex-1 items-center gap-2">
+              <div
+                className={[
+                  "min-w-0 flex-1 rounded-md border px-2 py-2 text-center text-xs capitalize",
+                  index <= activeIndex
+                    ? "border-raven-violet bg-raven-violet/15 text-violet-100"
+                    : "border-raven-border text-raven-muted",
+                ].join(" ")}
+              >
+                {stage}
+              </div>
+              {index < maturityStages.length - 1 ? (
+                <span className="text-raven-muted">›</span>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {readiness ? (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {readiness.components.map((component) => (
+            <div
+              key={component.key}
+              className="rounded-md border border-raven-border bg-raven-panelSoft p-3"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium">{component.label}</p>
+                <span
+                  className={
+                    component.complete ? "text-emerald-200" : "text-raven-muted"
+                  }
+                >
+                  {component.points}/{component.max_points}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-raven-muted">{component.detail}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_0.9fr]">
+        <div className="rounded-md border border-raven-border bg-raven-panelSoft p-4">
+          <h3 className="font-semibold">Workspace guidance</h3>
+          <ul className="mt-3 space-y-2 text-sm text-raven-muted">
+            {(readiness?.guidance ?? ["Readiness guidance is loading."]).map(
+              (item) => (
+                <li key={item}>• {item}</li>
+              ),
+            )}
+          </ul>
+        </div>
+        <div className="rounded-md border border-raven-border bg-raven-panelSoft p-4">
+          <h3 className="font-semibold">Advance lifecycle stage</h3>
+          {canManage ? (
+            <div className="mt-3 grid gap-3">
+              <select
+                value={nextStage}
+                onChange={(event) =>
+                  setNextStage(event.target.value as InvestigationStage)
+                }
+                className="input-base capitalize"
+              >
+                {allowedStageTransitions[investigation.stage].map((stage) => (
+                  <option key={stage} value={stage}>
+                    {stage}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="input-base"
+                placeholder="Reason for stage change"
+              />
+              <button
+                type="button"
+                onClick={() => onStageChange(nextStage, reason.trim())}
+                disabled={isSaving || reason.trim().length < 3}
+                className="rounded-md bg-raven-violet px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                {isSaving ? "Updating" : "Update stage"}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-raven-muted">
+              Only the investigation owner or an administrator can change the
+              maturity stage.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WorkspaceQuickActions({
+  investigationId,
+}: {
+  investigationId: string;
+}): JSX.Element {
+  const actions = [
+    { label: "Create note", to: "notes", icon: StickyNote },
+    { label: "Create finding", to: "findings", icon: ShieldAlert },
+    { label: "Create remediation", to: "tasks", icon: Wrench },
+    { label: "Run passive recon", to: "targets", icon: Target },
+    { label: "Generate report", to: "reports", icon: FileText },
+    { label: "Bookmark evidence", to: "bookmarks", icon: Bookmark },
+    { label: "Assign analyst", to: "members", icon: UserPlus },
+  ];
+  return (
+    <section className="mt-6 rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <h2 className="text-lg font-semibold">Investigation quick actions</h2>
+      <p className="mt-1 text-sm text-raven-muted">
+        Continue the authorized defensive assessment without leaving the case
+        workspace.
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        {actions.map(({ label, to, icon: Icon }) => (
+          <Link
+            key={label}
+            to={`/investigations/${investigationId}/${to}`}
+            className="flex min-h-20 items-center gap-3 rounded-md border border-raven-border bg-raven-panelSoft p-3 text-sm hover:border-raven-violet"
+          >
+            <Icon className="h-4 w-4 shrink-0 text-raven-cyan" aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CaseWorkflowPanel({
   status,
   notes,
@@ -1152,32 +1844,189 @@ function nextRecommendedAction(
   if (!tasks.length) {
     return "Create validation or remediation tasks for the active evidence.";
   }
-  if (status === "draft") {
+  if (status === "intake") {
     return "Move the investigation to active once scope and authorization are ready.";
-  }
-  if (status === "triage") {
-    return "Validate findings, confirm evidence, and prepare remediation decisions.";
   }
   if (status === "remediation") {
     return "Track mitigation work and confirm affected findings are addressed.";
   }
-  if (status === "validated") {
+  if (status === "validation") {
+    return "Validate completed work and preserve final supporting evidence.";
+  }
+  if (status === "completed") {
     return "Archive the case after final evidence and reports are preserved.";
   }
   return "Continue passive review and keep notes, tasks, and evidence current.";
 }
 
+function CaseReviewPanel({
+  review,
+  completeness,
+  canSubmit,
+  canReview,
+  isSaving,
+  onSubmit,
+  onDecision,
+  onClose,
+}: {
+  review: CaseReviewResponse | undefined;
+  completeness: EvidenceCompletenessResponse | undefined;
+  canSubmit: boolean;
+  canReview: boolean;
+  isSaving: boolean;
+  onSubmit: () => void;
+  onDecision: (kind: "approve" | "reject" | "request_changes") => void;
+  onClose: () => void;
+}): JSX.Element {
+  const status = review?.review_status ?? "not_submitted";
+  const score =
+    completeness?.score ?? review?.evidence_completeness_score ?? 0;
+  const label =
+    completeness?.label ?? review?.evidence_completeness_label ?? "incomplete";
+  const checklist = review?.checklist ?? [];
+  return (
+    <section className="mt-6 rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-raven-cyan">
+            Case review workflow
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            Review status: {formatLabel(status)}
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-raven-muted">
+            Formal review is analyst-driven. The checklist and evidence
+            completeness score are deterministic and based on stored case data.
+          </p>
+        </div>
+        <div className="rounded-md border border-raven-violet bg-raven-violet/10 p-4 lg:text-right">
+          <p className="text-3xl font-semibold">{score}/100</p>
+          <p className="mt-1 text-sm capitalize text-violet-100">
+            {formatLabel(label)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {canSubmit || canReview ? (
+          <>
+            {canSubmit ? (
+              <button
+                type="button"
+                onClick={onSubmit}
+                disabled={isSaving || status === "closed"}
+                className="rounded-md bg-raven-violet px-3 py-2 text-sm text-white hover:bg-violet-500 disabled:opacity-60"
+              >
+                Submit for review
+              </button>
+            ) : null}
+            {canReview ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onDecision("approve")}
+                  disabled={isSaving || status === "closed"}
+                  className="rounded-md border border-emerald-400/30 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/10 disabled:opacity-60"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDecision("request_changes")}
+                  disabled={isSaving || status === "closed"}
+                  className="rounded-md border border-amber-400/30 px-3 py-2 text-sm text-amber-100 hover:bg-amber-500/10 disabled:opacity-60"
+                >
+                  Request changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDecision("reject")}
+                  disabled={isSaving || status === "closed"}
+                  className="rounded-md border border-rose-400/30 px-3 py-2 text-sm text-rose-100 hover:bg-rose-500/10 disabled:opacity-60"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSaving || status === "closed"}
+                  className="rounded-md border border-raven-border px-3 py-2 text-sm hover:border-raven-violet disabled:opacity-60"
+                >
+                  Close case
+                </button>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <span className="text-sm text-raven-muted">
+            You can read review status, but cannot mutate case review workflow.
+          </span>
+        )}
+      </div>
+      {review?.review_notes ? (
+        <p className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft p-3 text-sm text-raven-muted">
+          {review.review_notes}
+        </p>
+      ) : null}
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {checklist.length ? (
+          checklist.map((item) => (
+            <div
+              key={item.key}
+              className="rounded-md border border-raven-border bg-raven-panelSoft p-3"
+            >
+              <span
+                className={[
+                  "rounded border px-2 py-1 text-xs capitalize",
+                  checklistTone(item.status),
+                ].join(" ")}
+              >
+                {formatLabel(item.status)}
+              </span>
+              <p className="mt-3 text-sm font-medium">{item.label}</p>
+              <p className="mt-2 text-xs leading-5 text-raven-muted">
+                {item.detail}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-raven-muted">
+            Review checklist will appear after the backend calculates stored case
+            evidence.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function workflowDescription(status: InvestigationStatus): string {
   const descriptions: Record<InvestigationStatus, string> = {
-    draft: "Initial setup and scope confirmation.",
+    intake: "Initial setup and scope confirmation.",
     active: "Investigation work is in progress.",
-    triage: "Evidence is being reviewed and prioritized.",
     monitoring: "Passive observation and follow-up are ongoing.",
     remediation: "Remediation work is being tracked.",
-    validated: "Findings have been addressed and are ready for closure.",
+    validation: "Remediation and evidence are being validated.",
+    completed: "Investigation work has been completed.",
     archived: "Case is closed and retained for reference.",
   };
   return descriptions[status] ?? "Workflow status is available.";
+}
+
+function checklistTone(status: string): string {
+  if (status === "passed") {
+    return "border-emerald-400/40 bg-emerald-500/10 text-emerald-100";
+  }
+  if (status === "warning") {
+    return "border-amber-400/40 bg-amber-500/10 text-amber-100";
+  }
+  if (status === "failed") {
+    return "border-rose-400/40 bg-rose-500/10 text-rose-100";
+  }
+  return "border-raven-border bg-raven-panel text-raven-muted";
+}
+
+function formatLabel(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function canManageInvestigation(
@@ -1195,7 +2044,7 @@ function canManageInvestigation(
 }
 
 function taskClosed(status: InvestigationTask["status"]): boolean {
-  return status === "completed" || status === "cancelled";
+  return status === "completed";
 }
 
 function LinkButton({ to, label }: { to: string; label: string }): JSX.Element {

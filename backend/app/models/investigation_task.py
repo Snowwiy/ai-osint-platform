@@ -15,9 +15,7 @@ class InvestigationTask(Base):
     __tablename__ = "investigation_tasks"
     __table_args__ = (
         CheckConstraint(
-            "status IN ("
-            "'open', 'in_progress', 'blocked', 'completed', 'cancelled', 'todo'"
-            ")",
+            "status IN ('todo', 'in_progress', 'blocked', 'validation', 'completed')",
             name="ck_investigation_tasks_status",
         ),
         CheckConstraint(
@@ -27,7 +25,9 @@ class InvestigationTask(Base):
         Index("idx_investigation_tasks_investigation", "investigation_id"),
         Index("idx_investigation_tasks_assigned", "assigned_to"),
         Index("idx_investigation_tasks_finding", "finding_id"),
+        Index("idx_investigation_tasks_playbook_run", "playbook_run_id"),
         Index("idx_investigation_tasks_status", "status"),
+        Index("idx_investigation_tasks_archived_at", "archived_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -46,8 +46,8 @@ class InvestigationTask(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        default="open",
-        server_default="open",
+        default="todo",
+        server_default="todo",
     )
     priority: Mapped[str] = mapped_column(
         String(20),
@@ -66,6 +66,12 @@ class InvestigationTask(Base):
         nullable=True,
     )
     remediation_link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blockers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    playbook_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("playbook_runs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     evidence_reference_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(PG_UUID(as_uuid=True)),
         nullable=False,
@@ -92,6 +98,10 @@ class InvestigationTask(Base):
         onupdate=func.now(),
     )
     completed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,
     )

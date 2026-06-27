@@ -214,13 +214,16 @@ async def list_playbook_runs(
     db: AsyncSession,
     user: User,
     investigation_id: uuid.UUID,
+    *,
+    include_archived: bool = False,
 ) -> list[PlaybookRunResponse]:
     await get_investigation(db, user, investigation_id)
-    result = await db.execute(
-        select(PlaybookRun)
-        .where(PlaybookRun.investigation_id == investigation_id)
-        .order_by(PlaybookRun.created_at.desc())
+    statement = select(PlaybookRun).where(
+        PlaybookRun.investigation_id == investigation_id
     )
+    if not include_archived:
+        statement = statement.where(PlaybookRun.archived_at.is_(None))
+    result = await db.execute(statement.order_by(PlaybookRun.created_at.desc()))
     return [
         await _run_response(db, run)
         for run in result.scalars().all()
@@ -257,6 +260,35 @@ async def update_playbook_run(
         and membership.role not in CASE_ADMIN_ROLES
     ):
         raise ForbiddenError("Only investigation owners or admins can cancel runs")
+    if body.archived is not None:
+        if (
+            user.role != "admin"
+            and membership is not None
+            and membership.role not in CASE_ADMIN_ROLES
+        ):
+            raise ForbiddenError(
+                "Only investigation owners or admins can archive playbook runs"
+            )
+        was_archived = run.archived_at is not None
+        run.archived_at = datetime.now(UTC) if body.archived else None
+        if was_archived != (run.archived_at is not None):
+            await record_event(
+                db,
+                action=(
+                    "archive.created"
+                    if run.archived_at is not None
+                    else "archive.restored"
+                ),
+                actor_id=user.id,
+                resource_type="playbook_run",
+                resource_id=run.id,
+                investigation_id=run.investigation_id,
+            )
+    if body.status is None:
+        db.add(run)
+        await db.flush()
+        await db.refresh(run)
+        return await _run_response(db, run)
     if body.status == run.status:
         return await _run_response(db, run)
     _validate_transition(run.status, body.status, _RUN_TRANSITIONS, "playbook run")
@@ -541,6 +573,7 @@ async def _run_response(
         completed_at=run.completed_at,
         created_at=run.created_at,
         updated_at=run.updated_at,
+        archived_at=run.archived_at,
         steps=steps,
     )
 

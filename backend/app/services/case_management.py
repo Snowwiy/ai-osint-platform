@@ -11,6 +11,7 @@ from app.models.finding import Finding
 from app.models.investigation_evidence import InvestigationEvidence
 from app.models.investigation_note import InvestigationNote
 from app.models.investigation_task import InvestigationTask
+from app.models.playbook import PlaybookRun
 from app.models.user import User
 from app.schemas.case_management import (
     InvestigationEvidenceCreate,
@@ -19,6 +20,7 @@ from app.schemas.case_management import (
     InvestigationNoteCreate,
     InvestigationNoteUpdate,
     InvestigationTaskCreate,
+    InvestigationTaskAssignUpdate,
     InvestigationTaskStatusUpdate,
     InvestigationTaskUpdate,
     normalize_note_type,
@@ -53,6 +55,13 @@ async def list_notes(
     search: str | None = None,
 ) -> list[InvestigationNote]:
     await get_investigation(db, user, investigation_id)
+    membership = await ensure_investigation_permission(
+        db,
+        user,
+        investigation_id,
+        frozenset({"owner", "admin", "analyst", "viewer"}),
+        "Investigation membership is required",
+    )
     stmt = select(InvestigationNote).where(
         InvestigationNote.investigation_id == investigation_id
     )
@@ -66,6 +75,17 @@ async def list_notes(
             or_(
                 InvestigationNote.title.ilike(pattern),
                 InvestigationNote.content.ilike(pattern),
+            )
+        )
+    if (
+        user.role != "admin"
+        and membership is not None
+        and membership.role not in CASE_ADMIN_ROLES
+    ):
+        stmt = stmt.where(
+            or_(
+                InvestigationNote.visibility == "investigation",
+                InvestigationNote.created_by == user.id,
             )
         )
     result = await db.execute(
@@ -99,6 +119,8 @@ async def create_note(
         content=_sanitize_markdown(data.content),
         note_type=normalize_note_type(data.note_type),
         pinned=data.pinned,
+        visibility=data.visibility,
+        references=_clean_references(data.references),
     )
     db.add(note)
     await db.flush()
@@ -130,6 +152,7 @@ async def update_note(
     await _ensure_note_mutation_allowed(db, user, investigation_id, note)
     updates = data.model_dump(exclude_unset=True)
     was_archived = note.archived
+    was_pinned = note.pinned
     if "title" in updates and updates["title"] is not None:
         note.title = _sanitize_text(str(updates["title"]))
     if "content" in updates and updates["content"] is not None:
@@ -140,6 +163,10 @@ async def update_note(
         note.pinned = bool(updates["pinned"])
     if "archived" in updates and updates["archived"] is not None:
         note.archived = bool(updates["archived"])
+    if "visibility" in updates and updates["visibility"] is not None:
+        note.visibility = str(updates["visibility"])
+    if "references" in updates and updates["references"] is not None:
+        note.references = _clean_references(updates["references"])
     note.updated_by = user.id
     db.add(note)
     await db.flush()
@@ -156,8 +183,29 @@ async def update_note(
             "pinned": note.pinned,
             "archived": note.archived,
             "title": note.title,
+            "visibility": note.visibility,
+            "references": note.references,
         },
     )
+    if was_archived != note.archived:
+        await record_event(
+            db,
+            action="archive.created" if note.archived else "archive.restored",
+            actor_id=user.id,
+            resource_type="note",
+            resource_id=note.id,
+            investigation_id=investigation_id,
+        )
+    if was_pinned != note.pinned:
+        await record_event(
+            db,
+            action="note.pinned",
+            actor_id=user.id,
+            resource_type="note",
+            resource_id=note.id,
+            investigation_id=investigation_id,
+            metadata={"pinned": note.pinned, "title": note.title},
+        )
     await db.refresh(note)
     return note
 
@@ -184,19 +232,30 @@ async def delete_note(
         investigation_id=investigation_id,
         metadata={"note_type": note.note_type, "title": note.title},
     )
+    await record_event(
+        db,
+        action="archive.created",
+        actor_id=user.id,
+        resource_type="note",
+        resource_id=note.id,
+        investigation_id=investigation_id,
+    )
 
 
 async def list_tasks(
     db: AsyncSession,
     user: User,
     investigation_id: uuid.UUID,
+    *,
+    include_archived: bool = False,
 ) -> list[InvestigationTask]:
     await get_investigation(db, user, investigation_id)
-    result = await db.execute(
-        select(InvestigationTask)
-        .where(InvestigationTask.investigation_id == investigation_id)
-        .order_by(InvestigationTask.created_at.desc())
+    statement = select(InvestigationTask).where(
+        InvestigationTask.investigation_id == investigation_id
     )
+    if not include_archived:
+        statement = statement.where(InvestigationTask.archived_at.is_(None))
+    result = await db.execute(statement.order_by(InvestigationTask.created_at.desc()))
     return list(result.scalars().all())
 
 
@@ -229,7 +288,11 @@ async def create_task(
         assigned_to=data.assigned_to,
         due_date=data.due_date,
         remediation_link=data.remediation_link,
+        blockers=_sanitize_markdown(data.blockers)
+        if data.blockers is not None
+        else None,
         finding_id=data.finding_id,
+        playbook_run_id=data.playbook_run_id,
         evidence_reference_ids=data.evidence_reference_ids,
         created_by=user.id,
         completed_at=_now() if data.status == "completed" else None,
@@ -263,11 +326,16 @@ async def update_task(
     task = await _get_task(db, user, investigation_id, task_id)
     await _ensure_task_mutation_allowed(db, user, investigation_id, task)
     updates = data.model_dump(exclude_unset=True)
+    previous_status = task.status
     evidence_reference_ids = (
         updates.get("evidence_reference_ids", task.evidence_reference_ids) or []
     )
     candidate = _TaskLinks(
         finding_id=updates.get("finding_id", task.finding_id),
+        playbook_run_id=updates.get(
+            "playbook_run_id",
+            task.playbook_run_id,
+        ),
         evidence_reference_ids=evidence_reference_ids,
     )
     await _validate_task_links(db, investigation_id, candidate)
@@ -281,7 +349,9 @@ async def update_task(
             _sanitize_markdown(str(description)) if description is not None else None
         )
     if "status" in updates and updates["status"] is not None:
-        task.status = str(updates["status"])
+        target_status = str(updates["status"])
+        _ensure_valid_task_transition(task.status, target_status)
+        task.status = target_status
         task.completed_at = _now() if task.status == "completed" else None
     if "priority" in updates and updates["priority"] is not None:
         task.priority = str(updates["priority"])
@@ -311,15 +381,53 @@ async def update_task(
             if updates["remediation_link"] is not None
             else None
         )
+    if "blockers" in updates:
+        task.blockers = (
+            _sanitize_markdown(str(updates["blockers"]))
+            if updates["blockers"] is not None
+            else None
+        )
     if "finding_id" in updates:
         task.finding_id = updates["finding_id"]
+    if "playbook_run_id" in updates:
+        task.playbook_run_id = updates["playbook_run_id"]
     if (
         "evidence_reference_ids" in updates
         and updates["evidence_reference_ids"] is not None
     ):
         task.evidence_reference_ids = list(updates["evidence_reference_ids"])
+    if "archived" in updates and updates["archived"] is not None:
+        was_archived = task.archived_at is not None
+        task.archived_at = _now() if updates["archived"] else None
+        if was_archived != (task.archived_at is not None):
+            await record_event(
+                db,
+                action=(
+                    "archive.created"
+                    if task.archived_at is not None
+                    else "archive.restored"
+                ),
+                actor_id=user.id,
+                resource_type="task",
+                resource_id=task.id,
+                investigation_id=investigation_id,
+            )
     db.add(task)
     await db.flush()
+    if previous_status != task.status:
+        await record_event(
+            db,
+            action="task.status_updated",
+            actor_id=user.id,
+            resource_type="task",
+            resource_id=task.id,
+            investigation_id=investigation_id,
+            metadata={
+                "from_status": previous_status,
+                "to_status": task.status,
+                "assigned_to": str(task.assigned_to) if task.assigned_to else None,
+            },
+        )
     await db.refresh(task)
     return task
 
@@ -332,7 +440,17 @@ async def delete_task(
 ) -> None:
     task = await _get_task(db, user, investigation_id, task_id)
     await _ensure_task_delete_allowed(db, user, investigation_id, task)
-    await db.delete(task)
+    if task.archived_at is None:
+        task.archived_at = _now()
+        db.add(task)
+        await record_event(
+            db,
+            action="archive.created",
+            actor_id=user.id,
+            resource_type="task",
+            resource_id=task.id,
+            investigation_id=investigation_id,
+        )
 
 
 async def create_task_global(
@@ -371,17 +489,36 @@ async def update_task_status_global(
     )
 
 
+async def assign_task_global(
+    db: AsyncSession,
+    user: User,
+    task_id: uuid.UUID,
+    data: InvestigationTaskAssignUpdate,
+) -> InvestigationTask:
+    task = await _get_task_by_id(db, user, task_id)
+    return await update_task(
+        db,
+        user,
+        task.investigation_id,
+        task_id,
+        InvestigationTaskUpdate(assigned_to=data.assigned_to),
+    )
+
+
 async def list_evidence(
     db: AsyncSession,
     user: User,
     investigation_id: uuid.UUID,
+    *,
+    include_archived: bool = False,
 ) -> list[InvestigationEvidence]:
     await get_investigation(db, user, investigation_id)
-    result = await db.execute(
-        select(InvestigationEvidence)
-        .where(InvestigationEvidence.investigation_id == investigation_id)
-        .order_by(InvestigationEvidence.created_at.desc())
+    statement = select(InvestigationEvidence).where(
+        InvestigationEvidence.investigation_id == investigation_id
     )
+    if not include_archived:
+        statement = statement.where(InvestigationEvidence.archived_at.is_(None))
+    result = await db.execute(statement.order_by(InvestigationEvidence.created_at.desc()))
     return list(result.scalars().all())
 
 
@@ -472,6 +609,24 @@ async def update_evidence(
         evidence.note_id = updates["note_id"]
     if "task_id" in updates:
         evidence.task_id = updates["task_id"]
+    if "archived" in updates and updates["archived"] is not None:
+        was_archived = evidence.archived_at is not None
+        evidence.archived_at = _now() if updates["archived"] else None
+        if not updates["archived"] and evidence.review_status == "dismissed":
+            evidence.review_status = "collected"
+        if was_archived != (evidence.archived_at is not None):
+            await record_event(
+                db,
+                action=(
+                    "archive.created"
+                    if evidence.archived_at is not None
+                    else "archive.restored"
+                ),
+                actor_id=user.id,
+                resource_type="evidence",
+                resource_id=evidence.id,
+                investigation_id=investigation_id,
+            )
     db.add(evidence)
     await db.flush()
     await db.refresh(evidence)
@@ -495,6 +650,14 @@ async def delete_evidence(
     evidence.review_status = "dismissed"
     evidence.archived_at = _now()
     db.add(evidence)
+    await record_event(
+        db,
+        action="archive.created",
+        actor_id=user.id,
+        resource_type="evidence",
+        resource_id=evidence.id,
+        investigation_id=investigation_id,
+    )
 
 
 async def review_evidence_by_id(
@@ -678,9 +841,11 @@ class _TaskLinks:
         self,
         *,
         finding_id: uuid.UUID | None,
+        playbook_run_id: uuid.UUID | None,
         evidence_reference_ids: list[uuid.UUID],
     ) -> None:
         self.finding_id = finding_id
+        self.playbook_run_id = playbook_run_id
         self.evidence_reference_ids = evidence_reference_ids
 
 
@@ -712,6 +877,15 @@ async def _validate_task_links(
         finding = await db.get(Finding, data.finding_id)
         if finding is None or finding.investigation_id != investigation_id:
             raise CaseItemValidationError("finding_id is not in this investigation")
+    if data.playbook_run_id is not None:
+        playbook_run = await db.get(PlaybookRun, data.playbook_run_id)
+        if (
+            playbook_run is None
+            or playbook_run.investigation_id != investigation_id
+        ):
+            raise CaseItemValidationError(
+                "playbook_run_id is not in this investigation"
+            )
     for evidence_id in data.evidence_reference_ids or []:
         evidence = await db.get(InvestigationEvidence, evidence_id)
         if evidence is None or evidence.investigation_id != investigation_id:
@@ -729,6 +903,32 @@ def _sanitize_markdown(value: str) -> str:
 
 def _sanitize_text(value: str) -> str:
     return _sanitize_markdown(value).replace("\n", " ").strip()
+
+
+def _clean_references(values: list[str]) -> list[str]:
+    return list(
+        dict.fromkeys(
+            clean
+            for value in values
+            if (clean := _sanitize_text(value))
+        )
+    )
+
+
+def _ensure_valid_task_transition(current: str, target: str) -> None:
+    if current == target:
+        return
+    transitions = {
+        "todo": {"in_progress", "blocked", "completed"},
+        "in_progress": {"todo", "blocked", "validation", "completed"},
+        "blocked": {"todo", "in_progress"},
+        "validation": {"in_progress", "blocked", "completed"},
+        "completed": set(),
+    }
+    if target not in transitions.get(current, set()):
+        raise CaseItemValidationError(
+            f"Invalid task status transition from {current} to {target}"
+        )
 
 
 def _now() -> datetime:

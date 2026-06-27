@@ -1,4 +1,10 @@
-import { CheckCircle2, Edit3, PlusCircle, Trash2 } from "lucide-react";
+import {
+  Archive,
+  CheckCircle2,
+  Edit3,
+  PlusCircle,
+  RotateCcw,
+} from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -14,35 +20,39 @@ import {
   updateTask,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { useAuth } from "../lib/useAuth";
 import type {
   InvestigationMember,
   InvestigationTask,
+  InvestigationTaskUpdateRequest,
   TaskPriority,
   TaskStatus,
 } from "../types";
 
 const statuses: Array<"all" | TaskStatus> = [
   "all",
-  "open",
+  "todo",
   "in_progress",
   "blocked",
+  "validation",
   "completed",
-  "cancelled",
 ];
-const priorities: TaskPriority[] = ["critical", "high", "medium", "low"];
+const priorities: TaskPriority[] = ["critical", "urgent", "high", "medium", "low"];
 const priorityFilters: Array<"all" | TaskPriority> = ["all", ...priorities];
 
 export function TasksPage(): JSX.Element {
   const investigationId = useInvestigationId();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [editing, setEditing] = useState<InvestigationTask | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | TaskPriority>("all");
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const tasks = useQuery({
-    queryKey: ["tasks", investigationId],
-    queryFn: () => listTasks(investigationId),
+    queryKey: ["tasks", investigationId, showArchived],
+    queryFn: () => listTasks(investigationId, showArchived),
   });
   const members = useQuery({
     queryKey: ["members", investigationId],
@@ -57,7 +67,13 @@ export function TasksPage(): JSX.Element {
     },
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, values }: { id: string; values: Partial<TaskFormValues> }) =>
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: InvestigationTaskUpdateRequest;
+    }) =>
       updateTask(investigationId, id, values),
     onSuccess: async () => {
       await invalidateTaskData(queryClient, investigationId);
@@ -69,7 +85,7 @@ export function TasksPage(): JSX.Element {
     mutationFn: (id: string) => deleteTask(investigationId, id),
     onSuccess: async () => {
       await invalidateTaskData(queryClient, investigationId);
-      setToast({ kind: "success", message: "Task deleted." });
+      setToast({ kind: "success", message: "Task archived." });
     },
     onError: (error) => {
       setToast({
@@ -93,7 +109,7 @@ export function TasksPage(): JSX.Element {
     return <LoadingBlock label="Loading tasks" />;
   }
   if (tasks.isError) {
-    return <ErrorBlock message={tasks.error.message} />;
+    return <ErrorBlock message={tasks.error} />;
   }
 
   return (
@@ -116,6 +132,17 @@ export function TasksPage(): JSX.Element {
       <InvestigationTabs />
 
       <div className="mb-5 flex flex-wrap gap-2">
+        {user?.role === "admin" ? (
+          <label className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(event) => setShowArchived(event.target.checked)}
+              className="accent-violet-500"
+            />
+            Show archived
+          </label>
+        ) : null}
         {statuses.map((status) => (
           <button
             key={status}
@@ -131,7 +158,7 @@ export function TasksPage(): JSX.Element {
             {status.replace(/_/g, " ")}
           </button>
         ))}
-        <span className="mx-1 hidden h-9 w-px bg-raven-border sm:block" />
+        <span className="ex-1 hidden h-9 w-px bg-raven-border sm:block" />
         {priorityFilters.map((priority) => (
           <button
             key={priority}
@@ -167,6 +194,11 @@ export function TasksPage(): JSX.Element {
                         completed
                       </span>
                     ) : null}
+                    {task.archived_at ? (
+                      <span className="rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-100">
+                        archived
+                      </span>
+                    ) : null}
                   </div>
                   <h2 className="mt-3 font-semibold">{task.title}</h2>
                   {task.description ? (
@@ -186,9 +218,19 @@ export function TasksPage(): JSX.Element {
                       Remediation: {task.remediation_link}
                     </p>
                   ) : null}
+                  {task.blockers ? (
+                    <p className="mt-2 break-words rounded-md border border-rose-400/20 bg-rose-500/5 p-2 text-xs text-rose-100">
+                      Blockers: {task.blockers}
+                    </p>
+                  ) : null}
+                  {task.playbook_run_id ? (
+                    <p className="mt-2 break-all text-xs text-raven-muted">
+                      Linked playbook run: {task.playbook_run_id}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {!taskClosed(task.status) ? (
+                  {!task.archived_at && !taskClosed(task.status) ? (
                     <button
                       type="button"
                       onClick={() =>
@@ -200,9 +242,10 @@ export function TasksPage(): JSX.Element {
                       className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/10"
                     >
                       <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                      Complete
+                      Coeplete
                     </button>
                   ) : null}
+                  {!task.archived_at ? (
                   <button
                     type="button"
                     onClick={() => setEditing(task)}
@@ -211,22 +254,44 @@ export function TasksPage(): JSX.Element {
                     <Edit3 className="h-4 w-4" aria-hidden="true" />
                     Edit
                   </button>
+                  ) : null}
+                  {task.archived_at ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateMutation.mutate({
+                          id: task.id,
+                          values: { archived: false },
+                        })
+                      }
+                      className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet"
+                    >
+                      <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                      Restore
+                    </button>
+                  ) : (
                   <button
                     type="button"
                     onClick={() => deleteMutation.mutate(task.id)}
                     disabled={deleteMutation.isPending}
                     className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-2 text-sm text-rose-100 hover:bg-rose-500/10 disabled:opacity-60"
                   >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    Delete
+                    <Archive className="h-4 w-4" aria-hidden="true" />
+                    Archive
                   </button>
+                  )}
                 </div>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <EmptyBlock message="No tasks match the current filter. Create analyst tasks for validation, remediation, reporting, or follow-up work." />
+        <EmptyBlock
+          title="No operational tasks"
+          message="Tasks coordinate validation, remediation, reporting, and follow-up work."
+          nextStep="Create or adjust a task filter to surface the next analyst action."
+          permission="Contributors can manage assigned work; viewers have read-only access."
+        />
       )}
 
       {isCreating ? (
@@ -261,7 +326,7 @@ export function TasksPage(): JSX.Element {
 }
 
 function taskClosed(status: TaskStatus): boolean {
-  return status === "completed" || status === "cancelled";
+  return status === "completed";
 }
 
 interface TaskFormValues {
@@ -272,7 +337,9 @@ interface TaskFormValues {
   due_date: string | null;
   assigned_to: string | null;
   remediation_link: string | null;
+  blockers: string | null;
   finding_id: string | null;
+  playbook_run_id: string | null;
 }
 
 function TaskModal({
@@ -294,7 +361,7 @@ function TaskModal({
 }): JSX.Element {
   const [taskTitle, setTaskTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "open");
+  const [status, setStatus] = useState<TaskStatus>(task?.status ?? "todo");
   const [priority, setPriority] = useState<TaskPriority>(task?.priority ?? "medium");
   const [dueDate, setDueDate] = useState(
     task?.due_date ? task.due_date.slice(0, 10) : "",
@@ -303,7 +370,11 @@ function TaskModal({
   const [remediationLink, setRemediationLink] = useState(
     task?.remediation_link ?? "",
   );
+  const [blockers, setBlockers] = useState(task?.blockers ?? "");
   const [findingId, setFindingId] = useState(task?.finding_id ?? "");
+  const [playbookRunId, setPlaybookRunId] = useState(
+    task?.playbook_run_id ?? "",
+  );
   const [validationError, setValidationError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -321,7 +392,9 @@ function TaskModal({
       due_date: dueDate ? new Date(`${dueDate}T12:00:00Z`).toISOString() : null,
       assigned_to: assignedTo.trim() || null,
       remediation_link: remediationLink.trim() || null,
+      blockers: blockers.trim() || null,
       finding_id: findingId.trim() || null,
+      playbook_run_id: playbookRunId.trim() || null,
     });
   }
 
@@ -453,6 +526,30 @@ function TaskModal({
           </label>
         </div>
 
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block text-sm text-raven-muted" htmlFor="task-playbook">
+            Linked playbook run
+            <input
+              id="task-playbook"
+              value={playbookRunId}
+              onChange={(event) => setPlaybookRunId(event.target.value)}
+              placeholder="Optional playbook run UUID"
+              className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
+            />
+          </label>
+          <label className="block text-sm text-raven-muted" htmlFor="task-blockers">
+            Blockers
+            <textarea
+              id="task-blockers"
+              value={blockers}
+              onChange={(event) => setBlockers(event.target.value)}
+              rows={3}
+              placeholder="Dependencies or operational blockers"
+              className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
+            />
+          </label>
+        </div>
+
         {validationError ?? error ? (
           <div className="mt-4 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
             {validationError ?? error}
@@ -483,11 +580,11 @@ function TaskModal({
 
 function StatusPill({ status }: { status: TaskStatus }): JSX.Element {
   const classes: Record<TaskStatus, string> = {
-    open: "border-slate-400/30 bg-slate-400/10 text-slate-200",
+    todo: "border-slate-400/30 bg-slate-400/10 text-slate-200",
     in_progress: "border-cyan-400/30 bg-cyan-500/10 text-cyan-100",
     blocked: "border-rose-400/30 bg-rose-500/10 text-rose-100",
+    validation: "border-amber-400/30 bg-amber-500/10 text-amber-100",
     completed: "border-emerald-400/30 bg-emerald-500/10 text-emerald-100",
-    cancelled: "border-raven-border bg-raven-panel text-raven-muted",
   };
   return (
     <span
@@ -504,6 +601,7 @@ function StatusPill({ status }: { status: TaskStatus }): JSX.Element {
 function PriorityPill({ priority }: { priority: TaskPriority }): JSX.Element {
   const classes: Record<TaskPriority, string> = {
     critical: "border-rose-400/30 bg-rose-500/10 text-rose-100",
+    urgent: "border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-100",
     high: "border-orange-400/30 bg-orange-500/10 text-orange-100",
     medium: "border-cyan-400/30 bg-cyan-500/10 text-cyan-100",
     low: "border-raven-border text-raven-muted",

@@ -24,6 +24,7 @@ class ProviderCompletion:
     input_tokens: int | None = None
     output_tokens: int | None = None
     error: str | None = None
+    error_category: str | None = None
 
 
 class LLMProvider(Protocol):
@@ -48,6 +49,7 @@ class AnthropicClaudeProvider:
                 status="provider_unavailable",
                 model=self._model,
                 error="ANTHROPIC_API_KEY is not configured.",
+                error_category="provider_not_configured",
             )
 
         payload = {
@@ -55,7 +57,12 @@ class AnthropicClaudeProvider:
             "max_tokens": 1800,
             "temperature": 0.1,
             "system": "You are a defensive cybersecurity analyst. Return JSON only.",
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}],
+                }
+            ],
         }
         headers = {
             "anthropic-version": _ANTHROPIC_VERSION,
@@ -63,6 +70,7 @@ class AnthropicClaudeProvider:
             "x-api-key": self._api_key,
         }
         last_error: str | None = None
+        last_error_category: str | None = None
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
@@ -73,17 +81,23 @@ class AnthropicClaudeProvider:
                     )
                 if response.status_code == 429:
                     last_error = "Anthropic provider rate limited the request."
+                    last_error_category = "rate_limited"
                     await asyncio.sleep(0.25 * (attempt + 1))
                     continue
                 if response.status_code >= 500:
                     last_error = f"Anthropic provider returned {response.status_code}."
+                    last_error_category = "provider_server_error"
                     await asyncio.sleep(0.25 * (attempt + 1))
                     continue
                 if response.status_code >= 400:
                     return ProviderCompletion(
                         status="provider_failed",
                         model=self._model,
-                        error=f"Anthropic provider returned {response.status_code}.",
+                        error=(
+                            "Anthropic provider rejected the request. "
+                            "Deterministic fallback analysis is shown."
+                        ),
+                        error_category="bad_request",
                     )
                 return _completion_from_payload(response.json(), self._model)
             except httpx.TimeoutException:
@@ -91,15 +105,18 @@ class AnthropicClaudeProvider:
                     status="provider_timeout",
                     model=self._model,
                     error="Anthropic provider request timed out.",
+                    error_category="timeout",
                 )
             except Exception as exc:
                 last_error = _safe_error(exc)
+                last_error_category = "request_failed"
                 await asyncio.sleep(0.25 * (attempt + 1))
 
         return ProviderCompletion(
             status="provider_failed",
             model=self._model,
             error=last_error or "Anthropic provider failed.",
+            error_category=last_error_category,
         )
 
 

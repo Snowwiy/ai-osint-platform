@@ -1,5 +1,6 @@
 import { GitGraph, Network, Table2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { CorrelationNetwork } from "../components/CorrelationNetwork";
@@ -8,8 +9,12 @@ import { InvestigationTabs } from "../components/InvestigationTabs";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
-import { getCorrelations } from "../lib/api";
+import {
+  getCorrelations,
+  getCrossInvestigationCorrelations,
+} from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray, safeNumber, safeString } from "../lib/safe";
 import type { CorrelationEdge, CorrelationNode } from "../types";
 
 type ViewMode = "cards" | "graph" | "table";
@@ -21,9 +26,13 @@ export function CorrelationsPage(): JSX.Element {
     queryKey: ["correlations", investigationId],
     queryFn: () => getCorrelations(investigationId),
   });
+  const crossInvestigation = useQuery({
+    queryKey: ["cross-investigation-correlations"],
+    queryFn: () => getCrossInvestigationCorrelations(),
+  });
   const nodeById = useMemo(() => {
     return new Map(
-      correlations.data?.nodes.map((node) => [node.id, node]) ?? [],
+      safeArray(correlations.data?.nodes).map((node) => [node.id, node]),
     );
   }, [correlations.data?.nodes]);
 
@@ -31,11 +40,15 @@ export function CorrelationsPage(): JSX.Element {
     return <LoadingBlock label="Loading correlations" />;
   }
   if (correlations.isError) {
-    return <ErrorBlock message={correlations.error.message} />;
+    return <ErrorBlock message={correlations.error} />;
   }
 
   const data = correlations.data;
-  const hasGraph = Boolean(data?.nodes.length && data.edges.length);
+  const nodes = safeArray(data?.nodes);
+  const edges = safeArray(data?.edges);
+  const crossSignals = safeArray(crossInvestigation.data?.signals);
+  const hasRelationships = edges.length > 0;
+  const hasGraph = Boolean(nodes.length && edges.length);
 
   return (
     <>
@@ -55,7 +68,6 @@ export function CorrelationsPage(): JSX.Element {
               active={viewMode === "graph"}
               icon={<Network className="h-4 w-4" aria-hidden="true" />}
               onClick={setViewMode}
-              disabled={!hasGraph}
             />
             <ModeButton
               mode="table"
@@ -68,27 +80,140 @@ export function CorrelationsPage(): JSX.Element {
       />
       <InvestigationTabs />
 
-      {hasGraph && data ? (
+      <CrossInvestigationPanel
+        investigationId={investigationId}
+        signals={
+          crossSignals.filter((signal) =>
+            safeArray(signal.investigations).some(
+              (item) => item.investigation_id === investigationId,
+            ),
+          )
+        }
+        isLoading={crossInvestigation.isLoading}
+      />
+
+      {hasRelationships ? (
         <div className="space-y-5">
-          <SummaryStrip nodes={data.nodes} edges={data.edges} />
+          <SummaryStrip nodes={nodes} edges={edges} />
           {viewMode === "graph" ? (
-            <CorrelationNetwork nodes={data.nodes} edges={data.edges} />
+            hasGraph ? (
+              <CorrelationNetwork nodes={nodes} edges={edges} />
+            ) : (
+              <EmptyBlock
+                title="Graph unavailable"
+                message="Correlation relationships are present, but graph nodes are incomplete."
+                nextStep="Use the cards or table view while the relationship data is refreshed."
+              />
+            )
           ) : null}
           {viewMode === "cards" ? (
             <RelationshipCards
               investigationId={investigationId}
-              edges={data.edges}
+              edges={edges}
               nodeById={nodeById}
             />
           ) : null}
           {viewMode === "table" ? (
-            <RelationshipTable edges={data.edges} nodeById={nodeById} />
+            <RelationshipTable edges={edges} nodeById={nodeById} />
           ) : null}
         </div>
       ) : (
-        <EmptyBlock message="No defensive correlations are available yet. Correlations appear after stored recon entities, findings, reports, or repeated indicators overlap." />
+        <EmptyBlock
+          title="No defensive correlations"
+          message="Correlations connect overlapping stored entities, findings, reports, and recurring indicators."
+          nextStep="Run passive recon and generate evidence-backed findings to build relationship context."
+        />
       )}
     </>
+  );
+}
+
+function CrossInvestigationPanel({
+  investigationId,
+  signals,
+  isLoading,
+}: {
+  investigationId: string;
+  signals: Array<{
+    signal_type: string;
+    value: string;
+    investigation_count: number;
+    confidence: "low" | "medium" | "high";
+    investigations: Array<{
+      investigation_id: string;
+      investigation_title: string;
+    }>;
+  }>;
+  isLoading: boolean;
+}): JSX.Element {
+  return (
+    <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-raven-cyan">
+            Internal intelligence
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            Seen in other investigations
+          </h2>
+        </div>
+        <span className="text-xs text-raven-muted">
+          Accessible investigations only
+        </span>
+      </div>
+      {isLoading ? (
+        <p className="mt-4 text-sm text-raven-muted">
+          Checking stored cross-investigation signals.
+        </p>
+      ) : signals.length ? (
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {signals.slice(0, 8).map((signal) => (
+            <article
+              key={`${signal.signal_type}:${signal.value}`}
+              className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-raven-muted">
+                    {formatLabel(signal.signal_type)}
+                  </p>
+                  <LongValue
+                    value={signal.value}
+                    maxLength={72}
+                    className="mt-1 text-sm font-medium"
+                  />
+                </div>
+                <span className="rounded border border-raven-border px-2 py-1 text-xs capitalize text-raven-cyan">
+                  {signal.confidence}
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-raven-muted">
+                Seen in {signal.investigation_count} investigations
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {safeArray(signal.investigations)
+                  .filter((item) => item.investigation_id !== investigationId)
+                  .slice(0, 4)
+                  .map((item) => (
+                    <Link
+                      key={item.investigation_id}
+                      to={`/investigations/${item.investigation_id}`}
+                      className="max-w-full break-words rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan hover:border-raven-violet"
+                    >
+                      {item.investigation_title}
+                    </Link>
+                  ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-raven-muted">
+          No recurring infrastructure, findings, evidence, or framework mappings
+          are visible across your accessible investigations.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -100,7 +225,8 @@ function SummaryStrip({
   edges: CorrelationEdge[];
 }): JSX.Element {
   const confidenceCounts = edges.reduce<Record<string, number>>((counts, edge) => {
-    counts[edge.confidence] = (counts[edge.confidence] ?? 0) + 1;
+    const confidence = safeText(edge.confidence, "low");
+    counts[confidence] = (counts[confidence] ?? 0) + 1;
     return counts;
   }, {});
   return (
@@ -135,12 +261,14 @@ function RelationshipCards({
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs uppercase tracking-wide text-raven-cyan">
-                {edge.correlation_type.replace(/_/g, " ")}
+                {formatLabel(edge.correlation_type)}
               </p>
-              <h2 className="mt-1 font-semibold">{edge.summary}</h2>
+              <h2 className="mt-1 font-semibold">
+                {safeText(edge.summary, "Correlation relationship")}
+              </h2>
             </div>
             <span className="rounded border border-raven-border px-2 py-1 text-xs capitalize text-raven-cyan">
-              {edge.confidence}
+              {safeText(edge.confidence, "low")}
             </span>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
@@ -151,7 +279,7 @@ function RelationshipCards({
             <NodePill node={nodeById.get(edge.target_node_id)} fallback="Target" />
           </div>
           <p className="mt-4 text-xs text-raven-muted">
-            Evidence count: {edge.evidence_count}
+            Evidence count: {safeNumber(edge.evidence_count)}
           </p>
           <CorrelationBookmarkActions
             investigationId={investigationId}
@@ -223,7 +351,7 @@ function RelationshipTable({
             {edges.map((edge) => (
               <tr key={edge.id}>
                 <td className="px-4 py-3 text-raven-cyan">
-                  {edge.correlation_type.replace(/_/g, " ")}
+                  {formatLabel(edge.correlation_type)}
                 </td>
                 <td className="px-4 py-3">
                   <NodeLabel
@@ -238,10 +366,10 @@ function RelationshipTable({
                   />
                 </td>
                 <td className="px-4 py-3 capitalize text-raven-muted">
-                  {edge.confidence}
+                  {safeText(edge.confidence, "low")}
                 </td>
                 <td className="px-4 py-3 text-raven-muted">
-                  {edge.evidence_count}
+                  {safeNumber(edge.evidence_count)}
                 </td>
               </tr>
             ))}
@@ -308,9 +436,9 @@ function NodePill({
 }): JSX.Element {
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
-      <LongValue value={node?.label ?? fallback} maxLength={54} />
+      <LongValue value={safeText(node?.label, fallback)} maxLength={54} />
       <p className="mt-1 text-xs capitalize text-raven-muted">
-        {node?.node_type.replace(/_/g, " ") ?? "unknown"}
+        {formatLabel(node?.node_type ?? "unknown")}
       </p>
       {node?.id ? (
         <LongValue
@@ -332,9 +460,17 @@ function NodeLabel({
 }): JSX.Element {
   return (
     <LongValue
-      value={node?.label ?? fallback}
-      secondary={node ? `${node.node_type} ${node.id}` : fallback}
+      value={safeText(node?.label, fallback)}
+      secondary={node ? `${formatLabel(node.node_type)} ${node.id}` : fallback}
       maxLength={52}
     />
   );
+}
+
+function safeText(value: unknown, fallback: string): string {
+  return safeString(value, fallback);
+}
+
+function formatLabel(value: unknown): string {
+  return safeText(value, "unknown").replace(/_/g, " ");
 }

@@ -52,8 +52,9 @@ export function BookmarksPage(): JSX.Element {
     return <LoadingBlock label="Loading bookmarks" />;
   }
   if (bookmarks.isError) {
-    return <ErrorBlock message={bookmarks.error.message} />;
+    return <ErrorBlock message={bookmarks.error} />;
   }
+  const bookmarkItems = bookmarks.data?.items ?? [];
 
   return (
     <>
@@ -63,9 +64,9 @@ export function BookmarksPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
-      {bookmarks.data?.items.length ? (
+      {bookmarkItems.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          {bookmarks.data.items.map((item) => {
+          {bookmarkItems.map((item) => {
             const reference = item.entity_id ?? item.finding_id ?? item.report_id ?? "";
             return (
               <article
@@ -113,7 +114,12 @@ export function BookmarksPage(): JSX.Element {
           })}
         </div>
       ) : (
-        <EmptyBlock message="No evidence is bookmarked yet. Save important findings, recon entities, reports, or correlations from their investigation views." />
+        <EmptyBlock
+          title="No bookmarked evidence"
+          message="Bookmarks preserve quick links to important findings, recon entities, reports, and correlations."
+          nextStep="Use the bookmark action on an evidence-backed item in this investigation."
+          permission="Contributors can manage bookmarks; viewers have read-only access."
+        />
       )}
     </>
   );

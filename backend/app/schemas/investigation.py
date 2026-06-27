@@ -20,6 +20,17 @@ InvestigationMemberRole = Literal["owner", "admin", "analyst", "viewer"]
 InvestigationMemberAddRole = Literal["owner", "admin", "collaborator", "viewer"]
 InvestigationMemberResponseRole = InvestigationMemberRole | Literal["collaborator"]
 InvestigationPriority = Literal["low", "medium", "high", "urgent"]
+InvestigationStage = Literal[
+    "intake",
+    "scoping",
+    "recon",
+    "analysis",
+    "remediation",
+    "validation",
+    "reporting",
+    "completed",
+    "archived",
+]
 InvestigationListScope = Literal[
     "all",
     "owned_by_me",
@@ -69,6 +80,7 @@ class InvestigationResponse(BaseModel):
     title: str
     description: str | None
     status: InvestigationWorkflowStatus
+    stage: InvestigationStage
     owner_id: uuid.UUID
     reviewer_id: uuid.UUID | None
     authorization_statement: str
@@ -83,6 +95,19 @@ class InvestigationResponse(BaseModel):
 class InvestigationListResponse(BaseModel):
     total: int
     items: list[InvestigationResponse]
+
+
+class InvestigationPurgeImpactResponse(BaseModel):
+    investigation_id: uuid.UUID
+    title: str
+    status: InvestigationWorkflowStatus
+    permanent_deletion_enabled: bool
+    findings_count: int = Field(ge=0)
+    notes_count: int = Field(ge=0)
+    reports_count: int = Field(ge=0)
+    tasks_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    members_count: int = Field(ge=0)
 
 
 class MemberAddRequest(BaseModel):
@@ -126,6 +151,42 @@ class MemberResponse(BaseModel):
     invited_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+    last_activity_at: datetime | None = None
+
+
+class InvestigationStageUpdate(BaseModel):
+    stage: InvestigationStage
+    reason: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def clean_reason(cls, value: str) -> str:
+        return value.strip()
+
+
+class ReadinessComponent(BaseModel):
+    key: str
+    label: str
+    points: int = Field(ge=0)
+    max_points: int = Field(ge=0)
+    complete: bool
+    detail: str
+
+
+class InvestigationReadinessResponse(BaseModel):
+    investigation_id: uuid.UUID
+    score: int = Field(ge=0, le=100)
+    category: Literal[
+        "Not Started",
+        "Scoping",
+        "Evidence Collection",
+        "Analysis Ready",
+        "Reporting Ready",
+    ]
+    stage: InvestigationStage
+    components: list[ReadinessComponent]
+    guidance: list[str]
+    generated_at: datetime
 
 
 class InvestigationGraphNode(BaseModel):

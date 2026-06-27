@@ -1,19 +1,27 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.audit_log import AuditLog
+from app.models.case_review import CaseReview
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
 from app.models.investigation import Investigation
 from app.models.investigation_enrichment import InvestigationEnrichment
+from app.models.investigation_evidence import InvestigationEvidence
 from app.models.investigation_member import InvestigationMember
+from app.models.investigation_note import InvestigationNote
+from app.models.investigation_task import InvestigationTask
 from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
+from app.models.report import Report
 from app.models.user import User
+from app.schemas.case_management import InvestigationWorkflowStatus
 from app.schemas.investigation import (
     InvestigationCreate,
     InvestigationGraphEdge,
@@ -23,6 +31,8 @@ from app.schemas.investigation import (
     InvestigationGraphResponse,
     InvestigationGraphRiskSummary,
     InvestigationGraphTimelineEvent,
+    InvestigationPurgeImpactResponse,
+    InvestigationStage,
     InvestigationUpdate,
     MemberResponse,
 )
@@ -61,6 +71,14 @@ class InvalidWorkflowTransitionError(Exception):
     pass
 
 
+class InvalidStageTransitionError(Exception):
+    pass
+
+
+class InvestigationPurgeConflictError(Exception):
+    pass
+
+
 class MemberValidationError(Exception):
     pass
 
@@ -78,15 +96,25 @@ ROLE_RANK: dict[str, int] = {
 
 
 _ALLOWED_WORKFLOW_TRANSITIONS: dict[str, set[str]] = {
-    "draft": {"active"},
-    "active": {"triage", "review"},
-    "triage": {"monitoring", "remediation"},
-    "monitoring": {"remediation"},
-    "remediation": {"validated"},
-    "validated": {"archived"},
-    "review": {"remediated", "archived"},
-    "remediated": {"archived"},
-    "archived": set(),
+    "intake": {"active"},
+    "active": {"monitoring", "remediation"},
+    "monitoring": {"active", "remediation"},
+    "remediation": {"validation"},
+    "validation": {"remediation", "completed"},
+    "completed": {"active", "archived"},
+    "archived": {"active"},
+}
+
+_ALLOWED_STAGE_TRANSITIONS: dict[str, set[str]] = {
+    "intake": {"scoping"},
+    "scoping": {"intake", "recon"},
+    "recon": {"scoping", "analysis"},
+    "analysis": {"recon", "remediation"},
+    "remediation": {"analysis", "validation"},
+    "validation": {"remediation", "reporting"},
+    "reporting": {"validation", "completed"},
+    "completed": {"reporting", "archived"},
+    "archived": {"completed"},
 }
 
 
@@ -156,6 +184,24 @@ async def ensure_investigation_permission(
             },
         )
         raise ForbiddenError(message)
+    if (
+        membership.role not in CASE_ADMIN_ROLES
+        and MUTATION_ROLES.intersection(allowed_roles)
+        and await _case_is_closed(db, investigation_id)
+    ):
+        await record_event(
+            db,
+            action="permission.denied",
+            actor_id=user.id,
+            resource_type="investigation",
+            resource_id=investigation_id,
+            investigation_id=investigation_id,
+            metadata={
+                "reason": "Closed cases are read-only except owner/admin",
+                "actual_role": membership.role,
+            },
+        )
+        raise ForbiddenError("Closed cases are read-only except owner/admin")
     return membership
 
 
@@ -172,6 +218,15 @@ async def ensure_mutation_permission(
         MUTATION_ROLES,
         message,
     )
+
+
+async def _case_is_closed(db: AsyncSession, investigation_id: uuid.UUID) -> bool:
+    result = await db.execute(
+        select(CaseReview.review_status).where(
+            CaseReview.investigation_id == investigation_id,
+        )
+    )
+    return result.scalar_one_or_none() == "closed"
 
 
 async def ensure_case_admin_permission(
@@ -222,7 +277,8 @@ async def create_investigation(
         title=data.title,
         description=data.description,
         owner_id=user.id,
-        status="draft",
+        status="intake",
+        stage="intake",
         authorization_statement=data.authorization_statement,
         scope_definition=data.scope_definition,
     )
@@ -267,7 +323,7 @@ async def list_investigations(
     elif scope == "archived":
         filters.append(Investigation.status == "archived")
     elif scope == "needs_review":
-        filters.append(Investigation.status.in_(("triage", "review", "validated")))
+        filters.append(Investigation.status.in_(("remediation", "validation")))
 
     if user.role == "admin":
         base = select(Investigation).where(*filters)
@@ -386,6 +442,7 @@ async def update_investigation_status(
         "Only investigation owners or admins can update investigation status",
     )
     if target_status != investigation.status:
+        previous_status = investigation.status
         await _apply_status_transition(
             db,
             user=user,
@@ -394,7 +451,78 @@ async def update_investigation_status(
             reason=reason or "Investigation workflow status updated",
         )
         investigation.status = target_status
+        if previous_status == "archived":
+            if investigation.stage == "archived":
+                investigation.stage = "completed"
+                await record_event(
+                    db,
+                    action="investigation.stage_changed",
+                    actor_id=user.id,
+                    resource_type="investigation",
+                    resource_id=investigation.id,
+                    investigation_id=investigation.id,
+                    metadata={
+                        "from_stage": "archived",
+                        "to_stage": "completed",
+                        "reason": "Investigation restored from archive",
+                    },
+                )
+            await record_event(
+                db,
+                action="archive.restored",
+                actor_id=user.id,
+                resource_type="investigation",
+                resource_id=investigation.id,
+                investigation_id=investigation.id,
+            )
     db.add(investigation)
+    await db.flush()
+    await db.refresh(investigation)
+    return investigation
+
+
+async def update_investigation_stage(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+    target_stage: InvestigationStage,
+    *,
+    reason: str,
+) -> Investigation:
+    investigation = await get_investigation(db, user, investigation_id)
+    await ensure_case_admin_permission(
+        db,
+        user,
+        investigation_id,
+        "Only investigation owners or admins can update investigation stage",
+    )
+    if target_stage == investigation.stage:
+        return investigation
+    if target_stage == "archived" and investigation.status != "archived":
+        raise InvalidStageTransitionError(
+            "Archive the investigation before setting its maturity stage to archived"
+        )
+    allowed = _ALLOWED_STAGE_TRANSITIONS.get(investigation.stage, set())
+    if target_stage not in allowed:
+        raise InvalidStageTransitionError(
+            f"Invalid stage transition from {investigation.stage} to {target_stage}"
+        )
+    previous_stage = investigation.stage
+    investigation.stage = target_stage
+    db.add(investigation)
+    await record_event(
+        db,
+        action="investigation.stage_changed",
+        actor_id=user.id,
+        resource_type="investigation",
+        resource_id=investigation.id,
+        investigation_id=investigation.id,
+        metadata={
+            "from_stage": previous_stage,
+            "to_stage": target_stage,
+            "reason": reason,
+        },
+    )
     await db.flush()
     await db.refresh(investigation)
     return investigation
@@ -414,6 +542,21 @@ async def archive_investigation(
     )
     previous_status = investigation.status
     investigation.status = "archived"
+    if investigation.stage == "completed":
+        investigation.stage = "archived"
+        await record_event(
+            db,
+            action="investigation.stage_changed",
+            actor_id=user.id,
+            resource_type="investigation",
+            resource_id=investigation.id,
+            investigation_id=investigation.id,
+            metadata={
+                "from_stage": "completed",
+                "to_stage": "archived",
+                "reason": "Completed investigation archived",
+            },
+        )
     db.add(investigation)
     _record_workflow_event(
         db,
@@ -425,7 +568,7 @@ async def archive_investigation(
     )
     await record_event(
         db,
-        action="workflow.status_changed",
+        action="investigation.state_changed",
         actor_id=user.id,
         resource_type="investigation",
         resource_id=investigation.id,
@@ -435,6 +578,77 @@ async def archive_investigation(
             "to_status": "archived",
         },
     )
+    await record_event(
+        db,
+        action="archive.created",
+        actor_id=user.id,
+        resource_type="investigation",
+        resource_id=investigation.id,
+        investigation_id=investigation.id,
+    )
+
+
+async def get_investigation_purge_impact(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+) -> InvestigationPurgeImpactResponse:
+    investigation = await get_investigation(db, user, investigation_id)
+    await ensure_owner_permission(
+        db,
+        user,
+        investigation_id,
+        "Only owners or platform admins can permanently delete investigations",
+    )
+    return await _purge_impact_response(db, investigation)
+
+
+async def purge_archived_investigation(
+    db: AsyncSession,
+    user: User,
+    investigation_id: uuid.UUID,
+) -> None:
+    investigation = await get_investigation(db, user, investigation_id)
+    await ensure_owner_permission(
+        db,
+        user,
+        investigation_id,
+        "Only owners or platform admins can permanently delete investigations",
+    )
+    if investigation.status != "archived":
+        raise InvestigationPurgeConflictError(
+            "Only archived investigations can be permanently deleted"
+        )
+    impact = await _purge_impact_response(db, investigation)
+    _record_workflow_event(
+        db,
+        investigation_id=investigation.id,
+        actor_id=user.id,
+        from_status="archived",
+        to_status="archived",
+        reason="investigation_purged",
+    )
+    await record_event(
+        db,
+        action="investigation.purged",
+        actor_id=user.id,
+        resource_type="investigation",
+        resource_id=investigation.id,
+        investigation_id=investigation.id,
+        metadata={
+            "title": investigation.title,
+            "timeline_event": "investigation_purged",
+            "findings_count": impact.findings_count,
+            "notes_count": impact.notes_count,
+            "reports_count": impact.reports_count,
+            "tasks_count": impact.tasks_count,
+            "evidence_count": impact.evidence_count,
+            "members_count": impact.members_count,
+        },
+    )
+    await db.flush()
+    await db.delete(investigation)
+    await db.flush()
 
 
 async def list_members(
@@ -517,6 +731,53 @@ async def get_investigation_graph(
         findings=graph_findings,
         finding_edges=finding_edges,
     )
+
+
+async def _purge_impact_response(
+    db: AsyncSession,
+    investigation: Investigation,
+) -> InvestigationPurgeImpactResponse:
+    return InvestigationPurgeImpactResponse(
+        investigation_id=investigation.id,
+        title=investigation.title,
+        status=cast(InvestigationWorkflowStatus, investigation.status),
+        permanent_deletion_enabled=True,
+        findings_count=await _count_for_investigation(db, Finding, investigation.id),
+        notes_count=await _count_for_investigation(
+            db,
+            InvestigationNote,
+            investigation.id,
+        ),
+        reports_count=await _count_for_investigation(db, Report, investigation.id),
+        tasks_count=await _count_for_investigation(
+            db,
+            InvestigationTask,
+            investigation.id,
+        ),
+        evidence_count=await _count_for_investigation(
+            db,
+            InvestigationEvidence,
+            investigation.id,
+        ),
+        members_count=await _count_for_investigation(
+            db,
+            InvestigationMember,
+            investigation.id,
+        ),
+    )
+
+
+async def _count_for_investigation(
+    db: AsyncSession,
+    model: Any,
+    investigation_id: uuid.UUID,
+) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(model)
+        .where(model.investigation_id == investigation_id)
+    )
+    return int(result.scalar_one())
 
 
 def _build_graph_risk_summary(
@@ -641,7 +902,7 @@ async def _apply_status_transition(
     )
     await record_event(
         db,
-        action="workflow.status_changed",
+        action="investigation.state_changed",
         actor_id=user.id,
         resource_type="investigation",
         resource_id=investigation.id,
@@ -766,7 +1027,10 @@ async def update_member_role(
         raise InvestigationNotFoundError("Member not found")
     if role is None:
         role = member.role
-    if member.user_id == requesting_user.id and _role_rank(role) > _role_rank(member.role):
+    if (
+        member.user_id == requesting_user.id
+        and _role_rank(role) > _role_rank(member.role)
+    ):
         raise MemberValidationError("Users cannot promote themselves")
     if member.role == "owner" and role != "owner":
         await _ensure_not_last_owner(db, investigation_id)
@@ -776,6 +1040,16 @@ async def update_member_role(
         investigation = await db.get(Investigation, investigation_id)
         if investigation is not None and investigation.owner_id != member.user_id:
             previous_owner = investigation.owner_id
+            owner_result = await db.execute(
+                select(InvestigationMember).where(
+                    InvestigationMember.investigation_id == investigation_id,
+                    InvestigationMember.role == "owner",
+                    InvestigationMember.user_id != member.user_id,
+                )
+            )
+            for current_owner in owner_result.scalars().all():
+                current_owner.role = "analyst"
+                db.add(current_owner)
             investigation.owner_id = member.user_id
             db.add(investigation)
             await record_event(
@@ -789,6 +1063,18 @@ async def update_member_role(
                     "previous_owner": str(previous_owner),
                     "target_user": str(member.user_id),
                     "actor": str(requesting_user.id),
+                },
+            )
+            await record_event(
+                db,
+                action="investigation.owner_changed",
+                actor_id=requesting_user.id,
+                resource_type="investigation",
+                resource_id=investigation_id,
+                investigation_id=investigation_id,
+                metadata={
+                    "previous_owner": str(previous_owner),
+                    "new_owner": str(member.user_id),
                 },
             )
     db.add(member)
@@ -904,6 +1190,24 @@ async def _member_responses(
     user_ids = {member.user_id for member in members}
     users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
     users = {user.id: user for user in users_result.scalars().all()}
+    investigation_ids = {member.investigation_id for member in members}
+    activity_result = await db.execute(
+        select(
+            AuditLog.actor_id,
+            AuditLog.investigation_id,
+            func.max(AuditLog.created_at),
+        )
+        .where(
+            AuditLog.actor_id.in_(user_ids),
+            AuditLog.investigation_id.in_(investigation_ids),
+        )
+        .group_by(AuditLog.actor_id, AuditLog.investigation_id)
+    )
+    last_activity = {
+        (actor_id, investigation_id): timestamp
+        for actor_id, investigation_id, timestamp in activity_result.all()
+        if actor_id is not None and investigation_id is not None
+    }
     responses: list[MemberResponse] = []
     for member in members:
         user = users.get(member.user_id)
@@ -918,6 +1222,9 @@ async def _member_responses(
                 invited_by=member.invited_by,
                 created_at=member.created_at,
                 updated_at=member.updated_at,
+                last_activity_at=last_activity.get(
+                    (member.user_id, member.investigation_id)
+                ),
             )
         )
     return responses

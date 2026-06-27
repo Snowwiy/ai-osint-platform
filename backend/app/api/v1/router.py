@@ -8,15 +8,22 @@ from app.api.v1 import (
     analytics,
     auth,
     case_management,
+    case_review,
+    collaboration,
     findings,
+    intelligence,
     investigations,
+    iocs,
     knowledge,
+    operations,
     playbooks,
     productivity,
     recon,
+    release,
     reports,
     targets,
     threat_intel,
+    threat_workspace,
     timeline,
     users,
 )
@@ -26,15 +33,22 @@ api_router.include_router(admin.router, tags=["admin"])
 api_router.include_router(analysis.router)
 api_router.include_router(analytics.router)
 api_router.include_router(auth.router)
+api_router.include_router(case_review.router)
 api_router.include_router(case_management.router)
+api_router.include_router(collaboration.router)
 api_router.include_router(users.router)
 api_router.include_router(findings.router)
+api_router.include_router(intelligence.router)
+api_router.include_router(operations.router)
 api_router.include_router(investigations.router)
+api_router.include_router(iocs.router)
 api_router.include_router(knowledge.router)
 api_router.include_router(playbooks.router)
 api_router.include_router(productivity.router)
 api_router.include_router(targets.router)
 api_router.include_router(recon.router)
+api_router.include_router(release.router)
 api_router.include_router(reports.router)
 api_router.include_router(threat_intel.router)
+api_router.include_router(threat_workspace.router)
 api_router.include_router(timeline.router)

@@ -7,20 +7,22 @@ from typing import Literal, cast
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 InvestigationWorkflowStatus = Literal[
-    "draft",
+    "intake",
     "active",
-    "triage",
     "monitoring",
     "remediation",
-    "validated",
+    "validation",
+    "completed",
     "archived",
-    "review",
-    "remediated",
 ]
 NoteType = Literal[
     "analyst_note",
-    "evidence_note",
+    "triage_note",
     "remediation_note",
+    "escalation_note",
+    "validation_note",
+    "closure_note",
+    "evidence_note",
     "executive_note",
     "timeline_note",
 ]
@@ -33,8 +35,9 @@ LegacyNoteType = Literal[
     "timeline",
 ]
 NoteTypeInput = NoteType | LegacyNoteType
-TaskStatus = Literal["open", "in_progress", "blocked", "completed", "cancelled", "todo"]
+TaskStatus = Literal["todo", "in_progress", "blocked", "validation", "completed"]
 TaskPriority = Literal["critical", "high", "medium", "low", "urgent"]
+NoteVisibility = Literal["investigation", "owners"]
 EvidenceReviewStatus = Literal["collected", "reviewed", "validated", "dismissed"]
 EvidenceType = Literal[
     "recon",
@@ -50,7 +53,9 @@ EvidenceType = Literal[
 
 
 class WorkflowTransitionRequest(BaseModel):
-    status: InvestigationWorkflowStatus
+    status: InvestigationWorkflowStatus = Field(
+        validation_alias=AliasChoices("status", "state"),
+    )
     reason: str | None = Field(default=None, max_length=2000)
 
 
@@ -74,6 +79,8 @@ class InvestigationNoteCreate(BaseModel):
     )
     note_type: NoteTypeInput = "analyst_note"
     pinned: bool = False
+    visibility: NoteVisibility = "investigation"
+    references: list[str] = Field(default_factory=list, max_length=100)
 
     @field_validator("title", "content")
     @classmethod
@@ -94,6 +101,8 @@ class InvestigationNoteUpdate(BaseModel):
     note_type: NoteTypeInput | None = None
     pinned: bool | None = None
     archived: bool | None = None
+    visibility: NoteVisibility | None = None
+    references: list[str] | None = Field(default=None, max_length=100)
 
     @field_validator("title", "content")
     @classmethod
@@ -120,6 +129,8 @@ class InvestigationNoteResponse(BaseModel):
     note_type: NoteTypeInput
     pinned: bool
     archived: bool
+    visibility: NoteVisibility
+    references: list[str]
     created_at: datetime
     updated_at: datetime
 
@@ -133,12 +144,14 @@ class InvestigationTaskCreate(BaseModel):
     investigation_id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    status: TaskStatus = "open"
+    status: TaskStatus = "todo"
     priority: TaskPriority = "medium"
     assigned_to: uuid.UUID | None = None
     due_date: datetime | None = None
     remediation_link: str | None = Field(default=None, max_length=2000)
+    blockers: str | None = Field(default=None, max_length=4000)
     finding_id: uuid.UUID | None = None
+    playbook_run_id: uuid.UUID | None = None
     evidence_reference_ids: list[uuid.UUID] = Field(default_factory=list)
 
     @field_validator("title")
@@ -158,8 +171,11 @@ class InvestigationTaskUpdate(BaseModel):
     assigned_to: uuid.UUID | None = None
     due_date: datetime | None = None
     remediation_link: str | None = Field(default=None, max_length=2000)
+    blockers: str | None = Field(default=None, max_length=4000)
     finding_id: uuid.UUID | None = None
+    playbook_run_id: uuid.UUID | None = None
     evidence_reference_ids: list[uuid.UUID] | None = None
+    archived: bool | None = None
 
     @field_validator("title")
     @classmethod
@@ -176,6 +192,10 @@ class InvestigationTaskStatusUpdate(BaseModel):
     status: TaskStatus
 
 
+class InvestigationTaskAssignUpdate(BaseModel):
+    assigned_to: uuid.UUID
+
+
 class InvestigationTaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -188,12 +208,15 @@ class InvestigationTaskResponse(BaseModel):
     assigned_to: uuid.UUID | None
     due_date: datetime | None
     remediation_link: str | None
+    blockers: str | None
     finding_id: uuid.UUID | None
+    playbook_run_id: uuid.UUID | None
     evidence_reference_ids: list[uuid.UUID]
     created_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
     completed_at: datetime | None
+    archived_at: datetime | None
 
 
 class InvestigationTaskListResponse(BaseModel):
@@ -238,6 +261,7 @@ class InvestigationEvidenceUpdate(BaseModel):
     finding_id: uuid.UUID | None = None
     note_id: uuid.UUID | None = None
     task_id: uuid.UUID | None = None
+    archived: bool | None = None
 
     @field_validator("title", "source")
     @classmethod

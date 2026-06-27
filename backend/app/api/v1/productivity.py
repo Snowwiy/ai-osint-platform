@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
+from app.schemas.investigation import InvestigationReadinessResponse
 from app.schemas.productivity import (
     EvidenceBookmarkCreate,
     EvidenceBookmarkListResponse,
@@ -29,6 +30,7 @@ from app.services.productivity import (
     create_tag,
     delete_bookmark,
     generate_investigation_summary,
+    get_investigation_readiness,
     get_investigation_tags,
     list_bookmarks,
     list_tags,
@@ -37,6 +39,25 @@ from app.services.productivity import (
 )
 
 router = APIRouter(tags=["productivity"])
+
+
+@router.get(
+    "/investigations/{investigation_id}/readiness",
+    response_model=InvestigationReadinessResponse,
+)
+async def investigation_readiness_endpoint(
+    investigation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InvestigationReadinessResponse:
+    try:
+        return await get_investigation_readiness(
+            db,
+            current_user,
+            investigation_id,
+        )
+    except InvestigationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
 
 
 @router.get(

@@ -8,10 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
-from app.schemas.correlation import CorrelationResponse
+from app.schemas.correlation import (
+    CorrelationResponse,
+    CrossInvestigationCorrelationResponse,
+    CrossInvestigationSignalType,
+)
 from app.schemas.finding import FindingSeverity
 from app.schemas.timeline import TimelineEventType, TimelineResponse
-from app.services.correlation.service import get_investigation_correlations
+from app.services.correlation.service import (
+    get_cross_investigation_correlations,
+    get_investigation_correlations,
+)
 from app.services.investigation import InvestigationNotFoundError
 from app.services.timeline.service import (
     TimelineFilters,
@@ -32,6 +39,7 @@ async def get_timeline_endpoint(
     start_date: datetime | None = Query(default=None),
     end_date: datetime | None = Query(default=None),
     source: str | None = Query(default=None, min_length=1, max_length=50),
+    analyst_id: uuid.UUID | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TimelineResponse:
@@ -46,6 +54,7 @@ async def get_timeline_endpoint(
                 start_date=start_date,
                 end_date=end_date,
                 source=source,
+                actor_id=analyst_id,
             ),
         )
     except InvestigationNotFoundError as exc:
@@ -69,3 +78,21 @@ async def get_correlations_endpoint(
         )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
+
+
+@router.get(
+    "/correlations/cross-investigation",
+    response_model=CrossInvestigationCorrelationResponse,
+)
+async def get_cross_investigation_correlations_endpoint(
+    signal_type: CrossInvestigationSignalType | None = Query(default=None),
+    top_k: int = Query(default=100, ge=1, le=250),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CrossInvestigationCorrelationResponse:
+    return await get_cross_investigation_correlations(
+        db,
+        current_user,
+        signal_type=signal_type,
+        top_k=top_k,
+    )

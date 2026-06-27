@@ -14,8 +14,8 @@ from app.models.ai_analysis import AiAnalysis
 from app.models.audit_log import AuditLog
 from app.models.finding import Finding
 from app.models.investigation import Investigation
-from app.models.investigation_evidence import InvestigationEvidence
 from app.models.investigation_enrichment import InvestigationEnrichment
+from app.models.investigation_evidence import InvestigationEvidence
 from app.models.investigation_note import InvestigationNote
 from app.models.investigation_task import InvestigationTask
 from app.models.investigation_workflow_event import InvestigationWorkflowEvent
@@ -38,6 +38,7 @@ class TimelineFilters:
     start_date: datetime | None = None
     end_date: datetime | None = None
     source: str | None = None
+    actor_id: uuid.UUID | None = None
 
 
 async def get_investigation_timeline(
@@ -98,6 +99,15 @@ def filter_timeline_events(
         expected = filters.source.lower()
         filtered = [
             event for event in filtered if event.source.lower() == expected
+        ]
+    if filters.actor_id is not None:
+        actor_id = str(filters.actor_id)
+        filtered = [
+            event
+            for event in filtered
+            if event.metadata.get("actor_id") == actor_id
+            or event.metadata.get("author_id") == actor_id
+            or event.metadata.get("created_by") == actor_id
         ]
     return filtered
 
@@ -302,6 +312,20 @@ async def _audit_collaboration_events(
                     "summary.generated",
                     "investigation.priority_updated",
                     "investigation.tag_updated",
+                    "investigation.bulk_update",
+                    "investigation.pinned",
+                    "report.failed",
+                    "report.archived",
+                    "report.restored",
+                    "investigation.owner_changed",
+                    "investigation.assigned",
+                    "investigation.watcher_added",
+                    "investigation.handoff",
+                    "investigation.state_changed",
+                    "investigation.stage_changed",
+                    "investigation.escalated",
+                    "task.status_updated",
+                    "note.pinned",
                 )
             ),
         )
@@ -493,18 +517,34 @@ def _event_from_ai_analysis(
 
 
 def _event_from_report(report: Report) -> TimelineEvent:
+    event_type: TimelineEventType = "report_generated"
+    title = report.title or "Investigation report generated"
+    summary = (
+        f"{report.report_type.title()} report generated with status "
+        f"{report.status}."
+    )
+    timestamp = report.generated_at or report.created_at
+    confidence = 90 if report.status == "ready" else 50
+    if report.status == "failed":
+        event_type = "report_failed"
+        title = report.title or "Investigation report failed"
+        summary = report.failure_reason or "Report generation failed."
+        confidence = 95
+    elif report.status == "archived":
+        event_type = "report_archived"
+        title = report.title or "Investigation report archived"
+        summary = "Report was archived and remains available for restoration."
+        timestamp = report.archived_at or report.created_at
+        confidence = 95
     return TimelineEvent(
-        id=f"report:{report.id}:generated",
-        timestamp=report.created_at,
-        event_type="report_generated",
+        id=f"report:{report.id}:{event_type}",
+        timestamp=timestamp,
+        event_type=event_type,
         severity="info",
         source="report",
-        title=report.title or "Investigation report generated",
-        summary=
-        f"{report.report_type.title()} "
-        f"report generated with status "
-        f"{report.status}.",
-        confidence=90 if report.status == "ready" else 50,
+        title=title,
+        summary=summary,
+        confidence=confidence,
         metadata={
             "report_type": report.report_type,
             "status": report.status,
@@ -726,6 +766,33 @@ def _collaboration_event_type(action: str) -> TimelineEventType:
         "summary.generated": "summary_generated",
         "investigation.priority_updated": "priority_updated",
         "investigation.tag_updated": "tag_updated",
+        "investigation.bulk_update": "investigation_bulk_updated",
+        "investigation.pinned": "investigation_pinned",
+        "report.failed": "report_failed",
+        "report.archived": "report_archived",
+        "report.restored": "report_restored",
+        "investigation.owner_changed": "ownership_changed",
+        "investigation.assigned": "analyst_assignment",
+        "investigation.watcher_added": "watcher_added",
+        "investigation.handoff": "investigation_handoff",
+        "investigation.state_changed": "investigation_state_changed",
+        "investigation.stage_changed": "investigation_stage_changed",
+        "case.review_submitted": "case_review_submitted",
+        "case.review_approved": "case_review_approved",
+        "case.review_rejected": "case_review_rejected",
+        "case.changes_requested": "case_changes_requested",
+        "case.closed": "case_closed",
+        "case.closure_overridden": "case_closure_overridden",
+        "report.approval_submitted": "report_approval_submitted",
+        "report.approved": "report_approved",
+        "report.rejected": "report_rejected",
+        "remediation.validation_submitted": "remediation_validation_submitted",
+        "remediation.validated": "remediation_validated",
+        "remediation.validation_failed": "remediation_validation_failed",
+        "remediation.accepted_risk": "remediation_accepted_risk",
+        "investigation.escalated": "investigation_escalated",
+        "task.status_updated": "task_status_updated",
+        "note.pinned": "note_pinned",
     }
     return mapping.get(action, "analyst_assignment")
 
@@ -746,6 +813,33 @@ def _collaboration_title(action: str) -> str:
         "summary.generated": "Investigation summary generated",
         "investigation.priority_updated": "Investigation priority updated",
         "investigation.tag_updated": "Investigation tags updated",
+        "investigation.bulk_update": "Investigation bulk action applied",
+        "investigation.pinned": "Investigation pin updated",
+        "report.failed": "Report generation failed",
+        "report.archived": "Report archived",
+        "report.restored": "Report restored",
+        "investigation.owner_changed": "Investigation owner changed",
+        "investigation.assigned": "Analyst assigned",
+        "investigation.watcher_added": "Watcher added",
+        "investigation.handoff": "Investigation handed off",
+        "investigation.state_changed": "Investigation state changed",
+        "investigation.stage_changed": "Investigation stage changed",
+        "case.review_submitted": "Case submitted for review",
+        "case.review_approved": "Case review approved",
+        "case.review_rejected": "Case review rejected",
+        "case.changes_requested": "Case changes requested",
+        "case.closed": "Case closed",
+        "case.closure_overridden": "Case closure overridden",
+        "report.approval_submitted": "Report submitted for approval",
+        "report.approved": "Report approved",
+        "report.rejected": "Report rejected",
+        "remediation.validation_submitted": "Remediation submitted for validation",
+        "remediation.validated": "Remediation validated",
+        "remediation.validation_failed": "Remediation validation failed",
+        "remediation.accepted_risk": "Remediation risk accepted",
+        "investigation.escalated": "Investigation escalated",
+        "task.status_updated": "Task status updated",
+        "note.pinned": "Operational note pin updated",
     }
     return titles.get(action, action.replace(".", " ").replace("_", " ").title())
 

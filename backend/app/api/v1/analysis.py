@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, require_feature
 from app.models.user import User
 from app.schemas.analysis import (
     AnalysisResponse,
@@ -26,7 +26,11 @@ from app.services.audit import record_event
 from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.knowledge.retriever import retrieve_context
 
-router = APIRouter(prefix="/analysis", tags=["analysis"])
+router = APIRouter(
+    prefix="/analysis",
+    tags=["analysis"],
+    dependencies=[Depends(require_feature("enable_ai_analysis"))],
+)
 
 
 @router.post("/investigation", response_model=AnalysisResponse)

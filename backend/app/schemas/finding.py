@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.case_review import RemediationValidationStatus
 from app.schemas.recon import JsonProperties
 
 FindingSeverity = Literal["info", "low", "medium", "high", "critical"]
@@ -78,6 +79,9 @@ class FindingResponse(BaseModel):
     verified_by: uuid.UUID | None = None
     verified_at: datetime | None = None
     validation_notes: str | None = None
+    validation_status: RemediationValidationStatus = "not_validated"
+    validation_owner: uuid.UUID | None = None
+    validation_failure_reason: str | None = None
     confidence_reasoning: str | None = None
     evidence_summary: str | None = None
     review_history: list[dict[str, object]] = Field(default_factory=list)

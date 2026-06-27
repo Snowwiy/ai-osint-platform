@@ -159,12 +159,12 @@ export function AdminAuditPage(): JSX.Element {
       </form>
 
       {audit.isLoading ? <LoadingBlock label="Loading audit events" /> : null}
-      {audit.isError ? <ErrorBlock message={audit.error.message} /> : null}
+      {audit.isError ? <ErrorBlock message={audit.error} /> : null}
       {audit.data ? (
-        audit.data.items.length ? (
+        (audit.data.items ?? []).length ? (
           <div className="overflow-hidden rounded-lg border border-raven-border bg-raven-panel/85">
             <div className="border-b border-raven-border px-4 py-3 text-sm text-raven-muted">
-              Showing {audit.data.items.length} of {audit.data.total} events
+              Showing {(audit.data.items ?? []).length} of {audit.data.total} events
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-raven-border text-sm">
@@ -179,7 +179,7 @@ export function AdminAuditPage(): JSX.Element {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-raven-border">
-                  {audit.data.items.map((entry) => (
+                  {(audit.data.items ?? []).map((entry) => (
                     <AuditRow
                       key={entry.id}
                       entry={entry}
@@ -194,7 +194,12 @@ export function AdminAuditPage(): JSX.Element {
             </div>
           </div>
         ) : (
-          <EmptyBlock message="No audit events match the current filters." />
+          <EmptyBlock
+            title="No audit events found"
+            message="The audit trail records security-relevant and analyst actions without exposing secrets."
+            nextStep="Clear filters or perform an authorized workflow action, then refresh."
+            permission="Platform administrator access is required."
+          />
         )
       ) : null}
     </>

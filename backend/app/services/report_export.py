@@ -4,6 +4,7 @@ import html
 import io
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
@@ -24,6 +25,9 @@ class ReportBranding:
     logo_path: Path | None
     primary_color: str
     secondary_color: str
+    analyst_name: str = ""
+    footer_text: str = ""
+    confidentiality_label: str = "Internal"
 
 
 @dataclass(frozen=True)
@@ -46,7 +50,7 @@ def export_report(report: Report, export_format: ReportDownloadFormat) -> Report
             media_type="text/markdown; charset=utf-8",
             extension="md",
         )
-    branding = get_report_branding()
+    branding = get_report_branding(report)
     if export_format == "pdf":
         return ReportExport(
             content=_export_pdf(report, branding),
@@ -60,13 +64,43 @@ def export_report(report: Report, export_format: ReportDownloadFormat) -> Report
     )
 
 
-def get_report_branding() -> ReportBranding:
-    logo_path = _optional_existing_path(settings.REPORT_LOGO_PATH)
+def get_report_branding(report: Report | None = None) -> ReportBranding:
+    metadata_branding = (
+        report.report_metadata.get("branding", {})
+        if report is not None and isinstance(report.report_metadata, dict)
+        else {}
+    )
+    if not isinstance(metadata_branding, dict):
+        metadata_branding = {}
+    logo_path = _optional_existing_path(
+        str(metadata_branding.get("logo_path", ""))
+        or settings.REPORT_LOGO_PATH
+    )
     return ReportBranding(
-        company_name=_clean_text(settings.REPORT_COMPANY_NAME) or "RavenTech",
+        company_name=(
+            _clean_text(str(metadata_branding.get("company_name", "")))
+            or _clean_text(settings.REPORT_COMPANY_NAME)
+            or "RavenTech"
+        ),
         logo_path=logo_path,
-        primary_color=_safe_hex(settings.REPORT_PRIMARY_COLOR, "#7C3AED"),
-        secondary_color=_safe_hex(settings.REPORT_SECONDARY_COLOR, "#111827"),
+        primary_color=_safe_hex(
+            str(metadata_branding.get("primary_color", "")),
+            _safe_hex(settings.REPORT_PRIMARY_COLOR, "#7C3AED"),
+        ),
+        secondary_color=_safe_hex(
+            str(metadata_branding.get("secondary_color", "")),
+            _safe_hex(settings.REPORT_SECONDARY_COLOR, "#111827"),
+        ),
+        analyst_name=_clean_text(
+            str(metadata_branding.get("analyst_name", ""))
+        ),
+        footer_text=_clean_text(str(metadata_branding.get("footer_text", ""))),
+        confidentiality_label=(
+            _clean_text(
+                str(metadata_branding.get("confidentiality_label", ""))
+            )
+            or "Internal"
+        ),
     )
 
 
@@ -179,6 +213,12 @@ def _export_pdf(report: Report, branding: ReportBranding) -> bytes:
             28,
             f"Page {doc_obj.page}",
         )
+        canvas.setFont("Helvetica", 7)
+        canvas.drawCentredString(
+            doc.pagesize[0] / 2,
+            28,
+            branding.footer_text or branding.confidentiality_label,
+        )
         canvas.restoreState()
 
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
@@ -195,6 +235,7 @@ def _export_docx(report: Report, branding: ReportBranding) -> bytes:
 
     title = _report_title(report)
     document.add_heading(branding.company_name, level=0)
+    document.add_paragraph(branding.confidentiality_label)
     if branding.logo_path is None:
         document.add_paragraph("RavenTech branding placeholder")
     else:
@@ -202,8 +243,15 @@ def _export_docx(report: Report, branding: ReportBranding) -> bytes:
             document.add_picture(str(branding.logo_path), width=shared.Inches(1.25))
         except Exception:
             document.add_paragraph("RavenTech branding placeholder")
+    if branding.footer_text:
+        document.sections[0].footer.paragraphs[0].text = branding.footer_text
     document.add_heading(title, level=1)
     document.add_paragraph(f"Report type: {_clean_text(report.report_type).title()}")
+    if branding.analyst_name:
+        document.add_paragraph(f"Prepared by: {branding.analyst_name}")
+    document.add_paragraph(
+        f"Generated at: {_report_generated_at(report).isoformat()}"
+    )
     document.add_paragraph(f"Risk level: {_risk_level(report).upper()}")
 
     _add_docx_risk_table(document, report)
@@ -253,6 +301,22 @@ def _add_pdf_cover(
     story.append(
         platypus.Paragraph(html.escape(branding.company_name), styles["RavenHeading"])
     )
+    if branding.analyst_name:
+        story.append(
+            platypus.Paragraph(
+                html.escape(f"Prepared by: {branding.analyst_name}"),
+                styles["RavenBody"],
+            )
+        )
+    story.append(
+        platypus.Paragraph(
+            html.escape(
+                "Generated at: "
+                f"{_report_generated_at(report).isoformat()}"
+            ),
+            styles["RavenBody"],
+        )
+    )
     story.append(
         platypus.Paragraph(
             html.escape(_report_title(report)),
@@ -289,6 +353,10 @@ def _add_pdf_cover(
         )
     )
     story.append(table)
+
+
+def _report_generated_at(report: Report) -> datetime:
+    return report.generated_at or report.created_at or datetime.now(UTC)
 
 
 def _add_pdf_toc(

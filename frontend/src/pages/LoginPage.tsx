@@ -2,7 +2,6 @@ import { ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
-import { ErrorBlock } from "../components/StateBlock";
 import { useAuth } from "../lib/useAuth";
 
 interface LocationState {
@@ -46,7 +45,9 @@ export function LoginPage(): JSX.Element {
           </div>
           <div>
             <h1 className="text-2xl font-semibold">RavenTech OSINT</h1>
-            <p className="text-sm text-raven-muted">Authorized intelligence workspace</p>
+            <p className="text-sm text-raven-muted">
+              Defensive Intelligence &amp; Threat Investigation Workspace
+            </p>
           </div>
         </div>
 
@@ -80,8 +81,8 @@ export function LoginPage(): JSX.Element {
           />
 
           {error ? (
-            <div className="mt-4">
-              <ErrorBlock message={error} />
+            <div className="mt-4 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+              {error}
             </div>
           ) : null}
 

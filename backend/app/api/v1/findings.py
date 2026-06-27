@@ -15,6 +15,7 @@ from app.schemas.finding import (
     FindingStatusUpdate,
     FindingSummaryResponse,
 )
+from app.services.audit import record_event
 from app.services.intelligence.findings_service import (
     FindingNotFoundError,
     assign_finding,
@@ -67,11 +68,21 @@ async def generate_findings_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> list[FindingResponse]:
     try:
-        return await generate_findings_response_for_investigation(
+        findings = await generate_findings_response_for_investigation(
             db,
             current_user,
             investigation_id,
         )
+        await record_event(
+            db,
+            action="findings.generated",
+            actor_id=current_user.id,
+            resource_type="investigation",
+            resource_id=investigation_id,
+            investigation_id=investigation_id,
+            metadata={"finding_count": len(findings)},
+        )
+        return findings
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except ForbiddenError as exc:
@@ -120,7 +131,8 @@ async def update_finding_status_endpoint(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except MemberValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-  
+
+
 @router.patch("/findings/{finding_id}/assign", response_model=FindingResponse)
 async def assign_finding_endpoint(
     finding_id: uuid.UUID,

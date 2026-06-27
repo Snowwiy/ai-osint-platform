@@ -76,6 +76,13 @@ class AnalysisFrameworkMapping(BaseModel):
     citation_ids: list[str] = Field(default_factory=list)
 
 
+class AnalysisProviderDiagnostics(BaseModel):
+    provider_configured: bool
+    model: str | None = None
+    feature_enabled: bool = True
+    last_error_category: str | None = None
+
+
 class AnalysisResponse(BaseModel):
     mode: AnalysisMode
     status: AnalysisProviderStatus
@@ -96,3 +103,6 @@ class AnalysisResponse(BaseModel):
     framework_mappings: list[AnalysisFrameworkMapping] = Field(default_factory=list)
     citations: list[AnalysisCitation] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
+    provider_diagnostics: AnalysisProviderDiagnostics = Field(
+        default_factory=lambda: AnalysisProviderDiagnostics(provider_configured=False)
+    )

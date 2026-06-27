@@ -18,13 +18,14 @@ export function ReconResultsPage(): JSX.Element {
   });
 
   const nodeById = useMemo(
-    () => new Map(graph.data?.nodes.map((node) => [node.id, node]) ?? []),
+    () => new Map((graph.data?.nodes ?? []).map((node) => [node.id, node])),
     [graph.data?.nodes],
   );
   const entityRows = useMemo(
     () => mergeEntityRows(graph.data?.nodes ?? []),
     [graph.data?.nodes],
   );
+  const relationshipEdges = graph.data?.edges ?? [];
   const entityCounts = useMemo(
     () =>
       Array.from(
@@ -32,7 +33,7 @@ export function ReconResultsPage(): JSX.Element {
           counts.set(row.entityType, (counts.get(row.entityType) ?? 0) + 1);
           return counts;
         }, new Map()),
-      ).sort(([left], [right]) => left.localeCompare(right)),
+      ).sort(([left], [right]) => safeLocaleCompare(left, right)),
     [entityRows],
   );
 
@@ -40,14 +41,14 @@ export function ReconResultsPage(): JSX.Element {
     return <LoadingBlock label="Loading recon results" />;
   }
   if (graph.isError) {
-    return <ErrorBlock message={graph.error.message} />;
+    return <ErrorBlock message={graph.error} />;
   }
 
   return (
     <>
       <PageHeader title="Recon Results" eyebrow="Passive entities" />
       <InvestigationTabs />
-      {graph.data?.nodes.length ? (
+      {(graph.data?.nodes ?? []).length ? (
         <div className="space-y-5">
           <section className="grid gap-3 md:grid-cols-4">
             {entityCounts.map(([entityType, count]) => (
@@ -116,9 +117,9 @@ export function ReconResultsPage(): JSX.Element {
 
             <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5">
               <h2 className="text-lg font-semibold">Relationships</h2>
-              {graph.data.edges.length ? (
+              {relationshipEdges.length ? (
                 <div className="mt-4 space-y-3">
-                  {graph.data.edges.map((edge) => (
+                  {relationshipEdges.map((edge) => (
                     <div
                       key={edge.id}
                       className="rounded-md border border-raven-border bg-raven-panelSoft p-3"
@@ -134,13 +135,22 @@ export function ReconResultsPage(): JSX.Element {
                   ))}
                 </div>
               ) : (
-                <EmptyBlock message="No recon relationships are stored yet." />
+                <EmptyBlock
+                  title="No recon relationships"
+                  message="Relationships connect stored domains, addresses, services, technologies, and certificates."
+                  nextStep="Run passive recon on an authorized target to collect defensive evidence."
+                />
               )}
             </section>
           </div>
         </div>
       ) : (
-        <EmptyBlock message="No passive recon entities are stored for this investigation." />
+        <EmptyBlock
+          title="No passive recon evidence"
+          message="Passive recon collects defensive infrastructure metadata without active scanning."
+          nextStep="Run passive recon from the Targets tab after confirming authorization."
+          permission="Contributors can run recon; viewers have read-only access."
+        />
       )}
     </>
   );
@@ -192,15 +202,17 @@ interface EntityRow {
 function mergeEntityRows(nodes: GraphNode[]): EntityRow[] {
   const rows = new Map<string, EntityRow>();
   for (const node of nodes) {
-    const key = `${node.entity_type}:${node.value}`.toLowerCase();
+    const entityType = safeString(node.entity_type, "Unknown");
+    const value = safeString(node.value, node.id);
+    const key = `${entityType}:${value}`.toLowerCase();
     const row = rows.get(key);
     if (!row) {
       rows.set(key, {
-        entityType: node.entity_type,
-        value: node.value,
+        entityType,
+        value,
         sources: [node.source ?? "recon"],
         ids: [node.id],
-        lastSeen: node.last_seen,
+        lastSeen: node.last_seen ?? new Date(0).toISOString(),
       });
       continue;
     }
@@ -211,13 +223,23 @@ function mergeEntityRows(nodes: GraphNode[]): EntityRow[] {
     if (!row.ids.includes(node.id)) {
       row.ids.push(node.id);
     }
-    if (new Date(node.last_seen).getTime() > new Date(row.lastSeen).getTime()) {
-      row.lastSeen = node.last_seen;
+    if (
+      new Date(node.last_seen ?? 0).getTime() > new Date(row.lastSeen).getTime()
+    ) {
+      row.lastSeen = node.last_seen ?? row.lastSeen;
     }
   }
   return Array.from(rows.values()).sort(
     (left, right) =>
-      left.entityType.localeCompare(right.entityType) ||
-      left.value.localeCompare(right.value),
+      safeLocaleCompare(left.entityType, right.entityType) ||
+      safeLocaleCompare(left.value, right.value),
   );
+}
+
+function safeString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : String(value ?? fallback);
+}
+
+function safeLocaleCompare(left: unknown, right: unknown): number {
+  return safeString(left).localeCompare(safeString(right));
 }

@@ -107,11 +107,13 @@ class PlaybookRunResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    archived_at: datetime | None
     steps: list[PlaybookRunStepResponse] = Field(default_factory=list)
 
 
 class PlaybookRunUpdate(BaseModel):
-    status: PlaybookRunStatus
+    status: PlaybookRunStatus | None = None
+    archived: bool | None = None
 
 
 class PlaybookRunStepUpdate(BaseModel):

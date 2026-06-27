@@ -27,6 +27,7 @@ from app.schemas.recon import (
     ReconResponse,
 )
 from app.services.investigation import MUTATION_ROLES, ensure_investigation_permission, get_investigation
+from app.services.ioc_intelligence import sync_recon_entity_ioc
 from app.services.recon.certificate_service import collect_certificate_intelligence
 from app.services.recon.dns_service import collect_dns_intelligence
 from app.services.recon.http_service import inspect_http_metadata
@@ -220,6 +221,7 @@ async def _persist_recon_result(
             properties=entity.properties,
             source=entity.source,
         )
+        await sync_recon_entity_ioc(db, persisted)
         entity_ids[(entity.entity_type, entity.value)] = persisted.id
 
     for relationship in response.relationships:

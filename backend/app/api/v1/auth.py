@@ -79,7 +79,10 @@ async def login_endpoint(
         raise HTTPException(status_code=403, detail="Account disabled") from exc
     except InvalidCredentialsError as exc:
         await _record_failed_login(redis, identifier, request)
-        raise HTTPException(status_code=401, detail="Invalid credentials") from exc
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid username or password.",
+        ) from exc
 
     await _clear_failed_login(redis, identifier, request)
     _set_refresh_cookie(response, refresh_token)

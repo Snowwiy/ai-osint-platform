@@ -8,23 +8,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user, get_db
 from app.models.investigation import Investigation
 from app.models.user import User
+from app.schemas.case_management import WorkflowTransitionRequest
 from app.schemas.investigation import (
     InvestigationCreate,
     InvestigationGraphResponse,
     InvestigationListScope,
     InvestigationListResponse,
+    InvestigationPurgeImpactResponse,
     InvestigationResponse,
+    InvestigationStageUpdate,
     InvestigationUpdate,
     MemberAddRequest,
     MemberResponse,
     MemberUpdateRequest,
 )
-from app.schemas.case_management import WorkflowTransitionRequest
 from app.schemas.recon import EntityType, RelationshipType
 from app.services.investigation import (
     ForbiddenError,
     InvestigationNotFoundError,
+    InvestigationPurgeConflictError,
     InvalidWorkflowTransitionError,
+    InvalidStageTransitionError,
     LastOwnerError,
     MemberAlreadyExistsError,
     MemberValidationError,
@@ -33,11 +37,14 @@ from app.services.investigation import (
     create_investigation,
     get_investigation,
     get_investigation_graph,
+    get_investigation_purge_impact,
     list_investigations,
     list_member_responses,
     remove_member,
+    purge_archived_investigation,
     update_investigation,
     update_investigation_status,
+    update_investigation_stage,
     update_member_role,
 )
 
@@ -138,6 +145,7 @@ async def update_endpoint(
 
 
 @router.patch("/{investigation_id}/status", response_model=InvestigationResponse)
+@router.patch("/{investigation_id}/state", response_model=InvestigationResponse)
 async def update_status_endpoint(
     investigation_id: uuid.UUID,
     body: WorkflowTransitionRequest,
@@ -160,6 +168,29 @@ async def update_status_endpoint(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@router.patch("/{investigation_id}/stage", response_model=InvestigationResponse)
+async def update_stage_endpoint(
+    investigation_id: uuid.UUID,
+    body: InvestigationStageUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Investigation:
+    try:
+        return await update_investigation_stage(
+            db,
+            current_user,
+            investigation_id,
+            body.stage,
+            reason=body.reason,
+        )
+    except InvestigationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except InvalidStageTransitionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.delete(
     "/{investigation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -175,6 +206,46 @@ async def delete_endpoint(
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get(
+    "/{investigation_id}/purge-impact",
+    response_model=InvestigationPurgeImpactResponse,
+)
+async def purge_impact_endpoint(
+    investigation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InvestigationPurgeImpactResponse:
+    try:
+        return await get_investigation_purge_impact(
+            db,
+            current_user,
+            investigation_id,
+        )
+    except InvestigationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/{investigation_id}/purge",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def purge_endpoint(
+    investigation_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    try:
+        await purge_archived_investigation(db, current_user, investigation_id)
+    except InvestigationNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Investigation not found") from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except InvestigationPurgeConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{investigation_id}/members", response_model=list[MemberResponse])

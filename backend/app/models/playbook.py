@@ -146,6 +146,7 @@ class PlaybookRun(Base):
         Index("idx_playbook_runs_finding", "finding_id"),
         Index("idx_playbook_runs_playbook", "playbook_id"),
         Index("idx_playbook_runs_status", "status"),
+        Index("idx_playbook_runs_archived_at", "archived_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -204,6 +205,10 @@ class PlaybookRun(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
     )
 
 

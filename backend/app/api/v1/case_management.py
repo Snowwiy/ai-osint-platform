@@ -19,6 +19,7 @@ from app.schemas.case_management import (
     InvestigationNoteResponse,
     InvestigationNoteUpdate,
     InvestigationTaskCreate,
+    InvestigationTaskAssignUpdate,
     InvestigationTaskListResponse,
     InvestigationTaskResponse,
     InvestigationTaskStatusUpdate,
@@ -29,6 +30,7 @@ from app.services.audit import record_event
 from app.services.case_management import (
     CaseItemNotFoundError,
     CaseItemValidationError,
+    assign_task_global,
     create_evidence,
     create_note,
     create_task,
@@ -186,11 +188,17 @@ async def archive_note_by_id_endpoint(
 )
 async def list_tasks_endpoint(
     investigation_id: uuid.UUID,
+    include_archived: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> InvestigationTaskListResponse:
     try:
-        tasks = await list_tasks(db, current_user, investigation_id)
+        tasks = await list_tasks(
+            db,
+            current_user,
+            investigation_id,
+            include_archived=include_archived,
+        )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except ForbiddenError as exc:
@@ -249,6 +257,26 @@ async def update_task_status_global_endpoint(
         task = await update_task_status_global(db, current_user, task_id, body)
     except (InvestigationNotFoundError, CaseItemNotFoundError) as exc:
         raise HTTPException(status_code=404, detail="Task not found") from exc
+    except CaseItemValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ForbiddenError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return InvestigationTaskResponse.model_validate(task)
+
+
+@router.patch("/tasks/{task_id}/assign", response_model=InvestigationTaskResponse)
+async def assign_task_global_endpoint(
+    task_id: uuid.UUID,
+    body: InvestigationTaskAssignUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> InvestigationTaskResponse:
+    try:
+        task = await assign_task_global(db, current_user, task_id, body)
+    except (InvestigationNotFoundError, CaseItemNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Task not found") from exc
+    except CaseItemValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ForbiddenError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     return InvestigationTaskResponse.model_validate(task)
@@ -335,11 +363,17 @@ async def delete_task_endpoint(
 )
 async def list_evidence_endpoint(
     investigation_id: uuid.UUID,
+    include_archived: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> InvestigationEvidenceListResponse:
     try:
-        evidence = await list_evidence(db, current_user, investigation_id)
+        evidence = await list_evidence(
+            db,
+            current_user,
+            investigation_id,
+            include_archived=include_archived,
+        )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     return InvestigationEvidenceListResponse(

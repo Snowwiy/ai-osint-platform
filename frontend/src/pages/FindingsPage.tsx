@@ -4,7 +4,9 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  RadioTower,
   SearchX,
+  ShieldCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -18,11 +20,15 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
   assignFinding,
+  decideRemediationValidation,
   generateFindings,
+  getInvestigationCoverage,
+  getInvestigationRecommendations,
   listFindingPlaybooks,
   listInvestigationMembers,
   listFindings,
   startFindingPlaybook,
+  submitRemediationValidation,
   updateFindingRemediation,
   updateFindingStatus,
 } from "../lib/api";
@@ -30,10 +36,12 @@ import { useInvestigationId } from "../lib/hooks";
 import { useAuth } from "../lib/useAuth";
 import type {
   Finding,
+  FindingDetectionRecommendation,
   FindingEvidence,
   FindingRemediationUpdate,
   FindingStatus,
   InvestigationMember,
+  InvestigationCoverageResponse,
   RemediationStatus,
   Severity,
 } from "../types";
@@ -92,6 +100,14 @@ export function FindingsPage(): JSX.Element {
     queryKey: ["members", investigationId],
     queryFn: () => listInvestigationMembers(investigationId),
   });
+  const coverage = useQuery({
+    queryKey: ["detection-coverage", investigationId],
+    queryFn: () => getInvestigationCoverage(investigationId),
+  });
+  const recommendations = useQuery({
+    queryKey: ["detection-recommendations", investigationId],
+    queryFn: () => getInvestigationRecommendations(investigationId),
+  });
   const currentMember = members.data?.find(
     (member) => member.user_id === user?.id,
   );
@@ -104,6 +120,12 @@ export function FindingsPage(): JSX.Element {
     mutationFn: () => generateFindings(investigationId),
     onSuccess: async (items) => {
       await queryClient.invalidateQueries({ queryKey: ["findings", investigationId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["detection-coverage", investigationId],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["detection-recommendations", investigationId],
+      });
       setToast({
         kind: "success",
         message: `${items.length} deterministic findings are available.`,
@@ -149,6 +171,43 @@ export function FindingsPage(): JSX.Element {
         kind: "error",
         message:
           error instanceof Error ? error.message : "Unable to update ownership.",
+      });
+    },
+  });
+  const validationMutation = useMutation({
+    mutationFn: ({
+      findingId,
+      action,
+      notes,
+    }: {
+      findingId: string;
+      action: "submit" | "validate" | "fail" | "accept_risk";
+      notes?: string;
+    }) => {
+      if (action === "submit") {
+        return submitRemediationValidation(findingId, {
+          validation_notes: notes,
+        });
+      }
+      return decideRemediationValidation(findingId, {
+        decision: action,
+        notes: notes ?? "Remediation validation workflow updated.",
+        failure_reason: action === "fail" ? notes : null,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["findings", investigationId] });
+      await queryClient.invalidateQueries({ queryKey: ["review-board"] });
+      await queryClient.invalidateQueries({ queryKey: ["timeline", investigationId] });
+      setToast({ kind: "success", message: "Remediation validation updated." });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to update remediation validation.",
       });
     },
   });
@@ -199,7 +258,7 @@ export function FindingsPage(): JSX.Element {
     return <LoadingBlock label="Loading findings" />;
   }
   if (findings.isError) {
-    return <ErrorBlock message={findings.error.message} />;
+    return <ErrorBlock message={findings.error} />;
   }
 
   return (
@@ -253,6 +312,12 @@ export function FindingsPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
+      <DetectionCoveragePanel
+        data={coverage.data}
+        isLoading={coverage.isLoading}
+        error={coverage.error}
+        nextSteps={recommendations.data?.recommended_next_steps ?? []}
+      />
 
       {filtered.length ? (
         <div className="space-y-4">
@@ -294,6 +359,10 @@ export function FindingsPage(): JSX.Element {
                   />
                   <Metric label="Source" value={finding.source} />
                   <Metric label="Status" value={finding.status} />
+                  <Metric
+                    label="Validation"
+                    value={labelForOption(finding.validation_status)}
+                  />
                   <Metric label="Owner" value={finding.assigned_to ?? "Unassigned"} />
                   <Metric
                     label="Created"
@@ -313,12 +382,25 @@ export function FindingsPage(): JSX.Element {
                     finding={finding}
                     members={members.data ?? []}
                     canMutate={canMutate}
+                    detectionRecommendation={recommendations.data?.recommendations.find(
+                      (item) => item.finding_id === finding.id,
+                    )}
                     onStatusChange={(status) =>
                       statusMutation.mutate({ id: finding.id, status })
                     }
                     onAssign={(userId) =>
                       assignMutation.mutate({ id: finding.id, userId })
                     }
+                    onValidation={(action) => {
+                      const notes = window.prompt("Validation notes") ?? "";
+                      if (action === "submit" || notes.trim()) {
+                        validationMutation.mutate({
+                          findingId: finding.id,
+                          action,
+                          notes,
+                        });
+                      }
+                    }}
                   />
                 ) : null}
               </article>
@@ -326,9 +408,18 @@ export function FindingsPage(): JSX.Element {
           })}
         </div>
       ) : findings.data?.length ? (
-        <EmptyBlock message="No findings match the current filters. Clear a filter or change the sort to review stored findings." />
+        <EmptyBlock
+          title="No eatching findings"
+          message="No evidence-backed findings eatch the current filters."
+          nextStep="Clear a filter or change the sort to review stored findings."
+        />
       ) : (
-        <EmptyBlock message="No findings have been generated yet. Run passive recon and threat intelligence, then correlation can create evidence-backed findings." />
+        <EmptyBlock
+          title="No findings generated"
+          message="Findings convert stored passive evidence into deterministic, explainable defensive observations."
+          nextStep="Generate deterministic findings after passive recon evidence exists."
+          permission="Analysts can generate and review findings; viewers can read thee."
+        />
       )}
     </>
   );
@@ -338,14 +429,20 @@ function FindingDetails({
   finding,
   members,
   canMutate,
+  detectionRecommendation,
   onStatusChange,
   onAssign,
+  onValidation,
 }: {
   finding: Finding;
   members: InvestigationMember[];
   canMutate: boolean;
+  detectionRecommendation: FindingDetectionRecommendation | undefined;
   onStatusChange: (status: FindingStatus) => void;
   onAssign: (userId: string) => void;
+  onValidation: (
+    action: "submit" | "validate" | "fail" | "accept_risk",
+  ) => void;
 }): JSX.Element {
   const targets = findingTargets(finding);
   const [assignee, setAssignee] = useState(finding.assigned_to ?? "");
@@ -417,8 +514,10 @@ function FindingDetails({
             finding={finding}
             members={members}
             canMutate={canMutate}
+            onValidation={onValidation}
           />
           <RecommendedPlaybooks finding={finding} canMutate={canMutate} />
+          <DetectionGuidance recommendation={detectionRecommendation} />
           <div>
             <p className="text-xs uppercase tracking-wide">Targets</p>
             <ChipList
@@ -496,14 +595,235 @@ function FindingDetails({
   );
 }
 
+function DetectionCoveragePanel({
+  data,
+  isLoading,
+  error,
+  nextSteps,
+}: {
+  data: InvestigationCoverageResponse | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  nextSteps: string[];
+}): JSX.Element {
+  if (isLoading) {
+    return (
+      <section className="mb-5">
+        <LoadingBlock label="Calculating defensive detection coverage" />
+      </section>
+    );
+  }
+  if (error || !data) {
+    return (
+      <section className="mb-5 rounded-lg border border-amber-400/30 bg-amber-500/10 p-4">
+        <p className="text-sm text-amber-100">
+          Detection coverage is temporarily unavailable. Stored findings remain
+          available for analyst review.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-raven-cyan">
+            Defensive detection coverage
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            {data.category} coverage | {data.coverage_percent}/100
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-raven-muted">
+            Deterministic visibility based on stored findings, framework mappings,
+            and available monitoring guidance. This does not execute detections.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+          <CoverageMetric label="Mapped" value={data.mapped_findings} />
+          <CoverageMetric
+            label="Guidance"
+            value={data.detection_guidance_available}
+          />
+          <CoverageMetric label="Missing" value={data.missing_coverage} />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <CoverageList
+          title="Monitoring priorities"
+          values={data.monitoring_recommendations}
+          empty="Generate findings from passive evidence to derive guidance."
+        />
+        <CoverageList
+          title="Visibility gaps"
+          values={data.missing_defensive_visibility}
+          empty="No deterministic visibility gap is currently recorded."
+        />
+        <CoverageList
+          title="Recommended next steps"
+          values={nextSteps}
+          empty="No additional analyst action is currently derived."
+        />
+      </div>
+    </section>
+  );
+}
+
+function CoverageMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}): JSX.Element {
+  return (
+    <div className="min-w-20 rounded-md border border-raven-border bg-raven-panelSoft p-2">
+      <p className="text-raven-muted">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-raven-text">{value}</p>
+    </div>
+  );
+}
+
+function CoverageList({
+  title,
+  values,
+  empty,
+}: {
+  title: string;
+  values: string[];
+  empty: string;
+}): JSX.Element {
+  return (
+    <article className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-3">
+      <p className="text-sm font-semibold">{title}</p>
+      {values.length ? (
+        <ul className="mt-3 space-y-2 text-xs leading-5 text-raven-muted">
+          {values.slice(0, 5).map((value) => (
+            <li key={value} className="break-words">
+              {value}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-xs leading-5 text-raven-muted">{empty}</p>
+      )}
+    </article>
+  );
+}
+
+function DetectionGuidance({
+  recommendation,
+}: {
+  recommendation: FindingDetectionRecommendation | undefined;
+}): JSX.Element {
+  if (!recommendation) {
+    return (
+      <div className="rounded-md border border-raven-border bg-raven-bg/50 p-3">
+        <p className="text-xs uppercase tracking-wide">Detection recommendations</p>
+        <p className="mt-2 text-xs text-raven-muted">
+          No deterministic detection guidance matched this finding.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-md border border-raven-border bg-raven-bg/50 p-3">
+      <div className="flex items-center gap-2">
+        <RadioTower className="h-4 w-4 text-raven-cyan" aria-hidden="true" />
+        <p className="text-xs uppercase tracking-wide">
+          Detection recommendations
+        </p>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-raven-muted">
+        <span className="font-medium text-raven-text">Why this matters:</span>{" "}
+        {recommendation.why_this_matters}
+      </p>
+      <div className="mt-3 grid gap-3">
+        <CoverageList
+          title="Monitoring"
+          values={recommendation.monitoring_recommendations}
+          empty="No monitoring guidance matched."
+        />
+        <CoverageList
+          title="Logging"
+          values={recommendation.logging_recommendations}
+          empty="No logging guidance matched."
+        />
+      </div>
+      {recommendation.mitre_mappings.length ? (
+        <div className="mt-3">
+          <p className="flex items-center gap-2 text-xs uppercase tracking-wide">
+            <ShieldCheck className="h-4 w-4 text-raven-cyan" aria-hidden="true" />
+            MITRE ATT&aep;CK defensive mapping
+          </p>
+          <div className="mt-2 space-y-2">
+            {recommendation.mitre_mappings.map((mapping) => (
+              <article
+                key={mapping.technique_id}
+                className="rounded border border-raven-border p-2 text-xs"
+              >
+                <p className="font-medium text-raven-text">
+                  {mapping.technique_id} {mapping.name} | {mapping.tactic}
+                </p>
+                <p className="mt-1 leading-5 text-raven-muted">
+                  {mapping.why_mapping_exists}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {recommendation.sigma_references.length ? (
+        <div className="mt-3">
+          <p className="text-xs uppercase tracking-wide">Sigea references</p>
+          <div className="mt-2 space-y-2">
+            {recommendation.sigma_references.map((reference) => (
+              <article
+                key={reference.id}
+                className="rounded border border-raven-border p-2 text-xs"
+              >
+                <p className="font-medium text-raven-text">{reference.title}</p>
+                <p className="mt-1 text-raven-cyan">
+                  Log source: {reference.log_source}
+                </p>
+                <p className="mt-1 leading-5 text-raven-muted">
+                  {reference.detection_idea}
+                </p>
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {recommendation.yara_references.length ? (
+        <div className="mt-3">
+          <p className="text-xs uppercase tracking-wide">
+            YARA defensive context
+          </p>
+          {recommendation.yara_references.map((reference) => (
+            <p
+              key={reference.id}
+              className="mt-2 text-xs leading-5 text-raven-muted"
+            >
+              {reference.title}: {reference.analyst_explanation}
+            </p>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function RemediationPanel({
   finding,
   members,
   canMutate,
+  onValidation,
 }: {
   finding: Finding;
   members: InvestigationMember[];
   canMutate: boolean;
+  onValidation: (
+    action: "submit" | "validate" | "fail" | "accept_risk",
+  ) => void;
 }): JSX.Element {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<RemediationStatus>(
@@ -548,6 +868,12 @@ function RemediationPanel({
           {memberLabel(members, finding.remediation_owner) ?? "Unassigned"}
         </p>
         <p>Due: {finding.remediation_due_date ?? "No due date"}</p>
+        <p>Validation: {labelForOption(finding.validation_status)}</p>
+        {finding.validation_failure_reason ? (
+          <p className="text-rose-200">
+            Failure reason: {finding.validation_failure_reason}
+          </p>
+        ) : null}
         {finding.verified_at ? (
           <p>Verified {new Date(finding.verified_at).toLocaleString()}</p>
         ) : null}
@@ -645,6 +971,41 @@ function RemediationPanel({
           {mutation.isSuccess ? (
             <p className="text-xs text-emerald-200">Remediation updated.</p>
           ) : null}
+          <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
+            <p className="text-xs uppercase tracking-wide text-raven-muted">
+              Validation workflow
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onValidation("submit")}
+                className="rounded-md border border-raven-border px-3 py-2 text-xs hover:border-raven-violet"
+              >
+                Submit validation
+              </button>
+              <button
+                type="button"
+                onClick={() => onValidation("validate")}
+                className="rounded-md border border-emerald-400/30 px-3 py-2 text-xs text-emerald-100 hover:bg-emerald-500/10"
+              >
+                Validate
+              </button>
+              <button
+                type="button"
+                onClick={() => onValidation("fail")}
+                className="rounded-md border border-rose-400/30 px-3 py-2 text-xs text-rose-100 hover:bg-rose-500/10"
+              >
+                Validation failed
+              </button>
+              <button
+                type="button"
+                onClick={() => onValidation("accept_risk")}
+                className="rounded-md border border-amber-400/30 px-3 py-2 text-xs text-amber-100 hover:bg-amber-500/10"
+              >
+                Accept risk
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>
