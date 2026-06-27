@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import decode_token
 from app.db.session import get_db as get_db
 from app.models.user import User
+from app.schemas.governance import FeatureFlagName
 
 _bearer = HTTPBearer(auto_error=True)
 
@@ -37,7 +38,7 @@ async def get_current_user(
     except jwt.InvalidTokenError:
         raise credentials_exception from None
 
-    if payload.get("type") != "access":
+    if payload.get("type") != "access" or not payload.get("jti"):
         raise credentials_exception
 
     sub = payload.get("sub")
@@ -69,6 +70,28 @@ def require_role(*roles: str) -> Callable[..., Awaitable[User]]:
                 detail=f"This action requires one of these roles: {list(roles)}",
             )
         return current_user
+
+    return _check
+
+
+def require_feature(feature: FeatureFlagName) -> Callable[..., Awaitable[None]]:
+    async def _check(db: AsyncSession = Depends(get_db)) -> None:
+        from app.services.governance import (
+            FeatureDisabledError,
+            ensure_feature_enabled,
+        )
+
+        try:
+            await ensure_feature_enabled(db, feature)
+        except FeatureDisabledError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "feature_disabled",
+                    "message": str(exc),
+                    "feature": feature,
+                },
+            ) from exc
 
     return _check
 

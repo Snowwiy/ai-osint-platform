@@ -71,6 +71,18 @@ class KnowledgeSearchResult(BaseModel):
     chunk: str
     score: float
     tags: list[str]
+    category: str = "Defensive Guidance"
+    framework: KnowledgeFramework | None = None
+    severity_relevance: Literal["informational", "low", "medium", "high"] = (
+        "informational"
+    )
+    defensive_explanation: str = ""
+    references: list[str] = Field(default_factory=list)
+    related_findings: list[str] = Field(default_factory=list)
+    mitre_relevance: str | None = None
+    sigma_relevance: str | None = None
+    remediation_guidance: list[str] = Field(default_factory=list)
+    why_this_matters: str = ""
 
 
 class KnowledgeSearchResponse(BaseModel):

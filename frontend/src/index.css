@@ -29,3 +29,48 @@ select {
 * {
   box-sizing: border-box;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.themed-scrollbar {
+  scrollbar-color: #374151 transparent;
+  scrollbar-width: thin;
+}
+
+.themed-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.themed-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: #374151;
+  background-clip: padding-box;
+}
+
+.themed-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+  background-clip: padding-box;
+}
+
+.workspace-content {
+  overflow-wrap: anywhere;
+}
+
+.workspace-content pre,
+.workspace-content code {
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.workspace-content table {
+  overflow-wrap: normal;
+}

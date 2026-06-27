@@ -36,14 +36,109 @@
       display: inline-block;
       padding: 2px 6px;
     }
+    .report-meta {
+      border-bottom: 2px solid #7c3aed;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+    }
+    .callout-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 18px 0;
+    }
+    .callout {
+      background: #f6f4ff;
+      border-left: 4px solid #7c3aed;
+      padding: 12px;
+    }
+    .callout strong {
+      color: #312e81;
+      display: block;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
+  <div class="report-meta">
+    <strong>{{ context.organization_name }}</strong>
+    <span> | {{ context.confidentiality_label }}</span>
+    <p class="meta">
+      Prepared by {{ context.prepared_by }} |
+      Generated at {{ context.generated_at }} |
+      Investigation stage {{ context.investigation_stage }} |
+      Defensive confidence {{ context.defensive_confidence }}%
+    </p>
+  </div>
   <h1>{{ context.investigation.title }} {{ context.report_type|title }} Report</h1>
   <p class="meta">Investigation ID: {{ context.investigation.id }}</p>
+  <p><strong>Report focus:</strong> {{ context.report_focus }}</p>
 
+  {% if "executive_summary" in context.enabled_sections or "severity_distribution" in context.enabled_sections %}
   <h2>Executive Summary</h2>
   <p>{{ context.analysis_summary }}</p>
+  {% if context.report_type == "executive" %}
+  <div class="callout-grid">
+    <div class="callout">
+      <strong>Top risks</strong>
+      {{ context.executive_callouts.top_risks }}
+    </div>
+    <div class="callout">
+      <strong>Immediate remediation priorities</strong>
+      {{ context.executive_callouts.remediation_priorities }}
+    </div>
+    <div class="callout">
+      <strong>Investigation readiness</strong>
+      {{ context.executive_callouts.readiness }}
+    </div>
+    <div class="callout">
+      <strong>Key infrastructure observations</strong>
+      {{ context.executive_callouts.infrastructure }}
+    </div>
+  </div>
+  <h3>Defensive Posture</h3>
+  <p>{{ context.defensive_posture }}</p>
+  <h3>Monitoring Priorities</h3>
+  {% if context.monitoring_suggestions %}
+  <ul>
+    {% for item in context.monitoring_suggestions[:3] %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No elevated monitoring priority is established from stored evidence.</p>
+  {% endif %}
+  <h3>Recurring Infrastructure and Risk Indicators</h3>
+  <p>
+    {{ context.ioc_correlations|length }} recurring IOC patterns are visible
+    across accessible investigations.
+  </p>
+  <p>
+    IOC prioritization: {{ context.ioc_prioritization.category }}
+    ({{ context.ioc_prioritization.score }}/100).
+  </p>
+  {% endif %}
+  <p><strong>Workflow status:</strong> {{ context.investigation.status }}</p>
+  <p>
+    <strong>Investigation risk:</strong>
+    {{ context.investigation_risk_category }}
+    ({{ context.investigation_risk_score }}/100)
+  </p>
+  <p><strong>Case owner:</strong> {{ context.investigation.owner_id }}</p>
+  <p><strong>Reviewer:</strong> {{ context.investigation.reviewer_id or "Unassigned" }}</p>
+  <p><strong>Members:</strong> {{ context.members|length }}</p>
+  <p><strong>Priority:</strong> {{ context.investigation.priority }}</p>
+  <p><strong>Due date:</strong> {{ context.investigation.due_date or "Not set" }}</p>
+  <p>
+    <strong>Tags:</strong>
+    {% if context.tags %}
+      {% for tag in context.tags %}
+      <span class="pill">{{ tag.name }}</span>
+      {% endfor %}
+    {% else %}
+      None
+    {% endif %}
+  </p>
   <h3>Business Impact</h3>
   <p>{{ context.business_impact }}</p>
   <h3>Severity Heatmap</h3>
@@ -56,6 +151,13 @@
         <th>Low</th>
         <th>Info</th>
         <th>Risk Score</th>
+        <th>Open Tasks</th>
+        <th>Validated Findings</th>
+        <th>Unresolved Findings</th>
+        <th>Accepted Risk</th>
+        <th>Completed Playbooks</th>
+        <th>Triage</th>
+        <th>Remediation %</th>
       </tr>
     </thead>
     <tbody>
@@ -66,21 +168,65 @@
         <td>{{ context.severity_heatmap.low }}</td>
         <td>{{ context.severity_heatmap.info }}</td>
         <td>{{ context.risk_summary.highest_score }}</td>
+        <td>{{ context.remediation_progress.open }}</td>
+        <td>{{ context.remediation_progress.validated_findings }}</td>
+        <td>{{ context.remediation_progress.unresolved_findings }}</td>
+        <td>{{ context.remediation_progress.accepted_risk_findings }}</td>
+        <td>{{ context.remediation_progress.playbooks_completed }}</td>
+        <td>
+          {{ context.operations_summary.triage_score }}/100
+          ({{ context.operations_summary.triage_category }})
+        </td>
+        <td>{{ context.operations_summary.remediation_completion_percent }}%</td>
       </tr>
     </tbody>
   </table>
+  {% endif %}
 
+  {% if "scope" in context.enabled_sections or "authorization" in context.enabled_sections %}
   <h2>Scope and Authorization</h2>
   <p><strong>Authorization:</strong> {{ context.investigation.authorization_statement }}</p>
   <p><strong>Scope:</strong> {{ context.investigation.scope_definition or "No scope note provided." }}</p>
+  {% endif %}
 
+  {% if "appendix" in context.enabled_sections %}
+  <h2>Collaboration Summary</h2>
+  {% if context.members %}
+  <table>
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Role</th>
+        <th>Invited By</th>
+        <th>Joined</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for member in context.members %}
+      <tr>
+        <td>{{ member.user_id }}</td>
+        <td>{{ member.role }}</td>
+        <td>{{ member.invited_by or "Unknown" }}</td>
+        <td>{{ member.created_at }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No collaboration membership data is stored.</p>
+  {% endif %}
+  {% endif %}
+
+  {% if "scope" in context.enabled_sections or "authorization" in context.enabled_sections %}
   <h2>Methodology</h2>
   <p>
     This report uses stored passive recon entities, threat intelligence findings,
     correlation findings, and local defensive knowledge citations. No live scans,
     external providers, or LLM calls are performed during report generation.
   </p>
+  {% endif %}
 
+  {% if "findings_summary" in context.enabled_sections %}
   <h2>Key Findings</h2>
   {% if context.findings %}
   <table>
@@ -108,14 +254,45 @@
   {% else %}
   <p>No correlation findings are currently stored.</p>
   {% endif %}
+  {% endif %}
 
+  {% if "severity_distribution" in context.enabled_sections %}
   <h2>Risk Summary</h2>
   <ul>
     <li>Overall level: {{ context.risk_summary.level }}</li>
     <li>Highest score: {{ context.risk_summary.highest_score }}</li>
     <li>Finding count: {{ context.risk_summary.finding_count }}</li>
   </ul>
+  {% endif %}
 
+  {% if "threat_intelligence" in context.enabled_sections %}
+  <h2>Threat Intelligence</h2>
+  {% if context.threat_intelligence_summary %}
+  <ul>
+    {% for item in context.threat_intelligence_summary %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>
+    No evidence-backed threat intelligence indicators, campaigns, or ATT&amp;CK
+    mappings are currently visible for this investigation.
+  </p>
+  {% endif %}
+  {% endif %}
+
+  <h2>Case Review and Governance</h2>
+  {% if context.review_workflow_summary %}
+  <ul>
+    {% for item in context.review_workflow_summary %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No formal case review workflow metadata is currently stored.</p>
+  {% endif %}
+
+  {% if "evidence_chains" in context.enabled_sections or "recurring_evidence" in context.enabled_sections or "related_investigations" in context.enabled_sections or "analyst_notes" in context.enabled_sections or "timeline_summary" in context.enabled_sections or "audit_summary" in context.enabled_sections %}
   <h2>Technical Evidence</h2>
   {% if context.evidence %}
   <ul>
@@ -126,7 +303,50 @@
   {% else %}
   <p>No technical evidence records are currently stored.</p>
   {% endif %}
-  {% if context.report_type == "technical" %}
+  {% if context.report_type in ["technical", "evidence_appendix"] %}
+  <h3>IOC Intelligence</h3>
+  {% if context.iocs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Value</th>
+        <th>Confidence</th>
+        <th>Investigations</th>
+        <th>Findings</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in context.iocs %}
+      <tr>
+        <td>{{ item.type }}</td>
+        <td>{{ item.value }}</td>
+        <td>{{ item.confidence }} ({{ item.confidence_score }}/100)</td>
+        <td>{{ item.investigation_count }}</td>
+        <td>{{ item.related_findings }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No reusable IOC observations are stored.</p>
+  {% endif %}
+  <h3>IOC Correlation Summary</h3>
+  {% if context.ioc_correlations %}
+  <ul>
+    {% for item in context.ioc_correlations %}
+    <li>
+      <strong>{{ item.ioc.value }}</strong>:
+      {{ item.category }} across {{ item.ioc.investigation_count }}
+      investigations.
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No repeated IOC is visible across accessible cases.</p>
+  {% endif %}
+  {% endif %}
+  {% if "evidence_chains" in context.enabled_sections %}
   <h3>Indicators and Entities</h3>
   {% if context.indicator_summary %}
   <ul>
@@ -147,14 +367,323 @@
   {% else %}
   <p>No linked evidence chain records are stored.</p>
   {% endif %}
+  {% endif %}
+  {% if "analyst_notes" in context.enabled_sections %}
   <h3>Analyst Notes</h3>
+  {% if context.analyst_notes %}
   <ul>
     {% for note in context.analyst_notes %}
     <li>{{ note }}</li>
     {% endfor %}
   </ul>
+  {% else %}
+  <p>No active analyst notes are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "evidence_chains" in context.enabled_sections %}
+  <h3>Bookmarked Evidence</h3>
+  {% if context.bookmarks %}
+  <ul>
+    {% for bookmark in context.bookmarks %}
+    <li>
+      <strong>{{ bookmark.title }}</strong>:
+      {{ bookmark.entity_id or bookmark.finding_id or bookmark.report_id }}
+      {% if bookmark.note %}- {{ bookmark.note }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No evidence bookmarks are currently stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "timeline_summary" in context.enabled_sections %}
+  <h3>Workflow History</h3>
+  {% if context.workflow_events %}
+  <ul>
+    {% for event in context.workflow_events[:10] %}
+    <li>
+      {{ event.created_at }}:
+      {{ event.from_status or "new" }} -> {{ event.to_status }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No workflow history events are stored.</p>
+  {% endif %}
+  {% if "audit_summary" in context.enabled_sections %}
+  <h3>Audit Summary</h3>
+  {% if context.audit_events %}
+  <ul>
+    {% for event in context.audit_events[:10] %}
+    <li>
+      {{ event.created_at }}:
+      {{ event.action }} on {{ event.resource_type or "resource" }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No investigation-scoped audit events are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "evidence_chains" in context.enabled_sections %}
+  <h3>Case Evidence</h3>
+  {% if context.case_evidence %}
+  <ul>
+    {% for item in context.case_evidence %}
+    <li>
+      {{ item.evidence_type }}: {{ item.title }}
+      (review {{ item.review_status }}, confidence {{ item.confidence_score }})
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No case evidence metadata records are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "recurring_evidence" in context.enabled_sections %}
+  <h3>Operational Metrics</h3>
+  <ul>
+    <li>Assigned analysts: {{ context.operations_summary.assigned_analysts }}</li>
+    <li>Unresolved findings: {{ context.operations_summary.unresolved_findings }}</li>
+    <li>Open tasks: {{ context.operations_summary.open_tasks }}</li>
+    <li>Overdue tasks: {{ context.operations_summary.overdue_tasks }}</li>
+  </ul>
+  <h3>Recurring Infrastructure</h3>
+  {% if context.recurring_infrastructure %}
+  <ul>
+    {% for item in context.recurring_infrastructure %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No recurring infrastructure overlaps are visible to this user.</p>
+  {% endif %}
+  {% endif %}
+  {% if "evidence_intelligence" in context.enabled_sections %}
+  <h3>Evidence Intelligence</h3>
+  {% if context.evidence_intelligence %}
+  <ul>
+    {% for item in context.evidence_intelligence %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No recurring evidence intelligence is visible for this investigation.</p>
+  {% endif %}
+  {% endif %}
+  {% if "related_investigations" in context.enabled_sections %}
+  <h3>Related Investigations</h3>
+  {% if context.related_investigations %}
+  <ul>
+    {% for item in context.related_investigations %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No accessible investigations share stored infrastructure.</p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
   {% endif %}
 
+  {% if "remediation_progress" in context.enabled_sections or "playbook_progress" in context.enabled_sections or "task_summary" in context.enabled_sections %}
+  <h2>Remediation Tracking</h2>
+  <ul>
+    <li>Total tasks: {{ context.remediation_progress.total }}</li>
+    <li>Completed tasks: {{ context.remediation_progress.completed }}</li>
+    <li>Blocked tasks: {{ context.remediation_progress.blocked }}</li>
+    <li>Open tasks: {{ context.remediation_progress.open }}</li>
+    <li>Overdue tasks: {{ context.remediation_progress.overdue }}</li>
+    <li>Remediated findings: {{ context.remediation_progress.remediated_findings }}</li>
+    <li>Accepted risks: {{ context.remediation_progress.accepted_risk_findings }}</li>
+    <li>Completed playbooks: {{ context.remediation_progress.playbooks_completed }}</li>
+  </ul>
+  {% if "task_summary" in context.enabled_sections or "remediation_progress" in context.enabled_sections %}
+  <h3>Task Ownership and Due Dates</h3>
+  {% if context.tasks %}
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Priority</th>
+        <th>Owner</th>
+        <th>Due</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for task in context.tasks[:10] %}
+      <tr>
+        <td>{{ task.title }}</td>
+        <td>{{ task.status }}</td>
+        <td>{{ task.priority }}</td>
+        <td>{{ task.assigned_to or "Unassigned" }}</td>
+        <td>{{ task.due_date or "No due date" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No remediation tasks are available.</p>
+  {% endif %}
+  {% endif %}
+  {% if "playbook_progress" in context.enabled_sections %}
+  <h3>Defensive Playbook Progress</h3>
+  {% if context.playbook_runs %}
+  <table>
+    <thead>
+      <tr>
+        <th>Playbook</th>
+        <th>Finding</th>
+        <th>Status</th>
+        <th>Progress</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for run in context.playbook_runs[:10] %}
+      <tr>
+        <td>{{ run.playbook_name }}</td>
+        <td>{{ run.finding_id }}</td>
+        <td>{{ run.status }}</td>
+        <td>{{ run.completed_steps }} / {{ run.total_steps }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+    {% for run in context.playbook_runs[:10] %}
+    <h4>{{ run.playbook_name }} steps</h4>
+    <ul>
+      {% for step in run.steps %}
+      <li>
+        {{ step.status }}: {{ step.title }} ({{ step.step_type }})
+        {% if step.analyst_note %}- {{ step.analyst_note }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  {% else %}
+  <p>No defensive playbook runs are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "remediation_progress" in context.enabled_sections %}
+  <h3>Finding Verification Notes</h3>
+  <ul>
+    {% for finding in context.findings %}
+      {% if finding.verification_notes or finding.remediation_notes %}
+      <li>
+        <strong>{{ finding.title }}</strong>:
+        remediation {{ finding.remediation_status }};
+        {{ finding.verification_notes or finding.remediation_notes }}
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+  <h3>Operational Accountability</h3>
+  {% if context.tasks %}
+  <table>
+    <thead>
+      <tr>
+        <th>Task</th>
+        <th>Status</th>
+        <th>Assigned</th>
+        <th>Blockers</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for task in context.tasks[:10] %}
+      <tr>
+        <td>{{ task.title }}</td>
+        <td>{{ task.status }}</td>
+        <td>{{ task.assigned_to or "Unassigned" }}</td>
+        <td>{{ task.blockers or "None recorded" }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No operational tasks are stored.</p>
+  {% endif %}
+  <h3>Case Handoffs</h3>
+  {% if context.handoffs %}
+  <ul>
+    {% for handoff in context.handoffs[:10] %}
+    <li>
+      {{ handoff.created_at }}:
+      {{ handoff.previous_owner_id }} to {{ handoff.new_owner_id }} -
+      {{ handoff.reason }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No case handoffs are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% if "executive_summary" in context.enabled_sections %}
+  <h3>Analyst Summary and Recommendations</h3>
+  {% if context.notes %}
+  <ul>
+    {% for note in context.notes[:8] %}
+    {% if note.note_type in ["executive", "executive_note"] %}
+    <li><strong>{{ note.title }}</strong>: {{ note.content }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No executive analyst notes are currently stored.</p>
+  {% endif %}
+  <h3>Ownership and Escalations</h3>
+  <p>Primary owner: {{ context.investigation.owner_id }}</p>
+  {% if context.escalations %}
+  <ul>
+    {% for escalation in context.escalations[:5] %}
+    <li>
+      <strong>{{ escalation.level|replace("_", " ") }}</strong>:
+      {{ escalation.reason }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No operational escalations are stored.</p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {% if "framework_mapping" in context.enabled_sections %}
+  {% if context.report_type in ["technical", "compliance_mapping"] %}
+  <h2>Detection Engineering Guidance</h2>
+  <h3>MITRE ATT&amp;CK Defensive Mappings</h3>
+  {% if context.mitre_defensive_mappings %}
+  <ul>
+    {% for mapping in context.mitre_defensive_mappings %}
+    <li>
+      <strong>{{ mapping.technique_id }} {{ mapping.name }}</strong>
+      ({{ mapping.tactic }}): {{ mapping.why_mapping_exists }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No relevant ATT&amp;CK defensive mapping was derived from evidence.</p>
+  {% endif %}
+  <h3>Sigma References</h3>
+  {% if context.sigma_references %}
+  <ul>
+    {% for reference in context.sigma_references %}
+    <li>
+      <strong>{{ reference.title }}</strong>:
+      {{ reference.log_source }} - {{ reference.detection_idea }}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No Sigma reference matched the stored evidence.</p>
+  {% endif %}
+  <h3>Monitoring Suggestions</h3>
+  <ul>
+    {% for item in context.monitoring_suggestions %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
   <h2>MITRE/OWASP/NIST/ISO Mapping</h2>
   {% if context.framework_mappings %}
   <ul>
@@ -169,17 +698,46 @@
   <p>No framework mappings were derived from stored evidence.</p>
   {% endif %}
 
+  {% if context.report_type == "remediation" %}
+  <h2>Prioritized Defensive Controls</h2>
+  <ul>
+    {% for item in context.prioritized_controls %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  <h3>Monitoring Gaps</h3>
+  {% if context.monitoring_gaps %}
+  <ul>
+    {% for item in context.monitoring_gaps %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No deterministic monitoring gap is currently recorded.</p>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+
+  {% if "executive_summary" in context.enabled_sections or "remediation_progress" in context.enabled_sections %}
   <h2>Recommendations</h2>
   <ul>
     {% for recommendation in context.recommendations %}
     <li>{{ recommendation }}</li>
     {% endfor %}
   </ul>
+  {% endif %}
 
+  {% if "appendix" in context.enabled_sections %}
   <h2>Appendix</h2>
   <ul>
     <li>Recon entities: {{ context.recon_entities|length }}</li>
     <li>Threat intel findings: {{ context.threat_findings|length }}</li>
+    <li>Analyst notes: {{ context.notes|length }}</li>
+    <li>Bookmarked evidence: {{ context.bookmarks|length }}</li>
+    <li>Investigation tags: {{ context.tags|length }}</li>
+    <li>Case evidence records: {{ context.case_evidence|length }}</li>
+    <li>Case handoffs: {{ context.handoffs|length }}</li>
+    <li>Operational escalations: {{ context.escalations|length }}</li>
     <li>Knowledge citations: {{ context.knowledge_citations|length }}</li>
   </ul>
   {% if context.knowledge_citations %}
@@ -192,6 +750,33 @@
     </li>
     {% endfor %}
   </ul>
+  {% endif %}
+  {% if context.report_type == "evidence_appendix" %}
+  <h3>Defensive Framework References</h3>
+  {% if context.framework_references %}
+  <ul>
+    {% for reference in context.framework_references %}
+    <li>{{ reference }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No defensive framework references matched the evidence.</p>
+  {% endif %}
+  <h3>IOC Evidence References</h3>
+  {% if context.iocs %}
+  <ul>
+    {% for item in context.iocs %}
+    <li>
+      IOC {{ item.id }}: {{ item.type }} {{ item.value }}
+      ({{ item.related_entities }} linked entities,
+      {{ item.related_findings }} linked findings)
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No IOC evidence references are stored.</p>
+  {% endif %}
+  {% endif %}
   {% endif %}
 </body>
 </html>

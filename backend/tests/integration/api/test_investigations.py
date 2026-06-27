@@ -23,7 +23,7 @@ async def test_create_investigation_success(
     assert response.status_code == 201
     data = response.json()
     assert data["title"] == "Test Investigation"
-    assert data["status"] == "draft"
+    assert data["status"] == "intake"
 
 
 async def test_create_rejects_short_auth_statement(

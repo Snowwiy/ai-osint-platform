@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.analysis import (
     AnalysisFrameworkMapping,
+    AnalysisProviderDiagnostics,
     AnalysisRecommendation,
     AnalysisResponse,
     CitedAnalysisText,
@@ -32,7 +33,11 @@ from app.services.ai.llm_provider import (
     ProviderCompletion,
 )
 from app.services.ai.prompt_builder import build_analysis_prompt
-from app.services.investigation import get_investigation
+from app.services.investigation import (
+    MUTATION_ROLES,
+    ensure_investigation_permission,
+    get_investigation,
+)
 
 _SEVERITIES: tuple[FindingSeverity, ...] = (
     "info",
@@ -58,6 +63,13 @@ async def analyze_investigation(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_investigation_evidence(db, user, body.investigation_id)
     return await _run_analysis(
         db,
@@ -75,6 +87,13 @@ async def analyze_ioc(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_ioc_evidence(
         db,
         user,
@@ -100,6 +119,13 @@ async def analyze_threat_context(
     provider: LLMProvider | None = None,
 ) -> AnalysisResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run AI analysis",
+    )
     evidence = await build_threat_context_evidence(
         db,
         user,
@@ -227,6 +253,7 @@ def _response_from_llm(
         framework_mappings=_merge_frameworks(llm_frameworks, framework_mappings),
         citations=citations_from_items(all_items),
         errors=[],
+        provider_diagnostics=_provider_diagnostics(completion),
     )
 
 
@@ -279,6 +306,18 @@ def _fallback_response(
         framework_mappings=framework_mappings,
         citations=citations_from_items(all_items),
         errors=[completion.error] if completion.error else [],
+        provider_diagnostics=_provider_diagnostics(completion),
+    )
+
+
+def _provider_diagnostics(
+    completion: ProviderCompletion,
+) -> AnalysisProviderDiagnostics:
+    return AnalysisProviderDiagnostics(
+        provider_configured=completion.status != "provider_unavailable",
+        model=completion.model,
+        feature_enabled=True,
+        last_error_category=completion.error_category,
     )
 
 

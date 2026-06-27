@@ -1,4 +1,12 @@
-import { CalendarDays, Pencil, ShieldAlert, Target, Trash2 } from "lucide-react";
+import {
+  ArchiveRestore,
+  CalendarDays,
+  Pencil,
+  ShieldAlert,
+  Tags,
+  Target,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -14,15 +22,20 @@ import {
   type InvestigationEditValues,
 } from "../components/InvestigationEditModal";
 import { PageHeader } from "../components/PageHeader";
+import { PurgeInvestigationModal } from "../components/PurgeInvestigationModal";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { StatusBadge } from "../components/StatusBadge";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
   createInvestigation,
   deleteInvestigation,
+  getInvestigationTags,
   listFindings,
-  listInvestigations,
+  listInvestigationsWithScope,
+  listTags,
   listTargets,
+  purgeInvestigation,
+  restoreInvestigation,
   updateInvestigation,
 } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
@@ -32,17 +45,45 @@ export function InvestigationsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
   const [editing, setEditing] = useState<Investigation | null>(null);
   const [deleting, setDeleting] = useState<Investigation | null>(null);
+  const [purging, setPurging] = useState<Investigation | null>(null);
+  const [scope, setScope] = useState("all");
+  const [selectedTag, setSelectedTag] = useState("all");
   const [toast, setToast] = useState<ToastState | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const investigations = useQuery({
-    queryKey: ["investigations"],
-    queryFn: listInvestigations,
+    queryKey: ["investigations", scope],
+    queryFn: () => listInvestigationsWithScope(scope),
   });
-  const visibleInvestigations =
-    investigations.data?.items.filter((item) => item.status !== "archived") ?? [];
+  const availableTags = useQuery({
+    queryKey: ["tags"],
+    queryFn: listTags,
+  });
+  const investigationItems = investigations.data?.items ?? [];
+  const availableTagItems = availableTags.data?.items ?? [];
+  const scopedInvestigations =
+    investigationItems.filter(
+      (item) => scope === "archived" || item.status !== "archived",
+    );
+  const investigationTags = useQueries({
+    queries: scopedInvestigations.map((item) => ({
+      queryKey: ["investigation-tags", item.id],
+      queryFn: () => getInvestigationTags(item.id),
+    })),
+  });
+  const tagIdsByInvestigation = new Map(
+    scopedInvestigations.map((item, index) => [
+      item.id,
+      (investigationTags[index]?.data?.items ?? []).map((tag) => tag.id),
+    ]),
+  );
+  const visibleInvestigations = scopedInvestigations.filter(
+    (item) =>
+      selectedTag === "all" ||
+      tagIdsByInvestigation.get(item.id)?.includes(selectedTag),
+  );
   const targetCounts = useQueries({
     queries: visibleInvestigations.map((item) => ({
       queryKey: ["targets", item.id],
@@ -84,7 +125,7 @@ export function InvestigationsPage(): JSX.Element {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["investigations"] });
       setDeleting(null);
-      setToast({ kind: "success", message: "Investigation deleted." });
+      setToast({ kind: "success", message: "Investigation archived." });
     },
     onError: (error) => {
       setToast({
@@ -92,7 +133,45 @@ export function InvestigationsPage(): JSX.Element {
         message:
           error instanceof Error
             ? error.message
-            : "Unable to delete investigation.",
+            : "Unable to archive investigation.",
+      });
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: restoreInvestigation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["investigations"] });
+      setToast({ kind: "success", message: "Investigation restored." });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to restore investigation.",
+      });
+    },
+  });
+  const purgeMutation = useMutation({
+    mutationFn: purgeInvestigation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["investigations"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-overview"] });
+      await queryClient.invalidateQueries({ queryKey: ["dashboard-executive"] });
+      setPurging(null);
+      setToast({
+        kind: "success",
+        message: "Archived investigation permanently deleted.",
+      });
+    },
+    onError: (error) => {
+      setToast({
+        kind: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to permanently delete investigation.",
       });
     },
   });
@@ -101,7 +180,7 @@ export function InvestigationsPage(): JSX.Element {
     return <LoadingBlock label="Loading investigations" />;
   }
   if (investigations.isError) {
-    return <ErrorBlock message={investigations.error.message} />;
+    return <ErrorBlock message={investigations.error} />;
   }
 
   return (
@@ -120,6 +199,48 @@ export function InvestigationsPage(): JSX.Element {
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {[
+          ["all", "All accessible"],
+          ["owned_by_me", "Owned by me"],
+          ["assigned_to_me", "Assigned to me"],
+          ["member_of", "Member of"],
+          ["viewer_only", "Viewer only"],
+          ["active", "Active"],
+          ["archived", "Archived"],
+          ["needs_review", "Needs review"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setScope(value)}
+            className={[
+              "rounded-md border px-3 py-2 text-sm",
+              scope === value
+                ? "border-raven-violet bg-raven-violet text-white"
+                : "border-raven-border text-raven-muted hover:border-raven-violet hover:text-raven-text",
+            ].join(" ")}
+          >
+            {label}
+          </button>
+        ))}
+        <label className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted">
+          <Tags className="h-4 w-4" aria-hidden="true" />
+          <span className="sr-only">Filter by tag</span>
+          <select
+            value={selectedTag}
+            onChange={(event) => setSelectedTag(event.target.value)}
+            className="bg-transparent text-raven-text outline-none"
+          >
+            <option value="all">All tags</option>
+            {availableTagItems.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       {visibleInvestigations.length ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {visibleInvestigations.map((item, index) => {
@@ -130,6 +251,12 @@ export function InvestigationsPage(): JSX.Element {
               user?.id,
               user?.role,
             );
+            const itemTags =
+              investigationTags[
+                scopedInvestigations.findIndex(
+                  (investigation) => investigation.id === item.id,
+                )
+              ]?.data?.items ?? [];
             return (
               <article
                 key={item.id}
@@ -137,12 +264,19 @@ export function InvestigationsPage(): JSX.Element {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <Link
-                      to={`/investigations/${item.id}`}
-                      className="font-semibold text-raven-text hover:text-raven-cyan"
-                    >
-                      {item.title}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        to={`/investigations/${item.id}`}
+                        className="font-semibold text-raven-text hover:text-raven-cyan"
+                      >
+                        {item.title}
+                      </Link>
+                      {item.title.startsWith("[DEMO]") ? (
+                        <span className="rounded border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-100">
+                          Synthetic demo
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-2 line-clamp-2 text-sm text-raven-muted">
                       {item.description ??
                         item.scope_definition ??
@@ -167,6 +301,28 @@ export function InvestigationsPage(): JSX.Element {
                   />
                   <Metric label={ownerContext(item, user?.id, user?.role)} />
                 </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span
+                    className={[
+                      "rounded border px-2 py-1 text-xs capitalize",
+                      item.priority === "urgent"
+                        ? "border-rose-400/40 text-rose-100"
+                        : item.priority === "high"
+                          ? "border-orange-400/40 text-orange-100"
+                          : "border-raven-border text-raven-muted",
+                    ].join(" ")}
+                  >
+                    {item.priority} priority
+                  </span>
+                  {itemTags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan"
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-raven-muted">
@@ -174,37 +330,83 @@ export function InvestigationsPage(): JSX.Element {
                   </p>
                   {canManage ? (
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateMutation.reset();
-                          setEditing(item);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-1.5 text-sm text-raven-text hover:border-raven-violet"
-                      >
-                        <Pencil className="h-4 w-4" aria-hidden="true" />
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          deleteMutation.reset();
-                          setDeleting(item);
-                        }}
-                        className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete
-                      </button>
+                      {item.status === "archived" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => restoreMutation.mutate(item.id)}
+                            disabled={
+                              restoreMutation.isPending || purgeMutation.isPending
+                            }
+                            className="inline-flex items-center gap-2 rounded-md border border-emerald-400/30 px-3 py-1.5 text-sm text-emerald-100 hover:bg-emerald-500/10 disabled:opacity-60"
+                          >
+                            <ArchiveRestore
+                              className="h-4 w-4"
+                              aria-hidden="true"
+                            />
+                            Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              purgeMutation.reset();
+                              setPurging(item);
+                            }}
+                            disabled={
+                              restoreMutation.isPending || purgeMutation.isPending
+                            }
+                            className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10 disabled:opacity-60"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Delete permanently
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateMutation.reset();
+                              setEditing(item);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-1.5 text-sm text-raven-text hover:border-raven-violet"
+                          >
+                            <Pencil className="h-4 w-4" aria-hidden="true" />
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deleteMutation.reset();
+                              setDeleting(item);
+                            }}
+                            className="inline-flex items-center gap-2 rounded-md border border-rose-400/30 px-3 py-1.5 text-sm text-rose-100 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Archive
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : null}
                 </div>
+                {item.status === "archived" ? (
+                  <p className="mt-3 text-xs leading-5 text-raven-muted">
+                    Preserved by data governance. Restore to resume work, or use
+                    permanent deletion only when allowed by governance policy.
+                  </p>
+                ) : null}
               </article>
             );
           })}
         </div>
       ) : (
-        <EmptyBlock message="No active investigations are available for this account." />
+        <EmptyBlock
+          title="No investigations yet"
+          message="Investigations define an authorized defensive assessment scope and preserve its evidence, findings, and analyst workflow."
+          nextStep="Create an investigation to define scope and authorization."
+          permission="Analysts and administrators can create investigations."
+        />
       )}
       {isCreating ? (
         <NewInvestigationModal onClose={() => setIsCreating(false)} />
@@ -233,6 +435,18 @@ export function InvestigationsPage(): JSX.Element {
             setDeleting(null);
           }}
           onConfirm={() => deleteMutation.mutate(deleting.id)}
+        />
+      ) : null}
+      {purging ? (
+        <PurgeInvestigationModal
+          investigation={purging}
+          error={purgeMutation.error?.message}
+          isPurging={purgeMutation.isPending}
+          onClose={() => {
+            purgeMutation.reset();
+            setPurging(null);
+          }}
+          onConfirm={() => purgeMutation.mutate(purging.id)}
         />
       ) : null}
     </>

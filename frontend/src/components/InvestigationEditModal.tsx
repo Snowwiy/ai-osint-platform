@@ -3,8 +3,11 @@ import { useState, type FormEvent } from "react";
 import type { Investigation, InvestigationStatus } from "../types";
 
 const statuses: InvestigationStatus[] = [
-  "draft",
+  "intake",
   "active",
+  "monitoring",
+  "remediation",
+  "validation",
   "completed",
   "archived",
 ];

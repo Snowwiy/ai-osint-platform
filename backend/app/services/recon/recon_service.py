@@ -26,7 +26,8 @@ from app.schemas.recon import (
     ReconRequest,
     ReconResponse,
 )
-from app.services.investigation import get_investigation
+from app.services.investigation import MUTATION_ROLES, ensure_investigation_permission, get_investigation
+from app.services.ioc_intelligence import sync_recon_entity_ioc
 from app.services.recon.certificate_service import collect_certificate_intelligence
 from app.services.recon.dns_service import collect_dns_intelligence
 from app.services.recon.http_service import inspect_http_metadata
@@ -46,6 +47,14 @@ async def run_recon_for_request(
     target_type: TargetType,
 ) -> ReconResponse:
     await get_investigation(db, user, body.investigation_id)
+    if hasattr(db, "execute"):
+        await ensure_investigation_permission(
+            db,
+            user,
+            body.investigation_id,
+            MUTATION_ROLES,
+            "Viewers cannot run recon",
+        )
     target_value = _validate_target(target_type, body.target)
     response = await run_recon_pipeline(target_type, target_value)
     response.investigation_id = body.investigation_id
@@ -212,6 +221,7 @@ async def _persist_recon_result(
             properties=entity.properties,
             source=entity.source,
         )
+        await sync_recon_entity_ioc(db, persisted)
         entity_ids[(entity.entity_type, entity.value)] = persisted.id
 
     for relationship in response.relationships:

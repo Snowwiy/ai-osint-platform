@@ -1,43 +1,169 @@
 import type {
+  AdminQaStatusResponse,
+  AdminOverviewResponse,
+  AdminSettingsResponse,
+  AdminSettingsUpdate,
   AnalysisResponse,
+  AuditLogFilters,
+  AuditLogListResponse,
+  CaseReviewResponse,
   CorrelationResponse,
+  CrossInvestigationCorrelationResponse,
+  CrossInvestigationSignalType,
+  CollaborationDashboardResponse,
+  DashboardAnalyticsResponse,
+  DashboardMetricsResponse,
+  DashboardOverviewResponse,
+  DashboardHighlightsResponse,
+  DashboardTimelineResponse,
+  DashboardTriageResponse,
+  DetectionKnowledgeResponse,
+  DefensivePlaybook,
+  DemoSeedResponse,
+  ExecutiveDashboardResponse,
+  ExecutiveInvestigationSummaryResponse,
+  ExecutivePostureResponse,
+  ExecutiveRecommendationsResponse,
+  ExecutiveTrendsResponse,
+  EnvironmentValidationResponse,
+  EvidenceBookmark,
+  EvidenceBookmarkCreateRequest,
+  EvidenceBookmarkListResponse,
+  EvidenceCompletenessResponse,
+  EvidenceIntelligenceEvidenceResponse,
+  EvidenceIntelligenceIOCResponse,
+  EvidenceIntelligenceOverviewResponse,
+  EvidenceIntelligencePriorityResponse,
+  EvidenceIntelligenceTimelineResponse,
   Finding,
+  FindingPlaybookRecommendation,
+  FindingRemediationResponse,
+  FindingRemediationUpdate,
+  FindingStatus,
+  FeatureAvailabilityResponse,
+  FeatureFlagSettings,
+  HealthResponse,
+  InvestigationEvidenceListResponse,
+  InvestigationAnalyticsResponse,
   Investigation,
+  InvestigationReadinessResponse,
+  InvestigationCoverageResponse,
+  InvestigationRecommendationsResponse,
+  InvestigationRiskScoreResponse,
+  InvestigationStage,
+  InvestigationEscalation,
+  InvestigationHandoff,
+  InvestigationHandoffRequest,
+  InvestigationPrioritizationResponse,
+  InvestigationOwnership,
+  InvestigationOwnershipUpdate,
   InvestigationCreateRequest,
   InvestigationGraphResponse,
   InvestigationListResponse,
+  InvestigationPurgeImpact,
+  InvestigationBulkRequest,
+  InvestigationBulkResponse,
+  InvestigationQueueFilters,
+  InvestigationQueueResponse,
+  InvestigationMember,
+  InvestigationPriorityResponse,
+  InvestigationPriorityUpdateRequest,
+  InvestigationSummaryResponse,
+  InvestigationTag,
+  InvestigationTagListResponse,
+  MemberAddRequest,
+  MemberUpdateRequest,
+  InvestigationNoteCreateRequest,
+  InvestigationNoteListResponse,
+  InvestigationNoteUpdateRequest,
+  InvestigationTaskCreateRequest,
+  InvestigationTaskListResponse,
+  InvestigationTaskUpdateRequest,
   InvestigationUpdateRequest,
   KnowledgeSearchResponse,
+  IOCConfidence,
+  IOCCorrelationResponse,
+  IOCDetail,
+  IOCGuidanceResponse,
+  IOCListResponse,
+  IOCType,
+  FrameworkKnowledgeResponse,
+  OperationsStatusResponse,
+  PlaybookRun,
+  PlaybookRunStatus,
+  PlaybookRunStepStatus,
+  ReportActionResponse,
+  ReportApprovalResponse,
+  ReportBulkGenerateRequest,
+  ReportBulkGenerateResponse,
   ReportCreateRequest,
   ReportFormat,
-  ReconResponse,
   ReportListResponse,
+  ReportQualityResponse,
   ReportSummary,
+  ReportTemplate,
+  ReportTemplateCreateRequest,
+  ReportTemplateListResponse,
+  ReportTemplateUpdateRequest,
+  ReportingCenterFilters,
+  ReportingCenterResponse,
+  RetentionSettings,
+  RetentionStatusResponse,
+  ReconResponse,
+  RestoreValidationRequest,
+  RestoreValidationResponse,
+  RemediationValidationResponse,
+  ReviewBoardResponse,
   Target,
   TargetCreateRequest,
   TargetListResponse,
   TargetType,
+  ThreatCampaignListResponse,
+  ThreatGroupListResponse,
+  ThreatIndicatorListResponse,
+  ThreatInfrastructureResponse,
+  ThreatOverviewResponse,
+  ThreatTechniqueListResponse,
+  ThreatTimelineResponse,
   TimelineResponse,
   TokenResponse,
   UserProfile,
+  AnalystWorkloadResponse,
 } from "../types";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const API_ROOT_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
 
 const ACCESS_TOKEN_KEY = "raventech.accessToken";
 const REFRESH_TOKEN_KEY = "raventech.refreshToken";
 const DEFAULT_TIMEOUT_MS = 30_000;
 export const AUTH_EXPIRED_EVENT = "raventech:auth-expired";
 
+interface ApiErrorMetadata {
+  category?: string;
+  detail?: string;
+  requestId?: string;
+  suggestion?: string;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly endpoint?: string,
+    public readonly metadata: ApiErrorMetadata = {},
   ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+export interface FileDownloadResult {
+  blob: Blob | null;
+  filename: string;
+  mimeType: string;
+  handledExternally: boolean;
 }
 
 export function getAccessToken(): string | null {
@@ -60,11 +186,23 @@ export async function login(identifier: string, password: string): Promise<Token
   const body = identifier.includes("@")
     ? { email: identifier, password }
     : { username: identifier, password };
-  const response = await request<TokenResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(body),
-    skipAuth: true,
-  });
+  let response: TokenResponse;
+  try {
+    response = await request<TokenResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+      skipAuth: true,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      console.warn("Login rejected by backend.", {
+        endpoint: error.endpoint,
+        status: error.status,
+      });
+      throw new ApiError("Invalid username or password.", 401, error.endpoint);
+    }
+    throw error;
+  }
   setTokens(response.access_token, response.refresh_token);
   return response;
 }
@@ -85,8 +223,23 @@ export async function getMe(): Promise<UserProfile> {
   return request<UserProfile>("/auth/me");
 }
 
+export async function getBackendHealth(): Promise<HealthResponse> {
+  return requestRoot<HealthResponse>("/health", { skipAuth: true });
+}
+
 export async function listInvestigations(): Promise<InvestigationListResponse> {
   return request<InvestigationListResponse>("/investigations/");
+}
+
+export async function listInvestigationsWithScope(
+  scope: string,
+): Promise<InvestigationListResponse> {
+  const params = new URLSearchParams();
+  if (scope !== "all") {
+    params.set("scope", scope);
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<InvestigationListResponse>(`/investigations/${suffix}`);
 }
 
 export async function createInvestigation(
@@ -102,6 +255,57 @@ export async function getInvestigation(id: string): Promise<Investigation> {
   return request<Investigation>(`/investigations/${id}`);
 }
 
+export async function getInvestigationReadiness(
+  id: string,
+): Promise<InvestigationReadinessResponse> {
+  return request<InvestigationReadinessResponse>(
+    `/investigations/${id}/readiness`,
+  );
+}
+
+export async function getExecutiveInvestigationSummary(
+  id: string,
+): Promise<ExecutiveInvestigationSummaryResponse> {
+  return request<ExecutiveInvestigationSummaryResponse>(
+    `/investigations/${id}/executive-summary`,
+  );
+}
+
+export async function getInvestigationRiskScore(
+  id: string,
+): Promise<InvestigationRiskScoreResponse> {
+  return request<InvestigationRiskScoreResponse>(
+    `/investigations/${id}/risk-score`,
+  );
+}
+
+export async function getInvestigationCoverage(
+  id: string,
+): Promise<InvestigationCoverageResponse> {
+  return request<InvestigationCoverageResponse>(
+    `/investigations/${id}/coverage`,
+  );
+}
+
+export async function getInvestigationRecommendations(
+  id: string,
+): Promise<InvestigationRecommendationsResponse> {
+  return request<InvestigationRecommendationsResponse>(
+    `/investigations/${id}/recommendations`,
+  );
+}
+
+export async function updateInvestigationStage(
+  id: string,
+  stage: InvestigationStage,
+  reason: string,
+): Promise<Investigation> {
+  return request<Investigation>(`/investigations/${id}/stage`, {
+    method: "PATCH",
+    body: JSON.stringify({ stage, reason }),
+  });
+}
+
 export async function updateInvestigation(
   id: string,
   body: InvestigationUpdateRequest,
@@ -112,8 +316,138 @@ export async function updateInvestigation(
   });
 }
 
+export async function updateInvestigationState(
+  id: string,
+  state: Investigation["status"],
+  reason: string,
+): Promise<Investigation> {
+  return request<Investigation>(`/investigations/${id}/state`, {
+    method: "PATCH",
+    body: JSON.stringify({ state, status: state, reason }),
+  });
+}
+
+export async function getInvestigationOwnership(
+  id: string,
+): Promise<InvestigationOwnership> {
+  return request<InvestigationOwnership>(`/investigations/${id}/ownership`);
+}
+
+export async function updateInvestigationOwnership(
+  id: string,
+  body: InvestigationOwnershipUpdate,
+): Promise<InvestigationOwnership> {
+  return request<InvestigationOwnership>(`/investigations/${id}/ownership`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function handoffInvestigation(
+  id: string,
+  body: InvestigationHandoffRequest,
+): Promise<InvestigationHandoff> {
+  return request<InvestigationHandoff>(`/investigations/${id}/handoff`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listInvestigationEscalations(
+  id: string,
+): Promise<InvestigationEscalation[]> {
+  return request<InvestigationEscalation[]>(
+    `/investigations/${id}/escalations`,
+  );
+}
+
+export async function escalateInvestigation(
+  id: string,
+  level: InvestigationEscalation["level"],
+  reason: string,
+): Promise<InvestigationEscalation> {
+  return request<InvestigationEscalation>(`/investigations/${id}/escalate`, {
+    method: "POST",
+    body: JSON.stringify({ level, reason }),
+  });
+}
+
+export async function getCollaborationDashboard(): Promise<CollaborationDashboardResponse> {
+  return request<CollaborationDashboardResponse>("/dashboard/collaboration");
+}
+
 export async function deleteInvestigation(id: string): Promise<void> {
   return request<void>(`/investigations/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function getInvestigationPurgeImpact(
+  id: string,
+): Promise<InvestigationPurgeImpact> {
+  return request<InvestigationPurgeImpact>(
+    `/investigations/${id}/purge-impact`,
+  );
+}
+
+export async function purgeInvestigation(id: string): Promise<void> {
+  return request<void>(`/investigations/${id}/purge`, {
+    method: "DELETE",
+  });
+}
+
+export async function restoreInvestigation(id: string): Promise<Investigation> {
+  return updateInvestigationState(
+    id,
+    "active",
+    "Investigation restored from archive.",
+  );
+}
+
+export async function listInvestigationMembers(
+  investigationId: string,
+): Promise<InvestigationMember[]> {
+  return request<InvestigationMember[]>(
+    `/investigations/${investigationId}/members`,
+  );
+}
+
+export async function addInvestigationMember(
+  investigationId: string,
+  body: MemberAddRequest,
+): Promise<InvestigationMember> {
+  const requestBody: MemberAddRequest = {
+    ...body,
+    role: body.role === "analyst" ? "collaborator" : body.role,
+  };
+  return request<InvestigationMember>(
+    `/investigations/${investigationId}/members`,
+    {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    },
+  );
+}
+
+export async function updateInvestigationMember(
+  investigationId: string,
+  memberId: string,
+  body: MemberUpdateRequest,
+): Promise<InvestigationMember> {
+  return request<InvestigationMember>(
+    `/investigations/${investigationId}/members/${memberId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function removeInvestigationMember(
+  investigationId: string,
+  memberId: string,
+): Promise<void> {
+  return request<void>(`/investigations/${investigationId}/members/${memberId}`, {
     method: "DELETE",
   });
 }
@@ -122,6 +456,425 @@ export async function getInvestigationGraph(
   id: string,
 ): Promise<InvestigationGraphResponse> {
   return request<InvestigationGraphResponse>(`/investigations/${id}/graph`);
+}
+
+export async function getInvestigationAnalytics(
+  id: string,
+): Promise<InvestigationAnalyticsResponse> {
+  return request<InvestigationAnalyticsResponse>(`/investigations/${id}/analytics`);
+}
+
+export async function getDashboardAnalytics(): Promise<DashboardAnalyticsResponse> {
+  return request<DashboardAnalyticsResponse>("/dashboard/analytics");
+}
+
+export async function getDashboardMetrics(): Promise<DashboardMetricsResponse> {
+  return request<DashboardMetricsResponse>("/dashboard/metrics");
+}
+
+export async function getExecutiveDashboard(): Promise<ExecutiveDashboardResponse> {
+  return request<ExecutiveDashboardResponse>("/dashboard/executive");
+}
+
+export async function getExecutiveReportingDashboard(): Promise<ExecutiveDashboardResponse> {
+  return request<ExecutiveDashboardResponse>("/executive/dashboard");
+}
+
+export async function getExecutivePosture(): Promise<ExecutivePostureResponse> {
+  return request<ExecutivePostureResponse>("/executive/posture");
+}
+
+export async function getExecutiveTrends(): Promise<ExecutiveTrendsResponse> {
+  return request<ExecutiveTrendsResponse>("/executive/trends");
+}
+
+export async function getExecutiveRecommendations(): Promise<ExecutiveRecommendationsResponse> {
+  return request<ExecutiveRecommendationsResponse>("/executive/recommendations");
+}
+
+export async function getDashboardOverview(): Promise<DashboardOverviewResponse> {
+  return request<DashboardOverviewResponse>("/dashboard/overview");
+}
+
+export async function getDashboardHighlights(): Promise<DashboardHighlightsResponse> {
+  return request<DashboardHighlightsResponse>("/dashboard/highlights");
+}
+
+export async function getDashboardTriage(): Promise<DashboardTriageResponse> {
+  return request<DashboardTriageResponse>("/dashboard/triage");
+}
+
+export async function getInvestigationQueue(
+  filters: InvestigationQueueFilters = {},
+): Promise<InvestigationQueueResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<InvestigationQueueResponse>(`/investigations/queue${suffix}`);
+}
+
+export async function applyInvestigationBulkAction(
+  body: InvestigationBulkRequest,
+): Promise<InvestigationBulkResponse> {
+  return request<InvestigationBulkResponse>("/investigations/bulk", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function setInvestigationPinned(
+  investigationId: string,
+  pinned: boolean,
+): Promise<{ investigation_id: string; user_id: string; pinned: boolean }> {
+  return request(`/investigations/${investigationId}/pin`, {
+    method: "PATCH",
+    body: JSON.stringify({ pinned }),
+  });
+}
+
+export async function getAnalystWorkload(): Promise<AnalystWorkloadResponse> {
+  return request<AnalystWorkloadResponse>("/analytics/analysts");
+}
+
+export async function getDashboardTimeline(filters: {
+  actor_id?: string;
+  investigation_id?: string;
+  event_type?: string;
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<DashboardTimelineResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<DashboardTimelineResponse>(`/dashboard/timeline${suffix}`);
+}
+
+export async function listAuditEvents(
+  filters: AuditLogFilters = {},
+): Promise<AuditLogListResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<AuditLogListResponse>(`/admin/audit${suffix}`);
+}
+
+export async function getFeatureAvailability(): Promise<FeatureAvailabilityResponse> {
+  return request<FeatureAvailabilityResponse>("/features");
+}
+
+export async function getAdminSettings(): Promise<AdminSettingsResponse> {
+  return request<AdminSettingsResponse>("/admin/settings");
+}
+
+export async function updateAdminSettings(
+  body: AdminSettingsUpdate,
+): Promise<AdminSettingsResponse> {
+  return request<AdminSettingsResponse>("/admin/settings", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateAdminFeatureFlags(
+  featureFlags: FeatureFlagSettings,
+): Promise<FeatureAvailabilityResponse> {
+  return request<FeatureAvailabilityResponse>("/admin/feature-flags", {
+    method: "PATCH",
+    body: JSON.stringify({ feature_flags: featureFlags }),
+  });
+}
+
+export async function getAdminRetention(): Promise<RetentionStatusResponse> {
+  return request<RetentionStatusResponse>("/admin/retention");
+}
+
+export async function updateAdminRetention(
+  retention: RetentionSettings,
+): Promise<RetentionStatusResponse> {
+  return request<RetentionStatusResponse>("/admin/retention", {
+    method: "PATCH",
+    body: JSON.stringify({ retention }),
+  });
+}
+
+export async function getAdminOverview(): Promise<AdminOverviewResponse> {
+  return request<AdminOverviewResponse>("/admin/overview");
+}
+
+export async function getAdminQaStatus(): Promise<AdminQaStatusResponse> {
+  return request<AdminQaStatusResponse>("/admin/qa/status");
+}
+
+export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
+  return request<OperationsStatusResponse>("/operations/status");
+}
+
+export async function getOperationsEnvironment(): Promise<EnvironmentValidationResponse> {
+  return request<EnvironmentValidationResponse>("/operations/environment");
+}
+
+export async function downloadOperationsDiagnostics(
+  format: "json" | "zip",
+): Promise<FileDownloadResult> {
+  return requestBlob(
+    `/operations/diagnostics?format=${format}`,
+    `raventech-diagnostics.${format}`,
+    true,
+  );
+}
+
+export async function downloadOperationsBackup(
+  format: "json" | "zip",
+): Promise<FileDownloadResult> {
+  return requestBlob(
+    `/operations/backup?format=${format}`,
+    `raventech-backup.${format}`,
+    true,
+  );
+}
+
+export async function validateRestoreBackup(
+  body: RestoreValidationRequest,
+): Promise<RestoreValidationResponse> {
+  return request<RestoreValidationResponse>("/operations/restore/validate", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function seedDemoWorkspace(): Promise<DemoSeedResponse> {
+  return request<DemoSeedResponse>("/admin/demo/seed", {
+    method: "POST",
+  });
+}
+
+export async function clearDemoWorkspace(): Promise<DemoSeedResponse> {
+  return request<DemoSeedResponse>("/admin/demo/clear", {
+    method: "DELETE",
+  });
+}
+
+export async function listNotes(
+  investigationId: string,
+  filters: {
+    includeArchived?: boolean;
+    noteType?: string;
+    search?: string;
+  } = {},
+): Promise<InvestigationNoteListResponse> {
+  const params = new URLSearchParams();
+  if (filters.includeArchived) {
+    params.set("include_archived", "true");
+  }
+  if (filters.noteType) {
+    params.set("note_type", filters.noteType);
+  }
+  if (filters.search?.trim()) {
+    params.set("search", filters.search.trim());
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<InvestigationNoteListResponse>(
+    `/investigations/${investigationId}/notes${suffix}`,
+  );
+}
+
+export async function createNote(
+  investigationId: string,
+  body: InvestigationNoteCreateRequest,
+): Promise<InvestigationNoteListResponse["items"][number]> {
+  return request<InvestigationNoteListResponse["items"][number]>(
+    `/investigations/${investigationId}/notes`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateNote(
+  investigationId: string,
+  noteId: string,
+  body: InvestigationNoteUpdateRequest,
+): Promise<InvestigationNoteListResponse["items"][number]> {
+  return request<InvestigationNoteListResponse["items"][number]>(
+    `/investigations/${investigationId}/notes/${noteId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteNote(
+  _investigationId: string,
+  noteId: string,
+): Promise<void> {
+  return request<void>(`/notes/${noteId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listBookmarks(
+  investigationId: string,
+): Promise<EvidenceBookmarkListResponse> {
+  return request<EvidenceBookmarkListResponse>(
+    `/investigations/${investigationId}/bookmarks`,
+  );
+}
+
+export async function createBookmark(
+  investigationId: string,
+  body: EvidenceBookmarkCreateRequest,
+): Promise<EvidenceBookmark> {
+  return request<EvidenceBookmark>(
+    `/investigations/${investigationId}/bookmarks`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteBookmark(bookmarkId: string): Promise<void> {
+  return request<void>(`/bookmarks/${bookmarkId}`, { method: "DELETE" });
+}
+
+export async function listTags(): Promise<InvestigationTagListResponse> {
+  return request<InvestigationTagListResponse>("/tags");
+}
+
+export async function createTag(body: {
+  name: string;
+  color: string;
+}): Promise<InvestigationTag> {
+  return request<InvestigationTag>("/tags", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getInvestigationTags(
+  investigationId: string,
+): Promise<InvestigationTagListResponse> {
+  return request<InvestigationTagListResponse>(
+    `/investigations/${investigationId}/tags`,
+  );
+}
+
+export async function updateInvestigationTags(
+  investigationId: string,
+  tagIds: string[],
+): Promise<InvestigationTagListResponse> {
+  return request<InvestigationTagListResponse>(
+    `/investigations/${investigationId}/tags`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ tag_ids: tagIds }),
+    },
+  );
+}
+
+export async function updateInvestigationPriority(
+  investigationId: string,
+  body: InvestigationPriorityUpdateRequest,
+): Promise<InvestigationPriorityResponse> {
+  return request<InvestigationPriorityResponse>(
+    `/investigations/${investigationId}/priority`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function generateInvestigationSummary(
+  investigationId: string,
+): Promise<InvestigationSummaryResponse> {
+  return request<InvestigationSummaryResponse>(
+    `/investigations/${investigationId}/summary`,
+    { method: "POST" },
+  );
+}
+
+export async function listTasks(
+  investigationId: string,
+  includeArchived = false,
+): Promise<InvestigationTaskListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<InvestigationTaskListResponse>(
+    `/investigations/${investigationId}/tasks${suffix}`,
+  );
+}
+
+export async function createTask(
+  investigationId: string,
+  body: InvestigationTaskCreateRequest,
+): Promise<InvestigationTaskListResponse["items"][number]> {
+  return request<InvestigationTaskListResponse["items"][number]>(
+    `/investigations/${investigationId}/tasks`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateTask(
+  investigationId: string,
+  taskId: string,
+  body: InvestigationTaskUpdateRequest,
+): Promise<InvestigationTaskListResponse["items"][number]> {
+  return request<InvestigationTaskListResponse["items"][number]>(
+    `/investigations/${investigationId}/tasks/${taskId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function assignTask(
+  taskId: string,
+  assignedTo: string,
+): Promise<InvestigationTaskListResponse["items"][number]> {
+  return request<InvestigationTaskListResponse["items"][number]>(
+    `/tasks/${taskId}/assign`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ assigned_to: assignedTo }),
+    },
+  );
+}
+
+export async function deleteTask(
+  investigationId: string,
+  taskId: string,
+): Promise<void> {
+  return request<void>(`/investigations/${investigationId}/tasks/${taskId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listEvidence(
+  investigationId: string,
+): Promise<InvestigationEvidenceListResponse> {
+  return request<InvestigationEvidenceListResponse>(
+    `/investigations/${investigationId}/evidence`,
+  );
 }
 
 export async function listTargets(
@@ -164,16 +917,414 @@ export async function listFindings(id: string): Promise<Finding[]> {
   return request<Finding[]>(`/investigations/${id}/findings`);
 }
 
-export async function getTimeline(id: string): Promise<TimelineResponse> {
-  return request<TimelineResponse>(`/investigations/${id}/timeline`);
+export async function generateFindings(id: string): Promise<Finding[]> {
+  return request<Finding[]>(`/investigations/${id}/findings/generate`, {
+    method: "POST",
+  });
+}
+
+export async function updateFindingStatus(
+  findingId: string,
+  body: {
+    status: FindingStatus;
+    review_notes?: string | null;
+    remediation_notes?: string | null;
+    validation_notes?: string | null;
+  },
+): Promise<Finding> {
+  return request<Finding>(`/findings/${findingId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function assignFinding(
+  findingId: string,
+  body: { assigned_to?: string | null; reviewed_by?: string | null },
+): Promise<Finding> {
+  return request<Finding>(`/findings/${findingId}/assign`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listPlaybooks(): Promise<DefensivePlaybook[]> {
+  return request<DefensivePlaybook[]>("/playbooks");
+}
+
+export async function listFindingPlaybooks(
+  findingId: string,
+): Promise<FindingPlaybookRecommendation[]> {
+  return request<FindingPlaybookRecommendation[]>(
+    `/findings/${findingId}/playbooks`,
+  );
+}
+
+export async function startFindingPlaybook(
+  findingId: string,
+  playbookId: string,
+): Promise<PlaybookRun> {
+  return request<PlaybookRun>(
+    `/findings/${findingId}/playbooks/${playbookId}/start`,
+    { method: "POST" },
+  );
+}
+
+export async function listPlaybookRuns(
+  investigationId: string,
+  includeArchived = false,
+): Promise<PlaybookRun[]> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<PlaybookRun[]>(
+    `/investigations/${investigationId}/playbook-runs${suffix}`,
+  );
+}
+
+export async function updatePlaybookRun(
+  runId: string,
+  status: PlaybookRunStatus,
+): Promise<PlaybookRun> {
+  return request<PlaybookRun>(`/playbook-runs/${runId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updatePlaybookRunArchive(
+  runId: string,
+  archived: boolean,
+): Promise<PlaybookRun> {
+  return request<PlaybookRun>(`/playbook-runs/${runId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived }),
+  });
+}
+
+export async function updatePlaybookRunStep(
+  runId: string,
+  stepId: string,
+  body: {
+    status: PlaybookRunStepStatus;
+    analyst_note?: string | null;
+  },
+): Promise<PlaybookRun> {
+  return request<PlaybookRun>(`/playbook-runs/${runId}/steps/${stepId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateFindingRemediation(
+  findingId: string,
+  body: FindingRemediationUpdate,
+): Promise<FindingRemediationResponse> {
+  return request<FindingRemediationResponse>(
+    `/findings/${findingId}/remediation`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function getTimeline(
+  id: string,
+  filters: {
+    source?: string;
+    event_type?: string;
+    analyst_id?: string;
+    start_date?: string;
+    end_date?: string;
+  } = {},
+): Promise<TimelineResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value?.trim()) {
+      params.set(key, value);
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<TimelineResponse>(`/investigations/${id}/timeline${suffix}`);
 }
 
 export async function getCorrelations(id: string): Promise<CorrelationResponse> {
   return request<CorrelationResponse>(`/investigations/${id}/correlations`);
 }
 
-export async function listReports(id: string): Promise<ReportListResponse> {
-  return request<ReportListResponse>(`/investigations/${id}/reports`);
+export async function getCrossInvestigationCorrelations(
+  signalType?: CrossInvestigationSignalType,
+): Promise<CrossInvestigationCorrelationResponse> {
+  const suffix = signalType
+    ? `?${new URLSearchParams({ signal_type: signalType }).toString()}`
+    : "";
+  return request<CrossInvestigationCorrelationResponse>(
+    `/correlations/cross-investigation${suffix}`,
+  );
+}
+
+export async function listIocs(filters: {
+  type?: IOCType;
+  confidence?: IOCConfidence;
+  q?: string;
+  recurringOnly?: boolean;
+} = {}): Promise<IOCListResponse> {
+  const params = new URLSearchParams();
+  if (filters.type) {
+    params.set("type", filters.type);
+  }
+  if (filters.confidence) {
+    params.set("confidence", filters.confidence);
+  }
+  if (filters.q?.trim()) {
+    params.set("q", filters.q.trim());
+  }
+  if (filters.recurringOnly) {
+    params.set("recurring_only", "true");
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<IOCListResponse>(`/iocs${suffix}`);
+}
+
+export async function getIocDetail(iocId: string): Promise<IOCDetail> {
+  return request<IOCDetail>(`/iocs/${iocId}`);
+}
+
+export async function getIocCorrelations(): Promise<IOCCorrelationResponse> {
+  return request<IOCCorrelationResponse>("/iocs/correlations");
+}
+
+export async function getEvidenceIntelligenceOverview(): Promise<EvidenceIntelligenceOverviewResponse> {
+  return request<EvidenceIntelligenceOverviewResponse>("/intelligence/overview");
+}
+
+export async function getEvidenceIntelligenceEvidence(): Promise<EvidenceIntelligenceEvidenceResponse> {
+  return request<EvidenceIntelligenceEvidenceResponse>("/intelligence/evidence");
+}
+
+export async function getEvidenceIntelligencePriority(): Promise<EvidenceIntelligencePriorityResponse> {
+  return request<EvidenceIntelligencePriorityResponse>("/intelligence/priority");
+}
+
+export async function getEvidenceIntelligenceTimeline(): Promise<EvidenceIntelligenceTimelineResponse> {
+  return request<EvidenceIntelligenceTimelineResponse>("/intelligence/timeline");
+}
+
+export async function getEvidenceIntelligenceIocs(): Promise<EvidenceIntelligenceIOCResponse> {
+  return request<EvidenceIntelligenceIOCResponse>("/intelligence/iocs");
+}
+
+export async function getThreatOverview(): Promise<ThreatOverviewResponse> {
+  return request<ThreatOverviewResponse>("/threat/overview");
+}
+
+export async function getThreatIndicators(): Promise<ThreatIndicatorListResponse> {
+  return request<ThreatIndicatorListResponse>("/threat/indicators");
+}
+
+export async function getThreatCampaigns(): Promise<ThreatCampaignListResponse> {
+  return request<ThreatCampaignListResponse>("/threat/campaigns");
+}
+
+export async function getThreatGroups(): Promise<ThreatGroupListResponse> {
+  return request<ThreatGroupListResponse>("/threat/groups");
+}
+
+export async function getThreatTechniques(): Promise<ThreatTechniqueListResponse> {
+  return request<ThreatTechniqueListResponse>("/threat/techniques");
+}
+
+export async function getThreatInfrastructure(): Promise<ThreatInfrastructureResponse> {
+  return request<ThreatInfrastructureResponse>("/threat/infrastructure");
+}
+
+export async function getThreatTimeline(): Promise<ThreatTimelineResponse> {
+  return request<ThreatTimelineResponse>("/threat/timeline");
+}
+
+export async function listInvestigationIocs(
+  investigationId: string,
+): Promise<IOCListResponse> {
+  return request<IOCListResponse>(`/investigations/${investigationId}/iocs`);
+}
+
+export async function getInvestigationPrioritization(
+  investigationId: string,
+): Promise<InvestigationPrioritizationResponse> {
+  return request<InvestigationPrioritizationResponse>(
+    `/investigations/${investigationId}/prioritization`,
+  );
+}
+
+export async function listReports(
+  id: string,
+  includeArchived = false,
+): Promise<ReportListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<ReportListResponse>(`/investigations/${id}/reports${suffix}`);
+}
+
+export async function getCaseReview(
+  investigationId: string,
+): Promise<CaseReviewResponse> {
+  return request<CaseReviewResponse>(`/investigations/${investigationId}/review`);
+}
+
+export async function submitCaseReview(
+  investigationId: string,
+  notes?: string,
+): Promise<CaseReviewResponse> {
+  return request<CaseReviewResponse>(
+    `/investigations/${investigationId}/review/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ notes }),
+    },
+  );
+}
+
+export async function decideCaseReview(
+  investigationId: string,
+  body: { decision: "approve" | "reject" | "request_changes"; notes: string },
+): Promise<CaseReviewResponse> {
+  return request<CaseReviewResponse>(
+    `/investigations/${investigationId}/review/decision`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function closeCase(
+  investigationId: string,
+  body: { closure_reason: string; override_reason?: string | null },
+): Promise<CaseReviewResponse> {
+  return request<CaseReviewResponse>(`/investigations/${investigationId}/close`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getEvidenceCompleteness(
+  investigationId: string,
+): Promise<EvidenceCompletenessResponse> {
+  return request<EvidenceCompletenessResponse>(
+    `/investigations/${investigationId}/completeness`,
+  );
+}
+
+export async function submitReportApproval(
+  reportId: string,
+  notes?: string,
+): Promise<ReportApprovalResponse> {
+  return request<ReportApprovalResponse>(`/reports/${reportId}/submit-approval`, {
+    method: "POST",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export async function decideReportApproval(
+  reportId: string,
+  body: { decision: "approve" | "reject"; notes: string },
+): Promise<ReportApprovalResponse> {
+  return request<ReportApprovalResponse>(`/reports/${reportId}/approval-decision`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function submitRemediationValidation(
+  findingId: string,
+  body: { validation_owner?: string | null; validation_notes?: string | null } = {},
+): Promise<RemediationValidationResponse> {
+  return request<RemediationValidationResponse>(
+    `/findings/${findingId}/validation/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function decideRemediationValidation(
+  findingId: string,
+  body: {
+    decision: "validate" | "fail" | "accept_risk";
+    notes: string;
+    failure_reason?: string | null;
+  },
+): Promise<RemediationValidationResponse> {
+  return request<RemediationValidationResponse>(
+    `/findings/${findingId}/validation/decision`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function getReviewBoard(filters: {
+  status?: string;
+  assigned_reviewer?: string;
+  priority?: string;
+  risk?: string;
+  due_date_before?: string;
+} = {}): Promise<ReviewBoardResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<ReviewBoardResponse>(`/review-board${suffix}`);
+}
+
+export async function listReportingCenterReports(
+  filters: ReportingCenterFilters = {},
+): Promise<ReportingCenterResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      params.set(key, String(value));
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<ReportingCenterResponse>(`/reports${suffix}`);
+}
+
+export async function listReportTemplates(
+  includeInactive = false,
+): Promise<ReportTemplateListResponse> {
+  const suffix = includeInactive ? "?include_inactive=true" : "";
+  return request<ReportTemplateListResponse>(`/report-templates${suffix}`);
+}
+
+export async function createReportTemplate(
+  body: ReportTemplateCreateRequest,
+): Promise<ReportTemplate> {
+  return request<ReportTemplate>("/report-templates", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateReportTemplate(
+  templateId: string,
+  body: ReportTemplateUpdateRequest,
+): Promise<ReportTemplate> {
+  return request<ReportTemplate>(`/report-templates/${templateId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deactivateReportTemplate(
+  templateId: string,
+): Promise<ReportTemplate> {
+  return request<ReportTemplate>(`/report-templates/${templateId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function createReport(
@@ -187,16 +1338,92 @@ export async function createReport(
   });
 }
 
+export async function previewReportQuality(
+  investigationId: string,
+  reportType: ReportCreateRequest["report_type"],
+  templateId?: string | null,
+): Promise<ReportQualityResponse> {
+  const params = new URLSearchParams({ report_type: reportType });
+  if (templateId) {
+    params.set("template_id", templateId);
+  }
+  return request<ReportQualityResponse>(
+    `/investigations/${investigationId}/reports/quality?${params.toString()}`,
+  );
+}
+
+export async function getReportQuality(
+  reportId: string,
+): Promise<ReportQualityResponse> {
+  return request<ReportQualityResponse>(`/reports/${reportId}/quality`);
+}
+
+export async function bulkGenerateReports(
+  body: ReportBulkGenerateRequest,
+): Promise<ReportBulkGenerateResponse> {
+  return request<ReportBulkGenerateResponse>("/reports/bulk-generate", {
+    method: "POST",
+    body: JSON.stringify(body),
+    timeoutMs: 90_000,
+  });
+}
+
+export async function archiveReport(
+  reportId: string,
+): Promise<ReportActionResponse> {
+  return request<ReportActionResponse>(`/reports/${reportId}/archive`, {
+    method: "PATCH",
+  });
+}
+
+export async function restoreReport(
+  reportId: string,
+): Promise<ReportActionResponse> {
+  return request<ReportActionResponse>(`/reports/${reportId}/restore`, {
+    method: "PATCH",
+  });
+}
+
+export async function retryReport(
+  reportId: string,
+): Promise<ReportActionResponse> {
+  return request<ReportActionResponse>(`/reports/${reportId}/retry`, {
+    method: "POST",
+    timeoutMs: 45_000,
+  });
+}
+
 export async function downloadReport(
   reportId: string,
   format: ReportFormat,
-): Promise<Blob> {
-  return requestBlob(`/reports/${reportId}/download?format=${format}`);
+): Promise<FileDownloadResult> {
+  return requestBlob(
+    `/reports/${reportId}/download?format=${format}`,
+    `report-${reportId}.${format}`,
+  );
 }
 
 export async function searchKnowledge(query: string): Promise<KnowledgeSearchResponse> {
   const params = new URLSearchParams({ q: query, mode: "hybrid", limit: "10" });
   return request<KnowledgeSearchResponse>(`/knowledge/search?${params.toString()}`);
+}
+
+export async function getDetectionKnowledge(
+  kind?: "sigma" | "yara",
+): Promise<DetectionKnowledgeResponse> {
+  const suffix = kind ? `?kind=${kind}` : "";
+  return request<DetectionKnowledgeResponse>(`/knowledge/detections${suffix}`);
+}
+
+export async function getFrameworkKnowledge(): Promise<FrameworkKnowledgeResponse> {
+  return request<FrameworkKnowledgeResponse>("/knowledge/frameworks");
+}
+
+export async function getIocGuidance(query?: string): Promise<IOCGuidanceResponse> {
+  const suffix = query?.trim()
+    ? `?${new URLSearchParams({ q: query.trim() }).toString()}`
+    : "";
+  return request<IOCGuidanceResponse>(`/knowledge/ioc-guidance${suffix}`);
 }
 
 export async function analyzeInvestigation(id: string): Promise<AnalysisResponse> {
@@ -228,7 +1455,7 @@ async function request<T>(
       signal: controller.signal,
     });
     if (!response.ok) {
-      const error = await apiError(response);
+      const error = await apiError(response, path);
       handleAuthFailure(error, options);
       throw error;
     }
@@ -238,7 +1465,19 @@ async function request<T>(
     return (await response.json()) as T;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new ApiError("Request timed out", 408);
+      throw new ApiError(
+        "The request timed out before the backend responded.",
+        408,
+        path,
+        {
+          category: "Request timeout",
+          detail: "Request timed out before the backend responded.",
+          suggestion: "Refresh the page or retry after the backend is healthy.",
+        },
+      );
+    }
+    if (error instanceof TypeError) {
+      throw backendUnavailableError(error, path);
     }
     throw error;
   } finally {
@@ -246,7 +1485,11 @@ async function request<T>(
   }
 }
 
-async function requestBlob(path: string): Promise<Blob> {
+async function requestBlob(
+  path: string,
+  fallbackFilename: string,
+  allowJson = false,
+): Promise<FileDownloadResult> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   try {
@@ -256,14 +1499,130 @@ async function requestBlob(path: string): Promise<Blob> {
       signal: controller.signal,
     });
     if (!response.ok) {
-      const error = await apiError(response);
+      const error = await apiError(response, path);
       handleAuthFailure(error, {});
       throw error;
     }
-    return response.blob();
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!allowJson && contentType.toLowerCase().includes("application/json")) {
+      throw await apiError(response, path);
+    }
+    const blob = await response.blob();
+    return {
+      blob,
+      filename: contentDispositionFilename(response) ?? fallbackFilename,
+      mimeType: contentType || blob.type || "application/octet-stream",
+      handledExternally: false,
+    };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new ApiError("Request timed out", 408);
+      throw new ApiError(
+        "The download request timed out before the backend responded.",
+        408,
+        path,
+        {
+          category: "Request timeout",
+          detail: "Request timed out before the backend responded.",
+          suggestion: "Retry the download after the backend is healthy.",
+        },
+      );
+    }
+    if (error instanceof TypeError) {
+      if (await backendIsReachableAfterDownloadHandoff()) {
+        return {
+          blob: null,
+          filename: fallbackFilename,
+          mimeType: "application/octet-stream",
+          handledExternally: true,
+        };
+      }
+      throw backendUnavailableError(error, path);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+function contentDispositionFilename(response: Response): string | null {
+  const disposition = response.headers.get("content-disposition");
+  if (!disposition) {
+    return null;
+  }
+  const encodedMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    try {
+      return sanitizeDownloadFilename(decodeURIComponent(encodedMatch[1]));
+    } catch {
+      return sanitizeDownloadFilename(encodedMatch[1]);
+    }
+  }
+  const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+  return filenameMatch?.[1]
+    ? sanitizeDownloadFilename(filenameMatch[1])
+    : null;
+}
+
+function sanitizeDownloadFilename(filename: string): string {
+  const sanitized = filename.trim().replace(/[\\/:*?"<>|]/g, "-");
+  return sanitized || "download";
+}
+
+async function backendIsReachableAfterDownloadHandoff(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 3_000);
+  try {
+    const response = await fetch(`${API_ROOT_URL}/health/live`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+async function requestRoot<T>(
+  path: string,
+  options: RequestInitWithAuth = {},
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+  );
+  try {
+    const response = await fetch(`${API_ROOT_URL}${path}`, {
+      ...options,
+      headers: buildHeaders(options),
+      credentials: "include",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = await apiError(response, path);
+      handleAuthFailure(error, options);
+      throw error;
+    }
+    return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(
+        "The request timed out before the backend responded.",
+        408,
+        path,
+        {
+          category: "Request timeout",
+          detail: "Request timed out before the backend responded.",
+          suggestion: "Refresh the page or retry after the backend is healthy.",
+        },
+      );
+    }
+    if (error instanceof TypeError) {
+      throw backendUnavailableError(error, path);
     }
     throw error;
   } finally {
@@ -284,14 +1643,37 @@ function buildHeaders(options: RequestInitWithAuth): HeadersInit {
   return headers;
 }
 
-async function apiError(response: Response): Promise<ApiError> {
-  let message = `Request failed with status ${response.status}`;
+async function apiError(response: Response, path: string): Promise<ApiError> {
+  let detail = `Request failed with status ${response.status}`;
+  let requestId: string | undefined;
   try {
-    const payload = (await response.json()) as { detail?: unknown };
-    if (typeof payload.detail === "string") {
-      message = payload.detail;
+    const payload = (await response.json()) as {
+      detail?: unknown;
+      error?: {
+        message?: unknown;
+        detail?: unknown;
+        request_id?: unknown;
+      };
+    };
+    const structuredDetail = payload.error?.detail ?? payload.error?.message;
+    if (typeof structuredDetail === "string") {
+      detail = structuredDetail;
+    } else if (
+      typeof structuredDetail === "object" &&
+      structuredDetail !== null &&
+      "message" in structuredDetail
+    ) {
+      detail = String(structuredDetail.message);
+    } else if (typeof payload.detail === "string") {
+      detail = payload.detail;
+    } else if (
+      typeof payload.detail === "object" &&
+      payload.detail !== null &&
+      "message" in payload.detail
+    ) {
+      detail = String(payload.detail.message);
     } else if (Array.isArray(payload.detail)) {
-      message = payload.detail
+      detail = payload.detail
         .map((item) => {
           if (typeof item === "object" && item !== null && "msg" in item) {
             return String(item.msg);
@@ -300,10 +1682,22 @@ async function apiError(response: Response): Promise<ApiError> {
         })
         .join("; ");
     }
+    if (typeof payload.error?.request_id === "string") {
+      requestId = payload.error.request_id;
+    }
   } catch {
     // Keep the status-based fallback.
   }
-  return new ApiError(message, response.status);
+  const { category, suggestion, userMessage } = apiErrorCopy(
+    response.status,
+    detail,
+  );
+  return new ApiError(userMessage, response.status, path, {
+    category,
+    detail,
+    requestId,
+    suggestion,
+  });
 }
 
 function handleAuthFailure(error: ApiError, options: RequestInitWithAuth): void {
@@ -311,6 +1705,63 @@ function handleAuthFailure(error: ApiError, options: RequestInitWithAuth): void 
     clearTokens();
     window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
   }
+}
+
+function backendUnavailableError(error: TypeError, path: string): ApiError {
+  const reason = error.message.includes("abort")
+    ? "The request was interrupted before the backend responded."
+    : "The browser could not reach the backend API.";
+  return new ApiError(
+    "Backend temporarily unavailable.",
+    0,
+    path,
+    {
+      category: "Backend unreachable",
+      detail: `${reason} API base URL: ${API_BASE_URL}.`,
+      suggestion: "Confirm Docker is healthy and the backend URL is correct.",
+    },
+  );
+}
+
+function apiErrorCopy(
+  status: number,
+  detail: string,
+): { category: string; suggestion: string; userMessage: string } {
+  const category =
+    status === 401
+      ? "Authentication required"
+      : status === 403
+        ? "Permission denied"
+        : status === 404
+          ? "Endpoint or resource not found"
+          : status >= 500
+            ? "Backend exception"
+            : "Request validation failed";
+  const suggestion =
+    status === 401
+      ? "Sign in again."
+      : status === 403
+        ? "Use an authorized account or request access."
+        : status === 404
+          ? "Confirm the investigation or resource still exists."
+          : status >= 500
+            ? "Check backend logs and retry after the service is healthy."
+            : "Review the request inputs and try again.";
+  const userMessage =
+    status === 401
+      ? "Authentication required. Sign in again."
+      : status === 403
+        ? "This action requires additional permissions."
+        : status === 404
+          ? "The requested item could not be found."
+          : status === 409
+            ? detail || "This request conflicts with existing data."
+            : status === 422
+              ? detail || "Review the request inputs and try again."
+              : status >= 500
+                ? "Backend temporarily unavailable."
+                : detail;
+  return { category, suggestion, userMessage };
 }
 
 export function apiBaseUrl(): string {

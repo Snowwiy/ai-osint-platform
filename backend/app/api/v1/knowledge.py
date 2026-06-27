@@ -13,12 +13,22 @@ from app.schemas.knowledge import (
     KnowledgeSearchResponse,
     KnowledgeSourceType,
 )
+from app.schemas.ioc import IOCGuidanceResponse
+from app.schemas.defensive_intelligence import (
+    DetectionKnowledgeResponse,
+    FrameworkKnowledgeResponse,
+)
+from app.services.defensive_intelligence import (
+    list_detection_knowledge,
+    list_framework_knowledge,
+)
 from app.services.knowledge.knowledge_service import (
     KnowledgeSearchFilters,
     index_knowledge_sources,
     list_knowledge_documents,
     search_knowledge,
 )
+from app.services.ioc_intelligence import list_ioc_guidance
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
@@ -71,3 +81,28 @@ async def search_knowledge_endpoint(
         filters=KnowledgeSearchFilters(source_type=source_type, tags=tags),
         limit=limit,
     )
+
+
+@router.get("/detections", response_model=DetectionKnowledgeResponse)
+async def list_detection_knowledge_endpoint(
+    kind: str | None = Query(default=None, pattern="^(sigma|yara)$"),
+    q: str | None = Query(default=None, min_length=1, max_length=200),
+    _user: User = Depends(get_current_user),
+) -> DetectionKnowledgeResponse:
+    return list_detection_knowledge(kind=kind, query=q)
+
+
+@router.get("/frameworks", response_model=FrameworkKnowledgeResponse)
+async def list_framework_knowledge_endpoint(
+    framework: str | None = Query(default=None, min_length=1, max_length=100),
+    _user: User = Depends(get_current_user),
+) -> FrameworkKnowledgeResponse:
+    return list_framework_knowledge(framework)
+
+
+@router.get("/ioc-guidance", response_model=IOCGuidanceResponse)
+async def list_ioc_guidance_endpoint(
+    q: str | None = Query(default=None, min_length=1, max_length=200),
+    _user: User = Depends(get_current_user),
+) -> IOCGuidanceResponse:
+    return list_ioc_guidance(q)

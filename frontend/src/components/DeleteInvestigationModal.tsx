@@ -1,4 +1,4 @@
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, Archive } from "lucide-react";
 
 import type { Investigation } from "../types";
 
@@ -23,11 +23,15 @@ export function DeleteInvestigationModal({
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold">Delete investigation?</h2>
+            <h2 className="text-xl font-semibold">Archive investigation?</h2>
             <p className="mt-2 text-sm leading-6 text-raven-muted">
-              This will remove "{investigation.title}" from the active workspace.
-              Related targets, recon data, findings, reports, timeline events, and
-              analysis may be removed or hidden by the backend retention policy.
+              This removes "{investigation.title}" from the active workspace while
+              preserving its targets, evidence, findings, reports, timeline, and
+              analysis under the configured retention policy.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-raven-muted">
+              Permanent deletion is disabled by data governance. An administrator or
+              owner can restore the investigation later.
             </p>
           </div>
         </div>
@@ -53,8 +57,8 @@ export function DeleteInvestigationModal({
             disabled={isDeleting}
             className="inline-flex items-center gap-2 rounded-md bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-400 disabled:opacity-60"
           >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-            {isDeleting ? "Deleting" : "Delete"}
+            <Archive className="h-4 w-4" aria-hidden="true" />
+            {isDeleting ? "Archiving" : "Archive"}
           </button>
         </div>
       </div>

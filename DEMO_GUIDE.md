@@ -1,0 +1,102 @@
+# RavenTech OSINT Demo Guide
+
+## Purpose
+
+RavenTech OSINT is a defensive investigation workspace for authorized passive
+recon, evidence-backed findings, remediation workflows, reporting, governance,
+and analyst coordination.
+
+The platform does not perform active scanning, exploitation, attack automation,
+or internet-wide enumeration.
+
+## Demo Mode
+
+Demo mode is disabled by default.
+
+Set the following only in a local or controlled demonstration environment:
+
+```env
+ENABLE_DEMO_MODE=true
+```
+
+Demo mode is ignored by the environment bootstrap when
+`APP_ENVIRONMENT=production`. An administrator can also enable or disable it in
+Admin Settings. Enabling the feature creates an idempotent synthetic workspace
+containing:
+
+- one clearly labeled demo investigation
+- reserved `.invalid` and TEST-NET target identifiers
+- passive recon entities
+- one evidence-backed defensive finding
+- one remediation task
+- one defensive playbook run
+- one sample report
+- one local knowledge reference
+- sample IOC and threat intelligence records
+- analyst notes, bookmarks, and evidence-chain metadata
+
+The dataset makes no live network requests and no compromise claims.
+
+## Recommended Demo Flow
+
+1. Sign in as an administrator.
+2. Open **Admin > Demo Checklist** and review platform health.
+3. Enable **Defensive demo mode** in **Admin > Settings** if required.
+4. Prepare and open the synthetic demo investigation.
+5. Review its scope, authorization, passive recon entities, and finding.
+6. Show remediation ownership and defensive playbook progress.
+7. Generate a report using the template suited to the audience.
+8. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
+9. Search the local defensive knowledge library.
+10. Show the audit trail and explain that demo records are clearly labeled.
+
+## V1 10-Minute Portfolio Flow
+
+1. **Login:** Sign in and point out clean auth handling.
+2. **Dashboard overview:** Show portfolio posture, high-risk work, and health.
+3. **Open or create investigation:** Explain authorized scope and ownership.
+4. **Add authorized target:** Add a domain, IP, or URL that is in scope.
+5. **Run passive recon:** Show stored evidence and partial-source warnings.
+6. **Generate findings:** Review deterministic evidence-backed findings.
+7. **Review defensive intelligence:** Show MITRE, Sigma, coverage, and guidance.
+8. **Create remediation/playbook:** Assign analyst-owned next steps.
+9. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
+10. **Governance close:** Show audit log, settings, feature flags, and exports.
+
+## Release Candidate Stability Demo Pass
+
+Before presenting, walk through these quick checks:
+
+- Login with a known bad password and confirm the message is simple.
+- Open Dashboard, Threat Intelligence, Reports, Admin Audit, and Settings.
+- Confirm loading and empty states are clear and do not show raw endpoints.
+- Generate a report and download PDF, DOCX, HTML, and Markdown.
+- Open a long IOC, URL, report ID, or audit metadata value and confirm it wraps
+  or can be copied.
+- Confirm optional provider failures are shown as degraded, not total platform
+  failure.
+- Confirm `GET /api/v1/release` shows `5.0.0-rc1` or the configured version.
+
+## Safer Demo Defaults
+
+- Use only the bundled synthetic investigation for public demonstrations.
+- Do not enter customer targets without written authorization.
+- Keep provider API keys empty unless the demonstration explicitly requires a
+  configured provider.
+- Do not enable demo mode in production.
+- Review report export and redaction controls before downloading files.
+
+## Common Local Issues
+
+- **Backend shows degraded:** Open the health panel. Optional AI availability
+  does not prevent deterministic case, recon, finding, or report workflows.
+- **Migration warning:** Run `docker compose run --rm backend alembic upgrade head`.
+- **Demo workspace not ready:** Enable demo mode, then use **Prepare demo
+  workspace** on the Demo Checklist page.
+- **Export unavailable:** Review Admin Settings export controls and report
+  storage health.
+- **Raw endpoint visible:** Open the expanded technical details only when
+  debugging; normal user-facing copy should stay concise.
+
+See `RELEASE_NOTES_RC1.md` for release-candidate scope, validation commands,
+and upgrade notes.

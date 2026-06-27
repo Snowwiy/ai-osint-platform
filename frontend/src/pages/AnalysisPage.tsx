@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { InvestigationTabs } from "../components/InvestigationTabs";
+import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
@@ -57,7 +58,7 @@ export function AnalysisPage(): JSX.Element {
       <InvestigationTabs />
 
       {analysis.isPending ? <LoadingBlock label="Preparing analysis" /> : null}
-      {analysis.isError ? <ErrorBlock message={analysis.error.message} /> : null}
+      {analysis.isError ? <ErrorBlock message={analysis.error} /> : null}
       {analysis.data ? (
         <AnalysisResult response={analysis.data} onRetry={runAnalysis} />
       ) : !analysis.isPending ? (
@@ -75,10 +76,13 @@ function AnalysisResult({
   onRetry: () => void;
 }): JSX.Element {
   const citationGroups = useMemo(
-    () => groupCitations(response.citations),
+    () => groupCitations(safeArray(response.citations)),
     [response.citations],
   );
   const hasProviderIssue = response.status !== "completed";
+  const citations = safeArray(response.citations);
+  const executiveSummary = safeCitedText(response.executive_summary);
+  const technicalSummary = safeCitedText(response.technical_summary);
 
   return (
     <div className="space-y-5">
@@ -91,11 +95,11 @@ function AnalysisResult({
           <div>
             <h2 className="text-lg font-semibold">Assessment</h2>
             <p className="mt-1 text-sm text-raven-muted">
-              {statusLabel(response.status)} | {response.provider}
+              {statusLabel(response.status)} | {response.provider ?? "provider"}
               {response.model ? ` | ${response.model}` : ""}
             </p>
           </div>
-          <SeverityBadge severity={response.severity} />
+          <SeverityBadge severity={response.severity ?? "info"} />
         </div>
         <div className="mt-5">
           <ConfidenceBar confidence={response.confidence} />
@@ -103,28 +107,34 @@ function AnalysisResult({
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <SummaryBlock
             title="Executive summary"
-            item={response.executive_summary}
+            item={executiveSummary}
           />
           <SummaryBlock
             title="Technical summary"
-            item={response.technical_summary}
+            item={technicalSummary}
           />
         </div>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <CitedCardList title="Suspicious findings" items={response.suspicious_findings} />
-        <RecommendationList items={response.recommended_next_steps} />
+        <CitedCardList
+          title="Suspicious findings"
+          items={safeArray(response.suspicious_findings)}
+        />
+        <RecommendationList items={safeArray(response.recommended_next_steps)} />
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <CitedCardList title="Observed indicators" items={response.observed_indicators} />
+        <CitedCardList
+          title="Observed indicators"
+          items={safeArray(response.observed_indicators)}
+        />
         <FrameworkMappings response={response} />
       </section>
 
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5">
         <h2 className="text-lg font-semibold">Citations</h2>
-        {response.citations.length ? (
+        {citations.length ? (
           <div className="mt-4 space-y-4">
             {Object.entries(citationGroups).map(([sourceType, citations]) => (
               <div key={sourceType}>
@@ -162,16 +172,22 @@ function ProviderIssuePanel({
           <div>
             <h2 className="font-semibold">{statusLabel(response.status)}</h2>
             <p className="mt-1 text-sm leading-6 text-amber-100/80">
-              The analyst provider did not complete the request. Any visible
-              summaries below are deterministic fallback content grounded in stored
-              evidence and citations.
+              {response.status === "provider_unavailable"
+                ? "AI provider not configured. Deterministic evidence-backed fallback is shown."
+                : "Live AI analysis failed, deterministic evidence-backed fallback is shown."}
             </p>
-            {response.errors.length ? (
-              <ul className="mt-3 space-y-1 text-sm text-amber-100/80">
-                {response.errors.map((error) => (
-                  <li key={error}>- {error}</li>
-                ))}
-              </ul>
+            <ProviderDiagnostics response={response} />
+            {safeArray(response.errors).length ? (
+              <details className="mt-3 rounded-md border border-amber-200/20 bg-raven-bg/30 p-3">
+                <summary className="cursor-pointer text-xs font-medium text-amber-50">
+                  Provider details
+                </summary>
+                <ul className="mt-2 space-y-1 text-sm text-amber-100/80">
+                  {safeArray(response.errors).map((error) => (
+                    <li key={error}>- {error}</li>
+                  ))}
+                </ul>
+              </details>
             ) : null}
           </div>
         </div>
@@ -185,6 +201,34 @@ function ProviderIssuePanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function ProviderDiagnostics({
+  response,
+}: {
+  response: AnalysisResponse;
+}): JSX.Element {
+  const diagnostics = response.provider_diagnostics;
+  return (
+    <dl className="mt-3 grid gap-2 text-xs text-amber-100/80 sm:grid-cols-2">
+      <div className="rounded border border-amber-200/20 bg-raven-bg/30 p-2">
+        <dt className="text-amber-100/60">Provider configured</dt>
+        <dd>{diagnostics?.provider_configured ? "yes" : "no"}</dd>
+      </div>
+      <div className="rounded border border-amber-200/20 bg-raven-bg/30 p-2">
+        <dt className="text-amber-100/60">Model</dt>
+        <dd className="break-words">{diagnostics?.model ?? response.model ?? "n/a"}</dd>
+      </div>
+      <div className="rounded border border-amber-200/20 bg-raven-bg/30 p-2">
+        <dt className="text-amber-100/60">Feature flag</dt>
+        <dd>{diagnostics?.feature_enabled === false ? "disabled" : "enabled"}</dd>
+      </div>
+      <div className="rounded border border-amber-200/20 bg-raven-bg/30 p-2">
+        <dt className="text-amber-100/60">Last error category</dt>
+        <dd>{diagnostics?.last_error_category ?? response.status}</dd>
+      </div>
+    </dl>
   );
 }
 
@@ -280,9 +324,9 @@ function FrameworkMappings({
   return (
     <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5">
       <h2 className="text-lg font-semibold">Framework mapping</h2>
-      {response.framework_mappings.length ? (
+      {safeArray(response.framework_mappings).length ? (
         <div className="mt-4 space-y-3">
-          {response.framework_mappings.map((mapping) => (
+          {safeArray(response.framework_mappings).map((mapping) => (
             <div
               key={`${mapping.framework}-${mapping.control}`}
               className="rounded-md border border-raven-border bg-raven-panelSoft p-3"
@@ -313,24 +357,29 @@ function CitationCard({
 }): JSX.Element {
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
-      <p className="break-words text-sm font-medium">{citation.title}</p>
-      <p className="mt-1 text-xs text-raven-muted">{citation.id}</p>
-      <p className="mt-2 text-sm leading-6 text-raven-muted">{citation.summary}</p>
+      <p className="break-words text-sm font-medium">
+        {citation.title ?? "Evidence citation"}
+      </p>
+      <LongValue value={citation.id} className="mt-1 text-xs" maxLength={44} />
+      <p className="mt-2 text-sm leading-6 text-raven-muted">
+        {citation.summary ?? "No citation summary was returned."}
+      </p>
     </div>
   );
 }
 
 function ConfidenceBar({ confidence }: { confidence: number }): JSX.Element {
+  const normalizedConfidence = Math.min(100, Math.max(0, safeNumber(confidence)));
   return (
     <div>
       <div className="flex items-center justify-between text-sm">
         <span className="text-raven-muted">Confidence</span>
-        <span className="font-medium">{confidence}%</span>
+        <span className="font-medium">{normalizedConfidence}%</span>
       </div>
       <div className="mt-2 h-2 rounded-full bg-raven-panelSoft">
         <div
           className="h-2 rounded-full bg-raven-cyan"
-          style={{ width: `${Math.min(100, Math.max(0, confidence))}%` }}
+          style={{ width: `${normalizedConfidence}%` }}
         />
       </div>
     </div>
@@ -342,19 +391,20 @@ function CitationChips({
 }: {
   citationIds: string[];
 }): JSX.Element | null {
-  if (!citationIds.length) {
+  const safeCitationIds = safeArray(citationIds);
+  if (!safeCitationIds.length) {
     return null;
   }
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {citationIds.map((id) => (
-        <span
+      {safeCitationIds.map((id) => (
+        <div
           key={id}
-          className="max-w-full truncate rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
+          className="max-w-full rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
           title={id}
         >
-          {id}
-        </span>
+          <LongValue value={id} maxLength={38} />
+        </div>
       ))}
     </div>
   );
@@ -364,14 +414,22 @@ function groupCitations(
   citations: AnalysisCitation[],
 ): Record<string, AnalysisCitation[]> {
   return citations.reduce<Record<string, AnalysisCitation[]>>((groups, citation) => {
-    const group = groups[citation.source_type] ?? [];
+    if (!citation || typeof citation !== "object") {
+      return groups;
+    }
+    const sourceType =
+      typeof citation.source_type === "string" && citation.source_type
+        ? citation.source_type
+        : "evidence";
+    const group = groups[sourceType] ?? [];
     group.push(citation);
-    groups[citation.source_type] = group;
+    groups[sourceType] = group;
     return groups;
   }, {});
 }
 
-function statusLabel(status: string): string {
+function statusLabel(status: string | null | undefined): string {
+  const safeStatus = typeof status === "string" ? status : "provider_failed";
   const labels: Record<string, string> = {
     completed: "Analysis completed",
     provider_unavailable: "AI provider unavailable",
@@ -379,5 +437,20 @@ function statusLabel(status: string): string {
     provider_failed: "AI provider failed",
     malformed_response: "AI response could not be parsed",
   };
-  return labels[status] ?? status.replace(/_/g, " ");
+  return labels[safeStatus] ?? safeStatus.replace(/_/g, " ");
+}
+
+function safeArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeNumber(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function safeCitedText(value: CitedText | null | undefined): CitedText {
+  return {
+    text: value?.text || "No analysis text is available for this section.",
+    citation_ids: safeArray(value?.citation_ids),
+  };
 }

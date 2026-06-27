@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.schemas.case_management import InvestigationWorkflowStatus
 from app.schemas.finding import FindingSeverity, FindingStatus
 from app.schemas.recon import (
     EntityType,
@@ -14,6 +15,32 @@ from app.schemas.recon import (
     RelationshipType,
     TargetType,
 )
+
+InvestigationMemberRole = Literal["owner", "admin", "analyst", "viewer"]
+InvestigationMemberAddRole = Literal["owner", "admin", "collaborator", "viewer"]
+InvestigationMemberResponseRole = InvestigationMemberRole | Literal["collaborator"]
+InvestigationPriority = Literal["low", "medium", "high", "urgent"]
+InvestigationStage = Literal[
+    "intake",
+    "scoping",
+    "recon",
+    "analysis",
+    "remediation",
+    "validation",
+    "reporting",
+    "completed",
+    "archived",
+]
+InvestigationListScope = Literal[
+    "all",
+    "owned_by_me",
+    "assigned_to_me",
+    "member_of",
+    "viewer_only",
+    "active",
+    "archived",
+    "needs_review",
+]
 
 
 class InvestigationCreate(BaseModel):
@@ -41,16 +68,9 @@ class InvestigationCreate(BaseModel):
 class InvestigationUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
-    status: str | None = None
+    status: InvestigationWorkflowStatus | None = None
     scope_definition: str | None = None
-
-    @field_validator("status")
-    @classmethod
-    def validate_status(cls, value: str | None) -> str | None:
-        allowed = ("draft", "active", "completed", "archived")
-        if value is not None and value not in allowed:
-            raise ValueError(f"status must be one of {allowed}")
-        return value
+    reviewer_id: uuid.UUID | None = None
 
 
 class InvestigationResponse(BaseModel):
@@ -59,10 +79,15 @@ class InvestigationResponse(BaseModel):
     id: uuid.UUID
     title: str
     description: str | None
-    status: str
+    status: InvestigationWorkflowStatus
+    stage: InvestigationStage
     owner_id: uuid.UUID
+    reviewer_id: uuid.UUID | None
     authorization_statement: str
     scope_definition: str | None
+    priority: InvestigationPriority
+    business_impact: str | None
+    due_date: date | None
     created_at: datetime
     updated_at: datetime
 
@@ -72,36 +97,96 @@ class InvestigationListResponse(BaseModel):
     items: list[InvestigationResponse]
 
 
-class MemberAddRequest(BaseModel):
-    user_id: uuid.UUID
-    role: str = "collaborator"
+class InvestigationPurgeImpactResponse(BaseModel):
+    investigation_id: uuid.UUID
+    title: str
+    status: InvestigationWorkflowStatus
+    permanent_deletion_enabled: bool
+    findings_count: int = Field(ge=0)
+    notes_count: int = Field(ge=0)
+    reports_count: int = Field(ge=0)
+    tasks_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    members_count: int = Field(ge=0)
 
-    @field_validator("role")
+
+class MemberAddRequest(BaseModel):
+    user_id: uuid.UUID | None = None
+    email: str | None = None
+    username: str | None = None
+    role: InvestigationMemberAddRole = "collaborator"
+
+    @field_validator("email", "username")
     @classmethod
-    def role_must_be_valid(cls, value: str) -> str:
-        if value not in ("owner", "collaborator"):
-            raise ValueError("role must be 'owner' or 'collaborator'")
-        return value
+    def strip_optional_lookup(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip()
+        return clean or None
+
+    @model_validator(mode="after")
+    def has_lookup(self) -> "MemberAddRequest":
+        if self.user_id is None and self.email is None and self.username is None:
+            raise ValueError("user_id, email, or username is required")
+        return self
 
 
 class MemberUpdateRequest(BaseModel):
-    role: str
+    role: InvestigationMemberRole | None = None
+    transfer_ownership: bool = False
 
     @field_validator("role")
     @classmethod
-    def role_must_be_valid(cls, value: str) -> str:
-        if value not in ("owner", "collaborator"):
-            raise ValueError("role must be 'owner' or 'collaborator'")
+    def role_required_for_non_transfer(cls, value: str | None) -> str | None:
         return value
 
 
 class MemberResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+    id: uuid.UUID
     investigation_id: uuid.UUID
     user_id: uuid.UUID
-    role: str
-    added_at: datetime
+    username: str
+    email: str
+    role: InvestigationMemberResponseRole
+    invited_by: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+    last_activity_at: datetime | None = None
+
+
+class InvestigationStageUpdate(BaseModel):
+    stage: InvestigationStage
+    reason: str = Field(min_length=3, max_length=1000)
+
+    @field_validator("reason")
+    @classmethod
+    def clean_reason(cls, value: str) -> str:
+        return value.strip()
+
+
+class ReadinessComponent(BaseModel):
+    key: str
+    label: str
+    points: int = Field(ge=0)
+    max_points: int = Field(ge=0)
+    complete: bool
+    detail: str
+
+
+class InvestigationReadinessResponse(BaseModel):
+    investigation_id: uuid.UUID
+    score: int = Field(ge=0, le=100)
+    category: Literal[
+        "Not Started",
+        "Scoping",
+        "Evidence Collection",
+        "Analysis Ready",
+        "Reporting Ready",
+    ]
+    stage: InvestigationStage
+    components: list[ReadinessComponent]
+    guidance: list[str]
+    generated_at: datetime
 
 
 class InvestigationGraphNode(BaseModel):

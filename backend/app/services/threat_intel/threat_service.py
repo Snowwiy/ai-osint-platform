@@ -20,7 +20,7 @@ from app.schemas.threat_intel import (
     ThreatIntelResponse,
     ThreatIntelStatus,
 )
-from app.services.investigation import get_investigation
+from app.services.investigation import MUTATION_ROLES, ensure_investigation_permission, get_investigation
 from app.services.target import TargetValidationError, validate_target_value
 from app.services.threat_intel.abuseipdb_adapter import check_abuseipdb_ip
 from app.services.threat_intel.scoring import risk_level_from_score
@@ -37,6 +37,13 @@ async def run_threat_intel_for_request(
     target_type: ThreatTargetType,
 ) -> ThreatIntelResponse:
     await get_investigation(db, user, body.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        body.investigation_id,
+        MUTATION_ROLES,
+        "Viewers cannot run threat intelligence enrichment",
+    )
     target_value = _validate_target(target_type, body.target)
     entity = await _upsert_recon_entity(
         db,

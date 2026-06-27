@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.target import Target
 from app.models.user import User
 from app.schemas.target import TargetCreate
-from app.services.investigation import ForbiddenError, get_investigation
+from app.services.investigation import (
+    CASE_ADMIN_ROLES,
+    ensure_investigation_permission,
+    get_investigation,
+)
 
 _DOMAIN_RE = re.compile(
     r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
@@ -100,6 +104,13 @@ async def create_target(
     data: TargetCreate,
 ) -> Target:
     await get_investigation(db, user, data.investigation_id)
+    await ensure_investigation_permission(
+        db,
+        user,
+        data.investigation_id,
+        CASE_ADMIN_ROLES,
+        "Only investigation owners or admins can manage targets",
+    )
     normalized = validate_target_value(data.target_type, data.target_value)
 
     existing = await db.execute(
@@ -164,7 +175,11 @@ async def get_target(db: AsyncSession, user: User, target_id: uuid.UUID) -> Targ
 
 async def delete_target(db: AsyncSession, user: User, target_id: uuid.UUID) -> None:
     target = await get_target(db, user, target_id)
-    investigation = await get_investigation(db, user, target.investigation_id)
-    if user.role != "admin" and investigation.owner_id != user.id:
-        raise ForbiddenError("Only investigation owners can remove targets")
+    await ensure_investigation_permission(
+        db,
+        user,
+        target.investigation_id,
+        CASE_ADMIN_ROLES,
+        "Only investigation owners or admins can remove targets",
+    )
     await db.delete(target)

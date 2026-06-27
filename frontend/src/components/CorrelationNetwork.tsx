@@ -1,6 +1,7 @@
 import { useMemo, useState, type PointerEvent, type WheelEvent } from "react";
 import clsx from "clsx";
 
+import { LongValue } from "./LongValue";
 import type { CorrelationEdge, CorrelationNode } from "../types";
 
 interface PositionedNode extends CorrelationNode {
@@ -26,22 +27,24 @@ export function CorrelationNetwork({
   nodes,
   edges,
 }: {
-  nodes: CorrelationNode[];
-  edges: CorrelationEdge[];
+  nodes: CorrelationNode[] | null | undefined;
+  edges: CorrelationEdge[] | null | undefined;
 }): JSX.Element {
+  const safeNodes = Array.isArray(nodes) ? nodes : [];
+  const safeEdges = Array.isArray(edges) ? edges : [];
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const layout = useMemo(() => positionNodes(nodes), [nodes]);
+  const layout = useMemo(() => positionNodes(safeNodes), [safeNodes]);
   const nodeById = useMemo(
     () => new Map(layout.map((node) => [node.id, node])),
     [layout],
   );
   const selectedNode = selectedNodeId ? nodeById.get(selectedNodeId) : null;
   const selectedEdge = selectedEdgeId
-    ? edges.find((edge) => edge.id === selectedEdgeId)
+    ? safeEdges.find((edge) => edge.id === selectedEdgeId)
     : null;
 
   function handleWheel(event: WheelEvent<SVGSVGElement>): void {
@@ -89,19 +92,20 @@ export function CorrelationNetwork({
         </button>
       </div>
 
-      <svg
-        viewBox="0 0 900 460"
-        className="mt-4 h-[460px] w-full rounded-md border border-raven-border bg-raven-bg"
-        role="img"
-        aria-label="Investigation correlation network"
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={() => setDragStart(null)}
-        onPointerLeave={() => setDragStart(null)}
-      >
-        <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
-          {edges.map((edge) => {
+      {layout.length ? (
+        <svg
+          viewBox="0 0 900 460"
+          className="mt-4 h-[460px] w-full rounded-md border border-raven-border bg-raven-bg"
+          role="img"
+          aria-label="Investigation correlation network"
+          onWheel={handleWheel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={() => setDragStart(null)}
+          onPointerLeave={() => setDragStart(null)}
+        >
+          <g transform={`translate(${offset.x} ${offset.y}) scale(${scale})`}>
+            {safeEdges.map((edge) => {
             const source = nodeById.get(edge.source_node_id);
             const target = nodeById.get(edge.target_node_id);
             if (!source || !target) {
@@ -136,9 +140,9 @@ export function CorrelationNetwork({
                 />
               </g>
             );
-          })}
+            })}
 
-          {layout.map((node) => {
+            {layout.map((node) => {
             const isSelected = selectedNodeId === node.id;
             return (
               <g
@@ -170,9 +174,15 @@ export function CorrelationNetwork({
                 </text>
               </g>
             );
-          })}
-        </g>
-      </svg>
+            })}
+          </g>
+        </svg>
+      ) : (
+        <div className="mt-4 rounded-md border border-dashed border-raven-border bg-raven-bg p-8 text-center text-sm text-raven-muted">
+          No graph nodes are available yet. Cards and tables remain available when
+          relationships exist without a complete graph payload.
+        </div>
+      )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[0.6fr_0.4fr]">
         <Legend nodes={layout} />
@@ -230,9 +240,20 @@ function SelectionPanel({
         </p>
         <h3 className="mt-2 font-semibold">{edge.correlation_type}</h3>
         <p className="mt-2 text-sm text-raven-muted">{edge.summary}</p>
-        <p className="mt-3 text-xs text-raven-muted">
-          {source?.label ?? edge.source_node_id} to {target?.label ?? edge.target_node_id}
-        </p>
+        <div className="mt-3 grid gap-2 text-xs">
+          <LongValue
+            label="Source"
+            value={source?.label ?? edge.source_node_id}
+            secondary={source ? `${source.node_type} ${source.id}` : edge.source_node_id}
+            maxLength={44}
+          />
+          <LongValue
+            label="Target"
+            value={target?.label ?? edge.target_node_id}
+            secondary={target ? `${target.node_type} ${target.id}` : edge.target_node_id}
+            maxLength={44}
+          />
+        </div>
       </div>
     );
   }
@@ -242,10 +263,16 @@ function SelectionPanel({
         <p className="text-xs uppercase tracking-wide text-raven-muted">
           Selected Node
         </p>
-        <h3 className="mt-2 font-semibold">{node.label}</h3>
+        <LongValue value={node.label} className="mt-2 font-semibold" maxLength={48} />
         <p className="mt-2 text-sm text-raven-muted">
           {node.category} from {node.source}
         </p>
+        <LongValue
+          label="Node ID"
+          value={node.id}
+          className="mt-3 text-xs"
+          maxLength={34}
+        />
       </div>
     );
   }
@@ -276,7 +303,9 @@ function positionNodes(nodes: CorrelationNode[]): PositionedNode[] {
 }
 
 function nodeCategory(node: CorrelationNode): string {
-  const entityType = String(node.metadata.entity_type ?? "").toLowerCase();
+  const metadata =
+    node.metadata && typeof node.metadata === "object" ? node.metadata : {};
+  const entityType = String(metadata.entity_type ?? "").toLowerCase();
   if (entityType.includes("domain")) {
     return "domain";
   }
@@ -308,5 +337,6 @@ function nodeCategory(node: CorrelationNode): string {
 }
 
 function shortLabel(label: string): string {
-  return label.length > 18 ? `${label.slice(0, 15)}...` : label;
+  const safeLabel = String(label ?? "");
+  return safeLabel.length > 18 ? `${safeLabel.slice(0, 15)}...` : safeLabel;
 }

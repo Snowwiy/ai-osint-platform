@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import uuid
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
 from app.schemas.knowledge import (
+    KnowledgeFramework,
     KnowledgeDocumentListResponse,
     KnowledgeDocumentResponse,
     KnowledgeIndexResponse,
@@ -260,6 +261,7 @@ def _search_result(
     *,
     score: float,
 ) -> KnowledgeSearchResult:
+    context = _defensive_result_context(document, chunk)
     return KnowledgeSearchResult(
         document_id=document.id,
         title=document.title,
@@ -268,6 +270,185 @@ def _search_result(
         chunk=chunk,
         score=score,
         tags=document.tags,
+        category=context["category"],
+        framework=context["framework"],
+        severity_relevance=context["severity_relevance"],
+        defensive_explanation=context["defensive_explanation"],
+        references=context["references"],
+        related_findings=context["related_findings"],
+        mitre_relevance=context["mitre_relevance"],
+        sigma_relevance=context["sigma_relevance"],
+        remediation_guidance=context["remediation_guidance"],
+        why_this_matters=context["why_this_matters"],
+    )
+
+
+def _defensive_result_context(
+    document: KnowledgeDocument,
+    chunk: str,
+) -> dict[str, Any]:
+    text = " ".join(
+        [document.title, document.file_path, " ".join(document.tags), chunk]
+    ).lower()
+    framework = _inferred_framework(text)
+    category = _inferred_category(text)
+    severity_relevance = _severity_relevance(text)
+    related_findings = _related_finding_types(text)
+    return {
+        "category": category,
+        "framework": framework,
+        "severity_relevance": severity_relevance,
+        "defensive_explanation": _defensive_explanation(text),
+        "references": [
+            f"knowledge:{document.id}",
+            document.file_path,
+        ],
+        "related_findings": related_findings,
+        "mitre_relevance": _mitre_relevance(text),
+        "sigma_relevance": _sigma_relevance(text),
+        "remediation_guidance": _remediation_guidance(text),
+        "why_this_matters": _why_this_matters(text),
+    }
+
+
+def _inferred_framework(text: str) -> KnowledgeFramework | None:
+    candidates: tuple[tuple[str, KnowledgeFramework], ...] = (
+        ("mitre", "MITRE ATT&CK"),
+        ("nist 800-53", "NIST 800-53"),
+        ("nist", "NIST CSF"),
+        ("cis", "CIS Controls"),
+        ("owasp", "OWASP Top 10"),
+        ("sigma", "Sigma"),
+        ("yara", "YARA"),
+        ("dfir", "DFIR"),
+        ("threat intelligence", "Threat Intelligence"),
+        ("cloud", "Cloud Security"),
+        ("architecture", "Secure Architecture"),
+    )
+    for marker, framework in candidates:
+        if marker in text:
+            return framework
+    return None
+
+
+def _inferred_category(text: str) -> str:
+    if any(item in text for item in ("sigma", "detection", "monitoring")):
+        return "Detection Engineering"
+    if any(item in text for item in ("rdp", "access control", "authentication")):
+        return "Access Control"
+    if any(item in text for item in ("spf", "dmarc", "dkim", "dns")):
+        return "DNS and Email Security"
+    if any(item in text for item in ("tls", "certificate", "cryptograph")):
+        return "Communications Protection"
+    if any(item in text for item in ("hardening", "configuration", "owasp")):
+        return "Secure Configuration"
+    return "Defensive Guidance"
+
+
+def _severity_relevance(
+    text: str,
+) -> Literal["informational", "low", "medium", "high"]:
+    if any(item in text for item in ("rdp", "remote access", "critical", "urgent")):
+        return "high"
+    if any(item in text for item in ("exposed", "authentication", "expired")):
+        return "medium"
+    if any(item in text for item in ("disclosure", "configuration", "dns")):
+        return "low"
+    return "informational"
+
+
+def _related_finding_types(text: str) -> list[str]:
+    values: list[str] = []
+    if any(item in text for item in ("rdp", "remote access", "3389")):
+        values.append("Sensitive remote-access service observed")
+    if any(item in text for item in ("spf", "dmarc", "dkim")):
+        values.append("DNS email-authentication posture")
+    if any(item in text for item in ("tls", "certificate")):
+        values.append("TLS or certificate configuration")
+    if any(item in text for item in ("header", "technology", "disclosure")):
+        values.append("Technology or metadata disclosure")
+    return values
+
+
+def _defensive_explanation(text: str) -> str:
+    if "sigma" in text:
+        return (
+            "Use this content to understand required log sources, tuning, and "
+            "analyst validation before adopting a detection."
+        )
+    if "yara" in text:
+        return (
+            "Use this reference only for authorized defensive artifact "
+            "classification in a controlled process."
+        )
+    return (
+        "Use this local reference to validate evidence, explain defensive relevance, "
+        "and document remediation or monitoring decisions."
+    )
+
+
+def _mitre_relevance(text: str) -> str | None:
+    if any(item in text for item in ("rdp", "remote access")):
+        return "T1133 External Remote Services and T1110 Brute Force context."
+    if any(item in text for item in ("spf", "dmarc", "phishing")):
+        return "T1566 Phishing prevention and monitoring context."
+    if "dns" in text:
+        return "T1071.004 DNS monitoring context when anomalous patterns exist."
+    if any(item in text for item in ("public-facing", "exposed service", "web")):
+        return "T1190 public-facing application monitoring context."
+    return None
+
+
+def _sigma_relevance(text: str) -> str | None:
+    if any(item in text for item in ("rdp", "authentication", "logon")):
+        return "Windows authentication and remote-access telemetry."
+    if "dns" in text:
+        return "Resolver anomaly and newly observed domain monitoring."
+    if any(item in text for item in ("web", "http", "public-facing")):
+        return "Web, proxy, and identity-provider access monitoring."
+    if any(item in text for item in ("tls", "certificate")):
+        return "Certificate health and configuration monitoring."
+    return None
+
+
+def _remediation_guidance(text: str) -> list[str]:
+    if any(item in text for item in ("rdp", "remote access")):
+        return [
+            "Restrict remote access to approved pathways and require MFA.",
+            "Validate Windows and gateway authentication logging.",
+        ]
+    if any(item in text for item in ("spf", "dmarc", "dkim")):
+        return [
+            "Validate sender policy and alignment.",
+            "Monitor DMARC reports and authoritative DNS changes.",
+        ]
+    if any(item in text for item in ("tls", "certificate")):
+        return [
+            "Maintain certificate ownership and expiration monitoring.",
+            "Validate protocol and cipher policy.",
+        ]
+    return [
+        "Validate the control against authorized scope.",
+        "Record ownership and verification evidence.",
+    ]
+
+
+def _why_this_matters(text: str) -> str:
+    if any(item in text for item in ("rdp", "remote access")):
+        return (
+            "Remote management exposure requires strong access controls and reliable "
+            "authentication telemetry."
+        )
+    if "dns" in text:
+        return (
+            "DNS affects service trust, email authentication, and resolver-based "
+            "defensive visibility."
+        )
+    if any(item in text for item in ("tls", "certificate")):
+        return "Certificate health supports trust, continuity, and secure transport."
+    return (
+        "Curated local guidance makes analyst conclusions repeatable, reviewable, "
+        "and evidence-backed."
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -56,3 +57,34 @@ class CorrelationResponse(BaseModel):
     total_edges: int
     nodes: list[CorrelationNode] = Field(default_factory=list)
     edges: list[CorrelationEdge] = Field(default_factory=list)
+
+
+CrossInvestigationSignalType = Literal[
+    "domain",
+    "subdomain",
+    "ip",
+    "technology",
+    "finding",
+    "evidence",
+    "framework",
+]
+
+
+class CrossInvestigationOccurrence(BaseModel):
+    investigation_id: uuid.UUID
+    investigation_title: str
+    resource_id: uuid.UUID | None = None
+
+
+class CrossInvestigationSignal(BaseModel):
+    signal_type: CrossInvestigationSignalType
+    value: str
+    investigation_count: int = Field(ge=2)
+    confidence: CorrelationConfidence
+    investigations: list[CrossInvestigationOccurrence] = Field(default_factory=list)
+
+
+class CrossInvestigationCorrelationResponse(BaseModel):
+    generated_at: datetime
+    total_signals: int = Field(ge=0)
+    signals: list[CrossInvestigationSignal] = Field(default_factory=list)

@@ -18,10 +18,19 @@ class AuditLog(Base):
         Index("idx_audit_logs_timestamp", text("timestamp DESC")),
         Index("idx_audit_logs_user_id", "user_id"),
         Index("idx_audit_logs_action", "action"),
+        Index("idx_audit_logs_created_at", text("created_at DESC")),
+        Index("idx_audit_logs_actor_id", "actor_id"),
+        Index("idx_audit_logs_investigation_id", "investigation_id"),
+        Index("idx_audit_logs_resource_type", "resource_type"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
@@ -32,6 +41,11 @@ class AuditLog(Base):
         PG_UUID(as_uuid=True),
         nullable=True,
     )
+    investigation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("investigations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     details: Mapped[dict[str, Any]] = mapped_column(
@@ -39,7 +53,18 @@ class AuditLog(Base):
         nullable=False,
         server_default=text("'{}'::jsonb"),
     )
+    event_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
+    )
     timestamp: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
         server_default=func.now(),
