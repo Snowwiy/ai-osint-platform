@@ -74,6 +74,16 @@ Public registration never creates admin users. Continue using
 `backend/scripts/create_admin.py` or the existing bootstrap workflow for admin
 accounts.
 
+Account governance after registration:
+
+- Pending users cannot sign in until an administrator approves them.
+- Disabled and rejected users cannot access protected platform areas.
+- Admin → Users shows account status, role, registration source, approval
+  metadata, and safe actions.
+- The backend prevents disabling or demoting the last active administrator.
+- Invite-code values remain environment-only secrets and are not exposed in API
+  responses or frontend settings.
+
 ## Supabase PostgreSQL Notes
 
 Use Supabase as hosted PostgreSQL only for this deployment path.

@@ -6,6 +6,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteErrorFallback } from "./components/RouteErrorFallback";
 import { AdminAuditPage } from "./pages/AdminAuditPage";
 import { AdminSettingsPage } from "./pages/AdminSettingsPage";
+import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AnalystWorkloadPage } from "./pages/AnalystWorkloadPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { BookmarksPage } from "./pages/BookmarksPage";
@@ -106,6 +107,7 @@ const router = createBrowserRouter([
             ),
           },
           { path: "admin/audit", element: <AdminAuditPage /> },
+          { path: "admin/users", element: <AdminUsersPage /> },
           { path: "admin/settings", element: <AdminSettingsPage /> },
           { path: "admin/operations", element: <OperationsCenterPage /> },
           { path: "admin/demo-checklist", element: <DemoChecklistPage /> },

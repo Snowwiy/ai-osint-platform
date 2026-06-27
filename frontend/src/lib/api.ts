@@ -1,5 +1,8 @@
 import type {
   AdminQaStatusResponse,
+  AdminUserActionResponse,
+  AdminUserFilters,
+  AdminUserListResponse,
   AdminOverviewResponse,
   AdminSettingsResponse,
   AdminSettingsUpdate,
@@ -132,6 +135,7 @@ import type {
   TokenResponse,
   UserProfile,
   AnalystWorkloadResponse,
+  PlatformUserRole,
 } from "../types";
 
 const API_BASE_URL =
@@ -648,6 +652,43 @@ export async function getAdminOverview(): Promise<AdminOverviewResponse> {
 
 export async function getAdminQaStatus(): Promise<AdminQaStatusResponse> {
   return request<AdminQaStatusResponse>("/admin/qa/status");
+}
+
+export async function listAdminUsers(
+  filters: AdminUserFilters = {},
+): Promise<AdminUserListResponse> {
+  const params = new URLSearchParams();
+  if (filters.role) {
+    params.set("role", filters.role);
+  }
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+  if (filters.search?.trim()) {
+    params.set("search", filters.search.trim());
+  }
+  params.set("limit", String(filters.limit ?? 50));
+  params.set("offset", String(filters.offset ?? 0));
+  return request<AdminUserListResponse>(`/admin/users?${params.toString()}`);
+}
+
+export async function adminUserAction(
+  userId: string,
+  action: "approve" | "reject" | "disable" | "reactivate",
+): Promise<AdminUserActionResponse> {
+  return request<AdminUserActionResponse>(`/admin/users/${userId}/${action}`, {
+    method: "POST",
+  });
+}
+
+export async function updateAdminUserRole(
+  userId: string,
+  role: PlatformUserRole,
+): Promise<AdminUserActionResponse> {
+  return request<AdminUserActionResponse>(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
 }
 
 export async function getOperationsStatus(): Promise<OperationsStatusResponse> {

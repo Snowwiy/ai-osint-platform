@@ -31,6 +31,8 @@ workflow, governance, reporting, and auditability.
 - HTML, Markdown, PDF, and DOCX report downloads
 - Governance settings, feature flags, export controls, retention posture, audit
   log, and operations center
+- Public registration controls, admin account approval, user status management,
+  and last-active-admin safeguards
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 

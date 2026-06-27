@@ -38,7 +38,16 @@ class InvalidCredentialsError(AuthError):
 
 
 class InactiveUserError(AuthError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        account_status: str,
+        user_id: uuid.UUID | None,
+    ) -> None:
+        super().__init__(message)
+        self.account_status = account_status
+        self.user_id = user_id
 
 
 class TokenError(AuthError):
@@ -73,8 +82,12 @@ async def authenticate_user(
     user = await get_user_by_identifier(db, identifier)
     if user is None or not verify_password(password, user.hashed_password):
         raise InvalidCredentialsError("Invalid credentials")
-    if not user.is_active:
-        raise InactiveUserError("Account disabled")
+    if not user.is_active or user.account_status != "active":
+        raise InactiveUserError(
+            _inactive_login_message(user.account_status),
+            account_status=user.account_status,
+            user_id=user.id,
+        )
     return user
 
 
@@ -185,9 +198,13 @@ async def register_user(
     registered = User(
         username=username,
         email=email,
+        full_name=data.full_name,
         hashed_password=hash_password(data.password),
         role=role,
         is_active=is_active,
+        account_status="active" if is_active else "pending",
+        registration_source="public_registration",
+        approved_at=datetime.now(UTC) if is_active else None,
     )
     db.add(registered)
     await db.flush()
@@ -209,3 +226,11 @@ async def register_user(
         account_status=status,
         message=message,
     )
+
+
+def _inactive_login_message(account_status: str) -> str:
+    if account_status == "pending":
+        return "Account pending approval. Contact an administrator if needed."
+    if account_status == "rejected":
+        return "Account registration was not approved. Contact an administrator."
+    return "Account disabled. Contact an administrator."

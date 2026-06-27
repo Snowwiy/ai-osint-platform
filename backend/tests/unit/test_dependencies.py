@@ -22,6 +22,7 @@ def _make_user(*, role: str = "analyst", is_active: bool = True) -> User:
         hashed_password="unused",
         role=role,
         is_active=is_active,
+        account_status="active" if is_active else "disabled",
     )
 
 
@@ -75,4 +76,4 @@ async def test_get_current_user_raises_401_for_inactive_user() -> None:
     with pytest.raises(HTTPException) as exc_info:
         await _invoke_get_current_user(token, db_user=user)
     assert exc_info.value.status_code == 401
-    assert "deactivated" in exc_info.value.detail.lower()
+    assert "disabled" in exc_info.value.detail.lower()

@@ -150,6 +150,7 @@ export function AppShell(): JSX.Element {
       ? [
           ...enabledTopNav,
           { label: "Audit", to: "/admin/audit", icon: ClipboardList },
+          { label: "Users", to: "/admin/users", icon: UsersRound },
           { label: "Operations", to: "/admin/operations", icon: Activity },
           { label: "Settings", to: "/admin/settings", icon: Settings },
           {

@@ -18,6 +18,7 @@ import {
   getAdminOverview,
   getAdminRetention,
   getAdminSettings,
+  getRegistrationPolicy,
   updateAdminFeatureFlags,
   updateAdminRetention,
   updateAdminSettings,
@@ -26,6 +27,7 @@ import { useAuth } from "../lib/useAuth";
 import type {
   AdminSettingsResponse,
   FeatureFlagSettings,
+  RegistrationPolicyResponse,
   RetentionPolicy,
   RetentionSettings,
 } from "../types";
@@ -72,6 +74,11 @@ export function AdminSettingsPage(): JSX.Element {
   const overview = useQuery({
     queryKey: ["admin-overview"],
     queryFn: getAdminOverview,
+    enabled: user?.role === "admin",
+  });
+  const registrationPolicy = useQuery({
+    queryKey: ["registration-policy", "admin-settings"],
+    queryFn: getRegistrationPolicy,
     enabled: user?.role === "admin",
   });
 
@@ -242,6 +249,8 @@ export function AdminSettingsPage(): JSX.Element {
       ) : null}
 
       <div className="space-y-6">
+        <RegistrationPolicyPanel policy={registrationPolicy.data} />
+
         <SettingsSection
           icon={Building2}
           title="General"
@@ -531,6 +540,72 @@ function SettingsSection({
       </div>
       {children}
     </section>
+  );
+}
+
+function RegistrationPolicyPanel({
+  policy,
+}: {
+  policy: RegistrationPolicyResponse | undefined;
+}): JSX.Element {
+  return (
+    <SettingsSection
+      icon={ShieldCheck}
+      title="Registration policy"
+      description="Public registration is controlled by environment settings. Invite-code values are never displayed."
+    >
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <PolicyPill
+          label="Public registration"
+          value={policy?.public_registration_enabled ? "Enabled" : "Disabled"}
+          active={policy?.public_registration_enabled === true}
+        />
+        <PolicyPill
+          label="Approval required"
+          value={policy?.requires_approval ? "Yes" : "No"}
+          active={policy?.requires_approval === true}
+        />
+        <PolicyPill
+          label="Invite code"
+          value={policy?.invite_code_required ? "Configured" : "Not configured"}
+          active={policy?.invite_code_required === true}
+        />
+        <PolicyPill
+          label="Default role"
+          value={policy?.default_role ?? "Analyst"}
+          active
+        />
+      </div>
+      <p className="mt-3 text-xs text-raven-muted">
+        Use environment variables to change registration behavior:
+        PUBLIC_REGISTRATION_ENABLED, REGISTRATION_REQUIRES_APPROVAL,
+        REGISTRATION_INVITE_CODE, and DEFAULT_REGISTERED_USER_ROLE.
+      </p>
+    </SettingsSection>
+  );
+}
+
+function PolicyPill({
+  label,
+  value,
+  active,
+}: {
+  label: string;
+  value: string;
+  active: boolean;
+}): JSX.Element {
+  return (
+    <div className="rounded-md border border-raven-border bg-raven-bg/60 p-3">
+      <p className="text-xs uppercase tracking-wide text-raven-muted">{label}</p>
+      <p
+        className={[
+          "mt-1 text-sm font-medium",
+          active ? "text-raven-text" : "text-raven-muted",
+        ].join(" ")}
+      >
+        {value}
+      </p>
+    </div>
   );
 }
 

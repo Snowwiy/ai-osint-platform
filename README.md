@@ -25,7 +25,7 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - FastAPI backend with async SQLAlchemy, Alembic, PostgreSQL, Redis, and Celery
 - React/Vite/TypeScript frontend with a RavenTech dark analyst workspace
 - JWT authentication, RBAC, investigation membership, and admin controls
-- Config-gated user registration with approval and invite-code controls
+- Config-gated user registration, approval workflow, and admin user governance
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -98,6 +98,11 @@ environment, review `PUBLIC_REGISTRATION_ENABLED`,
 `DEFAULT_REGISTERED_USER_ROLE` in `.env.example`. Public registration never
 creates admin users; continue using the admin bootstrap workflow for platform
 administrators.
+
+Platform administrators can review registered users in Admin → Users, approve
+pending accounts, reject registrations, disable or reactivate users, and change
+safe platform roles. The backend prevents disabling or demoting the last active
+administrator.
 
 ## Validation Commands
 

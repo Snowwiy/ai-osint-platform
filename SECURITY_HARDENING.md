@@ -39,6 +39,17 @@ Preserve backend enforcement:
 
 Frontend visibility is convenience only. Backend checks are the security boundary.
 
+## User Administration
+
+- Public registration must remain disabled by default unless an operator has
+  intentionally enabled it.
+- Public registration never creates platform administrator accounts.
+- Pending, disabled, and rejected accounts cannot access protected areas.
+- Admins can approve, reject, disable, reactivate, and safely change platform
+  roles through Admin → Users.
+- The backend prevents disabling or demoting the last active administrator.
+- Invite codes are environment-controlled and must never be displayed or logged.
+
 ## Governance Controls
 
 Review Admin Settings for:
@@ -59,6 +70,8 @@ Review audit logs for:
 - Permission denials
 - Governance changes
 - Feature flag changes
+- User registration and approval actions
+- User disable/reactivate and role changes
 - Backup exports
 - Restore validations
 - Report downloads

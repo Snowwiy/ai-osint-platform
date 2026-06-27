@@ -8,6 +8,8 @@ export type InvestigationStatus =
   | "completed"
   | "archived";
 export type InvestigationPriority = "low" | "medium" | "high" | "urgent";
+export type PlatformUserRole = "admin" | "analyst";
+export type AccountStatus = "active" | "pending" | "disabled" | "rejected";
 export type InvestigationStage =
   | "intake"
   | "scoping"
@@ -43,6 +45,43 @@ export interface UserProfile {
   is_active: boolean;
   created_at: string;
   last_login: string | null;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string | null;
+  role: PlatformUserRole | string;
+  status: AccountStatus | string;
+  account_status: AccountStatus | string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login: string | null;
+  registration_source: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+}
+
+export interface AdminUserListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminUser[];
+}
+
+export interface AdminUserFilters {
+  role?: PlatformUserRole | "";
+  status?: AccountStatus | "";
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AdminUserActionResponse {
+  user: AdminUser;
+  message: string;
 }
 
 export interface RegistrationPolicyResponse {

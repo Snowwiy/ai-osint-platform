@@ -65,6 +65,11 @@ and apply `alembic upgrade head` before changing code.
   bootstrap accounts should remain active.
 - Invite codes are backend-only secrets and should never be displayed in the UI
   or logs.
+- Pending accounts can be approved in Admin → Users.
+- Disabled or rejected accounts can be reviewed in Admin → Users by a platform
+  administrator.
+- If an admin cannot disable or demote another admin, confirm at least one other
+  active administrator exists.
 - Session expiry should redirect to login.
 - Backend `401` responses outside login usually mean the access token expired
   or was cleared.

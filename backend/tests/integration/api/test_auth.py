@@ -111,7 +111,7 @@ async def test_registration_requires_approval_creates_pending_user(
     )
     assert login.status_code == 403
     assert login.json()["detail"] == (
-        "Account pending approval or disabled. Contact an administrator."
+        "Account pending approval. Contact an administrator if needed."
     )
 
 

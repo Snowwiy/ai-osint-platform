@@ -84,9 +84,27 @@ async def login_endpoint(
         )
     except InactiveUserError as exc:
         await _record_failed_login(redis, identifier, request)
+        blocked_action = (
+            "user.login_blocked_pending"
+            if exc.account_status == "pending"
+            else "user.login_blocked_disabled"
+        )
+        await record_event(
+            db,
+            action=blocked_action,
+            actor_id=exc.user_id,
+            resource_type="user",
+            resource_id=exc.user_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            metadata={
+                "status": exc.account_status,
+                "identifier": _identifier_fingerprint(identifier),
+            },
+        )
         raise HTTPException(
             status_code=403,
-            detail="Account pending approval or disabled. Contact an administrator.",
+            detail=str(exc),
         ) from exc
     except InvalidCredentialsError as exc:
         await _record_failed_login(redis, identifier, request)
@@ -142,9 +160,10 @@ async def register_endpoint(
 
     await record_event(
         db,
-        action="auth.registration_created",
+        action="user.registered",
         actor_id=response.id,
-        resource_type="auth",
+        resource_type="user",
+        resource_id=response.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
         metadata={

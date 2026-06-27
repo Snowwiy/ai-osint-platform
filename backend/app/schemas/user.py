@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+PlatformRole = Literal["admin", "analyst"]
+AccountStatus = Literal["active", "pending", "disabled", "rejected"]
 
 
 def validate_password_strength(value: str) -> str:
@@ -27,7 +31,8 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
-    role: str = "analyst"
+    full_name: str | None = Field(default=None, max_length=120)
+    role: PlatformRole = "analyst"
 
     @field_validator("username")
     @classmethod
@@ -49,10 +54,19 @@ class UserCreate(BaseModel):
             raise ValueError("role must be 'admin' or 'analyst'")
         return value
 
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip()
+        return clean or None
+
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
-    role: str | None = None
+    full_name: str | None = Field(default=None, max_length=120)
+    role: PlatformRole | None = None
     is_active: bool | None = None
 
     @field_validator("role")
@@ -62,6 +76,14 @@ class UserUpdate(BaseModel):
             raise ValueError("role must be 'admin' or 'analyst'")
         return value
 
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip()
+        return clean or None
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -69,10 +91,17 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     email: str
+    full_name: str | None = None
     role: str
+    status: str
+    account_status: str
     is_active: bool
     created_at: datetime
+    updated_at: datetime
     last_login: datetime | None
+    registration_source: str | None = None
+    approved_at: datetime | None = None
+    approved_by: uuid.UUID | None = None
 
 
 class UserCreateResponse(BaseModel):
@@ -81,3 +110,23 @@ class UserCreateResponse(BaseModel):
     id: uuid.UUID
     username: str
     role: str
+
+
+class AdminUserListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[UserResponse]
+
+
+class UserStatusUpdate(BaseModel):
+    status: AccountStatus
+
+
+class UserRoleUpdate(BaseModel):
+    role: PlatformRole
+
+
+class UserAdminActionResponse(BaseModel):
+    user: UserResponse
+    message: str

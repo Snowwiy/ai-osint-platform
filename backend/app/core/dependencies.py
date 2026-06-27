@@ -53,13 +53,21 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if user is None:
         raise credentials_exception
-    if not user.is_active:
+    if not user.is_active or user.account_status != "active":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Account is deactivated. Contact an administrator.",
+            detail=_inactive_account_message(user.account_status),
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def _inactive_account_message(account_status: str) -> str:
+    if account_status == "pending":
+        return "Account pending approval. Contact an administrator if needed."
+    if account_status == "rejected":
+        return "Account registration was not approved. Contact an administrator."
+    return "Account disabled. Contact an administrator."
 
 
 def require_role(*roles: str) -> Callable[..., Awaitable[User]]:

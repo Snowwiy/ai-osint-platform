@@ -10,6 +10,18 @@
 - No external paid threat feeds are required or bundled.
 - No cloud deployment implementation is included in the release candidate.
 
+## Authentication And User Governance
+
+The platform uses its own backend authentication model. Public registration is
+configuration-gated and defaults to disabled. Registered users may require admin
+approval before they can sign in, and account approval does not replace
+organization-specific identity review.
+
+The current platform role model remains intentionally small: admin and analyst
+at the platform level, with viewer-style access handled through investigation
+membership. External SSO/OAuth and Supabase Auth migration are intentionally not
+included.
+
 ## Provider Availability
 
 Some enrichment and AI capabilities require separately configured provider
