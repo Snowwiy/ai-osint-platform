@@ -36,6 +36,8 @@ workflow, governance, reporting, and auditability.
 - Engagement scope governance with client metadata, authorization status,
   approved scope items, authorization evidence references, and advisory
   out-of-scope warnings
+- Case closure workflow with deterministic final checklist, final risk rating,
+  client deliverable tracking, evidence package manifest, and closure audit trail
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 
@@ -62,9 +64,10 @@ Recommended 10-minute flow:
 7. Review IOCs, Evidence Intelligence, and Threat Intelligence
 8. Open AI Analysis fallback or live analysis if configured
 9. Review remediation tasks and defensive playbooks
-10. Generate an executive report
-11. Download PDF, DOCX, HTML, and Markdown
-12. Open audit, governance, demo checklist, and operations center
+10. Open Case Closure and review deliverables/evidence package readiness
+11. Generate an executive report
+12. Download PDF, DOCX, HTML, and Markdown
+13. Open audit, governance, demo checklist, and operations center
 
 See `PORTFOLIO_DEMO_FLOW.md` for presenter notes.
 
@@ -138,7 +141,10 @@ docker compose logs backend --tail=100
 - AI is optional and degrades to deterministic fallback when unavailable
 - No cloud deployment implementation is included
 - Engagement records are governance metadata only; they are not tenant
-  isolation, billing, hosted client portal access, or legal document storage
+  boundaries, billing, hosted client portal access, isolation, or legal document
+  storage.
+- Case deliverables are tracked as metadata and manifest records; no external
+  file storage, hosting, or client delivery portal is included.
 - No external paid threat feeds are required or bundled
 - Demo data is synthetic
 - Local setup assumes Docker Compose, PostgreSQL, Redis, and frontend commands

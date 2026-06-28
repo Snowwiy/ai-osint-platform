@@ -2053,6 +2053,117 @@ export interface CaseReviewResponse {
   updated_at: string;
 }
 
+export type CaseClosureStatus = "draft" | "in_review" | "approved" | "closed" | "reopened";
+export type CaseClosureChecklistStatus =
+  | "pending"
+  | "completed"
+  | "blocked"
+  | "not_applicable";
+export type CaseFinalRiskRating =
+  | "low"
+  | "moderate"
+  | "elevated"
+  | "high"
+  | "critical"
+  | "not_assessed";
+export type CaseDeliverableType =
+  | "executive_report"
+  | "technical_report"
+  | "evidence_appendix"
+  | "remediation_plan"
+  | "scope_summary"
+  | "audit_summary"
+  | "final_package";
+export type CaseDeliverableStatus =
+  | "draft"
+  | "ready"
+  | "approved"
+  | "delivered"
+  | "archived";
+export type CasePackageReadinessStatus =
+  | "ready"
+  | "ready_with_warnings"
+  | "missing_required_deliverables";
+
+export interface CaseClosureChecklistItem {
+  id: string;
+  investigation_id: string;
+  closure_id: string | null;
+  key: string;
+  label: string;
+  description: string | null;
+  status: CaseClosureChecklistStatus;
+  required: boolean;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseDeliverable {
+  id: string;
+  investigation_id: string;
+  title: string;
+  deliverable_type: CaseDeliverableType;
+  status: CaseDeliverableStatus;
+  report_id: string | null;
+  export_format: ReportFormat | null;
+  file_reference: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseDeliverableListResponse {
+  total: number;
+  items: CaseDeliverable[];
+}
+
+export interface EvidencePackageSummary {
+  evidence_count: number;
+  findings_with_evidence: number;
+  findings_without_evidence: number;
+  high_risk_evidence_highlights: string[];
+  source_summary: Record<string, number>;
+  evidence_chain_status: string;
+  scope_relation: string;
+  report_appendix_readiness: string;
+}
+
+export interface CasePackageManifestResponse {
+  package_id: string;
+  investigation_id: string;
+  engagement_id: string | null;
+  included_deliverables: CaseDeliverable[];
+  missing_deliverables: CaseDeliverableType[];
+  warnings: string[];
+  readiness_status: CasePackageReadinessStatus;
+  evidence_package: EvidencePackageSummary;
+  generated_at: string;
+  generated_by: string | null;
+}
+
+export interface CaseClosureResponse {
+  id: string;
+  investigation_id: string;
+  status: CaseClosureStatus;
+  closure_summary: string | null;
+  final_risk_rating: CaseFinalRiskRating;
+  reviewed_by: string | null;
+  approved_by: string | null;
+  closed_by: string | null;
+  reviewed_at: string | null;
+  approved_at: string | null;
+  closed_at: string | null;
+  checklist: CaseClosureChecklistItem[];
+  deliverables: CaseDeliverable[];
+  evidence_package: EvidencePackageSummary;
+  warnings: string[];
+  blockers: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ReportApprovalResponse {
   report_id: string;
   investigation_id: string;

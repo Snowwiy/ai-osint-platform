@@ -7,6 +7,11 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case_closure import (
+    CaseClosure,
+    CaseClosureChecklistItem,
+    CaseDeliverable,
+)
 from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
@@ -97,6 +102,12 @@ DEMO_ENGAGEMENT_ID = uuid.UUID("70000000-0000-4000-8000-000000000031")
 DEMO_SCOPE_DOMAIN_ID = uuid.UUID("70000000-0000-4000-8000-000000000032")
 DEMO_SCOPE_IP_ID = uuid.UUID("70000000-0000-4000-8000-000000000033")
 DEMO_AUTH_EVIDENCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000034")
+DEMO_CLOSURE_ID = uuid.UUID("70000000-0000-4000-8000-000000000035")
+DEMO_CLOSURE_CHECK_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000036")
+DEMO_CLOSURE_CHECK_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000037")
+DEMO_EXEC_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000038")
+DEMO_TECH_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000039")
+DEMO_PACKAGE_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000040")
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -253,6 +264,7 @@ async def ensure_demo_workspace(
     await _ensure_threat_intelligence(db, user, now)
     await _ensure_playbook_run(db, user)
     await _ensure_report(db, user, now)
+    await _ensure_closure(db, user, now)
     await _ensure_knowledge(db)
     await _ensure_workflow_event(db, user)
     await db.flush()
@@ -260,6 +272,25 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(CaseDeliverable).where(
+            CaseDeliverable.id.in_(
+                [
+                    DEMO_EXEC_DELIVERABLE_ID,
+                    DEMO_TECH_DELIVERABLE_ID,
+                    DEMO_PACKAGE_DELIVERABLE_ID,
+                ]
+            )
+        )
+    )
+    await db.execute(
+        delete(CaseClosureChecklistItem).where(
+            CaseClosureChecklistItem.id.in_(
+                [DEMO_CLOSURE_CHECK_SCOPE_ID, DEMO_CLOSURE_CHECK_REPORT_ID]
+            )
+        )
+    )
+    await db.execute(delete(CaseClosure).where(CaseClosure.id == DEMO_CLOSURE_ID))
     await db.execute(
         delete(AuthorizationEvidence).where(
             AuthorizationEvidence.id == DEMO_AUTH_EVIDENCE_ID
@@ -338,6 +369,8 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (IOC, DEMO_IOC_ID),
         (ThreatCampaign, DEMO_CAMPAIGN_ID),
         (Engagement, DEMO_ENGAGEMENT_ID),
+        (CaseClosure, DEMO_CLOSURE_ID),
+        (CaseDeliverable, DEMO_EXEC_DELIVERABLE_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
@@ -911,6 +944,98 @@ documented defensive recommendation.
             generated_at=now,
         )
     )
+
+
+async def _ensure_closure(db: AsyncSession, user: User, now: datetime) -> None:
+    if await db.get(CaseClosure, DEMO_CLOSURE_ID) is None:
+        db.add(
+            CaseClosure(
+                id=DEMO_CLOSURE_ID,
+                investigation_id=DEMO_INVESTIGATION_ID,
+                status="approved",
+                closure_summary=(
+                    "[DEMO] Final handoff summary: scope, passive evidence, "
+                    "remediation ownership, and client-ready reporting are prepared "
+                    "for demonstration. No real compromise is represented."
+                ),
+                final_risk_rating="elevated",
+                reviewed_by=user.id,
+                approved_by=user.id,
+                reviewed_at=now,
+                approved_at=now,
+            )
+        )
+    checklist = (
+        (
+            DEMO_CLOSURE_CHECK_SCOPE_ID,
+            "scope_authorization_confirmed",
+            "Scope and authorization confirmed",
+            "Synthetic engagement authorization and reserved scope are approved.",
+        ),
+        (
+            DEMO_CLOSURE_CHECK_REPORT_ID,
+            "final_deliverables_prepared",
+            "Final deliverables prepared",
+            "Demo executive and technical deliverables are ready.",
+        ),
+    )
+    for item_id, key, label, description in checklist:
+        if await db.get(CaseClosureChecklistItem, item_id) is None:
+            db.add(
+                CaseClosureChecklistItem(
+                    id=item_id,
+                    investigation_id=DEMO_INVESTIGATION_ID,
+                    closure_id=DEMO_CLOSURE_ID,
+                    key=key,
+                    label=label,
+                    description=description,
+                    status="completed",
+                    required=True,
+                    completed_by=user.id,
+                    completed_at=now,
+                )
+            )
+    deliverables = (
+        (
+            DEMO_EXEC_DELIVERABLE_ID,
+            "[DEMO] Executive Defensive Assessment",
+            "executive_report",
+            "html",
+            DEMO_REPORT_ID,
+            "report://demo/executive-assessment",
+        ),
+        (
+            DEMO_TECH_DELIVERABLE_ID,
+            "[DEMO] Technical Evidence Summary",
+            "technical_report",
+            "md",
+            DEMO_REPORT_ID,
+            "report://demo/technical-evidence-summary",
+        ),
+        (
+            DEMO_PACKAGE_DELIVERABLE_ID,
+            "[DEMO] Final Client Deliverables Package Manifest",
+            "final_package",
+            None,
+            None,
+            "manifest://demo/final-client-deliverables",
+        ),
+    )
+    for deliverable_id, title, deliverable_type, report_format, report_id, reference in deliverables:
+        if await db.get(CaseDeliverable, deliverable_id) is None:
+            db.add(
+                CaseDeliverable(
+                    id=deliverable_id,
+                    investigation_id=DEMO_INVESTIGATION_ID,
+                    title=title,
+                    deliverable_type=deliverable_type,
+                    status="ready",
+                    report_id=report_id,
+                    export_format=report_format,
+                    file_reference=reference,
+                    created_by=user.id,
+                )
+            )
 
 
 async def _ensure_knowledge(db: AsyncSession) -> None:

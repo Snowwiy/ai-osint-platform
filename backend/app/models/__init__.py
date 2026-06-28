@@ -2,6 +2,11 @@ from app.models.ai_analysis import AiAnalysis
 from app.models.admin_settings import AdminSettings
 from app.models.audit_log import AuditLog
 from app.models.base import Base
+from app.models.case_closure import (
+    CaseClosure,
+    CaseClosureChecklistItem,
+    CaseDeliverable,
+)
 from app.models.case_review import CaseReview
 from app.models.engagement import (
     AuthorizationEvidence,
@@ -59,6 +64,9 @@ __all__ = [
     "AdminSettings",
     "AuditLog",
     "Base",
+    "CaseClosure",
+    "CaseClosureChecklistItem",
+    "CaseDeliverable",
     "CaseReview",
     "AuthorizationEvidence",
     "Engagement",

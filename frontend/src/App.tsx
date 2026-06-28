@@ -10,8 +10,9 @@ import { AdminUsersPage } from "./pages/AdminUsersPage";
 import { AnalystWorkloadPage } from "./pages/AnalystWorkloadPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
 import { BookmarksPage } from "./pages/BookmarksPage";
-import { CorrelationsPage } from "./pages/CorrelationsPage";
+import { ClosurePage } from "./pages/ClosurePage";
 import { CollaborationPage } from "./pages/CollaborationPage";
+import { CorrelationsPage } from "./pages/CorrelationsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DemoChecklistPage } from "./pages/DemoChecklistPage";
 import { EvidenceIntelligencePage } from "./pages/EvidenceIntelligencePage";
@@ -148,6 +149,7 @@ const router = createBrowserRouter([
                   </FeatureGate>
                 ),
               },
+              { path: "closure", element: <ClosurePage /> },
               {
                 path: "analysis",
                 element: (

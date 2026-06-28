@@ -55,6 +55,7 @@ from app.schemas.report import (
 )
 from app.services.ai.evidence_builder import EvidenceItem
 from app.services.ai.framework_mapper import map_frameworks
+from app.services.case_closure import closure_report_summary
 from app.services.defensive_intelligence import (
     build_coverage_response,
     build_detection_recommendations,
@@ -237,6 +238,7 @@ class ReportContext:
     indicator_summary: list[str]
     threat_intelligence_summary: list[str]
     review_workflow_summary: list[str]
+    closure_workflow_summary: list[str]
     evidence_chain: list[str]
     evidence_intelligence: list[str]
     analyst_notes: list[str]
@@ -820,6 +822,11 @@ def render_markdown_report(context: ReportContext) -> str:
         lines.append(
             "- No formal case review workflow metadata is currently stored."
         )
+    lines.extend(["", "### Case Closure and Deliverables", ""])
+    if context.closure_workflow_summary:
+        lines.extend(f"- {item}" for item in context.closure_workflow_summary)
+    else:
+        lines.append("- Case closure workflow has not been prepared.")
 
     lines.extend(
         [
@@ -1279,6 +1286,7 @@ async def _build_context(
         findings,
         reports,
     )
+    closure_workflow_summary = await closure_report_summary(db, investigation)
     defensive_confidence = (
         round(
             sum(finding.confidence_score for finding in findings)
@@ -1361,6 +1369,7 @@ async def _build_context(
         indicator_summary=_indicator_summary(recon_entities, threat_findings),
         threat_intelligence_summary=threat_intelligence_summary,
         review_workflow_summary=review_workflow_summary,
+        closure_workflow_summary=closure_workflow_summary,
         evidence_chain=_evidence_chain(evidence, case_evidence),
         evidence_intelligence=evidence_intelligence,
         analyst_notes=_analyst_notes(notes),
@@ -2060,6 +2069,8 @@ def _metadata(context: ReportContext) -> dict[str, Any]:
         "evidence_intelligence_count": len(context.evidence_intelligence),
         "threat_intelligence_count": len(context.threat_intelligence_summary),
         "review_workflow_count": len(context.review_workflow_summary),
+        "closure_workflow_count": len(context.closure_workflow_summary),
+        "closure_workflow": context.closure_workflow_summary[:10],
         "risk_level": str(context.risk_summary["level"]),
         "highest_score": highest_score if isinstance(highest_score, int) else 0,
         "investigation_risk_score": context.investigation_risk_score,

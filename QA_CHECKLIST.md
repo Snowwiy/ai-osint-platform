@@ -39,6 +39,22 @@
 - [ ] Custom templates can be deactivated and restored.
 - [ ] Report errors show a concise message with optional technical details.
 
+## Case Closure And Deliverables
+
+- [ ] Closure tab loads for an existing investigation.
+- [ ] Closure checklist can be generated and refreshed.
+- [ ] Checklist item status can be updated without raw endpoint errors.
+- [ ] Closure can be submitted for review, approved, closed, and reopened by an
+      allowed owner/admin.
+- [ ] Closure without required checklist completion requires an explicit
+      override reason.
+- [ ] Deliverable records can be created, marked ready, approved, and archived.
+- [ ] Package manifest generation returns included deliverables, missing
+      deliverables, warnings, and evidence package readiness.
+- [ ] Closure metadata appears in executive, technical, and evidence appendix
+      reports.
+- [ ] Closure and deliverable actions appear in audit and timeline views.
+
 ## Governance And Audit
 
 - [ ] Admin Settings loads for administrators only.
@@ -79,6 +95,7 @@
 ## Release Candidate Regression Pack
 
 - [ ] Case review can be submitted, approved, rejected, and closed.
+- [ ] Case closure checklist, deliverables, and package manifest workflows work.
 - [ ] Closure before approval requires an explicit owner/admin override reason.
 - [ ] Report approval can be submitted, approved, and rejected.
 - [ ] Remediation validation can be submitted, validated, failed, or accepted

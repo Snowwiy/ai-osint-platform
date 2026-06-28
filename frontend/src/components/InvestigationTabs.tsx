@@ -15,6 +15,7 @@ const tabs = [
   { label: "Correlations", path: "correlations" },
   { label: "IOCs", path: "iocs" },
   { label: "Reports", path: "reports" },
+  { label: "Closure", path: "closure" },
   { label: "AI Analysis", path: "analysis" },
 ];
 

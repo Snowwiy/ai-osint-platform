@@ -118,6 +118,21 @@ and apply `alembic upgrade head` before changing code.
 - If target creation is blocked, review governance settings for
   `BLOCK_OUT_OF_SCOPE_TARGETS` or approved-authorization enforcement.
 
+## Case Closure Or Deliverable Issues
+
+- If closure cannot be completed, generate or refresh the checklist and review
+  required `pending` or `blocked` items. Owners/admins can close with an
+  explicit override reason when governance allows it.
+- If the package manifest is missing deliverables, create records for executive
+  report, technical report, and evidence appendix, then mark them `ready`,
+  `approved`, or `delivered`.
+- If evidence package readiness shows warnings, link findings to evidence
+  records or document accepted residual gaps in the closure summary.
+- If a closed case needs more work, reopen it from the Closure tab. Reopening
+  preserves history and emits audit/timeline events.
+- If closure metadata is missing from a report, regenerate the report after
+  closure and deliverable records are created.
+
 ## Frontend Build Or Layout Problems
 
 - Confirm `frontend/.env` points to the expected API base URL.

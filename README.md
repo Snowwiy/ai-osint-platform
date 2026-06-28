@@ -28,6 +28,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Config-gated user registration, approval workflow, and admin user governance
 - Engagement records with client metadata, authorization status, approved scope,
   and advisory out-of-scope target warnings
+- Case closure workflow with final review checklist, deliverable tracking,
+  evidence package manifest, and residual-risk handoff summary
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -118,6 +120,18 @@ This is a lightweight governance layer, not multi-tenant SaaS, billing, hosting,
 or a client portal. Unknown scope is treated conservatively as pending review.
 No DNS lookup, active probing, crawling, or external enrichment is performed by
 scope matching.
+
+## Case Closure And Deliverables
+
+Case Closure helps analysts prepare a defensible final handoff. Each
+investigation can generate a deterministic closure checklist, record final risk,
+track client-ready deliverables, and create an evidence package manifest. The
+manifest references stored reports, findings, evidence summaries, scope status,
+and warnings; it does not create external storage or a client portal.
+
+Closure is analyst-driven. Required blockers prevent normal closure unless an
+owner or administrator records an override reason. Closure, deliverable, and
+package actions are audit logged and included in generated reports.
 
 ## Validation Commands
 

@@ -76,6 +76,19 @@ Disabled features should return clean errors and hide UI actions where possible.
 - Do not log contracts, passwords, API keys, tokens, or raw invite codes in
   engagement notes, scope metadata, authorization references, or audit fields.
 
+## Case Closure And Deliverables
+
+- Treat closure as a governance workflow, not as legal approval by itself.
+- Require owners or administrators to record an override reason when closing
+  with unresolved required checklist items.
+- Use deliverable records and package manifests to track client-ready artifacts;
+  do not store local filesystem paths or external delivery secrets in
+  deliverable metadata.
+- Evidence package summaries should reference stored evidence counts, findings,
+  reports, and warnings without duplicating sensitive legal documents.
+- Closed cases remain viewable and reportable; reopening requires owner/admin
+  permission.
+
 ## Audit Practices
 
 Review audit logs for:
@@ -87,6 +100,7 @@ Review audit logs for:
 - User registration and approval actions
 - User disable/reactivate and role changes
 - Engagement, scope, and authorization evidence changes
+- Closure, checklist, deliverable, and package manifest actions
 - Backup exports
 - Restore validations
 - Report downloads

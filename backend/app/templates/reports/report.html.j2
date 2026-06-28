@@ -341,6 +341,16 @@
   {% else %}
   <p>No formal case review workflow metadata is currently stored.</p>
   {% endif %}
+  <h3>Case Closure and Deliverables</h3>
+  {% if context.closure_workflow_summary %}
+  <ul>
+    {% for item in context.closure_workflow_summary %}
+    <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Case closure workflow has not been prepared.</p>
+  {% endif %}
 
   {% if "evidence_chains" in context.enabled_sections or "recurring_evidence" in context.enabled_sections or "related_investigations" in context.enabled_sections or "analyst_notes" in context.enabled_sections or "timeline_summary" in context.enabled_sections or "audit_summary" in context.enabled_sections %}
   <h2>Technical Evidence</h2>

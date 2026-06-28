@@ -39,6 +39,17 @@ enrichment. Unknown values are marked pending review by default.
 Out-of-scope handling is warning-first unless an operator explicitly enables a
 blocking governance policy.
 
+## Case Closure And Deliverables
+
+Case closure is a review workflow, not a legal sign-off system or client portal.
+Deliverables are tracked as application records and package manifests. The
+platform does not upload, host, email, or externally deliver final packages.
+
+Evidence package manifests summarize stored evidence, findings, reports,
+authorization status, and warnings. They do not duplicate all raw report files
+or create external storage. Analysts remain responsible for final client
+handoff review.
+
 ## Provider Availability
 
 Some enrichment and AI capabilities require separately configured provider

@@ -7,6 +7,7 @@ from app.api.v1 import (
     analysis,
     analytics,
     auth,
+    case_closure,
     case_management,
     case_review,
     collaboration,
@@ -34,6 +35,7 @@ api_router.include_router(admin.router, tags=["admin"])
 api_router.include_router(analysis.router)
 api_router.include_router(analytics.router)
 api_router.include_router(auth.router)
+api_router.include_router(case_closure.router)
 api_router.include_router(case_review.router)
 api_router.include_router(case_management.router)
 api_router.include_router(collaboration.router)

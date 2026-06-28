@@ -78,19 +78,22 @@ Proves: safe AI integration, no secret exposure, robust UX.
 
 ## 8. Remediation And Playbooks
 
-Click: Playbooks, Tasks, Review Board.
+Click: Playbooks, Tasks, Review Board, Closure.
 
 Say: "Analysts can move from finding to validation, remediation task, playbook
-steps, report approval, and case closure. No action is autonomous."
+steps, report approval, case closure, and client-ready deliverable packaging. No
+action is autonomous."
 
-Proves: SOC-style workflow, analyst accountability, governance lifecycle.
+Proves: SOC-style workflow, analyst accountability, governance lifecycle,
+evidence package readiness.
 
 ## 9. Executive Report Export
 
 Click: Reports, generate or open sample report, download PDF/DOCX/HTML/MD.
 
 Say: "Reports use stored investigation data, citations, approvals, and branding.
-Exports support executive and technical audiences."
+Exports support executive and technical audiences. Closure metadata and
+deliverable readiness help make the handoff defensible."
 
 Proves: report engine, export management, stakeholder readiness.
 

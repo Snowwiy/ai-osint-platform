@@ -13,6 +13,15 @@ import type {
   AuditLogFilters,
   AuditLogListResponse,
   CaseReviewResponse,
+  CaseClosureChecklistItem,
+  CaseClosureChecklistStatus,
+  CaseClosureResponse,
+  CaseDeliverable,
+  CaseDeliverableListResponse,
+  CaseDeliverableStatus,
+  CaseDeliverableType,
+  CaseFinalRiskRating,
+  CasePackageManifestResponse,
   CorrelationResponse,
   CrossInvestigationCorrelationResponse,
   CrossInvestigationSignalType,
@@ -1419,6 +1428,147 @@ export async function closeCase(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export async function getCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(`/investigations/${investigationId}/closure`);
+}
+
+export async function generateClosureChecklist(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/generate-checklist`,
+    { method: "POST" },
+  );
+}
+
+export async function updateCaseClosure(
+  investigationId: string,
+  body: {
+    closure_summary?: string | null;
+    final_risk_rating?: CaseFinalRiskRating | null;
+  },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(`/investigations/${investigationId}/closure`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function submitCaseClosureReview(
+  investigationId: string,
+  body: { closure_summary?: string | null },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/submit-review`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function approveCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/approve`,
+    { method: "POST" },
+  );
+}
+
+export async function closeCaseClosure(
+  investigationId: string,
+  body: { closure_summary: string; override_reason?: string | null },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/close`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function reopenCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/reopen`,
+    { method: "POST" },
+  );
+}
+
+export async function updateClosureChecklistItem(
+  investigationId: string,
+  itemId: string,
+  body: { status: CaseClosureChecklistStatus; description?: string | null },
+): Promise<CaseClosureChecklistItem> {
+  return request<CaseClosureChecklistItem>(
+    `/investigations/${investigationId}/closure/checklist/${itemId}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
+
+export async function listCaseDeliverables(
+  investigationId: string,
+  includeArchived = false,
+): Promise<CaseDeliverableListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<CaseDeliverableListResponse>(
+    `/investigations/${investigationId}/deliverables${suffix}`,
+  );
+}
+
+export async function createCaseDeliverable(
+  investigationId: string,
+  body: {
+    title: string;
+    deliverable_type: CaseDeliverableType;
+    status?: CaseDeliverableStatus;
+    report_id?: string | null;
+    export_format?: ReportFormat | null;
+    file_reference?: string | null;
+  },
+): Promise<CaseDeliverable> {
+  return request<CaseDeliverable>(`/investigations/${investigationId}/deliverables`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateCaseDeliverable(
+  investigationId: string,
+  deliverableId: string,
+  body: {
+    title?: string;
+    deliverable_type?: CaseDeliverableType;
+    status?: CaseDeliverableStatus;
+    report_id?: string | null;
+    export_format?: ReportFormat | null;
+    file_reference?: string | null;
+  },
+): Promise<CaseDeliverable> {
+  return request<CaseDeliverable>(
+    `/investigations/${investigationId}/deliverables/${deliverableId}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
+
+export async function archiveCaseDeliverable(
+  investigationId: string,
+  deliverableId: string,
+): Promise<void> {
+  await request<void>(
+    `/investigations/${investigationId}/deliverables/${deliverableId}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function createCasePackageManifest(
+  investigationId: string,
+): Promise<CasePackageManifestResponse> {
+  return request<CasePackageManifestResponse>(
+    `/investigations/${investigationId}/deliverables/package`,
+    { method: "POST" },
+  );
 }
 
 export async function getEvidenceCompleteness(

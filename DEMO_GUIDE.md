@@ -32,6 +32,7 @@ containing:
 - one remediation task
 - one defensive playbook run
 - one sample report
+- closure checklist and client deliverables package metadata
 - one local knowledge reference
 - sample IOC and threat intelligence records
 - analyst notes, bookmarks, and evidence-chain metadata
@@ -47,10 +48,12 @@ The dataset makes no live network requests and no compromise claims.
 5. Review its linked engagement, approved scope, authorization metadata,
    passive recon entities, and finding.
 6. Show remediation ownership and defensive playbook progress.
-7. Generate a report using the template suited to the audience.
-8. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
-9. Search the local defensive knowledge library.
-10. Show the audit trail and explain that demo records are clearly labeled.
+7. Open **Closure** and review the checklist, deliverables, and evidence package
+   readiness.
+8. Generate a report using the template suited to the audience.
+9. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
+10. Search the local defensive knowledge library.
+11. Show the audit trail and explain that demo records are clearly labeled.
 
 ## V1 10-Minute Portfolio Flow
 
@@ -62,8 +65,9 @@ The dataset makes no live network requests and no compromise claims.
 6. **Generate findings:** Review deterministic evidence-backed findings.
 7. **Review defensive intelligence:** Show MITRE, Sigma, coverage, and guidance.
 8. **Create remediation/playbook:** Assign analyst-owned next steps.
-9. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
-10. **Governance close:** Show audit log, settings, feature flags, and exports.
+9. **Prepare closure:** Show final checklist, deliverables, and package manifest.
+10. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
+11. **Governance close:** Show audit log, settings, feature flags, and exports.
 
 ## Release Candidate Stability Demo Pass
 
