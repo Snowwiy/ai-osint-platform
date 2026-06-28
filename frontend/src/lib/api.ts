@@ -7,6 +7,9 @@ import type {
   AdminSettingsResponse,
   AdminSettingsUpdate,
   AnalysisResponse,
+  AuthorizationEvidence,
+  AuthorizationEvidenceCreateRequest,
+  AuthorizationEvidenceUpdateRequest,
   AuditLogFilters,
   AuditLogListResponse,
   CaseReviewResponse,
@@ -23,6 +26,13 @@ import type {
   DetectionKnowledgeResponse,
   DefensivePlaybook,
   DemoSeedResponse,
+  Engagement,
+  EngagementCreateRequest,
+  EngagementListResponse,
+  EngagementScopeItem,
+  EngagementScopeItemCreateRequest,
+  EngagementScopeItemUpdateRequest,
+  EngagementUpdateRequest,
   ExecutiveDashboardResponse,
   ExecutiveInvestigationSummaryResponse,
   ExecutivePostureResponse,
@@ -120,6 +130,8 @@ import type {
   RestoreValidationResponse,
   RemediationValidationResponse,
   ReviewBoardResponse,
+  ScopeCheckRequest,
+  ScopeCheckResponse,
   Target,
   TargetCreateRequest,
   TargetListResponse,
@@ -275,6 +287,138 @@ export async function listInvestigationsWithScope(
   }
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return request<InvestigationListResponse>(`/investigations/${suffix}`);
+}
+
+export async function listEngagements(
+  includeArchived = false,
+): Promise<EngagementListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<EngagementListResponse>(`/engagements/${suffix}`);
+}
+
+export async function createEngagement(
+  body: EngagementCreateRequest,
+): Promise<Engagement> {
+  return request<Engagement>("/engagements/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getEngagement(id: string): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}`);
+}
+
+export async function updateEngagement(
+  id: string,
+  body: EngagementUpdateRequest,
+): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function archiveEngagement(id: string): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}/archive`, {
+    method: "POST",
+  });
+}
+
+export async function listEngagementScopeItems(
+  engagementId: string,
+): Promise<EngagementScopeItem[]> {
+  return request<EngagementScopeItem[]>(`/engagements/${engagementId}/scope`);
+}
+
+export async function createEngagementScopeItem(
+  engagementId: string,
+  body: EngagementScopeItemCreateRequest,
+): Promise<EngagementScopeItem> {
+  return request<EngagementScopeItem>(`/engagements/${engagementId}/scope`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateEngagementScopeItem(
+  engagementId: string,
+  scopeItemId: string,
+  body: EngagementScopeItemUpdateRequest,
+): Promise<EngagementScopeItem> {
+  return request<EngagementScopeItem>(
+    `/engagements/${engagementId}/scope/${scopeItemId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteEngagementScopeItem(
+  engagementId: string,
+  scopeItemId: string,
+): Promise<void> {
+  return request<void>(`/engagements/${engagementId}/scope/${scopeItemId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listAuthorizationEvidence(
+  engagementId: string,
+): Promise<AuthorizationEvidence[]> {
+  return request<AuthorizationEvidence[]>(
+    `/engagements/${engagementId}/authorization`,
+  );
+}
+
+export async function createAuthorizationEvidence(
+  engagementId: string,
+  body: AuthorizationEvidenceCreateRequest,
+): Promise<AuthorizationEvidence> {
+  return request<AuthorizationEvidence>(
+    `/engagements/${engagementId}/authorization`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateAuthorizationEvidence(
+  engagementId: string,
+  evidenceId: string,
+  body: AuthorizationEvidenceUpdateRequest,
+): Promise<AuthorizationEvidence> {
+  return request<AuthorizationEvidence>(
+    `/engagements/${engagementId}/authorization/${evidenceId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteAuthorizationEvidence(
+  engagementId: string,
+  evidenceId: string,
+): Promise<void> {
+  return request<void>(
+    `/engagements/${engagementId}/authorization/${evidenceId}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+export async function checkEngagementScope(
+  engagementId: string,
+  body: ScopeCheckRequest,
+): Promise<ScopeCheckResponse> {
+  return request<ScopeCheckResponse>(`/engagements/${engagementId}/scope/check`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function createInvestigation(

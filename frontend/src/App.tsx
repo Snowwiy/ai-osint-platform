@@ -15,6 +15,7 @@ import { CollaborationPage } from "./pages/CollaborationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DemoChecklistPage } from "./pages/DemoChecklistPage";
 import { EvidenceIntelligencePage } from "./pages/EvidenceIntelligencePage";
+import { EngagementsPage } from "./pages/EngagementsPage";
 import { ExecutiveDashboardPage } from "./pages/ExecutiveDashboardPage";
 import { FindingsPage } from "./pages/FindingsPage";
 import { GlobalTimelinePage } from "./pages/GlobalTimelinePage";
@@ -112,6 +113,7 @@ const router = createBrowserRouter([
           { path: "admin/operations", element: <OperationsCenterPage /> },
           { path: "admin/demo-checklist", element: <DemoChecklistPage /> },
           { path: "investigations", element: <InvestigationsPage /> },
+          { path: "engagements", element: <EngagementsPage /> },
           { path: "evidence-intelligence", element: <EvidenceIntelligencePage /> },
           { path: "threat-intelligence", element: <ThreatIntelligencePage /> },
           { path: "knowledge", element: <KnowledgeSearchPage /> },

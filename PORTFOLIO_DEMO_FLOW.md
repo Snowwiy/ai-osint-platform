@@ -31,7 +31,13 @@ Click: Investigations, open `[DEMO] Authorized External Exposure Review`.
 Say: "Every investigation begins with authorization and scope. The demo case is
 synthetic and clearly labeled so it cannot be mistaken for a real incident."
 
-Proves: governance, scope management, demo safety.
+Optional click: Engagements.
+
+Say: "The engagement layer records client context, authorization status,
+approved scope items, and evidence references. Scope checks are deterministic
+and local; unknown values become pending review rather than silently approved."
+
+Proves: governance, scope management, authorization tracking, demo safety.
 
 ## 4. Passive Recon Evidence
 

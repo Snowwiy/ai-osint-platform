@@ -47,6 +47,10 @@ class SecuritySettings(BaseModel):
         max_length=160,
     )
     require_export_confirmation: bool = True
+    require_engagement_for_new_investigations: bool = False
+    warn_on_out_of_scope_targets: bool = True
+    block_out_of_scope_targets: bool = False
+    require_approved_authorization: bool = False
 
 
 class RetentionSettings(BaseModel):

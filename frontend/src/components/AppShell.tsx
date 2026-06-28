@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bookmark,
   BrainCircuit,
+  BriefcaseBusiness,
   BookOpenCheck,
   Clock3,
   Handshake,
@@ -76,6 +77,7 @@ const topNav: NavigationItem[] = [
     feature: "enable_collaboration",
   },
   { label: "Investigations", to: "/investigations", icon: ShieldCheck },
+  { label: "Engagements", to: "/engagements", icon: BriefcaseBusiness },
   {
     label: "Evidence Intelligence",
     to: "/evidence-intelligence",

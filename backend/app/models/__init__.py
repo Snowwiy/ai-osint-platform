@@ -3,6 +3,11 @@ from app.models.admin_settings import AdminSettings
 from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.case_review import CaseReview
+from app.models.engagement import (
+    AuthorizationEvidence,
+    Engagement,
+    EngagementScopeItem,
+)
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -55,6 +60,9 @@ __all__ = [
     "AuditLog",
     "Base",
     "CaseReview",
+    "AuthorizationEvidence",
+    "Engagement",
+    "EngagementScopeItem",
     "Finding",
     "FindingEvidence",
     "FindingTag",

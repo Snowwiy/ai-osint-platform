@@ -9,6 +9,8 @@
 - No external SSO, billing, or managed cloud deployment.
 - No external paid threat feeds are required or bundled.
 - No cloud deployment implementation is included in the release candidate.
+- Hosting and DNS configuration remain deferred until after platform
+  finalization.
 
 ## Authentication And User Governance
 
@@ -21,6 +23,21 @@ The current platform role model remains intentionally small: admin and analyst
 at the platform level, with viewer-style access handled through investigation
 membership. External SSO/OAuth and Supabase Auth migration are intentionally not
 included.
+
+## Engagement And Scope Governance
+
+Engagements are lightweight governance records for client metadata,
+authorization status, approved scope items, and authorization evidence
+references. They are not billing records, tenant boundaries, a hosted client
+portal, or legal document storage.
+
+Scope checks are deterministic and local. They support exact values, conservative
+domain/subdomain matching, exact IP matching, and CIDR matching. They do not
+perform DNS resolution, active probing, crawling, scanning, or external
+enrichment. Unknown values are marked pending review by default.
+
+Out-of-scope handling is warning-first unless an operator explicitly enables a
+blocking governance policy.
 
 ## Provider Availability
 

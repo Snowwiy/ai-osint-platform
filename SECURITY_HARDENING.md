@@ -62,6 +62,20 @@ Review Admin Settings for:
 
 Disabled features should return clean errors and hide UI actions where possible.
 
+## Engagement Scope Governance
+
+- Record engagement metadata before client-facing work where possible.
+- Store authorization evidence as metadata or references unless a governed file
+  storage workflow has been approved.
+- Treat `pending_review`, `expired`, `revoked`, and `not_provided`
+  authorization states as requiring analyst or owner review.
+- Out-of-scope target warnings are advisory by default unless governance policy
+  is configured to block them.
+- Scope matching is deterministic and local. It does not perform DNS lookups,
+  active probing, crawling, scanning, or external enrichment.
+- Do not log contracts, passwords, API keys, tokens, or raw invite codes in
+  engagement notes, scope metadata, authorization references, or audit fields.
+
 ## Audit Practices
 
 Review audit logs for:
@@ -72,6 +86,7 @@ Review audit logs for:
 - Feature flag changes
 - User registration and approval actions
 - User disable/reactivate and role changes
+- Engagement, scope, and authorization evidence changes
 - Backup exports
 - Restore validations
 - Report downloads

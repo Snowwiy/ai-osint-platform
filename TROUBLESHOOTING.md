@@ -102,6 +102,22 @@ and apply `alembic upgrade head` before changing code.
 - Empty audit results are valid and should render an empty state.
 - Audit metadata should be displayed safely and never include secrets.
 
+## Engagement Or Scope Issues
+
+- Existing investigations do not require an engagement. Link one from the
+  investigation edit dialog when client context or report scope metadata is
+  needed.
+- If a target shows an out-of-scope or pending-review warning, open the linked
+  Engagements page and confirm the scope item exists with `in_scope` status.
+- CIDR matching is local and deterministic. Confirm the scope item is stored as
+  a CIDR value such as `192.0.2.0/24`.
+- Authorization statuses such as `not_provided`, `pending_review`, `expired`,
+  and `revoked` are intentionally visible in the workspace and reports.
+- Scope checks do not perform DNS lookups, active probing, crawling, or external
+  enrichment.
+- If target creation is blocked, review governance settings for
+  `BLOCK_OUT_OF_SCOPE_TARGETS` or approved-authorization enforcement.
+
 ## Frontend Build Or Layout Problems
 
 - Confirm `frontend/.env` points to the expected API base URL.

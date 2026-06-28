@@ -43,6 +43,7 @@ import {
   decideCaseReview,
   generateInvestigationSummary,
   getCorrelations,
+  getEngagement,
   getExecutiveInvestigationSummary,
   getInvestigation,
   getInvestigationAnalytics,
@@ -55,6 +56,9 @@ import {
   getTimeline,
   listFindings,
   listBookmarks,
+  listAuthorizationEvidence,
+  listEngagementScopeItems,
+  listEngagements,
   listInvestigationMembers,
   listPlaybookRuns,
   listNotes,
@@ -76,6 +80,9 @@ import { useAuth } from "../lib/useAuth";
 import type {
   CountItem,
   CaseReviewResponse,
+  AuthorizationEvidence,
+  Engagement,
+  EngagementScopeItem,
   EvidenceCompletenessResponse,
   ExecutiveInvestigationSummaryResponse,
   Finding,
@@ -183,6 +190,26 @@ export function InvestigationDetailPage(): JSX.Element {
   const availableTags = useQuery({
     queryKey: ["tags"],
     queryFn: listTags,
+  });
+  const engagementOptions = useQuery({
+    queryKey: ["engagements", false],
+    queryFn: () => listEngagements(false),
+  });
+  const linkedEngagementId = investigation.data?.engagement_id ?? "";
+  const linkedEngagement = useQuery({
+    queryKey: ["engagement", linkedEngagementId],
+    queryFn: () => getEngagement(linkedEngagementId),
+    enabled: Boolean(linkedEngagementId),
+  });
+  const linkedEngagementScope = useQuery({
+    queryKey: ["engagement-scope", linkedEngagementId],
+    queryFn: () => listEngagementScopeItems(linkedEngagementId),
+    enabled: Boolean(linkedEngagementId),
+  });
+  const linkedAuthorizationEvidence = useQuery({
+    queryKey: ["engagement-authorization", linkedEngagementId],
+    queryFn: () => listAuthorizationEvidence(linkedEngagementId),
+    enabled: Boolean(linkedEngagementId),
   });
 
   const updateMutation = useMutation({
@@ -563,6 +590,20 @@ export function InvestigationDetailPage(): JSX.Element {
         />
       </div>
 
+      {item ? (
+        <ScopeAuthorizationPanel
+          investigation={item}
+          engagement={linkedEngagement.data}
+          scopeItems={linkedEngagementScope.data ?? []}
+          authorizationEvidence={linkedAuthorizationEvidence.data ?? []}
+          isLoading={
+            linkedEngagement.isLoading ||
+            linkedEngagementScope.isLoading ||
+            linkedAuthorizationEvidence.isLoading
+          }
+        />
+      ) : null}
+
       <CaseReviewPanel
         review={caseReview.data}
         completeness={completeness.data}
@@ -724,6 +765,7 @@ export function InvestigationDetailPage(): JSX.Element {
       {item && isEditing ? (
         <InvestigationEditModal
           investigation={item}
+          engagementOptions={engagementOptions.data?.items ?? []}
           error={updateMutation.error?.message}
           isSaving={updateMutation.isPending}
           onClose={() => {
@@ -758,6 +800,142 @@ export function InvestigationDetailPage(): JSX.Element {
         />
       ) : null}
     </>
+  );
+}
+
+function ScopeAuthorizationPanel({
+  investigation,
+  engagement,
+  scopeItems,
+  authorizationEvidence,
+  isLoading,
+}: {
+  investigation: Investigation;
+  engagement: Engagement | undefined;
+  scopeItems: EngagementScopeItem[];
+  authorizationEvidence: AuthorizationEvidence[];
+  isLoading: boolean;
+}): JSX.Element {
+  const inScope = scopeItems.filter((item) => item.status === "in_scope").length;
+  const pending = scopeItems.filter((item) => item.status === "pending_review").length;
+  const outOfScope = scopeItems.filter((item) => item.status === "out_of_scope").length;
+  const hasAuthorizationConcern =
+    engagement?.authorization_status === "not_provided" ||
+    engagement?.authorization_status === "expired" ||
+    engagement?.authorization_status === "revoked" ||
+    engagement?.authorization_status === "pending_review";
+
+  return (
+    <section className="mt-6 rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-raven-cyan">
+            Scope governance
+          </p>
+          <h2 className="mt-1 text-lg font-semibold">
+            Scope and authorization
+          </h2>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-raven-muted">
+            Engagement metadata documents authorized scope, client context, and
+            defensive-use approval without requiring old investigations to be
+            migrated immediately.
+          </p>
+        </div>
+        <Link
+          to={engagement ? `/engagements?selected=${engagement.id}` : "/engagements"}
+          className="rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet"
+        >
+          {engagement ? "Open engagement" : "Manage engagements"}
+        </Link>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-raven-muted">Loading scope metadata.</p>
+      ) : engagement ? (
+        <>
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <ScopeMetric label="Client" value={engagement.client_name} />
+            <ScopeMetric
+              label="Authorization"
+              value={formatLabel(engagement.authorization_status)}
+            />
+            <ScopeMetric
+              label="Investigation scope"
+              value={formatLabel(investigation.scope_review_status)}
+            />
+            <ScopeMetric label="Approved scope" value={`${inScope}`} />
+            <ScopeMetric label="Pending / out" value={`${pending} / ${outOfScope}`} />
+          </div>
+
+          {hasAuthorizationConcern ? (
+            <div className="mt-4 rounded-md border border-amber-300/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+              Authorization is {formatLabel(engagement.authorization_status)}.
+              Confirm approval before expanding targets or publishing client-ready
+              deliverables.
+            </div>
+          ) : null}
+          {investigation.scope_notes ? (
+            <p className="mt-4 break-words text-sm leading-6 text-raven-muted">
+              {investigation.scope_notes}
+            </p>
+          ) : null}
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
+              <p className="text-sm font-semibold">Scope items</p>
+              {scopeItems.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {scopeItems.slice(0, 8).map((item) => (
+                    <span
+                      key={item.id}
+                      className="max-w-full rounded border border-raven-border px-2 py-1 text-xs text-raven-muted"
+                      title={item.value}
+                    >
+                      {formatLabel(item.scope_type)}:{" "}
+                      <span className="break-all">{item.value}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-raven-muted">
+                  No scope items are stored for this engagement yet.
+                </p>
+              )}
+            </div>
+            <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
+              <p className="text-sm font-semibold">Authorization references</p>
+              {authorizationEvidence.length ? (
+                <ul className="mt-3 space-y-2 text-sm text-raven-muted">
+                  {authorizationEvidence.slice(0, 4).map((evidence) => (
+                    <li key={evidence.id} className="break-words">
+                      {evidence.title} ({formatLabel(evidence.evidence_type)})
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-raven-muted">
+                  No authorization metadata has been recorded yet.
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft p-4 text-sm text-raven-muted">
+          This investigation is not linked to an engagement. Existing cases remain
+          usable, but linking an engagement adds client context, approved scope, and
+          authorization status to reports and target review.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ScopeMetric({ label, value }: { label: string; value: string }): JSX.Element {
+  return (
+    <div className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-3">
+      <p className="text-xs uppercase tracking-wide text-raven-muted">{label}</p>
+      <p className="mt-2 break-words text-sm font-medium">{value}</p>
+    </div>
   );
 }
 

@@ -33,6 +33,9 @@ workflow, governance, reporting, and auditability.
   log, and operations center
 - Public registration controls, admin account approval, user status management,
   and last-active-admin safeguards
+- Engagement scope governance with client metadata, authorization status,
+  approved scope items, authorization evidence references, and advisory
+  out-of-scope warnings
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 
@@ -53,7 +56,7 @@ Recommended 10-minute flow:
 1. Login
 2. Open dashboard and health posture
 3. Open `[DEMO] Authorized External Exposure Review`
-4. Review targets and passive recon evidence
+4. Review the linked demo engagement, approved scope, and passive recon evidence
 5. Review deterministic findings
 6. Review correlations Cards, Graph, and Table
 7. Review IOCs, Evidence Intelligence, and Threat Intelligence
@@ -134,6 +137,8 @@ docker compose logs backend --tail=100
 - No active scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
 - No cloud deployment implementation is included
+- Engagement records are governance metadata only; they are not tenant
+  isolation, billing, hosted client portal access, or legal document storage
 - No external paid threat feeds are required or bundled
 - Demo data is synthetic
 - Local setup assumes Docker Compose, PostgreSQL, Redis, and frontend commands

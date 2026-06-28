@@ -26,6 +26,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - React/Vite/TypeScript frontend with a RavenTech dark analyst workspace
 - JWT authentication, RBAC, investigation membership, and admin controls
 - Config-gated user registration, approval workflow, and admin user governance
+- Engagement records with client metadata, authorization status, approved scope,
+  and advisory out-of-scope target warnings
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -104,6 +106,19 @@ pending accounts, reject registrations, disable or reactivate users, and change
 safe platform roles. The backend prevents disabling or demoting the last active
 administrator.
 
+## Engagement Scope Governance
+
+Engagements document client or organization context, authorization status,
+approved scope items, and authorization evidence metadata. Investigations can
+optionally link to an engagement. Linked cases surface scope review status in
+the workspace, warn analysts when a target is not clearly in scope, and include
+safe scope/authorization context in generated reports.
+
+This is a lightweight governance layer, not multi-tenant SaaS, billing, hosting,
+or a client portal. Unknown scope is treated conservatively as pending review.
+No DNS lookup, active probing, crawling, or external enrichment is performed by
+scope matching.
+
 ## Validation Commands
 
 ```powershell
@@ -165,6 +180,8 @@ Recommended portfolio screenshots:
 - Passive recon only; no active scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
 - No cloud deployment implementation, billing, SSO, or external ticketing
+- Engagement governance is metadata and advisory by default; operators must
+  still validate written authorization and scope policy
 - No external paid threat feed requirement
 - Demo data is synthetic and should not be interpreted as real compromise data
 

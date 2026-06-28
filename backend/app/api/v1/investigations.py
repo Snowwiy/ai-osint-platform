@@ -25,6 +25,8 @@ from app.schemas.investigation import (
 from app.schemas.recon import EntityType, RelationshipType
 from app.services.investigation import (
     ForbiddenError,
+    EngagementLinkNotFoundError,
+    EngagementStateConflictError,
     InvestigationNotFoundError,
     InvestigationPurgeConflictError,
     InvalidWorkflowTransitionError,
@@ -61,7 +63,12 @@ async def create_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Investigation:
-    return await create_investigation(db, current_user, body)
+    try:
+        return await create_investigation(db, current_user, body)
+    except EngagementLinkNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Engagement not found") from exc
+    except EngagementStateConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/", response_model=InvestigationListResponse)
@@ -142,6 +149,10 @@ async def update_endpoint(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except MemberValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except EngagementLinkNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Engagement not found") from exc
+    except EngagementStateConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.patch("/{investigation_id}/status", response_model=InvestigationResponse)

@@ -109,6 +109,128 @@ export interface RegisterResponse {
   message: string;
 }
 
+export type EngagementStatus = "draft" | "active" | "completed" | "archived";
+export type AuthorizationStatus =
+  | "not_provided"
+  | "pending_review"
+  | "approved"
+  | "expired"
+  | "revoked";
+export type ScopeType =
+  | "domain"
+  | "subdomain"
+  | "ip"
+  | "cidr"
+  | "email"
+  | "username"
+  | "organization"
+  | "other";
+export type ScopeStatus = "in_scope" | "out_of_scope" | "pending_review";
+export type ScopeReviewStatus =
+  | "not_reviewed"
+  | "in_scope"
+  | "out_of_scope"
+  | "pending_review";
+export type AuthorizationEvidenceType =
+  | "contract"
+  | "email_approval"
+  | "statement_of_work"
+  | "internal_authorization"
+  | "other";
+
+export interface Engagement {
+  id: string;
+  title: string;
+  client_name: string;
+  client_contact: string | null;
+  description: string | null;
+  status: EngagementStatus;
+  authorization_status: AuthorizationStatus;
+  start_date: string | null;
+  end_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  linked_investigations_count: number;
+  scope_counts: Record<ScopeStatus, number>;
+}
+
+export interface EngagementListResponse {
+  total: number;
+  items: Engagement[];
+}
+
+export interface EngagementCreateRequest {
+  title: string;
+  client_name: string;
+  client_contact?: string | null;
+  description?: string | null;
+  status?: EngagementStatus;
+  authorization_status?: AuthorizationStatus;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+export type EngagementUpdateRequest = Partial<EngagementCreateRequest>;
+
+export interface EngagementScopeItem {
+  id: string;
+  engagement_id: string;
+  scope_type: ScopeType;
+  value: string;
+  description: string | null;
+  status: ScopeStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EngagementScopeItemCreateRequest {
+  scope_type: ScopeType;
+  value: string;
+  description?: string | null;
+  status?: ScopeStatus;
+}
+
+export type EngagementScopeItemUpdateRequest =
+  Partial<EngagementScopeItemCreateRequest>;
+
+export interface AuthorizationEvidence {
+  id: string;
+  engagement_id: string;
+  title: string;
+  description: string | null;
+  evidence_type: AuthorizationEvidenceType;
+  reference: string | null;
+  status: AuthorizationStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthorizationEvidenceCreateRequest {
+  title: string;
+  description?: string | null;
+  evidence_type: AuthorizationEvidenceType;
+  reference?: string | null;
+  status?: AuthorizationStatus;
+}
+
+export type AuthorizationEvidenceUpdateRequest =
+  Partial<AuthorizationEvidenceCreateRequest>;
+
+export interface ScopeCheckRequest {
+  value: string;
+  scope_type?: ScopeType | null;
+}
+
+export interface ScopeCheckResponse {
+  status: ScopeStatus;
+  matched_scope_item: EngagementScopeItem | null;
+  warning: string;
+  recommended_action: string;
+}
+
 export interface AuditLogEntry {
   id: number;
   actor_id: string | null;
@@ -157,6 +279,10 @@ export interface GeneralSettings {
 export interface SecuritySettings {
   classification_banner: string;
   require_export_confirmation: boolean;
+  require_engagement_for_new_investigations: boolean;
+  warn_on_out_of_scope_targets: boolean;
+  block_out_of_scope_targets: boolean;
+  require_approved_authorization: boolean;
 }
 
 export interface RetentionSettings {
@@ -383,8 +509,11 @@ export interface Investigation {
   stage: InvestigationStage;
   owner_id: string;
   reviewer_id: string | null;
+  engagement_id: string | null;
   authorization_statement: string;
   scope_definition: string | null;
+  scope_review_status: ScopeReviewStatus;
+  scope_notes: string | null;
   priority: InvestigationPriority;
   business_impact: string | null;
   due_date: string | null;
@@ -606,6 +735,9 @@ export interface InvestigationCreateRequest {
   authorization_statement: string;
   scope_definition?: string | null;
   reviewer_id?: string | null;
+  engagement_id?: string | null;
+  scope_review_status?: ScopeReviewStatus;
+  scope_notes?: string | null;
 }
 
 export interface InvestigationUpdateRequest {
@@ -613,6 +745,9 @@ export interface InvestigationUpdateRequest {
   description?: string | null;
   status?: InvestigationStatus;
   scope_definition?: string | null;
+  engagement_id?: string | null;
+  scope_review_status?: ScopeReviewStatus;
+  scope_notes?: string | null;
 }
 
 export interface CollaborationUser {

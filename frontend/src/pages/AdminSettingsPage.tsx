@@ -319,7 +319,63 @@ export function AdminSettingsPage(): JSX.Element {
                 })
               }
             />
+            <ToggleField
+              label="Require engagement for new investigations"
+              checked={draft.security.require_engagement_for_new_investigations}
+              onChange={(require_engagement_for_new_investigations) =>
+                setDraft({
+                  ...draft,
+                  security: {
+                    ...draft.security,
+                    require_engagement_for_new_investigations,
+                  },
+                })
+              }
+            />
+            <ToggleField
+              label="Warn on out-of-scope targets"
+              checked={draft.security.warn_on_out_of_scope_targets}
+              onChange={(warn_on_out_of_scope_targets) =>
+                setDraft({
+                  ...draft,
+                  security: {
+                    ...draft.security,
+                    warn_on_out_of_scope_targets,
+                  },
+                })
+              }
+            />
+            <ToggleField
+              label="Block out-of-scope targets"
+              checked={draft.security.block_out_of_scope_targets}
+              onChange={(block_out_of_scope_targets) =>
+                setDraft({
+                  ...draft,
+                  security: {
+                    ...draft.security,
+                    block_out_of_scope_targets,
+                  },
+                })
+              }
+            />
+            <ToggleField
+              label="Require approved authorization"
+              checked={draft.security.require_approved_authorization}
+              onChange={(require_approved_authorization) =>
+                setDraft({
+                  ...draft,
+                  security: {
+                    ...draft.security,
+                    require_approved_authorization,
+                  },
+                })
+              }
+            />
           </div>
+          <p className="mt-3 text-xs leading-5 text-raven-muted">
+            Engagement controls are governance safeguards. The default posture is
+            warn-first so existing investigations and demo data remain usable.
+          </p>
           <h3 className="mb-3 mt-5 text-sm font-semibold text-raven-text">
             Audit policy
           </h3>
@@ -346,7 +402,7 @@ export function AdminSettingsPage(): JSX.Element {
         <SettingsSection
           icon={Archive}
           title="Data retention"
-          description="Policies eark data as archive-eligible. Destructive deletion is disabled."
+          description="Policies mark data as archive-eligible. Destructive deletion is disabled."
         >
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(

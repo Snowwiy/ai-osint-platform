@@ -41,6 +41,13 @@ class Investigation(Base, TimestampMixin):
             name="ck_investigations_stage",
         ),
         Index("idx_investigations_stage", "stage"),
+        Index("idx_investigations_engagement", "engagement_id"),
+        CheckConstraint(
+            "scope_review_status IN ("
+            "'not_reviewed', 'in_scope', 'out_of_scope', 'pending_review'"
+            ")",
+            name="ck_investigations_scope_review_status",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -61,6 +68,11 @@ class Investigation(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    engagement_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("engagements.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
@@ -75,6 +87,13 @@ class Investigation(Base, TimestampMixin):
     )
     authorization_statement: Mapped[str] = mapped_column(Text, nullable=False)
     scope_definition: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scope_review_status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="not_reviewed",
+        server_default="not_reviewed",
+    )
+    scope_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     priority: Mapped[str] = mapped_column(
         String(10),
         nullable=False,

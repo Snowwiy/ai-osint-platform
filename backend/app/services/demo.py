@@ -7,6 +7,11 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.engagement import (
+    AuthorizationEvidence,
+    Engagement,
+    EngagementScopeItem,
+)
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -88,6 +93,10 @@ DEMO_RELATIONSHIP_DOMAIN_SERVICE_ID = uuid.UUID(
 DEMO_RELATIONSHIP_SERVICE_TECH_ID = uuid.UUID(
     "70000000-0000-4000-8000-000000000030"
 )
+DEMO_ENGAGEMENT_ID = uuid.UUID("70000000-0000-4000-8000-000000000031")
+DEMO_SCOPE_DOMAIN_ID = uuid.UUID("70000000-0000-4000-8000-000000000032")
+DEMO_SCOPE_IP_ID = uuid.UUID("70000000-0000-4000-8000-000000000033")
+DEMO_AUTH_EVIDENCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000034")
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -172,6 +181,7 @@ async def ensure_demo_workspace(
     user: User,
 ) -> Investigation:
     now = datetime.now(UTC)
+    await _ensure_demo_engagement(db, user, now)
     investigation = await db.get(Investigation, DEMO_INVESTIGATION_ID)
     if investigation is None:
         investigation = Investigation(
@@ -183,6 +193,7 @@ async def ensure_demo_workspace(
                 "organization or compromise."
             ),
             owner_id=user.id,
+            engagement_id=DEMO_ENGAGEMENT_ID,
             status="active",
             stage="analysis",
             authorization_statement=(
@@ -195,6 +206,11 @@ async def ensure_demo_workspace(
                 "192.0.2.10 only."
             ),
             priority="high",
+            scope_review_status="in_scope",
+            scope_notes=(
+                "Synthetic demo engagement scope includes the reserved demo "
+                "domain and TEST-NET address used by this case."
+            ),
             business_impact=(
                 "Demonstrates evidence review, remediation ownership, and reporting "
                 "without making a compromise claim."
@@ -211,6 +227,12 @@ async def ensure_demo_workspace(
             "remediation ownership, and client-ready reporting without live access."
         )
         investigation.stage = "analysis"
+        investigation.engagement_id = DEMO_ENGAGEMENT_ID
+        investigation.scope_review_status = "in_scope"
+        investigation.scope_notes = (
+            "Synthetic demo engagement scope includes the reserved demo "
+            "domain and TEST-NET address used by this case."
+        )
         investigation.business_impact = (
             "The observed configuration may increase operational exposure if "
             "ownership and defensive controls are not documented. This synthetic "
@@ -238,6 +260,16 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(AuthorizationEvidence).where(
+            AuthorizationEvidence.id == DEMO_AUTH_EVIDENCE_ID
+        )
+    )
+    await db.execute(
+        delete(EngagementScopeItem).where(
+            EngagementScopeItem.id.in_([DEMO_SCOPE_DOMAIN_ID, DEMO_SCOPE_IP_ID])
+        )
+    )
     await db.execute(
         delete(ThreatGroupCampaign).where(
             ThreatGroupCampaign.id == DEMO_GROUP_CAMPAIGN_LINK_ID
@@ -285,6 +317,7 @@ async def _delete_demo_records(db: AsyncSession) -> None:
     await db.execute(
         delete(Investigation).where(Investigation.id == DEMO_INVESTIGATION_ID)
     )
+    await db.execute(delete(Engagement).where(Engagement.id == DEMO_ENGAGEMENT_ID))
     await db.flush()
 
 
@@ -304,11 +337,83 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (KnowledgeDocument, DEMO_KNOWLEDGE_DOCUMENT_ID),
         (IOC, DEMO_IOC_ID),
         (ThreatCampaign, DEMO_CAMPAIGN_ID),
+        (Engagement, DEMO_ENGAGEMENT_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
             return False
     return True
+
+
+async def _ensure_demo_engagement(
+    db: AsyncSession,
+    user: User,
+    now: datetime,
+) -> None:
+    engagement = await db.get(Engagement, DEMO_ENGAGEMENT_ID)
+    if engagement is None:
+        db.add(
+            Engagement(
+                id=DEMO_ENGAGEMENT_ID,
+                title="[DEMO] Client Authorization Review",
+                client_name="[DEMO] Example Client",
+                client_contact="demo-approver@example.invalid",
+                description=(
+                    "Synthetic engagement metadata for demonstration only. "
+                    "No real client, authorization record, or compromise is "
+                    "represented."
+                ),
+                status="active",
+                authorization_status="approved",
+                start_date=now.date(),
+                end_date=(now + timedelta(days=30)).date(),
+                created_by=user.id,
+            )
+        )
+    else:
+        engagement.status = "active"
+        engagement.authorization_status = "approved"
+        db.add(engagement)
+    if await db.get(EngagementScopeItem, DEMO_SCOPE_DOMAIN_ID) is None:
+        db.add(
+            EngagementScopeItem(
+                id=DEMO_SCOPE_DOMAIN_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                scope_type="domain",
+                value="demo.raventech.invalid",
+                description="Reserved synthetic demo domain.",
+                status="in_scope",
+                created_by=user.id,
+            )
+        )
+    if await db.get(EngagementScopeItem, DEMO_SCOPE_IP_ID) is None:
+        db.add(
+            EngagementScopeItem(
+                id=DEMO_SCOPE_IP_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                scope_type="cidr",
+                value="192.0.2.0/24",
+                description="TEST-NET-1 documentation range for demo evidence.",
+                status="in_scope",
+                created_by=user.id,
+            )
+        )
+    if await db.get(AuthorizationEvidence, DEMO_AUTH_EVIDENCE_ID) is None:
+        db.add(
+            AuthorizationEvidence(
+                id=DEMO_AUTH_EVIDENCE_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                title="[DEMO] Internal Defensive Assessment Approval",
+                description=(
+                    "Metadata only. Represents synthetic approval for demo "
+                    "workspace review."
+                ),
+                evidence_type="internal_authorization",
+                reference="demo://authorization/internal-review",
+                status="approved",
+                created_by=user.id,
+            )
+        )
 
 
 async def _ensure_member(db: AsyncSession, user: User) -> None:

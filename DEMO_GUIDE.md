@@ -25,6 +25,7 @@ Admin Settings. Enabling the feature creates an idempotent synthetic workspace
 containing:
 
 - one clearly labeled demo investigation
+- one clearly labeled demo engagement with approved synthetic scope
 - reserved `.invalid` and TEST-NET target identifiers
 - passive recon entities
 - one evidence-backed defensive finding
@@ -43,7 +44,8 @@ The dataset makes no live network requests and no compromise claims.
 2. Open **Admin > Demo Checklist** and review platform health.
 3. Enable **Defensive demo mode** in **Admin > Settings** if required.
 4. Prepare and open the synthetic demo investigation.
-5. Review its scope, authorization, passive recon entities, and finding.
+5. Review its linked engagement, approved scope, authorization metadata,
+   passive recon entities, and finding.
 6. Show remediation ownership and defensive playbook progress.
 7. Generate a report using the template suited to the audience.
 8. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
@@ -81,6 +83,8 @@ Before presenting, walk through these quick checks:
 
 - Use only the bundled synthetic investigation for public demonstrations.
 - Do not enter customer targets without written authorization.
+- Use Engagements to show client context, authorization status, approved scope,
+  and conservative out-of-scope warnings.
 - Keep provider API keys empty unless the demonstration explicitly requires a
   configured provider.
 - Do not enable demo mode in production.

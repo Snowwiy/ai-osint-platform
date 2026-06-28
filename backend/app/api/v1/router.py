@@ -10,6 +10,7 @@ from app.api.v1 import (
     case_management,
     case_review,
     collaboration,
+    engagements,
     findings,
     intelligence,
     investigations,
@@ -36,6 +37,7 @@ api_router.include_router(auth.router)
 api_router.include_router(case_review.router)
 api_router.include_router(case_management.router)
 api_router.include_router(collaboration.router)
+api_router.include_router(engagements.router)
 api_router.include_router(users.router)
 api_router.include_router(findings.router)
 api_router.include_router(intelligence.router)

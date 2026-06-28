@@ -7,6 +7,7 @@ import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import {
+  checkEngagementScope,
   createTarget,
   getInvestigation,
   listTargets,
@@ -37,6 +38,7 @@ export function TargetsPage(): JSX.Element {
   const [targetValue, setTargetValue] = useState("");
   const [authorizationStatement, setAuthorizationStatement] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [scopeWarning, setScopeWarning] = useState<string | null>(null);
   const [reconResults, setReconResults] = useState<Record<string, ReconState>>({});
 
   const investigation = useQuery({
@@ -59,6 +61,7 @@ export function TargetsPage(): JSX.Element {
       setTargetValue("");
       setAuthorizationStatement("");
       setValidationError(null);
+      setScopeWarning(null);
       await queryClient.invalidateQueries({ queryKey: ["targets", investigationId] });
     },
   });
@@ -115,7 +118,7 @@ export function TargetsPage(): JSX.Element {
     [targetItems],
   );
 
-  function handleCreate(event: FormEvent<HTMLFormElement>): void {
+  async function handleCreate(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (!hasValidTarget) {
       setValidationError("Enter a domain, IP address, or URL before adding a target.");
@@ -128,6 +131,26 @@ export function TargetsPage(): JSX.Element {
       return;
     }
     setValidationError(null);
+    setScopeWarning(null);
+    const engagementId = investigation.data?.engagement_id;
+    if (engagementId) {
+      try {
+        const result = await checkEngagementScope(engagementId, {
+          value: cleanTarget,
+          scope_type:
+            targetType === "domain" || targetType === "ip" ? targetType : undefined,
+        });
+        if (result.status !== "in_scope") {
+          setScopeWarning(result.warning);
+        }
+      } catch (error) {
+        setScopeWarning(
+          error instanceof Error
+            ? `Scope check unavailable: ${error.message}`
+            : "Scope check is unavailable. Review engagement scope manually.",
+        );
+      }
+    }
     createMutation.mutate({
       investigation_id: investigationId,
       target_type: targetType,
@@ -181,6 +204,7 @@ export function TargetsPage(): JSX.Element {
                 onChange={(event) => {
                   setTargetValue(event.target.value);
                   setValidationError(null);
+                  setScopeWarning(null);
                 }}
                 placeholder={targetPlaceholder(targetType)}
                 className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
@@ -227,6 +251,12 @@ export function TargetsPage(): JSX.Element {
             {validationError ?? createMutation.error?.message ? (
               <div className="rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
                 {validationError ?? createMutation.error?.message}
+              </div>
+            ) : null}
+
+            {scopeWarning ? (
+              <div className="rounded-md border border-amber-300/30 bg-amber-400/10 p-3 text-sm leading-6 text-amber-100">
+                {scopeWarning}
               </div>
             ) : null}
 

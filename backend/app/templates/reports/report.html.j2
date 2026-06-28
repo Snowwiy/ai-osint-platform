@@ -185,8 +185,58 @@
 
   {% if "scope" in context.enabled_sections or "authorization" in context.enabled_sections %}
   <h2>Scope and Authorization</h2>
+  <p><strong>Engagement:</strong> {{ context.engagement.title if context.engagement else "Not linked to an engagement." }}</p>
+  <p><strong>Client:</strong> {{ context.engagement.client_name if context.engagement else "Not linked" }}</p>
+  <p><strong>Engagement authorization status:</strong> {{ context.engagement.authorization_status if context.engagement else "not_provided" }}</p>
   <p><strong>Authorization:</strong> {{ context.investigation.authorization_statement }}</p>
   <p><strong>Scope:</strong> {{ context.investigation.scope_definition or "No scope note provided." }}</p>
+  <p><strong>Investigation scope review:</strong> {{ context.investigation.scope_review_status }}</p>
+  <p><strong>Scope notes:</strong> {{ context.investigation.scope_notes or "No scope review notes stored." }}</p>
+  {% if context.engagement_scope %}
+  <table>
+    <thead>
+      <tr>
+        <th>Scope Type</th>
+        <th>Value</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in context.engagement_scope[:20] %}
+      <tr>
+        <td>{{ item.scope_type }}</td>
+        <td>{{ item.value }}</td>
+        <td>{{ item.status }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No engagement scope items are stored.</p>
+  {% endif %}
+  <h3>Authorization Evidence Metadata</h3>
+  {% if context.authorization_evidence %}
+  <table>
+    <thead>
+      <tr>
+        <th>Evidence Type</th>
+        <th>Title</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for item in context.authorization_evidence[:10] %}
+      <tr>
+        <td>{{ item.evidence_type }}</td>
+        <td>{{ item.title }}</td>
+        <td>{{ item.status }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No authorization evidence metadata is stored.</p>
+  {% endif %}
   {% endif %}
 
   {% if "appendix" in context.enabled_sections %}
