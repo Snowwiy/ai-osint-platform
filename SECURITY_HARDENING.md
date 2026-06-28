@@ -101,6 +101,7 @@ Review audit logs for:
 - User disable/reactivate and role changes
 - Engagement, scope, and authorization evidence changes
 - Closure, checklist, deliverable, and package manifest actions
+- Notification creation, read, dismiss, and workflow alert rebuild actions
 - Backup exports
 - Restore validations
 - Report downloads
@@ -138,6 +139,15 @@ Logs should not include:
 - Expose the backend only through approved internal routes.
 - Restrict frontend CORS to known origins.
 - Do not add active scanning or offensive capabilities.
+
+## Internal Notifications
+
+- Notifications are database-backed activity records only.
+- Do not store passwords, tokens, invite codes, API keys, or legal document
+  contents in notification metadata.
+- Workflow alerts should use deterministic dedupe keys to avoid repeated noise.
+- Notification visibility must remain user-scoped and investigation-aware.
+- This release does not send email, SMS, browser push, or chat messages.
 
 ## Operational Review
 

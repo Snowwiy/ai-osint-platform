@@ -51,6 +51,7 @@ from app.services.investigation import (
     ensure_investigation_permission,
     get_investigation,
 )
+from app.services.notification import notify_report_approval_pending
 from app.services.report import get_report
 
 
@@ -275,6 +276,13 @@ async def submit_report_approval(
         resource_type="report",
         resource_id=report.id,
         investigation_id=report.investigation_id,
+    )
+    await notify_report_approval_pending(
+        db,
+        actor_user_id=user.id,
+        investigation_id=report.investigation_id,
+        report_id=report.id,
+        report_title=report.title or f"{report.report_type} report",
     )
     return _report_approval_response(report)
 

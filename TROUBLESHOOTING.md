@@ -133,6 +133,20 @@ and apply `alembic upgrade head` before changing code.
 - If closure metadata is missing from a report, regenerate the report after
   closure and deliverable records are created.
 
+## Activity Inbox Issues
+
+- Activity Inbox is internal only. It does not send email, SMS, browser push, or
+  chat notifications.
+- If unread counts look stale, refresh the inbox or dashboard. Workflow alerts
+  are deduplicated, so rebuilding alerts should not create repeated copies.
+- If an admin does not see pending user approval alerts, open Admin → Users and
+  confirm pending accounts exist, then use the workflow alert rebuild endpoint
+  if needed.
+- If an action link is unavailable, open the related module manually. The alert
+  should still remain readable and dismissible.
+- Notification errors should show concise copy with optional technical details,
+  not raw endpoint dumps in normal UI.
+
 ## Frontend Build Or Layout Problems
 
 - Confirm `frontend/.env` points to the expected API base URL.

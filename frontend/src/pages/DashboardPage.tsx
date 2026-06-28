@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertTriangle,
+  Bell,
   CheckCircle2,
   Clock3,
   FileText,
@@ -26,6 +27,7 @@ import {
   getDashboardHighlights,
   getDashboardTriage,
   getExecutiveDashboard,
+  getNotificationUnreadCount,
   setInvestigationPinned,
 } from "../lib/api";
 import {
@@ -159,6 +161,12 @@ export function DashboardPage(): JSX.Element {
     queryFn: getExecutiveDashboard,
     staleTime: 30_000,
   });
+  const notifications = useQuery({
+    queryKey: ["dashboard-notifications"],
+    queryFn: getNotificationUnreadCount,
+    staleTime: 30_000,
+    retry: 1,
+  });
   const pinMutation = useMutation({
     mutationFn: ({
       investigationId,
@@ -208,6 +216,7 @@ export function DashboardPage(): JSX.Element {
               void triage.refetch();
               void highlights.refetch();
               void executive.refetch();
+              void notifications.refetch();
             }}
             disabled={overview.isFetching || triage.isFetching}
             className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet disabled:opacity-60"
@@ -230,10 +239,11 @@ export function DashboardPage(): JSX.Element {
           <QuickLink to="/operations/queue" label="Investigation queue" />
           <QuickLink to="/operations/analysts" label="Analyst workload" />
           <QuickLink to="/operations/timeline" label="Global timeline" />
+          <QuickLink to="/notifications" label="Activity inbox" />
         </nav>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-7">
         <StatCard
           label="Active investigations"
           value={data.investigations.active}
@@ -269,6 +279,12 @@ export function DashboardPage(): JSX.Element {
           value={`${data.remediation.completion_percent}%`}
           detail={`${data.remediation.blocked_tasks} blocked`}
           icon={<CheckCircle2 className="h-5 w-5" aria-hidden="true" />}
+        />
+        <StatCard
+          label="Inbox"
+          value={notifications.data?.unread ?? 0}
+          detail="Workflow alerts"
+          icon={<Bell className="h-5 w-5" aria-hidden="true" />}
         />
       </div>
 

@@ -11,6 +11,8 @@
 - No cloud deployment implementation is included in the release candidate.
 - Hosting and DNS configuration remain deferred until after platform
   finalization.
+- Notifications are internal Activity Inbox records only. Email, SMS, browser
+  push, and chat integrations are not included.
 
 ## Authentication And User Governance
 
@@ -49,6 +51,13 @@ Evidence package manifests summarize stored evidence, findings, reports,
 authorization status, and warnings. They do not duplicate all raw report files
 or create external storage. Analysts remain responsible for final client
 handoff review.
+
+## Notifications
+
+The Notification Center is designed for internal workflow visibility. It stores
+alerts for approvals, assignments, reports, closure, scope, and governance in
+the database. It does not deliver messages outside the application, and it is
+not a replacement for an enterprise incident-management or ticketing platform.
 
 ## Provider Availability
 

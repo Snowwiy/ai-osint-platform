@@ -55,6 +55,21 @@
       reports.
 - [ ] Closure and deliverable actions appear in audit and timeline views.
 
+## Notifications And Activity Inbox
+
+- [ ] Notification bell appears only after login.
+- [ ] Unread count updates after marking an alert read.
+- [ ] Activity Inbox loads with clear loading, empty, and error states.
+- [ ] Filters by status, severity, and alert type work.
+- [ ] Dismiss action works without raw endpoint errors.
+- [ ] Mark all read updates unread count.
+- [ ] Admin pending user approval alert links to Admin → Users.
+- [ ] Closure review, report ready, deliverable ready, scope warning, and
+      governance demo alerts appear after demo seed.
+- [ ] Notification audit events appear for create, read, dismiss, and mark all
+      read actions.
+- [ ] No email, SMS, browser push, or chat delivery is implied in the UI.
+
 ## Governance And Audit
 
 - [ ] Admin Settings loads for administrators only.

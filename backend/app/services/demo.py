@@ -29,6 +29,7 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.notification import Notification
 from app.models.playbook import PlaybookRun, PlaybookRunStep
 from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
@@ -108,6 +109,11 @@ DEMO_CLOSURE_CHECK_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000037")
 DEMO_EXEC_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000038")
 DEMO_TECH_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000039")
 DEMO_PACKAGE_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000040")
+DEMO_NOTIFICATION_REVIEW_ID = uuid.UUID("70000000-0000-4000-8000-000000000041")
+DEMO_NOTIFICATION_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000042")
+DEMO_NOTIFICATION_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000043")
+DEMO_NOTIFICATION_PACKAGE_ID = uuid.UUID("70000000-0000-4000-8000-000000000044")
+DEMO_NOTIFICATION_GOVERNANCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000045")
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -265,6 +271,7 @@ async def ensure_demo_workspace(
     await _ensure_playbook_run(db, user)
     await _ensure_report(db, user, now)
     await _ensure_closure(db, user, now)
+    await _ensure_notifications(db, user, now)
     await _ensure_knowledge(db)
     await _ensure_workflow_event(db, user)
     await db.flush()
@@ -272,6 +279,19 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(Notification).where(
+            Notification.id.in_(
+                [
+                    DEMO_NOTIFICATION_REVIEW_ID,
+                    DEMO_NOTIFICATION_REPORT_ID,
+                    DEMO_NOTIFICATION_SCOPE_ID,
+                    DEMO_NOTIFICATION_PACKAGE_ID,
+                    DEMO_NOTIFICATION_GOVERNANCE_ID,
+                ]
+            )
+        )
+    )
     await db.execute(
         delete(CaseDeliverable).where(
             CaseDeliverable.id.in_(
@@ -371,6 +391,7 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (Engagement, DEMO_ENGAGEMENT_ID),
         (CaseClosure, DEMO_CLOSURE_ID),
         (CaseDeliverable, DEMO_EXEC_DELIVERABLE_ID),
+        (Notification, DEMO_NOTIFICATION_REVIEW_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
@@ -1036,6 +1057,94 @@ async def _ensure_closure(db: AsyncSession, user: User, now: datetime) -> None:
                     created_by=user.id,
                 )
             )
+
+
+async def _ensure_notifications(db: AsyncSession, user: User, now: datetime) -> None:
+    notifications = (
+        (
+            DEMO_NOTIFICATION_REVIEW_ID,
+            "closure_review_pending",
+            "warning",
+            "[DEMO] Closure review is ready",
+            "Synthetic closure checklist and deliverables are ready for analyst review.",
+            "case_closure",
+            DEMO_CLOSURE_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+        ),
+        (
+            DEMO_NOTIFICATION_REPORT_ID,
+            "report_ready",
+            "success",
+            "[DEMO] Executive report is ready",
+            "A synthetic executive defensive report is ready for export review.",
+            "report",
+            DEMO_REPORT_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/reports",
+        ),
+        (
+            DEMO_NOTIFICATION_SCOPE_ID,
+            "scope_warning",
+            "warning",
+            "[DEMO] Scope review reminder",
+            "Review engagement scope before adding new targets to this demo case.",
+            "engagement",
+            DEMO_ENGAGEMENT_ID,
+            f"/engagements?selected={DEMO_ENGAGEMENT_ID}",
+        ),
+        (
+            DEMO_NOTIFICATION_PACKAGE_ID,
+            "evidence_package_ready",
+            "info",
+            "[DEMO] Evidence package manifest ready",
+            "The synthetic evidence package manifest is ready for final handoff review.",
+            "case_deliverable",
+            DEMO_PACKAGE_DELIVERABLE_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+        ),
+        (
+            DEMO_NOTIFICATION_GOVERNANCE_ID,
+            "governance_warning",
+            "info",
+            "[DEMO] Governance controls available",
+            "Use audit, scope, and authorization records to explain defensive governance.",
+            "investigation",
+            DEMO_INVESTIGATION_ID,
+            "/admin/audit",
+        ),
+    )
+    for (
+        notification_id,
+        notification_type,
+        severity,
+        title,
+        message,
+        entity_type,
+        entity_id,
+        action_url,
+    ) in notifications:
+        if await db.get(Notification, notification_id) is not None:
+            continue
+        db.add(
+            Notification(
+                id=notification_id,
+                user_id=user.id,
+                actor_user_id=user.id,
+                investigation_id=DEMO_INVESTIGATION_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                notification_type=notification_type,
+                severity=severity,
+                title=title,
+                message=message,
+                action_url=action_url,
+                status="unread",
+                event_metadata={"demo": True, "synthetic": True},
+                dedupe_key=f"demo:{notification_id}",
+                created_at=now,
+                updated_at=now,
+            )
+        )
 
 
 async def _ensure_knowledge(db: AsyncSession) -> None:

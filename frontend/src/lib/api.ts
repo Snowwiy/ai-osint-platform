@@ -110,6 +110,11 @@ import type {
   IOCListResponse,
   IOCType,
   FrameworkKnowledgeResponse,
+  NotificationActionResponse,
+  NotificationFilters,
+  NotificationListResponse,
+  NotificationMarkAllReadResponse,
+  NotificationUnreadCountResponse,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -841,6 +846,63 @@ export async function updateAdminUserRole(
   return request<AdminUserActionResponse>(`/admin/users/${userId}/role`, {
     method: "PATCH",
     body: JSON.stringify({ role }),
+  });
+}
+
+export async function listNotifications(
+  filters: NotificationFilters = {},
+): Promise<NotificationListResponse> {
+  const params = new URLSearchParams();
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+  if (filters.severity) {
+    params.set("severity", filters.severity);
+  }
+  if (filters.notification_type) {
+    params.set("notification_type", filters.notification_type);
+  }
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) {
+    params.set("engagement_id", filters.engagement_id);
+  }
+  if (typeof filters.limit === "number") {
+    params.set("limit", String(filters.limit));
+  }
+  if (typeof filters.offset === "number") {
+    params.set("offset", String(filters.offset));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<NotificationListResponse>(`/notifications${suffix}`);
+}
+
+export async function getNotificationUnreadCount(): Promise<NotificationUnreadCountResponse> {
+  return request<NotificationUnreadCountResponse>("/notifications/unread-count");
+}
+
+export async function markNotificationRead(
+  notificationId: string,
+): Promise<NotificationActionResponse> {
+  return request<NotificationActionResponse>(
+    `/notifications/${notificationId}/read`,
+    { method: "PATCH" },
+  );
+}
+
+export async function dismissNotification(
+  notificationId: string,
+): Promise<NotificationActionResponse> {
+  return request<NotificationActionResponse>(
+    `/notifications/${notificationId}/dismiss`,
+    { method: "PATCH" },
+  );
+}
+
+export async function markAllNotificationsRead(): Promise<NotificationMarkAllReadResponse> {
+  return request<NotificationMarkAllReadResponse>("/notifications/mark-all-read", {
+    method: "POST",
   });
 }
 

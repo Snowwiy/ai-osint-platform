@@ -37,6 +37,7 @@ from app.services.investigation import (
     get_membership,
     get_investigation,
 )
+from app.services.notification import notify_finding_assigned
 
 
 class FindingNotFoundError(Exception):
@@ -239,6 +240,15 @@ async def assign_finding(
             resource_id=finding.id,
             investigation_id=finding.investigation_id,
             metadata={"assigned_to": str(body.assigned_to)},
+        )
+        await notify_finding_assigned(
+            db,
+            actor_user_id=user.id,
+            assigned_to=body.assigned_to,
+            investigation_id=finding.investigation_id,
+            finding_id=finding.id,
+            finding_title=finding.title,
+            severity=finding.severity,
         )
     if body.reviewed_by is not None:
         await record_event(

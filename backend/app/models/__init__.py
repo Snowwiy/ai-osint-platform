@@ -31,6 +31,7 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.notification import Notification
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -95,6 +96,7 @@ __all__ = [
     "PlaybookStep",
     "KnowledgeChunk",
     "KnowledgeDocument",
+    "Notification",
     "ReconEntity",
     "ReconRelationship",
     "Report",

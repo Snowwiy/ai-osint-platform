@@ -29,6 +29,7 @@ from app.schemas.engagement import (
     ScopeItemUpdate,
 )
 from app.services.audit import record_event
+from app.services.notification import notify_scope_warning
 
 MUTATION_PLATFORM_ROLES = frozenset({"admin", "analyst"})
 
@@ -462,6 +463,13 @@ async def check_scope_value(
                     str(result.matched_item.id) if result.matched_item else None
                 ),
             },
+        )
+        await notify_scope_warning(
+            db,
+            actor_user_id=user.id,
+            engagement_id=engagement_id,
+            value=value,
+            status=result.status,
         )
     return ScopeCheckResponse(
         status=cast(Any, result.status),

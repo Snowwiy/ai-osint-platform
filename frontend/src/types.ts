@@ -10,6 +10,8 @@ export type InvestigationStatus =
 export type InvestigationPriority = "low" | "medium" | "high" | "urgent";
 export type PlatformUserRole = "admin" | "analyst";
 export type AccountStatus = "active" | "pending" | "disabled" | "rejected";
+export type NotificationSeverity = "info" | "success" | "warning" | "critical";
+export type NotificationStatus = "unread" | "read" | "dismissed" | "archived";
 export type InvestigationStage =
   | "intake"
   | "scoping"
@@ -107,6 +109,61 @@ export interface RegisterResponse {
   is_active: boolean;
   account_status: "active" | "pending";
   message: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string | null;
+  actor_user_id: string | null;
+  investigation_id: string | null;
+  engagement_id: string | null;
+  entity_type: string;
+  entity_id: string | null;
+  notification_type: string;
+  severity: NotificationSeverity | string;
+  title: string;
+  message: string;
+  action_url: string | null;
+  status: NotificationStatus | string;
+  created_at: string;
+  updated_at: string;
+  read_at: string | null;
+  dismissed_at: string | null;
+  expires_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface NotificationListResponse {
+  total: number;
+  unread: number;
+  limit: number;
+  offset: number;
+  items: NotificationItem[];
+}
+
+export interface NotificationUnreadCountResponse {
+  unread: number;
+}
+
+export interface NotificationActionResponse {
+  notification: NotificationItem;
+  message: string;
+}
+
+export interface NotificationMarkAllReadResponse {
+  updated: number;
+  unread: number;
+  message: string;
+}
+
+export interface NotificationFilters {
+  status?: NotificationStatus | "";
+  severity?: NotificationSeverity | "";
+  notification_type?: string;
+  investigation_id?: string;
+  engagement_id?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export type EngagementStatus = "draft" | "active" | "completed" | "archived";

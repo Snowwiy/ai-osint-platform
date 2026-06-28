@@ -38,6 +38,9 @@ workflow, governance, reporting, and auditability.
   out-of-scope warnings
 - Case closure workflow with deterministic final checklist, final risk rating,
   client deliverable tracking, evidence package manifest, and closure audit trail
+- Internal Notification Center and Activity Inbox for workflow alerts, pending
+  approvals, assigned work, closure blockers, report readiness, scope warnings,
+  and governance reminders
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 
@@ -47,6 +50,10 @@ This release candidate intentionally excludes active scanning, exploitation,
 payload generation, malware handling, autonomous agents, internet-wide
 enumeration, billing, SSO, external integrations, and cloud deployment
 implementation.
+
+Notifications in this release are internal database-backed workflow alerts only.
+Email, SMS, browser push, Slack, Discord, Teams, and third-party notification
+delivery are intentionally not included.
 
 The platform should be presented as a defensive intelligence and investigation
 workspace, not as an offensive testing platform.
@@ -65,9 +72,10 @@ Recommended 10-minute flow:
 8. Open AI Analysis fallback or live analysis if configured
 9. Review remediation tasks and defensive playbooks
 10. Open Case Closure and review deliverables/evidence package readiness
-11. Generate an executive report
-12. Download PDF, DOCX, HTML, and Markdown
-13. Open audit, governance, demo checklist, and operations center
+11. Open Activity Inbox and mark one demo workflow alert as read
+12. Generate an executive report
+13. Download PDF, DOCX, HTML, and Markdown
+14. Open audit, governance, demo checklist, and operations center
 
 See `PORTFOLIO_DEMO_FLOW.md` for presenter notes.
 
@@ -145,6 +153,8 @@ docker compose logs backend --tail=100
   storage.
 - Case deliverables are tracked as metadata and manifest records; no external
   file storage, hosting, or client delivery portal is included.
+- Notifications are internal-only records; no email, SMS, push, or chat
+  integrations are included.
 - No external paid threat feeds are required or bundled
 - Demo data is synthetic
 - Local setup assumes Docker Compose, PostgreSQL, Redis, and frontend commands

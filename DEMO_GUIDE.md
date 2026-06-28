@@ -33,6 +33,8 @@ containing:
 - one defensive playbook run
 - one sample report
 - closure checklist and client deliverables package metadata
+- sample internal Activity Inbox notifications for review, scope, report, and
+  governance workflows
 - one local knowledge reference
 - sample IOC and threat intelligence records
 - analyst notes, bookmarks, and evidence-chain metadata
@@ -50,10 +52,12 @@ The dataset makes no live network requests and no compromise claims.
 6. Show remediation ownership and defensive playbook progress.
 7. Open **Closure** and review the checklist, deliverables, and evidence package
    readiness.
-8. Generate a report using the template suited to the audience.
-9. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
-10. Search the local defensive knowledge library.
-11. Show the audit trail and explain that demo records are clearly labeled.
+8. Open **Activity Inbox** and show internal alerts for pending review, report
+   readiness, scope reminders, and governance actions.
+9. Generate a report using the template suited to the audience.
+10. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
+11. Search the local defensive knowledge library.
+12. Show the audit trail and explain that demo records are clearly labeled.
 
 ## V1 10-Minute Portfolio Flow
 
@@ -66,8 +70,9 @@ The dataset makes no live network requests and no compromise claims.
 7. **Review defensive intelligence:** Show MITRE, Sigma, coverage, and guidance.
 8. **Create remediation/playbook:** Assign analyst-owned next steps.
 9. **Prepare closure:** Show final checklist, deliverables, and package manifest.
-10. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
-11. **Governance close:** Show audit log, settings, feature flags, and exports.
+10. **Review Activity Inbox:** Show pending workflow alerts and mark one read.
+11. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
+12. **Governance close:** Show audit log, settings, feature flags, and exports.
 
 ## Release Candidate Stability Demo Pass
 
@@ -93,6 +98,8 @@ Before presenting, walk through these quick checks:
   configured provider.
 - Do not enable demo mode in production.
 - Review report export and redaction controls before downloading files.
+- Use Activity Inbox for internal workflow visibility only. No email, SMS, push,
+  or external chat delivery is part of the demo.
 
 ## Common Local Issues
 

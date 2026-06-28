@@ -40,6 +40,7 @@ from app.services.governance import (
     update_feature_flags,
     update_retention,
 )
+from app.services.notification import notify_user_approved
 from app.services.qa import get_qa_status
 from app.services.user import (
     UnsafeUserChangeError,
@@ -428,6 +429,8 @@ async def _status_action_response(
         action=action,
         metadata={"old_status": old_status, "new_status": new_status},
     )
+    if action == "user.approved":
+        await notify_user_approved(db, approved_user=user, actor_user_id=actor.id)
     return UserAdminActionResponse(
         user=UserResponse.model_validate(user),
         message=_status_message(action_name, user.account_status),

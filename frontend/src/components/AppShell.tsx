@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  Bell,
   Bookmark,
   BrainCircuit,
   BriefcaseBusiness,
@@ -29,6 +30,7 @@ import { NavLink, Outlet, useParams } from "react-router-dom";
 import { getBackendHealth, getFeatureAvailability } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
 import type { FeatureFlagSettings, HealthResponse } from "../types";
+import { NotificationBell } from "./NotificationBell";
 
 interface NavigationItem {
   label: string;
@@ -92,6 +94,7 @@ const topNav: NavigationItem[] = [
     feature: "enable_report_exports",
   },
   { label: "Knowledge", to: "/knowledge", icon: Search },
+  { label: "Inbox", to: "/notifications", icon: Bell },
 ];
 
 const investigationNav: InvestigationNavigationItem[] = [
@@ -225,8 +228,13 @@ export function AppShell(): JSX.Element {
             }
             onRetry={() => void health.refetch()}
           />
-          <p className="truncate text-sm font-medium">{user?.username}</p>
-          <p className="text-xs text-raven-muted">{user?.role}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user?.username}</p>
+              <p className="text-xs text-raven-muted">{user?.role}</p>
+            </div>
+            <NotificationBell />
+          </div>
           <button
             type="button"
             onClick={() => void logout()}
@@ -247,13 +255,16 @@ export function AppShell(): JSX.Element {
                 Defensive Intelligence & Threat Investigation Workspace
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-md border border-raven-border p-2 text-raven-muted"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-            </button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-md border border-raven-border p-2 text-raven-muted"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {visibleTopNav.map((item) => (

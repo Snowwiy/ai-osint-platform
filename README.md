@@ -30,6 +30,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
   and advisory out-of-scope target warnings
 - Case closure workflow with final review checklist, deliverable tracking,
   evidence package manifest, and residual-risk handoff summary
+- Internal Notification Center and Activity Inbox for approvals, assignments,
+  closure blockers, scope warnings, report readiness, and governance alerts
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -133,6 +135,17 @@ Closure is analyst-driven. Required blockers prevent normal closure unless an
 owner or administrator records an override reason. Closure, deliverable, and
 package actions are audit logged and included in generated reports.
 
+## Notification Center
+
+The Activity Inbox surfaces internal workflow alerts for pending user approvals,
+assigned work, report approvals, case closure review, deliverable readiness,
+scope warnings, and governance reminders. Notifications are stored in the
+application database, scoped to authorized users, and audit logged when created,
+read, dismissed, or rebuilt.
+
+No email, SMS, browser push, Slack, Discord, Teams, or third-party delivery is
+included in this release candidate.
+
 ## Validation Commands
 
 ```powershell
@@ -187,13 +200,15 @@ Recommended portfolio screenshots:
 - Findings, correlations, IOC intelligence, and threat intelligence
 - AI fallback with citations
 - Reports and export actions
-- Review board, governance settings, audit log, and operations center
+- Activity Inbox, review board, governance settings, audit log, and operations
+  center
 
 ## Known Limitations
 
 - Passive recon only; no active scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
 - No cloud deployment implementation, billing, SSO, or external ticketing
+- Internal notifications only; no email, SMS, push, or chat integrations
 - Engagement governance is metadata and advisory by default; operators must
   still validate written authorization and scope policy
 - No external paid threat feed requirement

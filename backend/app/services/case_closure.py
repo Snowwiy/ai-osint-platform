@@ -53,6 +53,13 @@ from app.services.investigation import (
     ensure_investigation_permission,
     get_investigation,
 )
+from app.services.notification import (
+    notify_case_closed,
+    notify_case_reopened,
+    notify_closure_approved,
+    notify_closure_submitted,
+    notify_deliverable_ready,
+)
 
 
 class CaseClosureValidationError(Exception):
@@ -214,6 +221,12 @@ async def submit_case_closure_review(
         investigation_id=investigation.id,
         metadata={"status": closure.status},
     )
+    await notify_closure_submitted(
+        db,
+        actor_user_id=user.id,
+        investigation_id=investigation.id,
+        closure_id=closure.id,
+    )
     return await get_case_closure(db, user, investigation_id)
 
 
@@ -247,6 +260,12 @@ async def approve_case_closure(
         resource_type="case_closure",
         resource_id=closure.id,
         investigation_id=investigation.id,
+    )
+    await notify_closure_approved(
+        db,
+        actor_user_id=user.id,
+        investigation_id=investigation.id,
+        closure_id=closure.id,
     )
     return await get_case_closure(db, user, investigation_id)
 
@@ -317,6 +336,12 @@ async def close_case_closure(
             investigation_id=investigation.id,
             metadata={"override_reason": body.override_reason},
         )
+    await notify_case_closed(
+        db,
+        actor_user_id=user.id,
+        investigation_id=investigation.id,
+        closure_id=closure.id,
+    )
     return await get_case_closure(db, user, investigation_id)
 
 
@@ -350,6 +375,12 @@ async def reopen_case_closure(
         resource_type="case_closure",
         resource_id=closure.id,
         investigation_id=investigation.id,
+    )
+    await notify_case_reopened(
+        db,
+        actor_user_id=user.id,
+        investigation_id=investigation.id,
+        closure_id=closure.id,
     )
     return await get_case_closure(db, user, investigation_id)
 
@@ -469,6 +500,15 @@ async def create_case_deliverable(
             "status": deliverable.status,
         },
     )
+    if deliverable.status == "ready":
+        await notify_deliverable_ready(
+            db,
+            actor_user_id=user.id,
+            investigation_id=investigation_id,
+            deliverable_id=deliverable.id,
+            title=deliverable.title,
+            deliverable_type=deliverable.deliverable_type,
+        )
     return _deliverable_response(deliverable)
 
 
@@ -514,6 +554,15 @@ async def update_case_deliverable(
             "deliverable_type": deliverable.deliverable_type,
         },
     )
+    if previous_status != "ready" and deliverable.status == "ready":
+        await notify_deliverable_ready(
+            db,
+            actor_user_id=user.id,
+            investigation_id=investigation_id,
+            deliverable_id=deliverable.id,
+            title=deliverable.title,
+            deliverable_type=deliverable.deliverable_type,
+        )
     return _deliverable_response(deliverable)
 
 
@@ -598,6 +647,15 @@ async def create_case_package_manifest(
             "missing": [item for item in missing],
         },
     )
+    if package.status == "ready":
+        await notify_deliverable_ready(
+            db,
+            actor_user_id=user.id,
+            investigation_id=investigation_id,
+            deliverable_id=package.id,
+            title=package.title,
+            deliverable_type=package.deliverable_type,
+        )
     return CasePackageManifestResponse(
         package_id=package.id,
         investigation_id=investigation.id,

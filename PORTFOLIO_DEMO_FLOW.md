@@ -106,6 +106,15 @@ audit policy, and demo readiness. Sensitive values are never printed."
 
 Proves: enterprise controls, auditability, release-candidate supportability.
 
+Optional click: Activity Inbox.
+
+Say: "Workflow alerts stay internal to the platform. Analysts and admins can
+see pending approvals, closure blockers, deliverable readiness, scope warnings,
+and governance reminders without relying on email or chat integrations."
+
+Proves: operational accountability, internal notification history, no external
+delivery dependency.
+
 ## Defensive Scope Explanation
 
 Use this phrase if asked about offensive capability:

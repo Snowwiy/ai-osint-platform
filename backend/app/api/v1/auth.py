@@ -46,6 +46,7 @@ from app.services.auth import (
     registration_policy,
     refresh_tokens,
 )
+from app.services.notification import notify_user_registered
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -173,6 +174,9 @@ async def register_endpoint(
             "invite_code_required": bool(settings.REGISTRATION_INVITE_CODE.strip()),
         },
     )
+    registered_user = await db.get(User, response.id)
+    if registered_user is not None:
+        await notify_user_registered(db, registered_user=registered_user)
     return response
 
 

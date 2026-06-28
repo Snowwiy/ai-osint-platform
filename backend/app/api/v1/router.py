@@ -17,6 +17,7 @@ from app.api.v1 import (
     investigations,
     iocs,
     knowledge,
+    notifications,
     operations,
     playbooks,
     productivity,
@@ -47,6 +48,7 @@ api_router.include_router(operations.router)
 api_router.include_router(investigations.router)
 api_router.include_router(iocs.router)
 api_router.include_router(knowledge.router)
+api_router.include_router(notifications.router)
 api_router.include_router(playbooks.router)
 api_router.include_router(productivity.router)
 api_router.include_router(targets.router)

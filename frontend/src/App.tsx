@@ -26,6 +26,7 @@ import { KnowledgeSearchPage } from "./pages/KnowledgeSearchPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MembersPage } from "./pages/MembersPage";
 import { NotesPage } from "./pages/NotesPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { OperationsCenterPage } from "./pages/OperationsCenterPage";
 import { OperationsQueuePage } from "./pages/OperationsQueuePage";
 import { PlaybooksPage } from "./pages/PlaybooksPage";
@@ -119,6 +120,7 @@ const router = createBrowserRouter([
           { path: "threat-intelligence", element: <ThreatIntelligencePage /> },
           { path: "knowledge", element: <KnowledgeSearchPage /> },
           { path: "review-board", element: <ReviewBoardPage /> },
+          { path: "notifications", element: <NotificationsPage /> },
           {
             path: "investigations/:investigationId",
             children: [
