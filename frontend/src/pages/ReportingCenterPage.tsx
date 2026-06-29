@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { ReportStatusBadge } from "../components/ReportStatusBadge";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
@@ -314,6 +315,18 @@ export function ReportingCenterPage(): JSX.Element {
           onToast={setToast}
         />
       ) : null}
+
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="reports"
+          route="/reports"
+          filters={filters}
+          onApply={(view) => {
+            setFilters(normalizeReportFilters(view.filters));
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
 
       <section className="mb-5 min-w-0 overflow-hidden rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <h2 className="font-semibold">Generate reports</h2>
@@ -1273,6 +1286,40 @@ async function invalidateReportingCenter(
     queryClient.invalidateQueries({ queryKey: ["report-templates"] }),
     queryClient.invalidateQueries({ queryKey: ["reports"] }),
   ]);
+}
+
+function normalizeReportFilters(
+  value: Record<string, unknown>,
+): ReportingCenterFilters {
+  const next: ReportingCenterFilters = { sort: "newest", limit: 100 };
+  if (typeof value.report_type === "string" && reportTypes.includes(value.report_type as ReportType)) {
+    next.report_type = value.report_type as ReportType;
+  }
+  if (typeof value.status === "string" && reportStatuses.includes(value.status as ReportStatus)) {
+    next.status = value.status as ReportStatus;
+  }
+  if (typeof value.format === "string" && formats.includes(value.format as ReportFormat)) {
+    next.format = value.format as ReportFormat;
+  }
+  if (typeof value.investigation_id === "string") {
+    next.investigation_id = value.investigation_id;
+  }
+  if (typeof value.generated_by === "string") {
+    next.generated_by = value.generated_by;
+  }
+  if (typeof value.archived === "boolean") {
+    next.archived = value.archived;
+  }
+  if (typeof value.start_date === "string") {
+    next.start_date = value.start_date;
+  }
+  if (typeof value.end_date === "string") {
+    next.end_date = value.end_date;
+  }
+  if (typeof value.sort === "string" && sortOptions.includes(value.sort as ReportSort)) {
+    next.sort = value.sort as ReportSort;
+  }
+  return next;
 }
 
 function humanize(value: string): string {

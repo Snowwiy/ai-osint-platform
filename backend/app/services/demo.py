@@ -34,6 +34,7 @@ from app.models.playbook import PlaybookRun, PlaybookRunStep
 from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
 from app.models.report import Report
+from app.models.saved_view import SavedView
 from app.models.target import Target
 from app.models.threat_workspace import (
     ThreatCampaign,
@@ -114,6 +115,13 @@ DEMO_NOTIFICATION_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000042")
 DEMO_NOTIFICATION_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000043")
 DEMO_NOTIFICATION_PACKAGE_ID = uuid.UUID("70000000-0000-4000-8000-000000000044")
 DEMO_NOTIFICATION_GOVERNANCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000045")
+DEMO_SAVED_VIEW_HIGH_RISK_ID = uuid.UUID("70000000-0000-4000-8000-000000000046")
+DEMO_SAVED_VIEW_CLOSURE_ID = uuid.UUID("70000000-0000-4000-8000-000000000047")
+DEMO_SAVED_VIEW_REPORTS_ID = uuid.UUID("70000000-0000-4000-8000-000000000048")
+DEMO_SAVED_VIEW_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000049")
+DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID = uuid.UUID(
+    "70000000-0000-4000-8000-000000000050"
+)
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -272,6 +280,7 @@ async def ensure_demo_workspace(
     await _ensure_report(db, user, now)
     await _ensure_closure(db, user, now)
     await _ensure_notifications(db, user, now)
+    await _ensure_saved_views(db, user, now)
     await _ensure_knowledge(db)
     await _ensure_workflow_event(db, user)
     await db.flush()
@@ -279,6 +288,19 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(SavedView).where(
+            SavedView.id.in_(
+                [
+                    DEMO_SAVED_VIEW_HIGH_RISK_ID,
+                    DEMO_SAVED_VIEW_CLOSURE_ID,
+                    DEMO_SAVED_VIEW_REPORTS_ID,
+                    DEMO_SAVED_VIEW_SCOPE_ID,
+                    DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID,
+                ]
+            )
+        )
+    )
     await db.execute(
         delete(Notification).where(
             Notification.id.in_(
@@ -392,6 +414,7 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (CaseClosure, DEMO_CLOSURE_ID),
         (CaseDeliverable, DEMO_EXEC_DELIVERABLE_ID),
         (Notification, DEMO_NOTIFICATION_REVIEW_ID),
+        (SavedView, DEMO_SAVED_VIEW_HIGH_RISK_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
@@ -1145,6 +1168,107 @@ async def _ensure_notifications(db: AsyncSession, user: User, now: datetime) -> 
                 updated_at=now,
             )
         )
+
+
+async def _ensure_saved_views(db: AsyncSession, user: User, now: datetime) -> None:
+    saved_views = (
+        (
+            DEMO_SAVED_VIEW_HIGH_RISK_ID,
+            "[DEMO] High Risk Findings",
+            "findings",
+            f"/investigations/{DEMO_INVESTIGATION_ID}/findings",
+            {
+                "severity": "high",
+                "status": "open",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_CLOSURE_ID,
+            "[DEMO] Pending Closure Reviews",
+            "closure",
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+            {
+                "status": "in_review",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_REPORTS_ID,
+            "[DEMO] Reports Ready",
+            "reports",
+            "/reports",
+            {
+                "status": "ready",
+                "report_type": "executive",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_SCOPE_ID,
+            "[DEMO] Scope Warnings",
+            "notifications",
+            "/notifications",
+            {
+                "notification_type": "scope_warning",
+                "severity": "warning",
+                "demo": True,
+            },
+            False,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID,
+            "[DEMO] My Open Investigations",
+            "investigation_list",
+            "/investigations",
+            {
+                "scope": "active",
+                "priority": "high",
+                "demo": True,
+            },
+            True,
+            True,
+        ),
+    )
+    for saved_view_id, name, view_type, route, filters, is_pinned, is_default in saved_views:
+        view = await db.get(SavedView, saved_view_id)
+        if view is None:
+            db.add(
+                SavedView(
+                    id=saved_view_id,
+                    user_id=user.id,
+                    name=name,
+                    description=(
+                        "Synthetic saved view for portfolio demonstration. "
+                        "Contains no real client or investigation data."
+                    ),
+                    view_type=view_type,
+                    route=route,
+                    filters=filters,
+                    sort={"updated": "desc"},
+                    is_pinned=is_pinned,
+                    is_default=is_default,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            continue
+        view.user_id = user.id
+        view.name = name
+        view.view_type = view_type
+        view.route = route
+        view.filters = filters
+        view.is_pinned = is_pinned
+        view.is_default = is_default
+        view.updated_at = now
+        db.add(view)
 
 
 async def _ensure_knowledge(db: AsyncSession) -> None:

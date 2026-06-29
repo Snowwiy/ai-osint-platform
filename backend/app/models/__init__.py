@@ -42,6 +42,7 @@ from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
+from app.models.saved_view import SavedView
 from app.models.scan_job import ScanJob
 from app.models.target import Target
 from app.models.threat_finding import ThreatFinding
@@ -101,6 +102,7 @@ __all__ = [
     "ReconRelationship",
     "Report",
     "ReportTemplate",
+    "SavedView",
     "ScanJob",
     "Target",
     "ThreatFinding",

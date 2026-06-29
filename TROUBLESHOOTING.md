@@ -147,6 +147,23 @@ and apply `alembic upgrade head` before changing code.
 - Notification errors should show concise copy with optional technical details,
   not raw endpoint dumps in normal UI.
 
+## Global Search And Saved Views Issues
+
+- Global Search is internal-only. It searches stored application records and
+  does not browse the internet, crawl targets, or call external search
+  providers.
+- If Global Search returns no results, confirm the record exists, is not hidden
+  by archive filters, and is accessible to the current user through RBAC or
+  investigation membership.
+- Non-admin users should not see user-management results. Admin users see only
+  safe user metadata, never password hashes or secrets.
+- If Ctrl+K does not open search, click the search control in the authenticated
+  layout and confirm the browser tab has focus.
+- If a saved view does not load expected filters, delete and recreate it after
+  clearing the page filters. Saved views store JSON-safe filter values only.
+- Saved views are private to the creating user by default. Another analyst not
+  seeing your saved view is expected behavior.
+
 ## Frontend Build Or Layout Problems
 
 - Confirm `frontend/.env` points to the expected API base URL.

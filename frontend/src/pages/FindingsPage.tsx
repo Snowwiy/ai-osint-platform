@@ -15,6 +15,7 @@ import { InvestigationTabs } from "../components/InvestigationTabs";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -312,6 +313,29 @@ export function FindingsPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="findings"
+          route={`/investigations/${investigationId}/findings`}
+          filters={{ severity, source, target, sortMode }}
+          onApply={(view) => {
+            const next = view.filters;
+            if (typeof next.severity === "string") {
+              setSeverity(next.severity as Severity | "all");
+            }
+            if (typeof next.source === "string") {
+              setSource(next.source);
+            }
+            if (typeof next.target === "string") {
+              setTarget(next.target);
+            }
+            if (next.sortMode === "newest" || next.sortMode === "severity") {
+              setSortMode(next.sortMode);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
       <DetectionCoveragePanel
         data={coverage.data}
         isLoading={coverage.isLoading}

@@ -12,6 +12,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
@@ -175,6 +176,40 @@ export function NotificationsPage(): JSX.Element {
       {toast ? (
         <ToastBanner toast={toast} onDismiss={() => setToast(null)} />
       ) : null}
+
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="notifications"
+          route="/notifications"
+          filters={filters}
+          onApply={(view) => {
+            const next = view.filters;
+            const nextFilters: NotificationFilters = {
+              status:
+                typeof next.status === "string"
+                  ? (next.status as NotificationStatus)
+                  : "",
+              severity:
+                typeof next.severity === "string"
+                  ? (next.severity as NotificationSeverity)
+                  : "",
+              notification_type:
+                typeof next.notification_type === "string"
+                  ? next.notification_type
+                  : "",
+              limit: 50,
+              offset: 0,
+            };
+            setFilters(nextFilters);
+            setForm({
+              status: String(nextFilters.status ?? ""),
+              severity: String(nextFilters.severity ?? ""),
+              notification_type: nextFilters.notification_type ?? "",
+            });
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
 
       <section className="mb-6 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

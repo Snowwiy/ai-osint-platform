@@ -41,6 +41,8 @@ workflow, governance, reporting, and auditability.
 - Internal Notification Center and Activity Inbox for workflow alerts, pending
   approvals, assigned work, closure blockers, report readiness, scope warnings,
   and governance reminders
+- RBAC-aware internal Global Search, private Saved Views, dashboard Quick Access,
+  and pinned analyst navigation shortcuts
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 
@@ -54,6 +56,10 @@ implementation.
 Notifications in this release are internal database-backed workflow alerts only.
 Email, SMS, browser push, Slack, Discord, Teams, and third-party notification
 delivery are intentionally not included.
+
+Global Search in this release is internal-only and database-backed. It does not
+use external search providers, crawl targets, or perform internet-wide
+enumeration.
 
 The platform should be presented as a defensive intelligence and investigation
 workspace, not as an offensive testing platform.
@@ -73,9 +79,10 @@ Recommended 10-minute flow:
 9. Review remediation tasks and defensive playbooks
 10. Open Case Closure and review deliverables/evidence package readiness
 11. Open Activity Inbox and mark one demo workflow alert as read
-12. Generate an executive report
-13. Download PDF, DOCX, HTML, and Markdown
-14. Open audit, governance, demo checklist, and operations center
+12. Use Ctrl+K Global Search and open a pinned saved view from Quick Access
+13. Generate an executive report
+14. Download PDF, DOCX, HTML, and Markdown
+15. Open audit, governance, demo checklist, and operations center
 
 See `PORTFOLIO_DEMO_FLOW.md` for presenter notes.
 
@@ -155,6 +162,10 @@ docker compose logs backend --tail=100
   file storage, hosting, or client delivery portal is included.
 - Notifications are internal-only records; no email, SMS, push, or chat
   integrations are included.
+- Global Search is internal-only; no external search provider, crawling, or
+  internet-wide discovery is included.
+- Saved Views are user-specific filter shortcuts and must not be used to store
+  credentials, tokens, API keys, invite codes, or secrets.
 - No external paid threat feeds are required or bundled
 - Demo data is synthetic
 - Local setup assumes Docker Compose, PostgreSQL, Redis, and frontend commands

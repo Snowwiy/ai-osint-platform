@@ -115,6 +115,16 @@ and governance reminders without relying on email or chat integrations."
 Proves: operational accountability, internal notification history, no external
 delivery dependency.
 
+Optional click: Ctrl+K Global Search, then Dashboard Quick Access.
+
+Say: "Analysts can jump across authorized investigations, reports, findings,
+engagements, IOCs, and notifications without leaving the app. Search is
+RBAC-aware, internal-only, and saved views are private analyst shortcuts rather
+than external search infrastructure."
+
+Proves: analyst productivity, permission-aware navigation, saved filter reuse,
+no crawling or external search provider dependency.
+
 ## Defensive Scope Explanation
 
 Use this phrase if asked about offensive capability:

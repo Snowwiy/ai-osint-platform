@@ -28,6 +28,7 @@ import {
   getDashboardTriage,
   getExecutiveDashboard,
   getNotificationUnreadCount,
+  listSavedViews,
   setInvestigationPinned,
 } from "../lib/api";
 import {
@@ -40,6 +41,7 @@ import type {
   DashboardOperationsInvestigation,
   ExecutiveDashboardResponse,
   OperationsSignal,
+  SavedView,
   Severity,
 } from "../types";
 
@@ -167,6 +169,12 @@ export function DashboardPage(): JSX.Element {
     staleTime: 30_000,
     retry: 1,
   });
+  const pinnedViews = useQuery({
+    queryKey: ["saved-views", "dashboard-pinned"],
+    queryFn: () => listSavedViews({ pinned: true }),
+    staleTime: 30_000,
+    retry: 1,
+  });
   const pinMutation = useMutation({
     mutationFn: ({
       investigationId,
@@ -217,6 +225,7 @@ export function DashboardPage(): JSX.Element {
               void highlights.refetch();
               void executive.refetch();
               void notifications.refetch();
+              void pinnedViews.refetch();
             }}
             disabled={overview.isFetching || triage.isFetching}
             className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-text hover:border-raven-violet disabled:opacity-60"
@@ -295,6 +304,12 @@ export function DashboardPage(): JSX.Element {
       />
 
       <QuickActions investigation={focusInvestigation} />
+
+      <QuickAccess
+        pinnedViews={pinnedViews.data?.items ?? []}
+        recentInvestigations={readRecentInvestigations()}
+        unreadCount={notifications.data?.unread ?? 0}
+      />
 
       <OperationalHighlights data={highlights.data} />
 
@@ -741,6 +756,95 @@ function ContinueWorking({
           Open an investigation and it will appear here for quick navigation.
         </p>
       )}
+    </section>
+  );
+}
+
+function QuickAccess({
+  pinnedViews,
+  recentInvestigations,
+  unreadCount,
+}: {
+  pinnedViews: SavedView[];
+  recentInvestigations: RecentInvestigation[];
+  unreadCount: number;
+}): JSX.Element {
+  const visiblePinned = safeArray(pinnedViews).slice(0, 4);
+  const visibleRecent = safeArray(recentInvestigations).slice(0, 3);
+  return (
+    <section className="mt-6 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Search className="h-5 w-5 text-raven-cyan" aria-hidden="true" />
+          <h2 className="text-lg font-semibold">Quick Access</h2>
+        </div>
+        <Link
+          to="/notifications"
+          className="rounded-full border border-raven-border px-3 py-1 text-xs text-raven-muted hover:border-raven-violet hover:text-raven-text"
+        >
+          {unreadCount} unread alerts
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">
+            Pinned saved views
+          </p>
+          {visiblePinned.length ? (
+            <div className="space-y-2">
+              {visiblePinned.map((view) => (
+                <Link
+                  key={view.id}
+                  to={view.route.startsWith("/") ? view.route : "/"}
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-raven-border bg-raven-panelSoft p-3 text-sm hover:border-raven-violet"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-raven-text">
+                      {view.name}
+                    </span>
+                    <span className="mt-1 block text-xs capitalize text-raven-muted">
+                      {String(view.view_type).replace(/_/g, " ")}
+                    </span>
+                  </span>
+                  <Pin className="h-4 w-4 flex-none text-raven-muted" aria-hidden="true" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-raven-border p-3 text-sm text-raven-muted">
+              Pin saved views from investigations, reports, engagements, findings,
+              or the activity inbox.
+            </p>
+          )}
+        </div>
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">
+            Recent investigations
+          </p>
+          {visibleRecent.length ? (
+            <div className="space-y-2">
+              {visibleRecent.map((item) => (
+                <Link
+                  key={item.id}
+                  to={`/investigations/${item.id}`}
+                  className="block min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-3 text-sm hover:border-raven-violet"
+                >
+                  <span className="block break-words font-medium text-raven-text">
+                    {item.title}
+                  </span>
+                  <span className="mt-1 block text-xs capitalize text-raven-muted">
+                    {item.stage} | {item.status}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-md border border-dashed border-raven-border p-3 text-sm text-raven-muted">
+              Open an investigation to build your recent workspace list.
+            </p>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

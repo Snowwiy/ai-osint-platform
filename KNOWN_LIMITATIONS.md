@@ -13,6 +13,8 @@
   finalization.
 - Notifications are internal Activity Inbox records only. Email, SMS, browser
   push, and chat integrations are not included.
+- Global Search is internal-only and database-backed. It does not use external
+  search providers, crawl the web, or perform internet-wide discovery.
 
 ## Authentication And User Governance
 
@@ -89,6 +91,18 @@ uses it in a training environment.
 Knowledge Search uses only locally curated and indexed content. It does not
 browse the internet. Search quality depends on the available local documents
 and their indexing state.
+
+## Global Search And Saved Views
+
+Global Search searches safe fields from accessible internal records only.
+Results depend on RBAC, investigation membership, and stored application data.
+It is not a replacement for an enterprise search appliance and intentionally
+does not index secrets, password hashes, invite codes, raw credentials,
+authorization headers, database URLs, or provider keys.
+
+Saved views store user-specific filter preferences and routes. They do not
+share filters across users by default and should not be used to store sensitive
+notes or credentials.
 
 ## Reporting
 

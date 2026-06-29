@@ -110,6 +110,8 @@ import type {
   IOCListResponse,
   IOCType,
   FrameworkKnowledgeResponse,
+  GlobalSearchFilters,
+  GlobalSearchResponse,
   NotificationActionResponse,
   NotificationFilters,
   NotificationListResponse,
@@ -146,6 +148,11 @@ import type {
   ReviewBoardResponse,
   ScopeCheckRequest,
   ScopeCheckResponse,
+  SavedView,
+  SavedViewCreateRequest,
+  SavedViewListResponse,
+  SavedViewType,
+  SavedViewUpdateRequest,
   Target,
   TargetCreateRequest,
   TargetListResponse,
@@ -902,6 +909,91 @@ export async function dismissNotification(
 
 export async function markAllNotificationsRead(): Promise<NotificationMarkAllReadResponse> {
   return request<NotificationMarkAllReadResponse>("/notifications/mark-all-read", {
+    method: "POST",
+  });
+}
+
+export async function globalSearch(
+  filters: GlobalSearchFilters = {},
+): Promise<GlobalSearchResponse> {
+  const params = new URLSearchParams();
+  if (filters.q?.trim()) {
+    params.set("q", filters.q.trim());
+  }
+  if (filters.type) {
+    params.set("type", filters.type);
+  }
+  if (typeof filters.limit === "number") {
+    params.set("limit", String(filters.limit));
+  }
+  if (typeof filters.offset === "number") {
+    params.set("offset", String(filters.offset));
+  }
+  if (filters.include_archived) {
+    params.set("include_archived", "true");
+  }
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) {
+    params.set("engagement_id", filters.engagement_id);
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<GlobalSearchResponse>(`/search${suffix}`);
+}
+
+export async function listSavedViews(filters: {
+  view_type?: SavedViewType | "";
+  pinned?: boolean;
+} = {}): Promise<SavedViewListResponse> {
+  const params = new URLSearchParams();
+  if (filters.view_type) {
+    params.set("view_type", filters.view_type);
+  }
+  if (typeof filters.pinned === "boolean") {
+    params.set("pinned", String(filters.pinned));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<SavedViewListResponse>(`/saved-views${suffix}`);
+}
+
+export async function createSavedView(
+  body: SavedViewCreateRequest,
+): Promise<SavedView> {
+  return request<SavedView>("/saved-views", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateSavedView(
+  savedViewId: string,
+  body: SavedViewUpdateRequest,
+): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteSavedView(savedViewId: string): Promise<void> {
+  return request<void>(`/saved-views/${savedViewId}`, { method: "DELETE" });
+}
+
+export async function pinSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/pin`, {
+    method: "POST",
+  });
+}
+
+export async function unpinSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/unpin`, {
+    method: "POST",
+  });
+}
+
+export async function setDefaultSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/set-default`, {
     method: "POST",
   });
 }

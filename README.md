@@ -32,6 +32,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
   evidence package manifest, and residual-risk handoff summary
 - Internal Notification Center and Activity Inbox for approvals, assignments,
   closure blockers, scope warnings, report readiness, and governance alerts
+- Internal global search, private saved views, pinned view shortcuts, and
+  quick-access navigation for analyst productivity
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -146,6 +148,19 @@ read, dismissed, or rebuilt.
 No email, SMS, browser push, Slack, Discord, Teams, or third-party delivery is
 included in this release candidate.
 
+## Global Search And Saved Views
+
+Global Search helps authenticated analysts find accessible investigations,
+engagements, findings, reports, deliverables, notifications, scope records,
+closure data, IOCs, and threat intelligence objects. Search is internal-only,
+RBAC-aware, and backed by existing PostgreSQL data. It does not crawl the web,
+query external search providers, or perform enrichment.
+
+Saved Views let analysts preserve frequently used filters for investigations,
+findings, reports, notifications, and engagements. Views are user-specific by
+default, can be pinned for Quick Access, and never store credentials, tokens,
+API keys, invite codes, or database URLs.
+
 ## Validation Commands
 
 ```powershell
@@ -202,6 +217,7 @@ Recommended portfolio screenshots:
 - Reports and export actions
 - Activity Inbox, review board, governance settings, audit log, and operations
   center
+- Global Search, saved views, and dashboard Quick Access
 
 ## Known Limitations
 
@@ -209,6 +225,8 @@ Recommended portfolio screenshots:
 - AI is optional and degrades to deterministic fallback when unavailable
 - No cloud deployment implementation, billing, SSO, or external ticketing
 - Internal notifications only; no email, SMS, push, or chat integrations
+- Internal search only; no external search provider, crawling, or internet-wide
+  discovery
 - Engagement governance is metadata and advisory by default; operators must
   still validate written authorization and scope policy
 - No external paid threat feed requirement

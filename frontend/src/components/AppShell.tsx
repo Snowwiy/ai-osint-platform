@@ -30,6 +30,7 @@ import { NavLink, Outlet, useParams } from "react-router-dom";
 import { getBackendHealth, getFeatureAvailability } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
 import type { FeatureFlagSettings, HealthResponse } from "../types";
+import { GlobalSearch } from "./GlobalSearch";
 import { NotificationBell } from "./NotificationBell";
 
 interface NavigationItem {
@@ -181,7 +182,11 @@ export function AppShell(): JSX.Element {
           </div>
         </div>
 
-        <div className="themed-scrollbar mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scroll-smooth">
+        <div className="mt-5 flex-none">
+          <GlobalSearch />
+        </div>
+
+        <div className="themed-scrollbar mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scroll-smooth">
           <nav className="space-y-1">
             {visibleTopNav.map((item) => (
               <ShellLink
@@ -279,6 +284,9 @@ export function AppShell(): JSX.Element {
                 })
               : null}
           </nav>
+          <div className="mt-3">
+            <GlobalSearch />
+          </div>
         </header>
 
         {featureFlags?.enable_demo_mode ? (

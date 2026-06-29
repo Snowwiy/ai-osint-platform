@@ -166,6 +166,98 @@ export interface NotificationFilters {
   offset?: number;
 }
 
+export type GlobalSearchType =
+  | "investigation"
+  | "engagement"
+  | "finding"
+  | "report"
+  | "deliverable"
+  | "notification"
+  | "scope_item"
+  | "user"
+  | "closure"
+  | "ioc"
+  | "threat_object"
+  | "evidence_summary";
+
+export interface GlobalSearchFilters {
+  q?: string;
+  type?: GlobalSearchType | "";
+  limit?: number;
+  offset?: number;
+  include_archived?: boolean;
+  investigation_id?: string;
+  engagement_id?: string;
+}
+
+export interface GlobalSearchResult {
+  id: string;
+  type: GlobalSearchType | string;
+  title: string;
+  subtitle: string | null;
+  snippet: string | null;
+  status: string | null;
+  severity: string | null;
+  route: string;
+  created_at: string | null;
+  updated_at: string | null;
+  matched_fields: string[];
+  metadata: Record<string, unknown>;
+  score: number;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  total: number;
+  limit: number;
+  offset: number;
+  items: GlobalSearchResult[];
+  result_types: string[];
+}
+
+export type SavedViewType =
+  | "investigation_list"
+  | "findings"
+  | "reports"
+  | "notifications"
+  | "engagements"
+  | "closure"
+  | "search"
+  | "dashboard";
+
+export interface SavedView {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  view_type: SavedViewType | string;
+  route: string;
+  filters: Record<string, unknown>;
+  sort: Record<string, unknown> | null;
+  is_default: boolean;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedViewListResponse {
+  total: number;
+  items: SavedView[];
+}
+
+export interface SavedViewCreateRequest {
+  name: string;
+  description?: string | null;
+  view_type: SavedViewType;
+  route: string;
+  filters?: Record<string, unknown>;
+  sort?: Record<string, unknown> | null;
+  is_default?: boolean;
+  is_pinned?: boolean;
+}
+
+export type SavedViewUpdateRequest = Partial<SavedViewCreateRequest>;
+
 export type EngagementStatus = "draft" | "active" | "completed" | "archived";
 export type AuthorizationStatus =
   | "not_provided"

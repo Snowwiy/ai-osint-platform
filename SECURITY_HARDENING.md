@@ -102,12 +102,26 @@ Review audit logs for:
 - Engagement, scope, and authorization evidence changes
 - Closure, checklist, deliverable, and package manifest actions
 - Notification creation, read, dismiss, and workflow alert rebuild actions
+- Global search activity metadata and saved-view changes
 - Backup exports
 - Restore validations
 - Report downloads
 - Member and ownership changes
 
 Do not log secrets in audit metadata.
+
+## Search And Saved Views
+
+- Global Search must remain internal-only and RBAC-aware. It should never call
+  external search providers, crawl targets, or perform internet-wide discovery.
+- Admin-only user results must expose safe metadata only. Password hashes,
+  tokens, invite codes, API keys, authorization headers, and database URLs must
+  never appear in search results or snippets.
+- Saved views are private to the creating user by default. Do not store
+  credentials, secrets, filesystem paths, bearer tokens, or provider keys in
+  saved filters.
+- Search audit events should log result metadata and safely truncated query
+  context only.
 
 ## Backup Controls
 

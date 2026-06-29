@@ -24,6 +24,7 @@ from app.api.v1 import (
     recon,
     release,
     reports,
+    search,
     targets,
     threat_intel,
     threat_workspace,
@@ -55,6 +56,8 @@ api_router.include_router(targets.router)
 api_router.include_router(recon.router)
 api_router.include_router(release.router)
 api_router.include_router(reports.router)
+api_router.include_router(search.router)
+api_router.include_router(search.saved_views_router)
 api_router.include_router(threat_intel.router)
 api_router.include_router(threat_workspace.router)
 api_router.include_router(timeline.router)

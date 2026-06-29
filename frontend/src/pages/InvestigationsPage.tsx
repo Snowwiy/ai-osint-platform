@@ -23,6 +23,7 @@ import {
 } from "../components/InvestigationEditModal";
 import { PageHeader } from "../components/PageHeader";
 import { PurgeInvestigationModal } from "../components/PurgeInvestigationModal";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { StatusBadge } from "../components/StatusBadge";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -204,6 +205,24 @@ export function InvestigationsPage(): JSX.Element {
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="investigation_list"
+          route="/investigations"
+          filters={{ scope, selectedTag }}
+          onApply={(view) => {
+            const nextScope = view.filters.scope;
+            const nextTag = view.filters.selectedTag;
+            if (typeof nextScope === "string") {
+              setScope(nextScope);
+            }
+            if (typeof nextTag === "string") {
+              setSelectedTag(nextTag);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
       <div className="mb-5 flex flex-wrap gap-2">
         {[
           ["all", "All accessible"],

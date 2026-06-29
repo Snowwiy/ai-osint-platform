@@ -35,6 +35,8 @@ containing:
 - closure checklist and client deliverables package metadata
 - sample internal Activity Inbox notifications for review, scope, report, and
   governance workflows
+- sample pinned saved views for high-risk findings, reports ready, scope
+  warnings, and open investigations
 - one local knowledge reference
 - sample IOC and threat intelligence records
 - analyst notes, bookmarks, and evidence-chain metadata
@@ -54,10 +56,12 @@ The dataset makes no live network requests and no compromise claims.
    readiness.
 8. Open **Activity Inbox** and show internal alerts for pending review, report
    readiness, scope reminders, and governance actions.
-9. Generate a report using the template suited to the audience.
-10. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
-11. Search the local defensive knowledge library.
-12. Show the audit trail and explain that demo records are clearly labeled.
+9. Use **Global Search** to jump to the demo finding or report, then show a
+   pinned saved view in dashboard Quick Access.
+10. Generate a report using the template suited to the audience.
+11. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
+12. Search the local defensive knowledge library.
+13. Show the audit trail and explain that demo records are clearly labeled.
 
 ## V1 10-Minute Portfolio Flow
 
@@ -71,8 +75,10 @@ The dataset makes no live network requests and no compromise claims.
 8. **Create remediation/playbook:** Assign analyst-owned next steps.
 9. **Prepare closure:** Show final checklist, deliverables, and package manifest.
 10. **Review Activity Inbox:** Show pending workflow alerts and mark one read.
-11. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
-12. **Governance close:** Show audit log, settings, feature flags, and exports.
+11. **Search and navigate:** Use Ctrl+K Global Search, load a saved view, and
+    show dashboard Quick Access.
+12. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
+13. **Governance close:** Show audit log, settings, feature flags, and exports.
 
 ## Release Candidate Stability Demo Pass
 
@@ -100,6 +106,8 @@ Before presenting, walk through these quick checks:
 - Review report export and redaction controls before downloading files.
 - Use Activity Inbox for internal workflow visibility only. No email, SMS, push,
   or external chat delivery is part of the demo.
+- Use Global Search for internal records only. It does not browse the internet,
+  crawl targets, or call an external search provider.
 
 ## Common Local Issues
 

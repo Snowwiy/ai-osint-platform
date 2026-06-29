@@ -17,6 +17,7 @@ import { InvestigationTabs } from "../components/InvestigationTabs";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { ReportStatusBadge } from "../components/ReportStatusBadge";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
@@ -276,6 +277,35 @@ export function ReportsPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="reports"
+          route={`/investigations/${investigationId}/reports`}
+          filters={{ reportType, format, templateId, showArchived }}
+          onApply={(view) => {
+            const next = view.filters;
+            if (
+              typeof next.reportType === "string" &&
+              reportTypes.some((item) => item.type === next.reportType)
+            ) {
+              setReportType(next.reportType as ReportType);
+            }
+            if (
+              typeof next.format === "string" &&
+              formats.includes(next.format as ReportFormat)
+            ) {
+              setFormat(next.format as ReportFormat);
+            }
+            if (typeof next.templateId === "string") {
+              setTemplateId(next.templateId);
+            }
+            if (typeof next.showArchived === "boolean") {
+              setShowArchived(next.showArchived);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
 
       <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px_auto] xl:items-end">

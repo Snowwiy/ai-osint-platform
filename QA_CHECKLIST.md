@@ -92,6 +92,17 @@
 
 - [ ] Knowledge Search states that it uses only local defensive content.
 - [ ] Example searches work and references can be copied.
+- [ ] Global Search opens with Ctrl+K and from the authenticated layout.
+- [ ] Global Search returns only authorized investigations, findings, reports,
+      engagements, notifications, IOCs, and threat intelligence objects.
+- [ ] Non-admin users do not see admin user-management search results.
+- [ ] Search result navigation opens the expected in-app route.
+- [ ] Saved views can be created, loaded, pinned, unpinned, set as default, and
+      deleted on investigations, findings, reports, notifications, and
+      engagements.
+- [ ] Dashboard Quick Access shows pinned saved views, recent investigations,
+      and unread notification count.
+- [ ] Search and saved-view actions appear in audit logs without secrets.
 - [ ] Empty states explain the section and the next action.
 - [ ] Sidebar remains scrollable at reduced viewport height.
 - [ ] Long identifiers and report content remain readable.

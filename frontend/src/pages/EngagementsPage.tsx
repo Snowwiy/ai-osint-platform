@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
@@ -125,6 +126,17 @@ export function EngagementsPage(): JSX.Element {
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="engagements"
+          route="/engagements"
+          filters={{ includeArchived }}
+          onApply={(view) => {
+            setIncludeArchived(view.filters.includeArchived === true);
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
       {items.length ? (
         <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
           <section className="space-y-3">
