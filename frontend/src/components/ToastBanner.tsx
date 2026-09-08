@@ -21,11 +21,11 @@ export function ToastBanner({
   return (
     <div
       className={`mb-5 flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${colors}`}
-      role="status"
+      role={toast.kind === "error" ? "alert" : "status"}
     >
-      <div className="flex items-start gap-2">
+      <div className="min-w-0 flex items-start gap-2">
         <Icon className="mt-0.5 h-4 w-4 flex-none" aria-hidden="true" />
-        <span>{toast.message}</span>
+        <span className="break-words">{toast.message || "The action could not be completed."}</span>
       </div>
       <button
         type="button"

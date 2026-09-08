@@ -662,7 +662,7 @@ def _check_engagements(
     for item in scope_items:
         scopes_by_engagement[item.engagement_id].append(item)
     for engagement in engagements:
-        action_url = f"/engagements?selected={engagement.id}"
+        action_url = f"/engagements?engagement={engagement.id}"
         if engagement.status == "active" and engagement.authorization_status != "approved":
             output.append(
                 _candidate(

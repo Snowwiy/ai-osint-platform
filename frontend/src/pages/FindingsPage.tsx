@@ -34,6 +34,7 @@ import {
   updateFindingStatus,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type {
   Finding,
@@ -406,7 +407,7 @@ export function FindingsPage(): JSX.Element {
                     finding={finding}
                     members={members.data ?? []}
                     canMutate={canMutate}
-                    detectionRecommendation={recommendations.data?.recommendations.find(
+                    detectionRecommendation={safeArray(recommendations.data?.recommendations).find(
                       (item) => item.finding_id === finding.id,
                     )}
                     onStatusChange={(status) =>
@@ -1092,7 +1093,7 @@ function RecommendedPlaybooks({
                   <p className="mt-1 text-xs leading-5">{item.reason}</p>
                   <p className="mt-1 text-xs text-raven-cyan">
                     {item.playbook.framework ?? "Defensive workflow"} ·{" "}
-                    {item.playbook.steps.length} steps
+                    {safeArray(item.playbook.steps).length} steps
                   </p>
                 </div>
                 {canMutate ? (

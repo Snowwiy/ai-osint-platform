@@ -41,6 +41,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - HTML, Markdown, PDF, and DOCX report exports
 - Optional AI analysis with deterministic fallback when the provider is unavailable
 - Operations Center with health, diagnostics, backups, restore dry-run validation
+- Responsive route-level loading, friendly retry states, guarded internal links,
+  and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
 
 ## Defensive-Only Scope

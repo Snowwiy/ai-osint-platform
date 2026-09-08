@@ -38,6 +38,7 @@ import {
 } from "../lib/api";
 import { reportGuidance } from "../lib/reportGuidance";
 import { useAuth } from "../lib/useAuth";
+import { safeArray } from "../lib/safe";
 import type {
   ReportFormat,
   ReportingCenterFilters,
@@ -116,9 +117,12 @@ export function ReportingCenterPage(): JSX.Element {
     queryFn: getFeatureAvailability,
     staleTime: 30_000,
   });
-  const allowedFormats = features.data?.allowed_export_formats ?? formats;
+  const allowedFormats = useMemo(() => {
+    const configured = safeArray(features.data?.allowed_export_formats);
+    return configured.length ? configured : formats;
+  }, [features.data?.allowed_export_formats]);
   const bulkEnabled =
-    features.data?.feature_flags.enable_bulk_actions !== false;
+    features.data?.feature_flags?.enable_bulk_actions !== false;
   useEffect(() => {
     if (allowedFormats.length && !allowedFormats.includes(format)) {
       setFormat(allowedFormats[0]);
@@ -149,8 +153,11 @@ export function ReportingCenterPage(): JSX.Element {
     queryFn: getAnalystWorkload,
     staleTime: 30_000,
   });
-  const reportItems = reports.data?.items ?? [];
-  const templateItems = templates.data?.items ?? [];
+  const reportItems = safeArray(reports.data?.items);
+  const templateItems = useMemo(
+    () => templates.data?.items ?? [],
+    [templates.data?.items],
+  );
   const availableTemplates = useMemo(
     () =>
       templateItems.filter(
@@ -412,7 +419,7 @@ export function ReportingCenterPage(): JSX.Element {
           reportType={reportType}
         />
         <InvestigationSelector
-          items={investigations.data?.items ?? []}
+          items={safeArray(investigations.data?.items)}
           selected={selectedInvestigations}
           onChange={setSelectedInvestigations}
           error={investigations.error?.message}
@@ -435,8 +442,8 @@ export function ReportingCenterPage(): JSX.Element {
       <ReportFilters
         filters={filters}
         allowedFormats={allowedFormats}
-        investigations={investigations.data?.items ?? []}
-        analysts={analysts.data?.items ?? []}
+        investigations={safeArray(investigations.data?.items)}
+        analysts={safeArray(analysts.data?.items)}
         onChange={setFilters}
       />
 

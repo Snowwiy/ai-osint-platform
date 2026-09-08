@@ -268,6 +268,15 @@ If frontend build fails:
    `localeCompare` on optional API data.
 3. Prefer `safeArray`, `safeString`, `safeNumber`, and friendly empty states.
 
+The frontend uses route-level lazy loading. A brief `Opening workspace` state is
+expected on the first visit to a route. If a route chunk cannot load, use the
+friendly retry action; do not treat an optional provider degradation as a total
+backend outage.
+
+If an Activity Inbox, Global Search, or Data Quality action opens the wrong
+record, confirm the URL begins with `/` and uses the current internal query key.
+External and protocol-relative action URLs are intentionally rejected.
+
 ## Report Export Troubleshooting
 
 - PDF content should start with `%PDF`.

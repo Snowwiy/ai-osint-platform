@@ -18,6 +18,25 @@
       idle.
 - [ ] Dashboard handles missing executive fields with a degraded or empty panel.
 - [ ] Route-level page errors show the friendly fallback, not a raw React crash.
+- [ ] Frontend lint completes without React Hook dependency warnings.
+- [ ] Frontend build emits route chunks without the previous oversized initial
+      bundle warning.
+
+## Final UX And Responsive Pass
+
+- [ ] Investigation and threat-intelligence tab rows scroll without clipping the
+      active item or shifting the full page horizontally.
+- [ ] Global Search remains inside the viewport and its controls wrap cleanly.
+- [ ] Activity Inbox opens above the desktop user card and remains usable on a
+      narrow viewport.
+- [ ] Tables scroll inside their panels; long identifiers and metadata wrap or
+      truncate with an accessible full-value affordance.
+- [ ] Invalid or missing status, severity, date, array, and nested summary values
+      render a safe fallback instead of `undefined`, `null`, or a crash.
+- [ ] Error panels provide a retry action and keep endpoint/request details
+      collapsed.
+- [ ] Engagement, pending-user, notification, search, and Data Quality action
+      links open the expected filtered or detail view.
 
 ## Investigation Workflow
 

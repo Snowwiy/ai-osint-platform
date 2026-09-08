@@ -17,15 +17,18 @@ export function StatusBadge({
 }: {
   status: InvestigationStatus;
 }): JSX.Element {
+  const label = typeof status === "string" && status.trim()
+    ? status.replace(/_/g, " ")
+    : "unknown";
   return (
     <span
       className={clsx(
         "inline-flex items-center rounded border px-2 py-1 text-xs font-medium",
         "capitalize",
-        statusStyles[status],
+        statusStyles[status] ?? "border-raven-border bg-raven-panelSoft text-raven-muted",
       )}
     >
-      {status}
+      {label}
     </span>
   );
 }

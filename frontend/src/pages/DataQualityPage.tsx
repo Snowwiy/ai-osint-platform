@@ -22,7 +22,13 @@ import {
   runMaintenanceDryRun,
   updateDataQualityIssueStatus,
 } from "../lib/api";
-import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
+import {
+  safeArray,
+  safeDate,
+  safeInternalRoute,
+  safeNumber,
+  safeString,
+} from "../lib/safe";
 import type {
   DataQualityEntityType,
   DataQualityIssue,
@@ -367,7 +373,7 @@ function IssueModal({ issue, pending, onClose, onAction }: { issue: DataQualityI
           </details>
         ) : null}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-raven-border pt-4">
-          <div>{issue.action_url ? <Link to={issue.action_url} className="inline-flex items-center gap-2 text-sm text-raven-cyan hover:underline"><ShieldAlert className="h-4 w-4" aria-hidden="true" />Open affected area</Link> : <span className="text-xs text-raven-muted">No direct action link is available.</span>}</div>
+          <div>{issue.action_url ? <Link to={safeInternalRoute(issue.action_url, "/admin/data-quality")} className="inline-flex items-center gap-2 text-sm text-raven-cyan hover:underline"><ShieldAlert className="h-4 w-4" aria-hidden="true" />Open affected area</Link> : <span className="text-xs text-raven-muted">No direct action link is available.</span>}</div>
           <div className="flex flex-wrap gap-2">
             {issue.status === "open" ? <ActionButton label="Acknowledge" disabled={pending} onClick={() => onAction("acknowledge")} /> : null}
             {issue.status === "open" || issue.status === "acknowledged" ? <ActionButton label="Ignore" disabled={pending} onClick={() => onAction("ignore")} /> : null}

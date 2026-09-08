@@ -24,6 +24,7 @@ import type {
   InvestigationMember,
   InvestigationStatus,
 } from "../types";
+import { safeArray } from "../lib/safe";
 import { ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 
@@ -84,10 +85,10 @@ export function OperationalCoordinationPanel({
     if (!ownership.data) {
       return;
     }
-    setOwnerId(ownership.data.owner.id);
-    setAssignedIds(ownership.data.assigned_analysts.map((item) => item.id));
-    setWatcherIds(ownership.data.watchers.map((item) => item.id));
-  }, [ownership.data]);
+    setOwnerId(ownership.data.owner?.id ?? investigation.owner_id);
+    setAssignedIds(safeArray(ownership.data.assigned_analysts).map((item) => item.id));
+    setWatcherIds(safeArray(ownership.data.watchers).map((item) => item.id));
+  }, [investigation.owner_id, ownership.data]);
 
   const currentMember = members.data?.find(
     (member) => member.user_id === currentUserId,
@@ -98,7 +99,7 @@ export function OperationalCoordinationPanel({
     currentMember?.role === "admin";
   const canCollaborate = canManage || currentMember?.role === "analyst";
   const nonOwnerMembers = useMemo(
-    () => (members.data ?? []).filter((member) => member.user_id !== ownerId),
+    () => safeArray(members.data).filter((member) => member.user_id !== ownerId),
     [members.data, ownerId],
   );
 
@@ -188,10 +189,10 @@ export function OperationalCoordinationPanel({
             <h2 className="text-lg font-semibold">Ownership</h2>
           </div>
           <p className="mt-3 break-words text-sm font-medium">
-            {ownership.data?.owner.username}
+            {ownership.data?.owner?.username ?? "Owner information unavailable"}
           </p>
           <p className="break-all text-xs text-raven-muted">
-            {ownership.data?.owner.email}
+            {ownership.data?.owner?.email ?? "No owner email available"}
           </p>
           <ChipList
             icon={<UserRoundCheck className="h-3.5 w-3.5" aria-hidden="true" />}

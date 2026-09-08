@@ -526,13 +526,13 @@ export function InvestigationDetailPage(): JSX.Element {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <StatCard
           label="Targets"
-          value={analytics.data?.target_summary.total ?? targets.data?.total ?? 0}
+          value={analytics.data?.target_summary?.total ?? targets.data?.total ?? 0}
           icon={<Target className="h-5 w-5" aria-hidden="true" />}
         />
         <StatCard
           label="Entities"
           value={
-            analytics.data?.recon_summary.total_entities ??
+            analytics.data?.recon_summary?.total_entities ??
             (graph.data?.nodes ?? []).length ??
             0
           }
@@ -540,18 +540,18 @@ export function InvestigationDetailPage(): JSX.Element {
         />
         <StatCard
           label="Findings"
-          value={analytics.data?.findings_summary.total ?? findings.data?.length ?? 0}
+          value={analytics.data?.findings_summary?.total ?? findings.data?.length ?? 0}
           icon={<ShieldAlert className="h-5 w-5" aria-hidden="true" />}
         />
         <StatCard
           label="Timeline"
-          value={analytics.data?.timeline_summary.total ?? timeline.data?.total ?? 0}
+          value={analytics.data?.timeline_summary?.total ?? timeline.data?.total ?? 0}
           icon={<BrainCircuit className="h-5 w-5" aria-hidden="true" />}
         />
         <StatCard
           label="Correlations"
           value={
-            analytics.data?.correlation_summary.total_edges ??
+            analytics.data?.correlation_summary?.total_edges ??
             correlations.data?.total_edges ??
             0
           }
@@ -559,7 +559,7 @@ export function InvestigationDetailPage(): JSX.Element {
         />
         <StatCard
           label="Reports"
-          value={analytics.data?.report_summary.total ?? reports.data?.total ?? 0}
+          value={analytics.data?.report_summary?.total ?? reports.data?.total ?? 0}
           icon={<FileText className="h-5 w-5" aria-hidden="true" />}
         />
         <StatCard

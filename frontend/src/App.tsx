@@ -1,44 +1,47 @@
+import { lazy, Suspense } from "react";
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { FeatureGate } from "./components/FeatureGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteErrorFallback } from "./components/RouteErrorFallback";
-import { AdminAuditPage } from "./pages/AdminAuditPage";
-import { AdminSettingsPage } from "./pages/AdminSettingsPage";
-import { AdminUsersPage } from "./pages/AdminUsersPage";
-import { AnalystWorkloadPage } from "./pages/AnalystWorkloadPage";
-import { AnalysisPage } from "./pages/AnalysisPage";
-import { BookmarksPage } from "./pages/BookmarksPage";
-import { ClosurePage } from "./pages/ClosurePage";
-import { CollaborationPage } from "./pages/CollaborationPage";
-import { CorrelationsPage } from "./pages/CorrelationsPage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { DataQualityPage } from "./pages/DataQualityPage";
-import { DemoChecklistPage } from "./pages/DemoChecklistPage";
-import { EvidenceIntelligencePage } from "./pages/EvidenceIntelligencePage";
-import { EngagementsPage } from "./pages/EngagementsPage";
-import { ExecutiveDashboardPage } from "./pages/ExecutiveDashboardPage";
-import { FindingsPage } from "./pages/FindingsPage";
-import { GlobalTimelinePage } from "./pages/GlobalTimelinePage";
-import { InvestigationDetailPage } from "./pages/InvestigationDetailPage";
-import { InvestigationsPage } from "./pages/InvestigationsPage";
-import { KnowledgeSearchPage } from "./pages/KnowledgeSearchPage";
-import { LoginPage } from "./pages/LoginPage";
-import { MembersPage } from "./pages/MembersPage";
-import { NotesPage } from "./pages/NotesPage";
-import { NotificationsPage } from "./pages/NotificationsPage";
-import { OperationsCenterPage } from "./pages/OperationsCenterPage";
-import { OperationsQueuePage } from "./pages/OperationsQueuePage";
-import { PlaybooksPage } from "./pages/PlaybooksPage";
-import { ReconResultsPage } from "./pages/ReconResultsPage";
-import { ReportingCenterPage } from "./pages/ReportingCenterPage";
-import { ReportsPage } from "./pages/ReportsPage";
-import { ReviewBoardPage } from "./pages/ReviewBoardPage";
-import { TargetsPage } from "./pages/TargetsPage";
-import { TasksPage } from "./pages/TasksPage";
-import { ThreatIntelligencePage } from "./pages/ThreatIntelligencePage";
-import { TimelinePage } from "./pages/TimelinePage";
+import { LoadingBlock } from "./components/StateBlock";
+
+const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module) => ({ default: module.AdminAuditPage })));
+const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage").then((module) => ({ default: module.AdminSettingsPage })));
+const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage").then((module) => ({ default: module.AdminUsersPage })));
+const AnalystWorkloadPage = lazy(() => import("./pages/AnalystWorkloadPage").then((module) => ({ default: module.AnalystWorkloadPage })));
+const AnalysisPage = lazy(() => import("./pages/AnalysisPage").then((module) => ({ default: module.AnalysisPage })));
+const BookmarksPage = lazy(() => import("./pages/BookmarksPage").then((module) => ({ default: module.BookmarksPage })));
+const ClosurePage = lazy(() => import("./pages/ClosurePage").then((module) => ({ default: module.ClosurePage })));
+const CollaborationPage = lazy(() => import("./pages/CollaborationPage").then((module) => ({ default: module.CollaborationPage })));
+const CorrelationsPage = lazy(() => import("./pages/CorrelationsPage").then((module) => ({ default: module.CorrelationsPage })));
+const DashboardPage = lazy(() => import("./pages/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const DataQualityPage = lazy(() => import("./pages/DataQualityPage").then((module) => ({ default: module.DataQualityPage })));
+const DemoChecklistPage = lazy(() => import("./pages/DemoChecklistPage").then((module) => ({ default: module.DemoChecklistPage })));
+const EvidenceIntelligencePage = lazy(() => import("./pages/EvidenceIntelligencePage").then((module) => ({ default: module.EvidenceIntelligencePage })));
+const EngagementsPage = lazy(() => import("./pages/EngagementsPage").then((module) => ({ default: module.EngagementsPage })));
+const ExecutiveDashboardPage = lazy(() => import("./pages/ExecutiveDashboardPage").then((module) => ({ default: module.ExecutiveDashboardPage })));
+const FindingsPage = lazy(() => import("./pages/FindingsPage").then((module) => ({ default: module.FindingsPage })));
+const GlobalTimelinePage = lazy(() => import("./pages/GlobalTimelinePage").then((module) => ({ default: module.GlobalTimelinePage })));
+const InvestigationDetailPage = lazy(() => import("./pages/InvestigationDetailPage").then((module) => ({ default: module.InvestigationDetailPage })));
+const InvestigationsPage = lazy(() => import("./pages/InvestigationsPage").then((module) => ({ default: module.InvestigationsPage })));
+const KnowledgeSearchPage = lazy(() => import("./pages/KnowledgeSearchPage").then((module) => ({ default: module.KnowledgeSearchPage })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })));
+const MembersPage = lazy(() => import("./pages/MembersPage").then((module) => ({ default: module.MembersPage })));
+const NotesPage = lazy(() => import("./pages/NotesPage").then((module) => ({ default: module.NotesPage })));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
+const OperationsCenterPage = lazy(() => import("./pages/OperationsCenterPage").then((module) => ({ default: module.OperationsCenterPage })));
+const OperationsQueuePage = lazy(() => import("./pages/OperationsQueuePage").then((module) => ({ default: module.OperationsQueuePage })));
+const PlaybooksPage = lazy(() => import("./pages/PlaybooksPage").then((module) => ({ default: module.PlaybooksPage })));
+const ReconResultsPage = lazy(() => import("./pages/ReconResultsPage").then((module) => ({ default: module.ReconResultsPage })));
+const ReportingCenterPage = lazy(() => import("./pages/ReportingCenterPage").then((module) => ({ default: module.ReportingCenterPage })));
+const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
+const ReviewBoardPage = lazy(() => import("./pages/ReviewBoardPage").then((module) => ({ default: module.ReviewBoardPage })));
+const TargetsPage = lazy(() => import("./pages/TargetsPage").then((module) => ({ default: module.TargetsPage })));
+const TasksPage = lazy(() => import("./pages/TasksPage").then((module) => ({ default: module.TasksPage })));
+const ThreatIntelligencePage = lazy(() => import("./pages/ThreatIntelligencePage").then((module) => ({ default: module.ThreatIntelligencePage })));
+const TimelinePage = lazy(() => import("./pages/TimelinePage").then((module) => ({ default: module.TimelinePage })));
 
 const router = createBrowserRouter([
   {
@@ -172,5 +175,9 @@ const router = createBrowserRouter([
 ]);
 
 export function App(): JSX.Element {
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<LoadingBlock label="Opening workspace" />}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }

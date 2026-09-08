@@ -45,6 +45,9 @@ workflow, governance, reporting, and auditability.
   and pinned analyst navigation shortcuts
 - Admin Data Quality Center with bounded local scans, persistent issue workflow,
   safe maintenance dry runs, and non-destructive recommendations
+- Route-level frontend code splitting, clean React Hook lint output, responsive
+  tab/navigation behavior, guarded internal action links, and hardened partial
+  API rendering
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 

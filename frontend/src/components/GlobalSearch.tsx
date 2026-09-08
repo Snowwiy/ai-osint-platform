@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { globalSearch } from "../lib/api";
+import { safeArray, safeInternalRoute } from "../lib/safe";
 import type { GlobalSearchResult, GlobalSearchType } from "../types";
 
 const RECENT_SEARCHES_KEY = "raventech.recentSearches";
@@ -65,12 +66,12 @@ export function GlobalSearch(): JSX.Element {
     retry: 1,
     staleTime: 15_000,
   });
-  const results = search.data?.items ?? [];
+  const results = useMemo(() => safeArray(search.data?.items), [search.data?.items]);
   const grouped = useMemo(() => groupResults(results), [results]);
   const hasQuery = debouncedQuery.trim().length > 0;
 
   const openResult = (result: GlobalSearchResult): void => {
-    const route = result.route?.startsWith("/") ? result.route : "/";
+    const route = safeInternalRoute(result.route);
     if (query.trim()) {
       const next = [
         query.trim(),
@@ -102,27 +103,27 @@ export function GlobalSearch(): JSX.Element {
 
       {open ? (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-4 py-8 backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-3 py-4 backdrop-blur-sm sm:px-4 sm:py-8"
           role="dialog"
           aria-modal="true"
           aria-label="Global search"
         >
-          <div className="mx-auto max-w-3xl rounded-lg border border-raven-border bg-raven-panel shadow-2xl">
-            <div className="flex items-center gap-3 border-b border-raven-border p-4">
+          <div className="mx-auto flex max-h-[calc(100vh-2rem)] max-w-3xl flex-col overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-2xl sm:max-h-[calc(100vh-4rem)]">
+            <div className="flex flex-wrap items-center gap-3 border-b border-raven-border p-4">
               <Search className="h-5 w-5 flex-none text-raven-muted" aria-hidden="true" />
               <input
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search internal investigations, reports, findings, IOCs..."
-                className="min-w-0 flex-1 bg-transparent text-sm text-raven-text outline-none placeholder:text-raven-muted"
+                className="min-w-0 flex-1 basis-48 bg-transparent text-sm text-raven-text outline-none placeholder:text-raven-muted"
               />
               <select
                 value={type}
                 onChange={(event) =>
                   setType(event.target.value as GlobalSearchType | "")
                 }
-                className="max-w-[11rem] rounded border border-raven-border bg-raven-panelSoft px-2 py-1.5 text-xs text-raven-text outline-none"
+                className="order-3 w-full rounded border border-raven-border bg-raven-panelSoft px-2 py-1.5 text-xs text-raven-text outline-none sm:order-none sm:w-auto sm:max-w-[11rem]"
                 aria-label="Search result type"
               >
                 {RESULT_TYPES.map((item) => (
@@ -141,7 +142,7 @@ export function GlobalSearch(): JSX.Element {
               </button>
             </div>
 
-            <div className="max-h-[70vh] overflow-y-auto p-4">
+            <div className="themed-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
               {!hasQuery && recentSearches.length > 0 ? (
                 <div className="mb-4">
                   <p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">
@@ -218,9 +219,9 @@ export function GlobalSearch(): JSX.Element {
                               <span className="mt-2 flex flex-wrap gap-2 text-[11px] text-raven-muted">
                                 {item.status ? <Badge>{item.status}</Badge> : null}
                                 {item.severity ? <Badge>{item.severity}</Badge> : null}
-                                {item.matched_fields?.length ? (
+                                {safeArray(item.matched_fields).length ? (
                                   <Badge>
-                                    {item.matched_fields.join(", ")}
+                                    {safeArray(item.matched_fields).join(", ")}
                                   </Badge>
                                 ) : null}
                               </span>

@@ -92,6 +92,10 @@ Before presenting, walk through these quick checks:
   or can be copied.
 - Confirm optional provider failures are shown as degraded, not total platform
   failure.
+- Use the investigation tabs at laptop and narrow widths and confirm the active
+  section scrolls into view without moving the full page horizontally.
+- Open an Activity Inbox action, a Global Search result, and a Data Quality
+  issue link and confirm each stays inside the authenticated workspace.
 - Confirm `GET /api/v1/release` shows `5.0.0-rc1` or the configured version.
 
 ## Safer Demo Defaults

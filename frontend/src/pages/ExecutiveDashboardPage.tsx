@@ -279,16 +279,16 @@ function TrendPanel({
             <div key={point.date}>
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="text-raven-muted">{point.date}</span>
-                <span>{point.risk_score}/100</span>
+                <span>{safeNumber(point.risk_score)}/100</span>
               </div>
               <div className="mt-1 h-2 rounded-full bg-raven-panelSoft">
                 <div
                   className="h-2 rounded-full bg-raven-violet"
-                  style={{ width: `${Math.min(100, point.risk_score)}%` }}
+                  style={{ width: `${Math.min(100, safeNumber(point.risk_score))}%` }}
                 />
               </div>
               <p className="mt-1 text-xs text-raven-muted">
-                {point.findings} findings, {point.remediations_completed} completed
+                {safeNumber(point.findings)} findings, {safeNumber(point.remediations_completed)} completed
                 remediation tasks
               </p>
             </div>

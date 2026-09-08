@@ -21,3 +21,11 @@ export function safeDate(value: unknown): Date | null {
 export function safeLocaleCompare(left: unknown, right: unknown): number {
   return safeString(left).localeCompare(safeString(right));
 }
+
+export function safeInternalRoute(value: unknown, fallback = "/"): string {
+  const route = safeString(value);
+  if (!route.startsWith("/") || route.startsWith("//") || route.includes("\\")) {
+    return fallback;
+  }
+  return route;
+}

@@ -76,9 +76,9 @@ export function OperationsQueuePage(): JSX.Element {
     staleTime: 30_000,
   });
   const bulkEnabled =
-    features.data?.feature_flags.enable_bulk_actions !== false;
+    features.data?.feature_flags?.enable_bulk_actions !== false;
   const playbooksEnabled =
-    features.data?.feature_flags.enable_playbooks !== false;
+    features.data?.feature_flags?.enable_playbooks !== false;
   const tags = useQuery({ queryKey: ["tags"], queryFn: listTags });
   const analysts = useQuery({
     queryKey: ["analyst-workload"],
@@ -89,7 +89,10 @@ export function OperationsQueuePage(): JSX.Element {
     queryFn: listPlaybooks,
     enabled: playbooksEnabled,
   });
-  const queueItems = queue.data?.items ?? [];
+  const queueItems = useMemo(
+    () => queue.data?.items ?? [],
+    [queue.data?.items],
+  );
   const tagItems = tags.data?.items ?? [];
   const analystItems = analysts.data?.items ?? [];
   const visibleIds = useMemo(

@@ -1,6 +1,7 @@
 import { RefreshCw, Search, UserCheck, UserX } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
@@ -35,15 +36,20 @@ const roleOptions: PlatformUserRole[] = ["admin", "analyst"];
 export function AdminUsersPage(): JSX.Element {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState<AdminUserFilters>({
+  const [searchParams] = useSearchParams();
+  const requestedStatus = accountStatus(searchParams.get("status"));
+  const requestedSearch = safeString(searchParams.get("search"));
+  const [filters, setFilters] = useState<AdminUserFilters>(() => ({
+    search: requestedSearch,
+    status: requestedStatus,
     limit: 50,
     offset: 0,
-  });
-  const [form, setForm] = useState({
-    search: "",
-    status: "",
+  }));
+  const [form, setForm] = useState(() => ({
+    search: requestedSearch,
+    status: requestedStatus,
     role: "",
-  });
+  }));
   const [toast, setToast] = useState<ToastState | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
@@ -150,7 +156,10 @@ export function AdminUsersPage(): JSX.Element {
             <select
               value={form.status}
               onChange={(event) =>
-                setForm({ ...form, status: event.target.value })
+                setForm({
+                  ...form,
+                  status: event.target.value as AccountStatus | "",
+                })
               }
               className="w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text"
             >
@@ -529,6 +538,12 @@ function formatDate(value: string | null): string {
     return "Never";
   }
   return parsed.toLocaleString();
+}
+
+function accountStatus(value: string | null): AccountStatus | "" {
+  return statusOptions.includes(value as AccountStatus)
+    ? (value as AccountStatus)
+    : "";
 }
 
 function humanize(value: string): string {

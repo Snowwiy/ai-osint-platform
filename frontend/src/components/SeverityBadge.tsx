@@ -11,15 +11,17 @@ const styles: Record<Severity, string> = {
 };
 
 export function SeverityBadge({ severity }: { severity: Severity }): JSX.Element {
+  const label = typeof severity === "string" && severity.trim()
+    ? severity.replace(/_/g, " ")
+    : "unknown";
   return (
     <span
       className={clsx(
         "inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium capitalize",
-        styles[severity],
+        styles[severity] ?? "border-raven-border bg-raven-panelSoft text-raven-muted",
       )}
     >
-      {severity}
+      {label}
     </span>
   );
 }
-

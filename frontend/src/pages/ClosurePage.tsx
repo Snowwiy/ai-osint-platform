@@ -36,6 +36,7 @@ import {
   updateClosureChecklistItem,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type {
   CaseClosureChecklistItem,
@@ -120,6 +121,8 @@ export function ClosurePage(): JSX.Element {
   });
 
   const item = closure.data;
+  const blockers = safeArray(item?.blockers);
+  const warnings = safeArray(item?.warnings);
   const memberRole =
     members.data?.find((member) => member.user_id === user?.id)?.role ?? null;
   const canPrepare =
@@ -330,10 +333,10 @@ export function ClosurePage(): JSX.Element {
           </div>
           <div className="grid gap-2 sm:grid-cols-3 lg:text-right">
             <MiniMetric label="Risk" value={formatLabel(item?.final_risk_rating ?? "not_assessed")} />
-            <MiniMetric label="Blockers" value={String(item?.blockers.length ?? 0)} />
+            <MiniMetric label="Blockers" value={String(blockers.length)} />
             <MiniMetric
               label="Evidence"
-              value={String(item?.evidence_package.evidence_count ?? 0)}
+              value={String(item?.evidence_package?.evidence_count ?? 0)}
             />
           </div>
         </div>
@@ -367,11 +370,11 @@ export function ClosurePage(): JSX.Element {
           </label>
         </div>
 
-        {item?.warnings.length ? (
+        {warnings.length ? (
           <div className="mt-4 rounded-md border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100">
             <p className="font-medium">Closure warnings</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
-              {item.warnings.map((warning) => (
+              {warnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
             </ul>
@@ -477,25 +480,26 @@ export function ClosurePage(): JSX.Element {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <MiniMetric
               label="Evidence records"
-              value={String(item?.evidence_package.evidence_count ?? 0)}
+              value={String(item?.evidence_package?.evidence_count ?? 0)}
             />
             <MiniMetric
               label="Findings without evidence"
-              value={String(item?.evidence_package.findings_without_evidence ?? 0)}
+              value={String(item?.evidence_package?.findings_without_evidence ?? 0)}
             />
           </div>
           <p className="mt-4 text-sm leading-6 text-raven-muted">
-            {item?.evidence_package.evidence_chain_status ??
+            {item?.evidence_package?.evidence_chain_status ??
               "Evidence package summary is not available yet."}
           </p>
           <p className="mt-2 text-sm leading-6 text-raven-muted">
-            {item?.evidence_package.scope_relation}
+            {item?.evidence_package?.scope_relation ??
+              "Scope relationship is not available yet."}
           </p>
           <div className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft p-3">
             <p className="text-sm font-medium">Source summary</p>
-            {Object.entries(item?.evidence_package.source_summary ?? {}).length ? (
+            {Object.entries(item?.evidence_package?.source_summary ?? {}).length ? (
               <ul className="mt-2 space-y-1 text-xs text-raven-muted">
-                {Object.entries(item?.evidence_package.source_summary ?? {}).map(
+                {Object.entries(item?.evidence_package?.source_summary ?? {}).map(
                   ([source, count]) => (
                     <li key={source} className="flex justify-between gap-3">
                       <span className="break-all">{source}</span>
@@ -713,12 +717,12 @@ export function ClosurePage(): JSX.Element {
               <Badge value={packageManifest.readiness_status} />
             </div>
             <p className="mt-2 text-sm text-raven-muted">
-              Included deliverables: {packageManifest.included_deliverables.length}.
-              Missing: {packageManifest.missing_deliverables.length}.
+              Included deliverables: {safeArray(packageManifest.included_deliverables).length}.
+              Missing: {safeArray(packageManifest.missing_deliverables).length}.
             </p>
-            {packageManifest.warnings.length ? (
+            {safeArray(packageManifest.warnings).length ? (
               <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-100">
-                {packageManifest.warnings.map((warning) => (
+                {safeArray(packageManifest.warnings).map((warning) => (
                   <li key={warning}>{warning}</li>
                 ))}
               </ul>

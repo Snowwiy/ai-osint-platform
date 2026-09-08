@@ -171,7 +171,7 @@ export function AppShell(): JSX.Element {
 
   return (
     <div className="min-h-screen text-raven-text">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 flex-col overflow-hidden border-r border-raven-border bg-raven-bg/95 px-4 py-5 backdrop-blur lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 flex-col border-r border-raven-border bg-raven-bg/95 px-4 py-5 backdrop-blur lg:flex">
         <div className="flex flex-none items-center gap-3 px-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-raven-violet text-white">
             RT
@@ -273,7 +273,7 @@ export function AppShell(): JSX.Element {
               </button>
             </div>
           </div>
-          <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <nav className="tab-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {visibleTopNav.map((item) => (
               <MobileLink key={item.to} to={item.to} label={item.label} />
             ))}

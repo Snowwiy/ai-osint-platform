@@ -1,6 +1,7 @@
 import { Archive, FileCheck2, Plus, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
@@ -28,6 +29,7 @@ import type {
   ScopeStatus,
   ScopeType,
 } from "../types";
+import { safeArray } from "../lib/safe";
 
 const engagementStatuses: EngagementStatus[] = [
   "draft",
@@ -63,6 +65,7 @@ const evidenceTypes: AuthorizationEvidenceType[] = [
 
 export function EngagementsPage(): JSX.Element {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [includeArchived, setIncludeArchived] = useState(false);
@@ -73,10 +76,18 @@ export function EngagementsPage(): JSX.Element {
     queryFn: () => listEngagements(includeArchived),
   });
 
-  const items = engagements.data?.items ?? [];
+  const requestedId = searchParams.get("engagement");
+  const items = useMemo(
+    () => safeArray(engagements.data?.items),
+    [engagements.data?.items],
+  );
   const selected = useMemo(
-    () => items.find((item) => item.id === selectedId) ?? items[0] ?? null,
-    [items, selectedId],
+    () =>
+      items.find((item) => item.id === selectedId) ??
+      items.find((item) => item.id === requestedId) ??
+      items[0] ??
+      null,
+    [items, requestedId, selectedId],
   );
 
   const archiveMutation = useMutation({

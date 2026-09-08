@@ -133,6 +133,10 @@ risks but does not auto-delete evidence or rewrite case state."
 Proves: bounded database checks, safe metadata, admin RBAC, deterministic
 recommendations, and non-destructive governance.
 
+Presentation note: route pages are loaded on demand, tab rows remain usable at
+narrow widths, and expected empty or degraded states provide a retry path rather
+than exposing raw endpoint output.
+
 ## Defensive Scope Explanation
 
 Use this phrase if asked about offensive capability:

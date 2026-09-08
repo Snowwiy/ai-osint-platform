@@ -132,8 +132,13 @@ language, classification markings, and branding require administrator review.
 - Retention policies mark archive eligibility; they do not automatically
   destroy records.
 - Soft archive is used to preserve investigation history and auditability.
-- The frontend production bundle currently produces a non-blocking Vite chunk
-  size warning and has not yet been split into route-level bundles.
+- Frontend pages are split into route-level bundles. The initial production
+  bundle remains a shared application shell rather than a minimal static page,
+  but it no longer triggers the configured Vite chunk-size warning.
+- The current password hashing dependency emits an upstream Python deprecation
+  warning for the standard-library `crypt` module. It does not affect the Python
+  3.12 release-candidate runtime, but the hashing dependency must be reviewed
+  before a future Python 3.13 upgrade.
 
 ## Validation Responsibility
 

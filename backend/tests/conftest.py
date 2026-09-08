@@ -57,6 +57,12 @@ class FakeRedis:
         self._data.clear()
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def dispose_test_engine() -> None:
+    yield
+    await _test_engine.dispose()
+
+
 def _prepare_database() -> None:
     global _db_prepared
     if _db_prepared:

@@ -34,6 +34,7 @@ import {
   submitReportApproval,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { reportGuidance } from "../lib/reportGuidance";
 import { useAuth } from "../lib/useAuth";
 import type {
@@ -69,7 +70,10 @@ export function ReportsPage(): JSX.Element {
     queryFn: getFeatureAvailability,
     staleTime: 30_000,
   });
-  const allowedFormats = features.data?.allowed_export_formats ?? formats;
+  const allowedFormats = useMemo(() => {
+    const configured = safeArray(features.data?.allowed_export_formats);
+    return configured.length ? configured : formats;
+  }, [features.data?.allowed_export_formats]);
   useEffect(() => {
     if (allowedFormats.length && !allowedFormats.includes(format)) {
       setFormat(allowedFormats[0]);
@@ -90,8 +94,11 @@ export function ReportsPage(): JSX.Element {
     queryFn: () => listReportTemplates(),
     staleTime: 60_000,
   });
-  const templateItems = templates.data?.items ?? [];
-  const reportItems = reports.data?.items ?? [];
+  const templateItems = useMemo(
+    () => templates.data?.items ?? [],
+    [templates.data?.items],
+  );
+  const reportItems = safeArray(reports.data?.items);
   const availableTemplates = useMemo(
     () =>
       templateItems.filter(
@@ -377,9 +384,9 @@ export function ReportsPage(): JSX.Element {
         )}
         <QualityWarnings
           isLoading={quality.isLoading}
-          warnings={quality.data?.warnings ?? []}
+          warnings={safeArray(quality.data?.warnings)}
           availableEvidence={quality.data?.available_evidence ?? {}}
-          missingSections={quality.data?.missing_sections ?? []}
+          missingSections={safeArray(quality.data?.missing_sections)}
         />
       </section>
 

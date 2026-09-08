@@ -10,11 +10,8 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../lib/api";
+import { safeArray, safeInternalRoute, safeNumber, safeString } from "../lib/safe";
 import type { NotificationItem } from "../types";
-
-function safeArray<T>(value: T[] | null | undefined): T[] {
-  return Array.isArray(value) ? value : [];
-}
 
 export function NotificationBell(): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -26,7 +23,7 @@ export function NotificationBell(): JSX.Element {
     refetchInterval: 60_000,
     retry: 1,
   });
-  const unread = notifications.data?.unread ?? 0;
+  const unread = safeNumber(notifications.data?.unread);
   const items = safeArray(notifications.data?.items);
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -62,7 +59,7 @@ export function NotificationBell(): JSX.Element {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow">
+        <div className="fixed inset-x-4 top-20 z-30 max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))] lg:bottom-full lg:mb-2 lg:mt-0">
           <div className="flex items-center justify-between gap-3 border-b border-raven-border px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-raven-text">Activity Inbox</p>
@@ -79,7 +76,7 @@ export function NotificationBell(): JSX.Element {
             </button>
           </div>
 
-          <div className="max-h-96 overflow-y-auto p-3 themed-scrollbar">
+          <div className="themed-scrollbar max-h-[min(24rem,calc(100vh-13rem))] overflow-y-auto p-3">
             {notifications.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-raven-muted">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -139,10 +136,10 @@ function NotificationPreview({
         <div className="min-w-0">
           <span className={severityClass(item.severity)}>{label(item.severity)}</span>
           <p className="mt-2 break-words text-sm font-medium text-raven-text">
-            {item.title || "Workflow alert"}
+            {safeString(item.title, "Workflow alert")}
           </p>
           <p className="mt-1 break-words text-xs leading-5 text-raven-muted">
-            {item.message || "A workflow item needs attention."}
+            {safeString(item.message, "A workflow item needs attention.")}
           </p>
         </div>
         <button
@@ -164,7 +161,7 @@ function NotificationPreview({
         </button>
         {item.action_url ? (
           <Link
-            to={item.action_url}
+            to={safeInternalRoute(item.action_url, "/notifications")}
             className="inline-flex items-center gap-1 rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan hover:border-raven-violet"
           >
             Open

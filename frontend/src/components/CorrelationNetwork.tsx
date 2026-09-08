@@ -30,7 +30,7 @@ export function CorrelationNetwork({
   nodes: CorrelationNode[] | null | undefined;
   edges: CorrelationEdge[] | null | undefined;
 }): JSX.Element {
-  const safeNodes = Array.isArray(nodes) ? nodes : [];
+  const safeNodes = useMemo(() => (Array.isArray(nodes) ? nodes : []), [nodes]);
   const safeEdges = Array.isArray(edges) ? edges : [];
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
