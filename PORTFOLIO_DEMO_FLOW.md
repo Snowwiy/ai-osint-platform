@@ -125,6 +125,14 @@ than external search infrastructure."
 Proves: analyst productivity, permission-aware navigation, saved filter reuse,
 no crawling or external search provider dependency.
 
+Optional click: Admin > Data Quality.
+
+Say: "Maintenance is advisory and auditable. RavenTech detects consistency
+risks but does not auto-delete evidence or rewrite case state."
+
+Proves: bounded database checks, safe metadata, admin RBAC, deterministic
+recommendations, and non-destructive governance.
+
 ## Defensive Scope Explanation
 
 Use this phrase if asked about offensive capability:

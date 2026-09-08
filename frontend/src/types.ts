@@ -258,6 +258,103 @@ export interface SavedViewCreateRequest {
 
 export type SavedViewUpdateRequest = Partial<SavedViewCreateRequest>;
 
+export type DataQualitySeverity = "info" | "warning" | "high" | "critical";
+export type DataQualityStatus = "open" | "acknowledged" | "resolved" | "ignored";
+export type DataQualityEntityType =
+  | "investigation"
+  | "engagement"
+  | "scope_item"
+  | "finding"
+  | "evidence"
+  | "report"
+  | "deliverable"
+  | "closure"
+  | "notification"
+  | "saved_view"
+  | "user"
+  | "audit_log"
+  | "demo_data"
+  | "system";
+
+export interface DataQualityIssue {
+  id: string;
+  issue_type: string;
+  severity: DataQualitySeverity | string;
+  status: DataQualityStatus | string;
+  entity_type: DataQualityEntityType | string;
+  entity_id: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  title: string;
+  description: string;
+  recommendation: string;
+  action_url: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataQualityIssueFilters {
+  severity?: DataQualitySeverity | "";
+  status?: DataQualityStatus | "";
+  issue_type?: string;
+  entity_type?: DataQualityEntityType | "";
+  investigation_id?: string;
+  engagement_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DataQualityIssueListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: DataQualityIssue[];
+}
+
+export interface DataQualityOverviewResponse {
+  total_issues: number;
+  open_issues: number;
+  critical_issues: number;
+  high_issues: number;
+  warning_issues: number;
+  acknowledged_issues: number;
+  resolved_issues: number;
+  ignored_issues: number;
+  by_entity_type: Record<string, number>;
+  by_issue_type: Record<string, number>;
+  last_scan_at: string | null;
+  scan_status: "not_run" | "healthy" | "attention" | "critical" | string;
+}
+
+export interface DataQualityScanResponse {
+  scanned_at: string;
+  detected: number;
+  created: number;
+  existing: number;
+  scan_limit: number;
+  overview: DataQualityOverviewResponse;
+}
+
+export interface MaintenanceDryRunResponse {
+  generated_at: string;
+  would_detect: number;
+  by_severity: Record<string, number>;
+  by_entity_type: Record<string, number>;
+  recommendations: string[];
+  destructive_changes: boolean;
+}
+
+export interface StaleNotificationArchiveResponse {
+  archived: number;
+  older_than_days: number;
+  message: string;
+}
+
 export type EngagementStatus = "draft" | "active" | "completed" | "archived";
 export type AuthorizationStatus =
   | "not_provided"

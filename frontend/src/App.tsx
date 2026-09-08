@@ -14,6 +14,7 @@ import { ClosurePage } from "./pages/ClosurePage";
 import { CollaborationPage } from "./pages/CollaborationPage";
 import { CorrelationsPage } from "./pages/CorrelationsPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { DataQualityPage } from "./pages/DataQualityPage";
 import { DemoChecklistPage } from "./pages/DemoChecklistPage";
 import { EvidenceIntelligencePage } from "./pages/EvidenceIntelligencePage";
 import { EngagementsPage } from "./pages/EngagementsPage";
@@ -113,6 +114,7 @@ const router = createBrowserRouter([
           { path: "admin/users", element: <AdminUsersPage /> },
           { path: "admin/settings", element: <AdminSettingsPage /> },
           { path: "admin/operations", element: <OperationsCenterPage /> },
+          { path: "admin/data-quality", element: <DataQualityPage /> },
           { path: "admin/demo-checklist", element: <DemoChecklistPage /> },
           { path: "investigations", element: <InvestigationsPage /> },
           { path: "engagements", element: <EngagementsPage /> },

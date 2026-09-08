@@ -8,6 +8,7 @@ from app.models.case_closure import (
     CaseDeliverable,
 )
 from app.models.case_review import CaseReview
+from app.models.data_quality import DataQualityIssue
 from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
@@ -70,6 +71,7 @@ __all__ = [
     "CaseClosureChecklistItem",
     "CaseDeliverable",
     "CaseReview",
+    "DataQualityIssue",
     "AuthorizationEvidence",
     "Engagement",
     "EngagementScopeItem",

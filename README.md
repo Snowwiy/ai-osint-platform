@@ -161,6 +161,18 @@ findings, reports, notifications, and engagements. Views are user-specific by
 default, can be pinned for Quick Access, and never store credentials, tokens,
 API keys, invite codes, or database URLs.
 
+## Data Quality And Safe Maintenance
+
+The admin-only Data Quality Center runs bounded, deterministic consistency
+checks across investigations, engagements, findings, reports, closures,
+notifications, saved views, users, demo records, and system configuration.
+Issues retain severity and workflow status so administrators can acknowledge,
+ignore, or resolve them with an audit trail.
+
+Scans recommend manual corrections. They never delete user data, change roles,
+close cases, alter scope authorization, or rewrite evidence. The optional stale
+notification action only soft-archives old read or dismissed notifications.
+
 ## Validation Commands
 
 ```powershell
@@ -218,6 +230,7 @@ Recommended portfolio screenshots:
 - Activity Inbox, review board, governance settings, audit log, and operations
   center
 - Global Search, saved views, and dashboard Quick Access
+- Admin Data Quality Center with non-destructive maintenance recommendations
 
 ## Known Limitations
 
@@ -231,6 +244,8 @@ Recommended portfolio screenshots:
   still validate written authorization and scope policy
 - No external paid threat feed requirement
 - Demo data is synthetic and should not be interpreted as real compromise data
+- Data quality checks are bounded heuristics; administrators must review every
+  recommendation before correcting source records
 
 See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 

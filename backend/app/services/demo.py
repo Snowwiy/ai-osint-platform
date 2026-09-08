@@ -12,6 +12,7 @@ from app.models.case_closure import (
     CaseClosureChecklistItem,
     CaseDeliverable,
 )
+from app.models.data_quality import DataQualityIssue
 from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
@@ -122,6 +123,9 @@ DEMO_SAVED_VIEW_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000049")
 DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID = uuid.UUID(
     "70000000-0000-4000-8000-000000000050"
 )
+DEMO_QUALITY_ACKNOWLEDGED_ID = uuid.UUID("70000000-0000-4000-8000-000000000051")
+DEMO_QUALITY_WARNING_ID = uuid.UUID("70000000-0000-4000-8000-000000000052")
+DEMO_QUALITY_RESOLVED_ID = uuid.UUID("70000000-0000-4000-8000-000000000053")
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -281,6 +285,7 @@ async def ensure_demo_workspace(
     await _ensure_closure(db, user, now)
     await _ensure_notifications(db, user, now)
     await _ensure_saved_views(db, user, now)
+    await _ensure_data_quality_issues(db, user, now)
     await _ensure_knowledge(db)
     await _ensure_workflow_event(db, user)
     await db.flush()
@@ -288,6 +293,17 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(DataQualityIssue).where(
+            DataQualityIssue.id.in_(
+                [
+                    DEMO_QUALITY_ACKNOWLEDGED_ID,
+                    DEMO_QUALITY_WARNING_ID,
+                    DEMO_QUALITY_RESOLVED_ID,
+                ]
+            )
+        )
+    )
     await db.execute(
         delete(SavedView).where(
             SavedView.id.in_(
@@ -415,6 +431,7 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (CaseDeliverable, DEMO_EXEC_DELIVERABLE_ID),
         (Notification, DEMO_NOTIFICATION_REVIEW_ID),
         (SavedView, DEMO_SAVED_VIEW_HIGH_RISK_ID),
+        (DataQualityIssue, DEMO_QUALITY_ACKNOWLEDGED_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
@@ -1269,6 +1286,97 @@ async def _ensure_saved_views(db: AsyncSession, user: User, now: datetime) -> No
         view.is_default = is_default
         view.updated_at = now
         db.add(view)
+
+
+async def _ensure_data_quality_issues(
+    db: AsyncSession,
+    user: User,
+    now: datetime,
+) -> None:
+    examples = (
+        (
+            DEMO_QUALITY_ACKNOWLEDGED_ID,
+            "demo_quality_review_acknowledged",
+            "info",
+            "acknowledged",
+            "[DEMO] Quality review acknowledged",
+            "Synthetic example showing how an analyst records review of a recommendation.",
+            "Keep the acknowledgement with the case governance record.",
+            now,
+            None,
+        ),
+        (
+            DEMO_QUALITY_WARNING_ID,
+            "demo_scope_review_education",
+            "warning",
+            "open",
+            "[DEMO] Review scope before adding targets",
+            "Educational warning for demonstrating non-destructive quality guidance.",
+            "Open the synthetic engagement and confirm approved scope before changes.",
+            None,
+            None,
+        ),
+        (
+            DEMO_QUALITY_RESOLVED_ID,
+            "demo_report_readiness_resolved",
+            "info",
+            "resolved",
+            "[DEMO] Report readiness issue resolved",
+            "Synthetic resolved example; the linked report is ready for review.",
+            "No action is required. Retain this entry as demonstration history.",
+            None,
+            now,
+        ),
+    )
+    for (
+        issue_id,
+        issue_type,
+        severity,
+        status,
+        title,
+        description,
+        recommendation,
+        acknowledged_at,
+        resolved_at,
+    ) in examples:
+        issue = await db.get(DataQualityIssue, issue_id)
+        if issue is None:
+            db.add(
+                DataQualityIssue(
+                    id=issue_id,
+                    fingerprint=hashlib.sha256(
+                        f"demo:{issue_type}".encode("utf-8")
+                    ).hexdigest(),
+                    issue_type=issue_type,
+                    severity=severity,
+                    status=status,
+                    entity_type="demo_data",
+                    entity_id=DEMO_INVESTIGATION_ID,
+                    title=title,
+                    description=description,
+                    recommendation=recommendation,
+                    action_url=f"/investigations/{DEMO_INVESTIGATION_ID}",
+                    detected_at=now,
+                    acknowledged_at=acknowledged_at,
+                    acknowledged_by=user.id if acknowledged_at else None,
+                    resolved_at=resolved_at,
+                    issue_metadata={"demo": True, "synthetic": True},
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            continue
+        issue.title = title
+        issue.description = description
+        issue.recommendation = recommendation
+        issue.status = status
+        issue.detected_at = now
+        issue.acknowledged_at = acknowledged_at
+        issue.acknowledged_by = user.id if acknowledged_at else None
+        issue.resolved_at = resolved_at
+        issue.issue_metadata = {"demo": True, "synthetic": True}
+        issue.updated_at = now
+        db.add(issue)
 
 
 async def _ensure_knowledge(db: AsyncSession) -> None:

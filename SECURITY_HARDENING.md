@@ -123,6 +123,19 @@ Do not log secrets in audit metadata.
 - Search audit events should log result metadata and safely truncated query
   context only.
 
+## Data Quality And Maintenance
+
+- Restrict quality scans, issue-state changes, dry runs, and maintenance actions
+  to authenticated administrators.
+- Treat scan findings as recommendations. Never automate deletion, role changes,
+  case closure, authorization changes, or evidence edits from quality results.
+- Keep scans bounded and local. No external search, crawling, active scanning,
+  enrichment, or AI provider is required.
+- Persist only sanitized diagnostic metadata. Passwords, hashes, tokens, invite
+  codes, database URLs, Authorization headers, and API keys are prohibited.
+- Stale notification maintenance is an explicit soft archive limited to old
+  read or dismissed notifications.
+
 ## Backup Controls
 
 - Store backup exports in approved internal locations.

@@ -19,6 +19,7 @@ import {
   Network,
   Radar,
   Search,
+  SearchCheck,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -158,6 +159,7 @@ export function AppShell(): JSX.Element {
           { label: "Audit", to: "/admin/audit", icon: ClipboardList },
           { label: "Users", to: "/admin/users", icon: UsersRound },
           { label: "Operations", to: "/admin/operations", icon: Activity },
+          { label: "Data Quality", to: "/admin/data-quality", icon: SearchCheck },
           { label: "Settings", to: "/admin/settings", icon: Settings },
           {
             label: "Demo QA",

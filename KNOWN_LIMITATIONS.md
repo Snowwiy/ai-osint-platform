@@ -104,6 +104,17 @@ Saved views store user-specific filter preferences and routes. They do not
 share filters across users by default and should not be used to store sensitive
 notes or credentials.
 
+## Data Quality Checks
+
+The Data Quality Center uses bounded deterministic checks over stored records.
+It can flag likely duplicates, stale workflow items, missing evidence, invalid
+internal routes, configuration risks, and cross-workflow inconsistencies, but
+it does not prove that records are semantically identical or legally complete.
+
+No automatic destructive cleanup is included. Administrators must review and
+correct source records through governed workflows. Notification maintenance is
+limited to explicit soft archive of old read or dismissed items.
+
 ## Reporting
 
 Report quality depends on stored findings, notes, evidence, remediation data,

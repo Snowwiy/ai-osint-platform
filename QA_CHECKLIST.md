@@ -78,6 +78,21 @@
 - [ ] Audit filters work and an empty audit result is clear.
 - [ ] Important workflow and export actions appear in audit.
 
+## Data Quality And Maintenance
+
+- [ ] Admin Data Quality Center loads; non-admin access is denied cleanly.
+- [ ] Dry run reports recommendations and no destructive changes.
+- [ ] Run scan persists bounded issues without changing source records.
+- [ ] Severity, status, issue-type, and entity filters work.
+- [ ] Issue detail wraps long values and exposes only safe metadata.
+- [ ] Issues can be acknowledged, ignored, and resolved when allowed.
+- [ ] Invalid issue transitions return a clean conflict response.
+- [ ] Operations shows counts or a clean degraded quality panel.
+- [ ] Stale notification maintenance requires confirmation and only soft-archives
+      old read or dismissed notifications.
+- [ ] Audit records scan, issue workflow, dry-run, and maintenance actions.
+- [ ] Demo seed is idempotent and demo clear removes synthetic quality issues.
+
 ## Demo Mode
 
 - [ ] Demo mode is off by default.

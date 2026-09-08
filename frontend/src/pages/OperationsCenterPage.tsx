@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
@@ -20,12 +21,14 @@ import {
   downloadOperationsDiagnostics,
   getOperationsEnvironment,
   getOperationsStatus,
+  getDataQualityOverview,
   validateRestoreBackup,
 } from "../lib/api";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import type { FileDownloadResult } from "../lib/api";
 import type {
   EnvironmentValidationItem,
+  DataQualityOverviewResponse,
   OperationsComponentStatus,
   OperationsStatusResponse,
   RestoreValidationResponse,
@@ -47,6 +50,11 @@ export function OperationsCenterPage(): JSX.Element {
   const environment = useQuery({
     queryKey: ["operations-environment"],
     queryFn: getOperationsEnvironment,
+  });
+  const quality = useQuery({
+    queryKey: ["data-quality-overview"],
+    queryFn: getDataQualityOverview,
+    retry: 1,
   });
   const restore = useMutation({
     mutationFn: validateRestoreBackup,
@@ -148,6 +156,7 @@ export function OperationsCenterPage(): JSX.Element {
             onClick={() => {
               void status.refetch();
               void environment.refetch();
+              void quality.refetch();
             }}
             className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted hover:border-raven-violet hover:text-raven-text"
           >
@@ -166,6 +175,14 @@ export function OperationsCenterPage(): JSX.Element {
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">
         <EnvironmentPanel items={environment.data.items} />
         <StoragePanel data={status.data} />
+      </section>
+
+      <section className="mt-5">
+        <DataQualitySummaryPanel
+          data={quality.data}
+          loading={quality.isLoading}
+          error={quality.error}
+        />
       </section>
 
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">
@@ -201,6 +218,54 @@ export function OperationsCenterPage(): JSX.Element {
         <RecentOperationsPanel events={status.data.recent_operations} />
       </section>
     </>
+  );
+}
+
+function DataQualitySummaryPanel({
+  data,
+  loading,
+  error,
+}: {
+  data: DataQualityOverviewResponse | undefined;
+  loading: boolean;
+  error: Error | null;
+}): JSX.Element {
+  return (
+    <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Data Quality</h2>
+          <p className="mt-1 text-sm text-raven-muted">
+            Non-destructive consistency checks and guided maintenance recommendations.
+          </p>
+        </div>
+        <Link
+          to="/admin/data-quality"
+          className="rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted hover:border-raven-cyan hover:text-raven-text"
+        >
+          Open Data Quality Center
+        </Link>
+      </div>
+      {loading ? (
+        <p className="mt-4 text-sm text-raven-muted">Loading quality summary...</p>
+      ) : error || !data ? (
+        <div className="mt-4 rounded-md border border-amber-400/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+          Data quality status is degraded. Platform workflows remain available; refresh
+          this panel or open the Data Quality Center for details.
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric label="Open issues" value={safeNumber(data.open_issues)} />
+          <Metric label="Critical" value={safeNumber(data.critical_issues)} />
+          <Metric label="High" value={safeNumber(data.high_issues)} />
+          <Metric label="Warnings" value={safeNumber(data.warning_issues)} />
+          <Metric
+            label="Last scan"
+            value={safeDate(data.last_scan_at)?.toLocaleDateString() ?? "Not run"}
+          />
+        </div>
+      )}
+    </section>
   );
 }
 

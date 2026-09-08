@@ -382,6 +382,12 @@ async def _recent_operation_events(db: AsyncSession) -> list[RecentOperationEven
         "data.exported",
         "diagnostics.generated",
         "restore.validated",
+        "data_quality.scan_completed",
+        "data_quality.issue_acknowledged",
+        "data_quality.issue_ignored",
+        "data_quality.issue_resolved",
+        "maintenance.dry_run_completed",
+        "maintenance.stale_notifications_archived",
     )
     try:
         result = await db.execute(

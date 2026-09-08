@@ -164,6 +164,19 @@ and apply `alembic upgrade head` before changing code.
 - Saved views are private to the creating user by default. Another analyst not
   seeing your saved view is expected behavior.
 
+## Data Quality Center Issues
+
+- Apply migrations with `docker compose exec backend alembic upgrade head` if
+  quality data is unavailable. The Phase 5P head is `0028_phase5p_quality`.
+- A scan is bounded and local. If it fails, inspect backend logs and database
+  health; investigation and reporting workflows remain usable.
+- A recurring resolved issue reopens when the same condition is detected.
+  Ignored issues remain ignored unless an administrator resolves them.
+- **Archive stale notifications** soft-archives only read or dismissed records
+  older than the threshold. It never deletes notification content.
+- Diagnostic metadata intentionally omits credentials, invite codes, database
+  URLs, provider keys, and tokens.
+
 ## Frontend Build Or Layout Problems
 
 - Confirm `frontend/.env` points to the expected API base URL.

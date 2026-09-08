@@ -23,6 +23,11 @@ import type {
   CaseFinalRiskRating,
   CasePackageManifestResponse,
   CorrelationResponse,
+  DataQualityIssue,
+  DataQualityIssueFilters,
+  DataQualityIssueListResponse,
+  DataQualityOverviewResponse,
+  DataQualityScanResponse,
   CrossInvestigationCorrelationResponse,
   CrossInvestigationSignalType,
   CollaborationDashboardResponse,
@@ -103,6 +108,7 @@ import type {
   InvestigationTaskUpdateRequest,
   InvestigationUpdateRequest,
   KnowledgeSearchResponse,
+  MaintenanceDryRunResponse,
   IOCConfidence,
   IOCCorrelationResponse,
   IOCDetail,
@@ -153,6 +159,7 @@ import type {
   SavedViewListResponse,
   SavedViewType,
   SavedViewUpdateRequest,
+  StaleNotificationArchiveResponse,
   Target,
   TargetCreateRequest,
   TargetListResponse,
@@ -996,6 +1003,67 @@ export async function setDefaultSavedView(savedViewId: string): Promise<SavedVie
   return request<SavedView>(`/saved-views/${savedViewId}/set-default`, {
     method: "POST",
   });
+}
+
+export async function getDataQualityOverview(): Promise<DataQualityOverviewResponse> {
+  return request<DataQualityOverviewResponse>("/admin/data-quality/overview");
+}
+
+export async function runDataQualityScan(): Promise<DataQualityScanResponse> {
+  return request<DataQualityScanResponse>("/admin/data-quality/run", {
+    method: "POST",
+  });
+}
+
+export async function listDataQualityIssues(
+  filters: DataQualityIssueFilters = {},
+): Promise<DataQualityIssueListResponse> {
+  const params = new URLSearchParams();
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.issue_type?.trim()) params.set("issue_type", filters.issue_type.trim());
+  if (filters.entity_type) params.set("entity_type", filters.entity_type);
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) params.set("engagement_id", filters.engagement_id);
+  params.set("limit", String(filters.limit ?? 50));
+  params.set("offset", String(filters.offset ?? 0));
+  return request<DataQualityIssueListResponse>(
+    `/admin/data-quality/issues?${params.toString()}`,
+  );
+}
+
+export async function getDataQualityIssue(issueId: string): Promise<DataQualityIssue> {
+  return request<DataQualityIssue>(`/admin/data-quality/issues/${issueId}`);
+}
+
+export async function updateDataQualityIssueStatus(
+  issueId: string,
+  action: "acknowledge" | "ignore" | "resolve",
+): Promise<DataQualityIssue> {
+  return request<DataQualityIssue>(
+    `/admin/data-quality/issues/${issueId}/${action}`,
+    { method: "PATCH" },
+  );
+}
+
+export async function runMaintenanceDryRun(): Promise<MaintenanceDryRunResponse> {
+  return request<MaintenanceDryRunResponse>("/admin/maintenance/dry-run", {
+    method: "POST",
+  });
+}
+
+export async function archiveStaleNotifications(
+  olderThanDays = 90,
+): Promise<StaleNotificationArchiveResponse> {
+  return request<StaleNotificationArchiveResponse>(
+    "/admin/maintenance/archive-stale-notifications",
+    {
+      method: "POST",
+      body: JSON.stringify({ older_than_days: olderThanDays }),
+    },
+  );
 }
 
 export async function getOperationsStatus(): Promise<OperationsStatusResponse> {

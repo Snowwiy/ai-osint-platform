@@ -1,4 +1,4 @@
-import { RefreshCw, Search, ShieldCheck, UserCheck, UserX } from "lucide-react";
+import { RefreshCw, Search, UserCheck, UserX } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 

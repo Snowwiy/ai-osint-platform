@@ -3,7 +3,6 @@ import {
   CheckCheck,
   ExternalLink,
   Filter,
-  Inbox,
   RefreshCw,
   X,
 } from "lucide-react";

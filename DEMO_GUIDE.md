@@ -109,6 +109,17 @@ Before presenting, walk through these quick checks:
 - Use Global Search for internal records only. It does not browse the internet,
   crawl targets, or call an external search provider.
 
+## Data Quality Demo
+
+Open **Admin > Data Quality** and run **Dry run** first. Explain that RavenTech
+checks consistency locally and recommends analyst actions without modifying
+investigations, findings, reports, evidence, users, or authorization records.
+Run **Run scan** to persist the report, open an issue, and demonstrate its
+acknowledge or resolve audit trail.
+
+The synthetic workspace includes clearly labeled educational quality records.
+They are idempotent and removed by demo clear.
+
 ## Common Local Issues
 
 - **Backend shows degraded:** Open the health panel. Optional AI availability

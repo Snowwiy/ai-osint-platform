@@ -43,6 +43,8 @@ workflow, governance, reporting, and auditability.
   and governance reminders
 - RBAC-aware internal Global Search, private Saved Views, dashboard Quick Access,
   and pinned analyst navigation shortcuts
+- Admin Data Quality Center with bounded local scans, persistent issue workflow,
+  safe maintenance dry runs, and non-destructive recommendations
 - Release metadata endpoint: `GET /api/v1/release`
 - Synthetic demo seed and clear tooling for portfolio demonstrations
 
@@ -148,6 +150,8 @@ docker compose logs backend --tail=100
   `docker compose exec backend alembic check`
 - The Phase 5E migration revision ID must remain under Alembic's 32-character
   storage limit: `0022_phase5e_case_review`.
+- Phase 5P advances the head to `0028_phase5p_quality` and adds only the
+  non-destructive `data_quality_issues` table and supporting indexes.
 
 ## Known Limitations
 
@@ -166,6 +170,8 @@ docker compose logs backend --tail=100
   internet-wide discovery is included.
 - Saved Views are user-specific filter shortcuts and must not be used to store
   credentials, tokens, API keys, invite codes, or secrets.
+- Data Quality Center results are deterministic recommendations, not autonomous
+  cleanup decisions. No source record is automatically deleted or rewritten.
 - No external paid threat feeds are required or bundled
 - Demo data is synthetic
 - Local setup assumes Docker Compose, PostgreSQL, Redis, and frontend commands
