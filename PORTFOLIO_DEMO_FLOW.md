@@ -1,146 +1,127 @@
 # RavenTech OSINT Portfolio Demo Flow
 
-This 10-minute script is designed for interviews, client demos, and GitHub
-portfolio walkthroughs. Keep the language defensive: authorized scope,
-evidence-backed findings, analyst review, remediation, governance.
+This locked RC2 walkthrough is designed for a roughly ten-minute interview,
+GitHub, portfolio, or local client-style demonstration. Use only synthetic demo
+data and describe the platform as a locally validated release candidate—not a
+hosted production service.
 
-## 1. Login And Positioning
+## 1. Login
 
-Click: login page.
+Show the branded login and sign in as the existing demo administrator.
 
-Say: "RavenTech OSINT is a defensive intelligence and investigation workspace.
-It turns authorized passive evidence into findings, remediation tasks, reports,
-and audit-ready case records."
+Say: “RavenTech OSINT is a defensive investigation workspace for authorized,
+passive evidence collection, analysis, remediation, and reporting.”
 
-Proves: authentication, professional UX, defensive positioning.
+Proves: authentication, clear error handling, defensive positioning.
 
-## 2. Dashboard Health And Posture
+## 2. Dashboard
 
-Click: Dashboard, Executive, Operations Center if needed.
+Show operational posture, prioritized work, recent investigations, and Quick
+Access. Briefly open Executive Dashboard or Operations Center if time permits.
 
-Say: "The dashboard separates operational posture from executive posture. Health
-and degraded states are explicit, so the app remains usable when optional
-services like live AI are unavailable."
+Proves: analyst and stakeholder visibility, safe degraded states, navigation.
 
-Proves: health readiness, executive visibility, graceful degradation.
+## 3. Demo Investigation
 
-## 3. Investigation Workflow
+Open `[DEMO] Authorized External Exposure Review`. Point out its synthetic label,
+authorization statement, owner, members, workflow state, and investigation tabs.
 
-Click: Investigations, open `[DEMO] Authorized External Exposure Review`.
+Proves: governed case record, ownership, authorization, lifecycle context.
 
-Say: "Every investigation begins with authorization and scope. The demo case is
-synthetic and clearly labeled so it cannot be mistaken for a real incident."
+## 4. Engagement And Scope
 
-Optional click: Engagements.
+Open the linked demo engagement. Show authorization status, approved domain/CIDR
+scope, evidence references, and a conservative warning for unknown scope.
 
-Say: "The engagement layer records client context, authorization status,
-approved scope items, and evidence references. Scope checks are deterministic
-and local; unknown values become pending review rather than silently approved."
+Say: “Scope matching is deterministic and local; it performs no DNS lookup,
+probing, crawling, or scanning.”
 
-Proves: governance, scope management, authorization tracking, demo safety.
+Proves: client context, authorization evidence, safe scope governance.
 
-## 4. Passive Recon Evidence
+## 5. Recon And Findings
 
-Click: Targets and Recon.
+Show authorized synthetic targets, stored passive recon entities, partial-source
+handling, and a deterministic evidence-backed finding with severity, confidence,
+remediation, and ownership.
 
-Say: "Recon is passive only. The platform normalizes entities like domains, IPs,
-services, and technologies, then stores relationships for graph and timeline
-views."
+Proves: evidence normalization and analyst-reviewed defensive findings.
 
-Proves: passive recon model, normalized entities, relationship workflow.
+## 6. Correlations And IOCs
 
-## 5. Deterministic Findings
+Switch through Correlations Cards, Graph, and Table, then show IOC, Evidence
+Intelligence, or Threat Intelligence relationships.
 
-Click: Findings.
+Say: “These views correlate stored internal evidence; they do not perform
+internet-wide discovery or unsupported attribution.”
 
-Say: "Findings are deterministic and evidence-backed. Severity, confidence,
-remediation status, and analyst ownership are visible without relying on an LLM."
+Proves: cross-record reasoning, relationship UX, defensive intelligence scope.
 
-Proves: findings engine, review workflow, remediation tracking.
+## 7. AI Fallback
 
-## 6. Correlations And IOC Intelligence
+Show AI Analysis with the provider unavailable or disabled. Keep the degraded
+message and deterministic fallback/citations visible together.
 
-Click: Correlations, IOCs, Evidence Intelligence, Threat Intelligence.
+Proves: optional provider integration, graceful failure, evidence grounding.
 
-Say: "The intelligence layers correlate stored internal evidence across
-investigations. There is no internet-wide enrichment or unsupported attribution."
+## 8. Reports
 
-Proves: cross-investigation analysis, IOC repository, threat workspace maturity.
+Open a report template/readiness view and an existing executive or technical
+report. Show allowed PDF, DOCX, HTML, and Markdown export controls.
 
-## 7. AI Fallback And Evidence-Backed Analysis
+Say: “Reports are generated from stored evidence and always require analyst
+review; readiness warnings are advisory.”
 
-Click: AI Analysis.
+Proves: stakeholder output, citations, governance-aware export.
 
-Say: "AI is optional. If a provider key is missing or unavailable, the UI shows a
-clear degraded state and deterministic evidence-backed fallback remains usable."
+## 9. Closure And Deliverables
 
-Proves: safe AI integration, no secret exposure, robust UX.
+Show closure checklist, review/approval status, residual risk, deliverable list,
+and evidence package manifest. Explain that overrides require an authorized role
+and a recorded reason.
 
-## 8. Remediation And Playbooks
+Proves: controlled handoff, review trail, manifest consistency.
 
-Click: Playbooks, Tasks, Review Board, Closure.
+## 10. Notifications And Search
 
-Say: "Analysts can move from finding to validation, remediation task, playbook
-steps, report approval, case closure, and client-ready deliverable packaging. No
-action is autonomous."
+Open Activity Inbox, mark a synthetic alert read, then use Ctrl+K Global Search
+and a pinned Saved View to navigate to an authorized record.
 
-Proves: SOC-style workflow, analyst accountability, governance lifecycle,
-evidence package readiness.
+Proves: internal workflow awareness, RBAC-aware search, owner-scoped shortcuts.
 
-## 9. Executive Report Export
+## 11. Data Quality
 
-Click: Reports, generate or open sample report, download PDF/DOCX/HTML/MD.
+Open Admin > Data Quality. Show the bounded scan summary, one safe issue detail,
+and its acknowledge/resolve workflow. Prefer Dry run during a live presentation.
 
-Say: "Reports use stored investigation data, citations, approvals, and branding.
-Exports support executive and technical audiences. Closure metadata and
-deliverable readiness help make the handoff defensible."
+Say: “Quality checks recommend review; they do not automatically delete or
+rewrite source records.”
 
-Proves: report engine, export management, stakeholder readiness.
+Proves: deterministic maintenance, safe metadata, admin permissions.
 
-## 10. Audit And Governance Controls
+## 12. Audit And Governance
 
-Click: Admin Settings, Audit Log, Demo Checklist.
+Finish with Audit Log, Admin Settings, feature/export controls, and the release
+or Operations panel. Confirm `5.0.0-rc2`, current migration, and healthy local
+checks without exposing secrets.
 
-Say: "Admin controls cover feature flags, export settings, retention posture,
-audit policy, and demo readiness. Sensitive values are never printed."
+Proves: accountability, configuration boundaries, release validation.
 
-Proves: enterprise controls, auditability, release-candidate supportability.
+## Closing Statement
 
-Optional click: Activity Inbox.
+“This RC2 build is validated locally with Docker Compose and a deterministic
+test suite. Hosting, DNS, and production database migration are intentionally
+deferred. The platform excludes active scanning, exploitation, payloads,
+crawling, and autonomous offensive actions.”
 
-Say: "Workflow alerts stay internal to the platform. Analysts and admins can
-see pending approvals, closure blockers, deliverable readiness, scope warnings,
-and governance reminders without relying on email or chat integrations."
+## Presenter Guardrails
 
-Proves: operational accountability, internal notification history, no external
-delivery dependency.
-
-Optional click: Ctrl+K Global Search, then Dashboard Quick Access.
-
-Say: "Analysts can jump across authorized investigations, reports, findings,
-engagements, IOCs, and notifications without leaving the app. Search is
-RBAC-aware, internal-only, and saved views are private analyst shortcuts rather
-than external search infrastructure."
-
-Proves: analyst productivity, permission-aware navigation, saved filter reuse,
-no crawling or external search provider dependency.
-
-Optional click: Admin > Data Quality.
-
-Say: "Maintenance is advisory and auditable. RavenTech detects consistency
-risks but does not auto-delete evidence or rewrite case state."
-
-Proves: bounded database checks, safe metadata, admin RBAC, deterministic
-recommendations, and non-destructive governance.
-
-Presentation note: route pages are loaded on demand, tab rows remain usable at
-narrow widths, and expected empty or degraded states provide a retry path rather
-than exposing raw endpoint output.
-
-## Defensive Scope Explanation
-
-Use this phrase if asked about offensive capability:
-
-"The platform intentionally avoids active scanning, exploitation, payloads,
-malware handling, and autonomous actions. It is designed for authorized
-defensive assessment, evidence management, remediation, and reporting."
+- Use only bundled synthetic data and reserved identifiers.
+- Keep optional provider keys empty unless a controlled demo explicitly needs
+  one; never show keys or environment files.
+- Do not enter real targets without written authorization.
+- Do not claim production hosting, live compromise, autonomous action, legal
+  sign-off, SLA, or compliance certification.
+- If a provider is unavailable, demonstrate the fallback rather than changing
+  configuration during the walkthrough.
+- Follow `SCREENSHOTS_CHECKLIST.md` for portfolio captures and
+  `MANUAL_QA_RC2.md` before presenting.

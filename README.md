@@ -5,6 +5,9 @@ authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
 stakeholder-ready reports without active scanning or offensive automation.
 
+Current release candidate: `5.0.0-rc2`. The validated runtime is local Docker
+Compose; production and free-tier hosting remain deferred.
+
 ## What Problem It Solves
 
 Security teams often need a repeatable way to turn authorized external exposure
@@ -213,14 +216,22 @@ See [PORTFOLIO_DEMO_FLOW.md](PORTFOLIO_DEMO_FLOW.md) for a 10-minute portfolio
 presentation script and [SCREENSHOTS_CHECKLIST.md](SCREENSHOTS_CHECKLIST.md) for
 recommended screenshots.
 
+The complete presentation handoff is in
+[PORTFOLIO_PACKAGE.md](PORTFOLIO_PACKAGE.md), and the frozen platform boundary is
+recorded in [FINAL_PLATFORM_FREEZE.md](FINAL_PLATFORM_FREEZE.md).
+
 For the current release freeze, see [RELEASE_NOTES_RC2.md](RELEASE_NOTES_RC2.md),
 [MANUAL_QA_RC2.md](MANUAL_QA_RC2.md), and
-[RELEASE_CANDIDATE_CHECKLIST.md](RELEASE_CANDIDATE_CHECKLIST.md). RC1 notes
-remain available as historical release context.
+[FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC1 notes remain available as
+historical release context.
 
 For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
 planning, and registration controls, see
 [DEPLOYMENT_PREFLIGHT.md](DEPLOYMENT_PREFLIGHT.md).
+
+Provider comparisons for a future, separately authorized phase are documented
+in [FREE_TIER_HOSTING_OPTIONS.md](FREE_TIER_HOSTING_OPTIONS.md). These are
+planning notes only; no hosting, DNS, or database migration has been performed.
 
 ## Screenshot Placeholders
 

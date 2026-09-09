@@ -6,6 +6,14 @@ Run this script against the local Docker Compose environment. Use only synthetic
 or explicitly authorized data. Hosting, DNS, Supabase production migration, and
 external services are outside this QA pass.
 
+## Locked Demo Walkthrough Order
+
+After the checks below pass, use this exact portfolio sequence: (1) login,
+(2) dashboard, (3) demo investigation, (4) engagement/scope, (5) recon/findings,
+(6) correlations/IOCs, (7) AI fallback, (8) reports, (9) closure/deliverables,
+(10) notifications/Global Search/Saved Views, (11) Data Quality, and (12)
+audit/governance. Do not add a hosting step.
+
 ## Environment Startup
 
 1. From the repository root, copy `.env.example` to `.env` if local settings do

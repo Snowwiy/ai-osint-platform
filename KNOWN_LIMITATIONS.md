@@ -6,12 +6,13 @@
   integration.
 - No exploitation, attack automation, or offensive workflow.
 - No internet-wide enumeration or crawler.
-- No autonomous agents or unattended remediation.
+- No autonomous agents, unattended remediation, or autonomous offensive
+  actions.
 - No external SSO, billing, or managed cloud deployment.
 - No external paid threat feeds are required or bundled.
 - No cloud deployment implementation is included in the release candidate.
-- Hosting and DNS configuration remain deferred until after platform
-  finalization.
+- Production hosting and DNS configuration remain deferred until after final
+  platform review.
 - Local Docker Compose is the current tested operating mode. Production and
   free-tier hosting have not been validated.
 - The production database has not been migrated to Supabase.

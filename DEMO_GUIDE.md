@@ -43,42 +43,34 @@ containing:
 
 The dataset makes no live network requests and no compromise claims.
 
-## Recommended Demo Flow
+## Locked RC2 Demo Flow
 
-1. Sign in as an administrator.
-2. Open **Admin > Demo Checklist** and review platform health.
-3. Enable **Defensive demo mode** in **Admin > Settings** if required.
-4. Prepare and open the synthetic demo investigation.
-5. Review its linked engagement, approved scope, authorization metadata,
-   passive recon entities, and finding.
-6. Show remediation ownership and defensive playbook progress.
-7. Open **Closure** and review the checklist, deliverables, and evidence package
-   readiness.
-8. Open **Activity Inbox** and show internal alerts for pending review, report
-   readiness, scope reminders, and governance actions.
-9. Use **Global Search** to jump to the demo finding or report, then show a
-   pinned saved view in dashboard Quick Access.
-10. Generate a report using the template suited to the audience.
-11. Download PDF, DOCX, HTML, and Markdown formats allowed by governance.
-12. Search the local defensive knowledge library.
-13. Show the audit trail and explain that demo records are clearly labeled.
+Use this order for portfolio and local client-style demonstrations:
 
-## V1 10-Minute Portfolio Flow
+1. **Login:** Sign in as the existing demo administrator and state the
+   defensive-only purpose.
+2. **Dashboard:** Show posture, prioritized work, recent cases, and Quick Access.
+3. **Demo investigation:** Open the clearly labeled synthetic investigation and
+   show authorization, ownership, lifecycle, and navigation.
+4. **Engagement and scope:** Review the linked engagement, approved scope,
+   authorization metadata, and conservative scope handling.
+5. **Recon and findings:** Show authorized synthetic targets, passive evidence,
+   partial-source behavior, and deterministic findings.
+6. **Correlations and IOCs:** Switch through Cards, Graph, and Table, then show
+   IOC/Evidence/Threat Intelligence relationships.
+7. **AI fallback:** Show a clear unavailable/degraded provider state alongside
+   deterministic fallback analysis and citations.
+8. **Reports:** Review template/readiness guidance and PDF, DOCX, HTML, and
+   Markdown export controls.
+9. **Closure and deliverables:** Show the checklist, approval, residual risk,
+   deliverables, and evidence package manifest.
+10. **Notifications and search:** Mark a synthetic Activity Inbox item read, use
+    Ctrl+K Global Search, and open a pinned Saved View.
+11. **Data Quality:** Show Dry run or scan results and a safe issue transition.
+12. **Audit and governance:** Close with audit events, settings, feature/export
+    controls, health, migration, and `5.0.0-rc2` release metadata.
 
-1. **Login:** Sign in and point out clean auth handling.
-2. **Dashboard overview:** Show portfolio posture, high-risk work, and health.
-3. **Open or create investigation:** Explain authorized scope and ownership.
-4. **Add authorized target:** Add a domain, IP, or URL that is in scope.
-5. **Run passive recon:** Show stored evidence and partial-source warnings.
-6. **Generate findings:** Review deterministic evidence-backed findings.
-7. **Review defensive intelligence:** Show MITRE, Sigma, coverage, and guidance.
-8. **Create remediation/playbook:** Assign analyst-owned next steps.
-9. **Prepare closure:** Show final checklist, deliverables, and package manifest.
-10. **Review Activity Inbox:** Show pending workflow alerts and mark one read.
-11. **Search and navigate:** Use Ctrl+K Global Search, load a saved view, and
-    show dashboard Quick Access.
-12. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
-13. **Governance close:** Show audit log, settings, feature flags, and exports.
+Detailed presenter language is in `PORTFOLIO_DEMO_FLOW.md`.
 
 ## RC2 Stability Demo Pass
 

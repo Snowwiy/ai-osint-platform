@@ -91,3 +91,8 @@ redesign.
 Complete `MANUAL_QA_RC2.md`, review the frozen diff on GitHub, and conduct the
 portfolio/local demo walkthrough. Future free-tier deployment planning begins
 only after RC2 acceptance; it is not part of this release.
+
+The Phase 5S presentation handoff is documented in `FINAL_PLATFORM_FREEZE.md`,
+`PORTFOLIO_PACKAGE.md`, `SCREENSHOTS_CHECKLIST.md`, and
+`FINAL_QA_CHECKLIST.md`. `FREE_TIER_HOSTING_OPTIONS.md` is research only and
+does not record or authorize a deployment.
