@@ -86,6 +86,8 @@ check blocks the current release-freeze commit and push.
 - [ ] Screenshot set follows `SCREENSHOTS_CHECKLIST.md` and contains only
       synthetic data.
 - [ ] Demo follows the locked 12-step order in `PORTFOLIO_DEMO_FLOW.md`.
+- [ ] `LOCAL_DEMO_BUNDLE.md` and `GITHUB_RELEASE_DRAFT.md` match the frozen
+      version, validation evidence, limitations, and defensive-only scope.
 
 ## Freeze And Git Gate
 
@@ -104,3 +106,7 @@ check blocks the current release-freeze commit and push.
 - [ ] `git status` is reviewed before commit.
 - [ ] Commit uses the message required by the current phase.
 - [ ] Push to `origin/dev` succeeds and the working tree is clean/synchronized.
+- [ ] If `v5.0.0-rc2` already exists, verify its target instead of recreating or
+      moving it blindly; otherwise create it only on the validated package commit.
+- [ ] Push `v5.0.0-rc2` only after the release-package commit reaches
+      `origin/dev`, then verify the local and remote tag targets match.

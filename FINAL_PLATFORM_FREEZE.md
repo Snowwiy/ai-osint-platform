@@ -3,14 +3,15 @@
 ## Freeze Identity
 
 - Current version: `5.0.0-rc2`
-- Validated parent baseline: `b67f0ab` (`chore: add local operations backup and demo reset tools`)
+- Validated parent baseline: `e9c00df` (`chore: complete security freeze and secrets audit`)
 - Branch: `dev`
-- Current allowed scope: Phase 5V security hygiene, regression tests, and
+- Release tag: `v5.0.0-rc2`, created only after the final Phase 5W validation
+- Current allowed scope: Phase 5W repository cleanup and local release-package
   documentation only
 
-Phase 5U completed the guarded local backup/restore and demo-reset tooling. The
-current security-freeze phase preserves the application, API, migration, and
-defensive product boundaries.
+Phase 5V completed the security freeze and secrets audit. Phase 5W packages the
+existing local release candidate without changing application features, API
+contracts, migrations, deployment, or defensive product boundaries.
 
 ## Completed Modules
 
@@ -37,7 +38,7 @@ used or validated.
 
 ## Validation Status
 
-At the Phase 5V validation gate:
+At the Phase 5W validation gate:
 
 - `/health` and `/health/ready`: `status: ok`
 - `/api/v1/release`: `5.0.0-rc2`
@@ -90,6 +91,7 @@ See `KNOWN_LIMITATIONS.md` for the complete list.
   fields and common secret-bearing strings
 - Frontend dynamic navigation is constrained to internal routes
 - Portfolio narrative, screenshots list, and demo order
+- Local demo bundle, artifact checklist, and reviewed GitHub release draft
 
 ## What Must Not Change Before Hosting Review
 

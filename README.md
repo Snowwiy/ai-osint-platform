@@ -103,7 +103,7 @@ Frontend:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -242,6 +242,9 @@ See [LOCAL_BACKUP_RESTORE.md](LOCAL_BACKUP_RESTORE.md) for safeguards and
 
 ## Demo Flow
 
+Start with [LOCAL_DEMO_BUNDLE.md](LOCAL_DEMO_BUNDLE.md) for the complete local
+setup, seed/reset, health, report, validation, screenshot, and artifact workflow.
+
 See [PORTFOLIO_DEMO_FLOW.md](PORTFOLIO_DEMO_FLOW.md) for a 10-minute portfolio
 presentation script and [SCREENSHOTS_CHECKLIST.md](SCREENSHOTS_CHECKLIST.md) for
 recommended screenshots.
@@ -254,6 +257,10 @@ For the current release freeze, see [RELEASE_NOTES_RC2.md](RELEASE_NOTES_RC2.md)
 [MANUAL_QA_RC2.md](MANUAL_QA_RC2.md), and
 [FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC1 notes remain available as
 historical release context.
+
+The reviewed GitHub release copy is in
+[GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no
+GitHub release or hosted environment is created by the repository.
 
 For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
 planning, and registration controls, see
@@ -300,6 +307,7 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 ## Roadmap
 
 The current repository is packaged as the `5.0.0-rc2` release-candidate
-portfolio build. Final manual QA is complete; local operations and backup/restore
-preparation are the current scope. Hosting, DNS, and Supabase production database
-planning remain deferred to a separately authorized phase.
+portfolio and local demo build. Final manual QA, local operations, backup/restore,
+and security hygiene are complete. The `v5.0.0-rc2` tag identifies the validated
+local package; hosting, DNS, and Supabase production database work remain
+deferred to a separately authorized phase.
