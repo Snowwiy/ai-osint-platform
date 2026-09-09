@@ -278,8 +278,8 @@ async def ensure_demo_workspace(
     await _ensure_task(db, user, now)
     await _ensure_evidence(db, user)
     await _ensure_bookmark(db, user)
-    await _ensure_ioc(db, now)
-    await _ensure_threat_intelligence(db, user, now)
+    demo_ioc_id = await _ensure_ioc(db, now)
+    await _ensure_threat_intelligence(db, user, now, demo_ioc_id)
     await _ensure_playbook_run(db, user)
     await _ensure_report(db, user, now)
     await _ensure_closure(db, user, now)
@@ -424,7 +424,6 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (PlaybookRun, DEMO_PLAYBOOK_RUN_ID),
         (Report, DEMO_REPORT_ID),
         (KnowledgeDocument, DEMO_KNOWLEDGE_DOCUMENT_ID),
-        (IOC, DEMO_IOC_ID),
         (ThreatCampaign, DEMO_CAMPAIGN_ID),
         (Engagement, DEMO_ENGAGEMENT_ID),
         (CaseClosure, DEMO_CLOSURE_ID),
@@ -436,6 +435,14 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
             return False
+    demo_ioc = await db.scalar(
+        select(IOC.id).where(
+            IOC.ioc_type == "domain",
+            IOC.normalized_value == "demo.raventech.invalid",
+        )
+    )
+    if demo_ioc is None:
+        return False
     return True
 
 
@@ -773,31 +780,47 @@ async def _ensure_bookmark(db: AsyncSession, user: User) -> None:
         )
 
 
-async def _ensure_ioc(db: AsyncSession, now: datetime) -> None:
-    if await db.get(IOC, DEMO_IOC_ID) is None:
-        db.add(
-            IOC(
-                id=DEMO_IOC_ID,
-                value="demo.raventech.invalid",
-                normalized_value="demo.raventech.invalid",
-                ioc_type="domain",
-                source="demo_passive_recon",
-                confidence="high",
-                confidence_reason=(
-                    "Synthetic IOC is linked to a reserved domain, finding, and "
-                    "investigation for demonstration."
-                ),
-                first_seen=now,
-                last_seen=now,
-                tags=["demo", "reserved-domain", "defensive"],
-                notes="Synthetic IOC. No attribution or compromise claim.",
+async def _ensure_ioc(db: AsyncSession, now: datetime) -> uuid.UUID:
+    ioc = await db.get(IOC, DEMO_IOC_ID)
+    if ioc is None:
+        ioc = await db.scalar(
+            select(IOC).where(
+                IOC.ioc_type == "domain",
+                IOC.normalized_value == "demo.raventech.invalid",
             )
         )
-    if await db.get(IOCObservation, DEMO_IOC_OBSERVATION_ID) is None:
+    if ioc is None:
+        ioc = IOC(
+            id=DEMO_IOC_ID,
+            value="demo.raventech.invalid",
+            normalized_value="demo.raventech.invalid",
+            ioc_type="domain",
+            source="demo_passive_recon",
+            confidence="high",
+            confidence_reason=(
+                "Synthetic IOC is linked to a reserved domain, finding, and "
+                "investigation for demonstration."
+            ),
+            first_seen=now,
+            last_seen=now,
+            tags=["demo", "reserved-domain", "defensive"],
+            notes="Synthetic IOC. No attribution or compromise claim.",
+        )
+        db.add(ioc)
+        await db.flush()
+    observation = await db.get(IOCObservation, DEMO_IOC_OBSERVATION_ID)
+    if observation is None:
+        observation = await db.scalar(
+            select(IOCObservation).where(
+                IOCObservation.ioc_id == ioc.id,
+                IOCObservation.investigation_id == DEMO_INVESTIGATION_ID,
+            )
+        )
+    if observation is None:
         db.add(
             IOCObservation(
                 id=DEMO_IOC_OBSERVATION_ID,
-                ioc_id=DEMO_IOC_ID,
+                ioc_id=ioc.id,
                 investigation_id=DEMO_INVESTIGATION_ID,
                 recon_entity_id=DEMO_DOMAIN_ENTITY_ID,
                 source="demo_passive_recon",
@@ -812,12 +835,14 @@ async def _ensure_ioc(db: AsyncSession, now: datetime) -> None:
                 },
             )
         )
+    return ioc.id
 
 
 async def _ensure_threat_intelligence(
     db: AsyncSession,
     user: User,
     now: datetime,
+    demo_ioc_id: uuid.UUID,
 ) -> None:
     if await db.get(ThreatCampaign, DEMO_CAMPAIGN_ID) is None:
         db.add(
@@ -871,7 +896,7 @@ async def _ensure_threat_intelligence(
             DEMO_CAMPAIGN_IOC_LINK_ID,
             {
                 "campaign_id": DEMO_CAMPAIGN_ID,
-                "ioc_id": DEMO_IOC_ID,
+                "ioc_id": demo_ioc_id,
             },
         ),
         (

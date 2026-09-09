@@ -1244,6 +1244,11 @@ def _check_demo_state(
         "saved_view": {item.id for item in saved_views},
     }
     demo_exists = any(item.id == DEMO_INVESTIGATION_ID for item in investigations)
+    demo_ioc_exists = any(
+        item.ioc_type == "domain"
+        and item.normalized_value == "demo.raventech.invalid"
+        for item in iocs
+    )
     any_component = any(item_id in ids_by_type[item_type] for item_type, item_id in DEMO_EXPECTED_IDS)
     if not demo_exists and not any_component:
         return
@@ -1254,6 +1259,7 @@ def _check_demo_state(
         item_type
         for item_type, item_id in DEMO_EXPECTED_IDS
         if item_id not in ids_by_type[item_type]
+        and not (item_type == "ioc" and demo_ioc_exists)
     )
     if missing:
         output.append(
