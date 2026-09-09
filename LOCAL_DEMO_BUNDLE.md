@@ -1,6 +1,7 @@
 # RavenTech OSINT Local Demo Bundle
 
-Release candidate: `5.0.0-rc2`  
+Release candidate: `5.0.0-rc2`
+
 Supported mode: local Docker Compose with a local Vite frontend
 
 This bundle is a documentation entry point for a reproducible, synthetic,
