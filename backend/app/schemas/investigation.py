@@ -20,6 +20,12 @@ InvestigationMemberRole = Literal["owner", "admin", "analyst", "viewer"]
 InvestigationMemberAddRole = Literal["owner", "admin", "collaborator", "viewer"]
 InvestigationMemberResponseRole = InvestigationMemberRole | Literal["collaborator"]
 InvestigationPriority = Literal["low", "medium", "high", "urgent"]
+InvestigationScopeReviewStatus = Literal[
+    "not_reviewed",
+    "in_scope",
+    "out_of_scope",
+    "pending_review",
+]
 InvestigationStage = Literal[
     "intake",
     "scoping",
@@ -48,6 +54,9 @@ class InvestigationCreate(BaseModel):
     description: str | None = None
     authorization_statement: str
     scope_definition: str | None = None
+    engagement_id: uuid.UUID | None = None
+    scope_review_status: InvestigationScopeReviewStatus = "not_reviewed"
+    scope_notes: str | None = None
 
     @field_validator("title")
     @classmethod
@@ -71,6 +80,9 @@ class InvestigationUpdate(BaseModel):
     status: InvestigationWorkflowStatus | None = None
     scope_definition: str | None = None
     reviewer_id: uuid.UUID | None = None
+    engagement_id: uuid.UUID | None = None
+    scope_review_status: InvestigationScopeReviewStatus | None = None
+    scope_notes: str | None = None
 
 
 class InvestigationResponse(BaseModel):
@@ -83,8 +95,11 @@ class InvestigationResponse(BaseModel):
     stage: InvestigationStage
     owner_id: uuid.UUID
     reviewer_id: uuid.UUID | None
+    engagement_id: uuid.UUID | None
     authorization_statement: str
     scope_definition: str | None
+    scope_review_status: InvestigationScopeReviewStatus
+    scope_notes: str | None
     priority: InvestigationPriority
     business_impact: str | None
     due_date: date | None

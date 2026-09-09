@@ -14,6 +14,7 @@ import {
   updateNote,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type { InvestigationNote, NoteType } from "../types";
 
@@ -233,13 +234,13 @@ export function NotesPage(): JSX.Element {
                 ) : null}
               </div>
               <MarkdownPreview value={note.content} />
-              {note.references.length ? (
+              {safeArray(note.references).length ? (
                 <div className="mt-4 border-t border-raven-border pt-3">
                   <p className="text-xs uppercase tracking-wide text-raven-muted">
                     References
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {note.references.map((reference) => (
+                    {safeArray(note.references).map((reference) => (
                       <span
                         key={reference}
                         className="max-w-full break-all rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan"
@@ -325,7 +326,7 @@ function NoteModal({
     note?.visibility ?? "investigation",
   );
   const [references, setReferences] = useState(
-    note?.references.join("\n") ?? "",
+    safeArray(note?.references).join("\n"),
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 

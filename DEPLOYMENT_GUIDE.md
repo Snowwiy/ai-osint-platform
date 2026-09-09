@@ -20,7 +20,7 @@ Required backend variables:
 - `REDIS_URL`
 - `ACCESS_TOKEN_EXPIRE_MINUTES`
 - `FRONTEND_URL`
-- `CORS_ORIGINS` or `APP_ALLOWED_ORIGINS`
+- `CORS_ORIGINS`, `BACKEND_CORS_ORIGINS`, or `APP_ALLOWED_ORIGINS`
 
 Optional operational variables:
 
@@ -35,12 +35,19 @@ Optional operational variables:
 - `REPORT_PRIMARY_COLOR`
 - `REPORT_SECONDARY_COLOR`
 - `CHROMA_DATA_PATH`
+- `PUBLIC_REGISTRATION_ENABLED`
+- `REGISTRATION_REQUIRES_APPROVAL`
+- `REGISTRATION_INVITE_CODE`
+- `DEFAULT_REGISTERED_USER_ROLE`
 
 Frontend variable:
 
 - `VITE_API_BASE_URL`
 
 Do not commit real secrets. Use strong values for production-style operation.
+For a deployment preflight checklist, Supabase PostgreSQL notes, domain/CORS
+guidance, and registration policy details, see
+[DEPLOYMENT_PREFLIGHT.md](DEPLOYMENT_PREFLIGHT.md).
 
 ## Local Startup
 

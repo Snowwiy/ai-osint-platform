@@ -1,5 +1,9 @@
 # Troubleshooting
 
+> Legacy implementation reference. Use `TROUBLESHOOTING.md` and
+> `LOCAL_HEALTH_REPAIR.md` at the repository root for the current RC2 local
+> runbooks. This file is retained as historical context.
+
 ## Backend Will Not Start
 
 Check configuration:

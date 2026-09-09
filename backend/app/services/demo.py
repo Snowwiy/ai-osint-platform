@@ -7,6 +7,17 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.case_closure import (
+    CaseClosure,
+    CaseClosureChecklistItem,
+    CaseDeliverable,
+)
+from app.models.data_quality import DataQualityIssue
+from app.models.engagement import (
+    AuthorizationEvidence,
+    Engagement,
+    EngagementScopeItem,
+)
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -19,10 +30,12 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.notification import Notification
 from app.models.playbook import PlaybookRun, PlaybookRunStep
 from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
 from app.models.report import Report
+from app.models.saved_view import SavedView
 from app.models.target import Target
 from app.models.threat_workspace import (
     ThreatCampaign,
@@ -88,6 +101,31 @@ DEMO_RELATIONSHIP_DOMAIN_SERVICE_ID = uuid.UUID(
 DEMO_RELATIONSHIP_SERVICE_TECH_ID = uuid.UUID(
     "70000000-0000-4000-8000-000000000030"
 )
+DEMO_ENGAGEMENT_ID = uuid.UUID("70000000-0000-4000-8000-000000000031")
+DEMO_SCOPE_DOMAIN_ID = uuid.UUID("70000000-0000-4000-8000-000000000032")
+DEMO_SCOPE_IP_ID = uuid.UUID("70000000-0000-4000-8000-000000000033")
+DEMO_AUTH_EVIDENCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000034")
+DEMO_CLOSURE_ID = uuid.UUID("70000000-0000-4000-8000-000000000035")
+DEMO_CLOSURE_CHECK_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000036")
+DEMO_CLOSURE_CHECK_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000037")
+DEMO_EXEC_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000038")
+DEMO_TECH_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000039")
+DEMO_PACKAGE_DELIVERABLE_ID = uuid.UUID("70000000-0000-4000-8000-000000000040")
+DEMO_NOTIFICATION_REVIEW_ID = uuid.UUID("70000000-0000-4000-8000-000000000041")
+DEMO_NOTIFICATION_REPORT_ID = uuid.UUID("70000000-0000-4000-8000-000000000042")
+DEMO_NOTIFICATION_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000043")
+DEMO_NOTIFICATION_PACKAGE_ID = uuid.UUID("70000000-0000-4000-8000-000000000044")
+DEMO_NOTIFICATION_GOVERNANCE_ID = uuid.UUID("70000000-0000-4000-8000-000000000045")
+DEMO_SAVED_VIEW_HIGH_RISK_ID = uuid.UUID("70000000-0000-4000-8000-000000000046")
+DEMO_SAVED_VIEW_CLOSURE_ID = uuid.UUID("70000000-0000-4000-8000-000000000047")
+DEMO_SAVED_VIEW_REPORTS_ID = uuid.UUID("70000000-0000-4000-8000-000000000048")
+DEMO_SAVED_VIEW_SCOPE_ID = uuid.UUID("70000000-0000-4000-8000-000000000049")
+DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID = uuid.UUID(
+    "70000000-0000-4000-8000-000000000050"
+)
+DEMO_QUALITY_ACKNOWLEDGED_ID = uuid.UUID("70000000-0000-4000-8000-000000000051")
+DEMO_QUALITY_WARNING_ID = uuid.UUID("70000000-0000-4000-8000-000000000052")
+DEMO_QUALITY_RESOLVED_ID = uuid.UUID("70000000-0000-4000-8000-000000000053")
 
 PUBLIC_EXPOSURE_PLAYBOOK_ID = uuid.UUID(
     "10000000-0000-4000-8000-000000000002"
@@ -172,6 +210,7 @@ async def ensure_demo_workspace(
     user: User,
 ) -> Investigation:
     now = datetime.now(UTC)
+    await _ensure_demo_engagement(db, user, now)
     investigation = await db.get(Investigation, DEMO_INVESTIGATION_ID)
     if investigation is None:
         investigation = Investigation(
@@ -183,6 +222,7 @@ async def ensure_demo_workspace(
                 "organization or compromise."
             ),
             owner_id=user.id,
+            engagement_id=DEMO_ENGAGEMENT_ID,
             status="active",
             stage="analysis",
             authorization_statement=(
@@ -195,6 +235,11 @@ async def ensure_demo_workspace(
                 "192.0.2.10 only."
             ),
             priority="high",
+            scope_review_status="in_scope",
+            scope_notes=(
+                "Synthetic demo engagement scope includes the reserved demo "
+                "domain and TEST-NET address used by this case."
+            ),
             business_impact=(
                 "Demonstrates evidence review, remediation ownership, and reporting "
                 "without making a compromise claim."
@@ -211,6 +256,12 @@ async def ensure_demo_workspace(
             "remediation ownership, and client-ready reporting without live access."
         )
         investigation.stage = "analysis"
+        investigation.engagement_id = DEMO_ENGAGEMENT_ID
+        investigation.scope_review_status = "in_scope"
+        investigation.scope_notes = (
+            "Synthetic demo engagement scope includes the reserved demo "
+            "domain and TEST-NET address used by this case."
+        )
         investigation.business_impact = (
             "The observed configuration may increase operational exposure if "
             "ownership and defensive controls are not documented. This synthetic "
@@ -227,10 +278,14 @@ async def ensure_demo_workspace(
     await _ensure_task(db, user, now)
     await _ensure_evidence(db, user)
     await _ensure_bookmark(db, user)
-    await _ensure_ioc(db, now)
-    await _ensure_threat_intelligence(db, user, now)
+    demo_ioc_id = await _ensure_ioc(db, now)
+    await _ensure_threat_intelligence(db, user, now, demo_ioc_id)
     await _ensure_playbook_run(db, user)
     await _ensure_report(db, user, now)
+    await _ensure_closure(db, user, now)
+    await _ensure_notifications(db, user, now)
+    await _ensure_saved_views(db, user, now)
+    await _ensure_data_quality_issues(db, user, now)
     await _ensure_knowledge(db)
     await _ensure_workflow_event(db, user)
     await db.flush()
@@ -238,6 +293,72 @@ async def ensure_demo_workspace(
 
 
 async def _delete_demo_records(db: AsyncSession) -> None:
+    await db.execute(
+        delete(DataQualityIssue).where(
+            DataQualityIssue.id.in_(
+                [
+                    DEMO_QUALITY_ACKNOWLEDGED_ID,
+                    DEMO_QUALITY_WARNING_ID,
+                    DEMO_QUALITY_RESOLVED_ID,
+                ]
+            )
+        )
+    )
+    await db.execute(
+        delete(SavedView).where(
+            SavedView.id.in_(
+                [
+                    DEMO_SAVED_VIEW_HIGH_RISK_ID,
+                    DEMO_SAVED_VIEW_CLOSURE_ID,
+                    DEMO_SAVED_VIEW_REPORTS_ID,
+                    DEMO_SAVED_VIEW_SCOPE_ID,
+                    DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID,
+                ]
+            )
+        )
+    )
+    await db.execute(
+        delete(Notification).where(
+            Notification.id.in_(
+                [
+                    DEMO_NOTIFICATION_REVIEW_ID,
+                    DEMO_NOTIFICATION_REPORT_ID,
+                    DEMO_NOTIFICATION_SCOPE_ID,
+                    DEMO_NOTIFICATION_PACKAGE_ID,
+                    DEMO_NOTIFICATION_GOVERNANCE_ID,
+                ]
+            )
+        )
+    )
+    await db.execute(
+        delete(CaseDeliverable).where(
+            CaseDeliverable.id.in_(
+                [
+                    DEMO_EXEC_DELIVERABLE_ID,
+                    DEMO_TECH_DELIVERABLE_ID,
+                    DEMO_PACKAGE_DELIVERABLE_ID,
+                ]
+            )
+        )
+    )
+    await db.execute(
+        delete(CaseClosureChecklistItem).where(
+            CaseClosureChecklistItem.id.in_(
+                [DEMO_CLOSURE_CHECK_SCOPE_ID, DEMO_CLOSURE_CHECK_REPORT_ID]
+            )
+        )
+    )
+    await db.execute(delete(CaseClosure).where(CaseClosure.id == DEMO_CLOSURE_ID))
+    await db.execute(
+        delete(AuthorizationEvidence).where(
+            AuthorizationEvidence.id == DEMO_AUTH_EVIDENCE_ID
+        )
+    )
+    await db.execute(
+        delete(EngagementScopeItem).where(
+            EngagementScopeItem.id.in_([DEMO_SCOPE_DOMAIN_ID, DEMO_SCOPE_IP_ID])
+        )
+    )
     await db.execute(
         delete(ThreatGroupCampaign).where(
             ThreatGroupCampaign.id == DEMO_GROUP_CAMPAIGN_LINK_ID
@@ -285,6 +406,7 @@ async def _delete_demo_records(db: AsyncSession) -> None:
     await db.execute(
         delete(Investigation).where(Investigation.id == DEMO_INVESTIGATION_ID)
     )
+    await db.execute(delete(Engagement).where(Engagement.id == DEMO_ENGAGEMENT_ID))
     await db.flush()
 
 
@@ -302,13 +424,97 @@ async def demo_workspace_ready(db: AsyncSession) -> bool:
         (PlaybookRun, DEMO_PLAYBOOK_RUN_ID),
         (Report, DEMO_REPORT_ID),
         (KnowledgeDocument, DEMO_KNOWLEDGE_DOCUMENT_ID),
-        (IOC, DEMO_IOC_ID),
         (ThreatCampaign, DEMO_CAMPAIGN_ID),
+        (Engagement, DEMO_ENGAGEMENT_ID),
+        (CaseClosure, DEMO_CLOSURE_ID),
+        (CaseDeliverable, DEMO_EXEC_DELIVERABLE_ID),
+        (Notification, DEMO_NOTIFICATION_REVIEW_ID),
+        (SavedView, DEMO_SAVED_VIEW_HIGH_RISK_ID),
+        (DataQualityIssue, DEMO_QUALITY_ACKNOWLEDGED_ID),
     )
     for model, item_id in required_ids:
         if await db.get(model, item_id) is None:
             return False
+    demo_ioc = await db.scalar(
+        select(IOC.id).where(
+            IOC.ioc_type == "domain",
+            IOC.normalized_value == "demo.raventech.invalid",
+        )
+    )
+    if demo_ioc is None:
+        return False
     return True
+
+
+async def _ensure_demo_engagement(
+    db: AsyncSession,
+    user: User,
+    now: datetime,
+) -> None:
+    engagement = await db.get(Engagement, DEMO_ENGAGEMENT_ID)
+    if engagement is None:
+        db.add(
+            Engagement(
+                id=DEMO_ENGAGEMENT_ID,
+                title="[DEMO] Client Authorization Review",
+                client_name="[DEMO] Example Client",
+                client_contact="demo-approver@example.invalid",
+                description=(
+                    "Synthetic engagement metadata for demonstration only. "
+                    "No real client, authorization record, or compromise is "
+                    "represented."
+                ),
+                status="active",
+                authorization_status="approved",
+                start_date=now.date(),
+                end_date=(now + timedelta(days=30)).date(),
+                created_by=user.id,
+            )
+        )
+    else:
+        engagement.status = "active"
+        engagement.authorization_status = "approved"
+        db.add(engagement)
+    if await db.get(EngagementScopeItem, DEMO_SCOPE_DOMAIN_ID) is None:
+        db.add(
+            EngagementScopeItem(
+                id=DEMO_SCOPE_DOMAIN_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                scope_type="domain",
+                value="demo.raventech.invalid",
+                description="Reserved synthetic demo domain.",
+                status="in_scope",
+                created_by=user.id,
+            )
+        )
+    if await db.get(EngagementScopeItem, DEMO_SCOPE_IP_ID) is None:
+        db.add(
+            EngagementScopeItem(
+                id=DEMO_SCOPE_IP_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                scope_type="cidr",
+                value="192.0.2.0/24",
+                description="TEST-NET-1 documentation range for demo evidence.",
+                status="in_scope",
+                created_by=user.id,
+            )
+        )
+    if await db.get(AuthorizationEvidence, DEMO_AUTH_EVIDENCE_ID) is None:
+        db.add(
+            AuthorizationEvidence(
+                id=DEMO_AUTH_EVIDENCE_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                title="[DEMO] Internal Defensive Assessment Approval",
+                description=(
+                    "Metadata only. Represents synthetic approval for demo "
+                    "workspace review."
+                ),
+                evidence_type="internal_authorization",
+                reference="demo://authorization/internal-review",
+                status="approved",
+                created_by=user.id,
+            )
+        )
 
 
 async def _ensure_member(db: AsyncSession, user: User) -> None:
@@ -574,31 +780,47 @@ async def _ensure_bookmark(db: AsyncSession, user: User) -> None:
         )
 
 
-async def _ensure_ioc(db: AsyncSession, now: datetime) -> None:
-    if await db.get(IOC, DEMO_IOC_ID) is None:
-        db.add(
-            IOC(
-                id=DEMO_IOC_ID,
-                value="demo.raventech.invalid",
-                normalized_value="demo.raventech.invalid",
-                ioc_type="domain",
-                source="demo_passive_recon",
-                confidence="high",
-                confidence_reason=(
-                    "Synthetic IOC is linked to a reserved domain, finding, and "
-                    "investigation for demonstration."
-                ),
-                first_seen=now,
-                last_seen=now,
-                tags=["demo", "reserved-domain", "defensive"],
-                notes="Synthetic IOC. No attribution or compromise claim.",
+async def _ensure_ioc(db: AsyncSession, now: datetime) -> uuid.UUID:
+    ioc = await db.get(IOC, DEMO_IOC_ID)
+    if ioc is None:
+        ioc = await db.scalar(
+            select(IOC).where(
+                IOC.ioc_type == "domain",
+                IOC.normalized_value == "demo.raventech.invalid",
             )
         )
-    if await db.get(IOCObservation, DEMO_IOC_OBSERVATION_ID) is None:
+    if ioc is None:
+        ioc = IOC(
+            id=DEMO_IOC_ID,
+            value="demo.raventech.invalid",
+            normalized_value="demo.raventech.invalid",
+            ioc_type="domain",
+            source="demo_passive_recon",
+            confidence="high",
+            confidence_reason=(
+                "Synthetic IOC is linked to a reserved domain, finding, and "
+                "investigation for demonstration."
+            ),
+            first_seen=now,
+            last_seen=now,
+            tags=["demo", "reserved-domain", "defensive"],
+            notes="Synthetic IOC. No attribution or compromise claim.",
+        )
+        db.add(ioc)
+        await db.flush()
+    observation = await db.get(IOCObservation, DEMO_IOC_OBSERVATION_ID)
+    if observation is None:
+        observation = await db.scalar(
+            select(IOCObservation).where(
+                IOCObservation.ioc_id == ioc.id,
+                IOCObservation.investigation_id == DEMO_INVESTIGATION_ID,
+            )
+        )
+    if observation is None:
         db.add(
             IOCObservation(
                 id=DEMO_IOC_OBSERVATION_ID,
-                ioc_id=DEMO_IOC_ID,
+                ioc_id=ioc.id,
                 investigation_id=DEMO_INVESTIGATION_ID,
                 recon_entity_id=DEMO_DOMAIN_ENTITY_ID,
                 source="demo_passive_recon",
@@ -613,12 +835,14 @@ async def _ensure_ioc(db: AsyncSession, now: datetime) -> None:
                 },
             )
         )
+    return ioc.id
 
 
 async def _ensure_threat_intelligence(
     db: AsyncSession,
     user: User,
     now: datetime,
+    demo_ioc_id: uuid.UUID,
 ) -> None:
     if await db.get(ThreatCampaign, DEMO_CAMPAIGN_ID) is None:
         db.add(
@@ -672,7 +896,7 @@ async def _ensure_threat_intelligence(
             DEMO_CAMPAIGN_IOC_LINK_ID,
             {
                 "campaign_id": DEMO_CAMPAIGN_ID,
-                "ioc_id": DEMO_IOC_ID,
+                "ioc_id": demo_ioc_id,
             },
         ),
         (
@@ -806,6 +1030,378 @@ documented defensive recommendation.
             generated_at=now,
         )
     )
+
+
+async def _ensure_closure(db: AsyncSession, user: User, now: datetime) -> None:
+    if await db.get(CaseClosure, DEMO_CLOSURE_ID) is None:
+        db.add(
+            CaseClosure(
+                id=DEMO_CLOSURE_ID,
+                investigation_id=DEMO_INVESTIGATION_ID,
+                status="approved",
+                closure_summary=(
+                    "[DEMO] Final handoff summary: scope, passive evidence, "
+                    "remediation ownership, and client-ready reporting are prepared "
+                    "for demonstration. No real compromise is represented."
+                ),
+                final_risk_rating="elevated",
+                reviewed_by=user.id,
+                approved_by=user.id,
+                reviewed_at=now,
+                approved_at=now,
+            )
+        )
+    checklist = (
+        (
+            DEMO_CLOSURE_CHECK_SCOPE_ID,
+            "scope_authorization_confirmed",
+            "Scope and authorization confirmed",
+            "Synthetic engagement authorization and reserved scope are approved.",
+        ),
+        (
+            DEMO_CLOSURE_CHECK_REPORT_ID,
+            "final_deliverables_prepared",
+            "Final deliverables prepared",
+            "Demo executive and technical deliverables are ready.",
+        ),
+    )
+    for item_id, key, label, description in checklist:
+        if await db.get(CaseClosureChecklistItem, item_id) is None:
+            db.add(
+                CaseClosureChecklistItem(
+                    id=item_id,
+                    investigation_id=DEMO_INVESTIGATION_ID,
+                    closure_id=DEMO_CLOSURE_ID,
+                    key=key,
+                    label=label,
+                    description=description,
+                    status="completed",
+                    required=True,
+                    completed_by=user.id,
+                    completed_at=now,
+                )
+            )
+    deliverables = (
+        (
+            DEMO_EXEC_DELIVERABLE_ID,
+            "[DEMO] Executive Defensive Assessment",
+            "executive_report",
+            "html",
+            DEMO_REPORT_ID,
+            "report://demo/executive-assessment",
+        ),
+        (
+            DEMO_TECH_DELIVERABLE_ID,
+            "[DEMO] Technical Evidence Summary",
+            "technical_report",
+            "md",
+            DEMO_REPORT_ID,
+            "report://demo/technical-evidence-summary",
+        ),
+        (
+            DEMO_PACKAGE_DELIVERABLE_ID,
+            "[DEMO] Final Client Deliverables Package Manifest",
+            "final_package",
+            None,
+            None,
+            "manifest://demo/final-client-deliverables",
+        ),
+    )
+    for deliverable_id, title, deliverable_type, report_format, report_id, reference in deliverables:
+        if await db.get(CaseDeliverable, deliverable_id) is None:
+            db.add(
+                CaseDeliverable(
+                    id=deliverable_id,
+                    investigation_id=DEMO_INVESTIGATION_ID,
+                    title=title,
+                    deliverable_type=deliverable_type,
+                    status="ready",
+                    report_id=report_id,
+                    export_format=report_format,
+                    file_reference=reference,
+                    created_by=user.id,
+                )
+            )
+
+
+async def _ensure_notifications(db: AsyncSession, user: User, now: datetime) -> None:
+    notifications = (
+        (
+            DEMO_NOTIFICATION_REVIEW_ID,
+            "closure_review_pending",
+            "warning",
+            "[DEMO] Closure review is ready",
+            "Synthetic closure checklist and deliverables are ready for analyst review.",
+            "case_closure",
+            DEMO_CLOSURE_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+        ),
+        (
+            DEMO_NOTIFICATION_REPORT_ID,
+            "report_ready",
+            "success",
+            "[DEMO] Executive report is ready",
+            "A synthetic executive defensive report is ready for export review.",
+            "report",
+            DEMO_REPORT_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/reports",
+        ),
+        (
+            DEMO_NOTIFICATION_SCOPE_ID,
+            "scope_warning",
+            "warning",
+            "[DEMO] Scope review reminder",
+            "Review engagement scope before adding new targets to this demo case.",
+            "engagement",
+            DEMO_ENGAGEMENT_ID,
+            f"/engagements?selected={DEMO_ENGAGEMENT_ID}",
+        ),
+        (
+            DEMO_NOTIFICATION_PACKAGE_ID,
+            "evidence_package_ready",
+            "info",
+            "[DEMO] Evidence package manifest ready",
+            "The synthetic evidence package manifest is ready for final handoff review.",
+            "case_deliverable",
+            DEMO_PACKAGE_DELIVERABLE_ID,
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+        ),
+        (
+            DEMO_NOTIFICATION_GOVERNANCE_ID,
+            "governance_warning",
+            "info",
+            "[DEMO] Governance controls available",
+            "Use audit, scope, and authorization records to explain defensive governance.",
+            "investigation",
+            DEMO_INVESTIGATION_ID,
+            "/admin/audit",
+        ),
+    )
+    for (
+        notification_id,
+        notification_type,
+        severity,
+        title,
+        message,
+        entity_type,
+        entity_id,
+        action_url,
+    ) in notifications:
+        if await db.get(Notification, notification_id) is not None:
+            continue
+        db.add(
+            Notification(
+                id=notification_id,
+                user_id=user.id,
+                actor_user_id=user.id,
+                investigation_id=DEMO_INVESTIGATION_ID,
+                engagement_id=DEMO_ENGAGEMENT_ID,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                notification_type=notification_type,
+                severity=severity,
+                title=title,
+                message=message,
+                action_url=action_url,
+                status="unread",
+                event_metadata={"demo": True, "synthetic": True},
+                dedupe_key=f"demo:{notification_id}",
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
+
+async def _ensure_saved_views(db: AsyncSession, user: User, now: datetime) -> None:
+    saved_views = (
+        (
+            DEMO_SAVED_VIEW_HIGH_RISK_ID,
+            "[DEMO] High Risk Findings",
+            "findings",
+            f"/investigations/{DEMO_INVESTIGATION_ID}/findings",
+            {
+                "severity": "high",
+                "status": "open",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_CLOSURE_ID,
+            "[DEMO] Pending Closure Reviews",
+            "closure",
+            f"/investigations/{DEMO_INVESTIGATION_ID}/closure",
+            {
+                "status": "in_review",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_REPORTS_ID,
+            "[DEMO] Reports Ready",
+            "reports",
+            "/reports",
+            {
+                "status": "ready",
+                "report_type": "executive",
+                "demo": True,
+            },
+            True,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_SCOPE_ID,
+            "[DEMO] Scope Warnings",
+            "notifications",
+            "/notifications",
+            {
+                "notification_type": "scope_warning",
+                "severity": "warning",
+                "demo": True,
+            },
+            False,
+            False,
+        ),
+        (
+            DEMO_SAVED_VIEW_OPEN_INVESTIGATIONS_ID,
+            "[DEMO] My Open Investigations",
+            "investigation_list",
+            "/investigations",
+            {
+                "scope": "active",
+                "priority": "high",
+                "demo": True,
+            },
+            True,
+            True,
+        ),
+    )
+    for saved_view_id, name, view_type, route, filters, is_pinned, is_default in saved_views:
+        view = await db.get(SavedView, saved_view_id)
+        if view is None:
+            db.add(
+                SavedView(
+                    id=saved_view_id,
+                    user_id=user.id,
+                    name=name,
+                    description=(
+                        "Synthetic saved view for portfolio demonstration. "
+                        "Contains no real client or investigation data."
+                    ),
+                    view_type=view_type,
+                    route=route,
+                    filters=filters,
+                    sort={"updated": "desc"},
+                    is_pinned=is_pinned,
+                    is_default=is_default,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            continue
+        view.user_id = user.id
+        view.name = name
+        view.view_type = view_type
+        view.route = route
+        view.filters = filters
+        view.is_pinned = is_pinned
+        view.is_default = is_default
+        view.updated_at = now
+        db.add(view)
+
+
+async def _ensure_data_quality_issues(
+    db: AsyncSession,
+    user: User,
+    now: datetime,
+) -> None:
+    examples = (
+        (
+            DEMO_QUALITY_ACKNOWLEDGED_ID,
+            "demo_quality_review_acknowledged",
+            "info",
+            "acknowledged",
+            "[DEMO] Quality review acknowledged",
+            "Synthetic example showing how an analyst records review of a recommendation.",
+            "Keep the acknowledgement with the case governance record.",
+            now,
+            None,
+        ),
+        (
+            DEMO_QUALITY_WARNING_ID,
+            "demo_scope_review_education",
+            "warning",
+            "open",
+            "[DEMO] Review scope before adding targets",
+            "Educational warning for demonstrating non-destructive quality guidance.",
+            "Open the synthetic engagement and confirm approved scope before changes.",
+            None,
+            None,
+        ),
+        (
+            DEMO_QUALITY_RESOLVED_ID,
+            "demo_report_readiness_resolved",
+            "info",
+            "resolved",
+            "[DEMO] Report readiness issue resolved",
+            "Synthetic resolved example; the linked report is ready for review.",
+            "No action is required. Retain this entry as demonstration history.",
+            None,
+            now,
+        ),
+    )
+    for (
+        issue_id,
+        issue_type,
+        severity,
+        status,
+        title,
+        description,
+        recommendation,
+        acknowledged_at,
+        resolved_at,
+    ) in examples:
+        issue = await db.get(DataQualityIssue, issue_id)
+        if issue is None:
+            db.add(
+                DataQualityIssue(
+                    id=issue_id,
+                    fingerprint=hashlib.sha256(
+                        f"demo:{issue_type}".encode("utf-8")
+                    ).hexdigest(),
+                    issue_type=issue_type,
+                    severity=severity,
+                    status=status,
+                    entity_type="demo_data",
+                    entity_id=DEMO_INVESTIGATION_ID,
+                    title=title,
+                    description=description,
+                    recommendation=recommendation,
+                    action_url=f"/investigations/{DEMO_INVESTIGATION_ID}",
+                    detected_at=now,
+                    acknowledged_at=acknowledged_at,
+                    acknowledged_by=user.id if acknowledged_at else None,
+                    resolved_at=resolved_at,
+                    issue_metadata={"demo": True, "synthetic": True},
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            continue
+        issue.title = title
+        issue.description = description
+        issue.recommendation = recommendation
+        issue.status = status
+        issue.detected_at = now
+        issue.acknowledged_at = acknowledged_at
+        issue.acknowledged_by = user.id if acknowledged_at else None
+        issue.resolved_at = resolved_at
+        issue.issue_metadata = {"demo": True, "synthetic": True}
+        issue.updated_at = now
+        db.add(issue)
 
 
 async def _ensure_knowledge(db: AsyncSession) -> None:

@@ -8,6 +8,10 @@ export type InvestigationStatus =
   | "completed"
   | "archived";
 export type InvestigationPriority = "low" | "medium" | "high" | "urgent";
+export type PlatformUserRole = "admin" | "analyst";
+export type AccountStatus = "active" | "pending" | "disabled" | "rejected";
+export type NotificationSeverity = "info" | "success" | "warning" | "critical";
+export type NotificationStatus = "unread" | "read" | "dismissed" | "archived";
 export type InvestigationStage =
   | "intake"
   | "scoping"
@@ -43,6 +47,434 @@ export interface UserProfile {
   is_active: boolean;
   created_at: string;
   last_login: string | null;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string | null;
+  role: PlatformUserRole | string;
+  status: AccountStatus | string;
+  account_status: AccountStatus | string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login: string | null;
+  registration_source: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+}
+
+export interface AdminUserListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AdminUser[];
+}
+
+export interface AdminUserFilters {
+  role?: PlatformUserRole | "";
+  status?: AccountStatus | "";
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AdminUserActionResponse {
+  user: AdminUser;
+  message: string;
+}
+
+export interface RegistrationPolicyResponse {
+  public_registration_enabled: boolean;
+  requires_approval: boolean;
+  invite_code_required: boolean;
+  default_role: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+  full_name?: string;
+  invite_code?: string;
+}
+
+export interface RegisterResponse {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  account_status: "active" | "pending";
+  message: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id: string | null;
+  actor_user_id: string | null;
+  investigation_id: string | null;
+  engagement_id: string | null;
+  entity_type: string;
+  entity_id: string | null;
+  notification_type: string;
+  severity: NotificationSeverity | string;
+  title: string;
+  message: string;
+  action_url: string | null;
+  status: NotificationStatus | string;
+  created_at: string;
+  updated_at: string;
+  read_at: string | null;
+  dismissed_at: string | null;
+  expires_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface NotificationListResponse {
+  total: number;
+  unread: number;
+  limit: number;
+  offset: number;
+  items: NotificationItem[];
+}
+
+export interface NotificationUnreadCountResponse {
+  unread: number;
+}
+
+export interface NotificationActionResponse {
+  notification: NotificationItem;
+  message: string;
+}
+
+export interface NotificationMarkAllReadResponse {
+  updated: number;
+  unread: number;
+  message: string;
+}
+
+export interface NotificationFilters {
+  status?: NotificationStatus | "";
+  severity?: NotificationSeverity | "";
+  notification_type?: string;
+  investigation_id?: string;
+  engagement_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export type GlobalSearchType =
+  | "investigation"
+  | "engagement"
+  | "finding"
+  | "report"
+  | "deliverable"
+  | "notification"
+  | "scope_item"
+  | "user"
+  | "closure"
+  | "ioc"
+  | "threat_object"
+  | "evidence_summary";
+
+export interface GlobalSearchFilters {
+  q?: string;
+  type?: GlobalSearchType | "";
+  limit?: number;
+  offset?: number;
+  include_archived?: boolean;
+  investigation_id?: string;
+  engagement_id?: string;
+}
+
+export interface GlobalSearchResult {
+  id: string;
+  type: GlobalSearchType | string;
+  title: string;
+  subtitle: string | null;
+  snippet: string | null;
+  status: string | null;
+  severity: string | null;
+  route: string;
+  created_at: string | null;
+  updated_at: string | null;
+  matched_fields: string[];
+  metadata: Record<string, unknown>;
+  score: number;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  total: number;
+  limit: number;
+  offset: number;
+  items: GlobalSearchResult[];
+  result_types: string[];
+}
+
+export type SavedViewType =
+  | "investigation_list"
+  | "findings"
+  | "reports"
+  | "notifications"
+  | "engagements"
+  | "closure"
+  | "search"
+  | "dashboard";
+
+export interface SavedView {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  view_type: SavedViewType | string;
+  route: string;
+  filters: Record<string, unknown>;
+  sort: Record<string, unknown> | null;
+  is_default: boolean;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedViewListResponse {
+  total: number;
+  items: SavedView[];
+}
+
+export interface SavedViewCreateRequest {
+  name: string;
+  description?: string | null;
+  view_type: SavedViewType;
+  route: string;
+  filters?: Record<string, unknown>;
+  sort?: Record<string, unknown> | null;
+  is_default?: boolean;
+  is_pinned?: boolean;
+}
+
+export type SavedViewUpdateRequest = Partial<SavedViewCreateRequest>;
+
+export type DataQualitySeverity = "info" | "warning" | "high" | "critical";
+export type DataQualityStatus = "open" | "acknowledged" | "resolved" | "ignored";
+export type DataQualityEntityType =
+  | "investigation"
+  | "engagement"
+  | "scope_item"
+  | "finding"
+  | "evidence"
+  | "report"
+  | "deliverable"
+  | "closure"
+  | "notification"
+  | "saved_view"
+  | "user"
+  | "audit_log"
+  | "demo_data"
+  | "system";
+
+export interface DataQualityIssue {
+  id: string;
+  issue_type: string;
+  severity: DataQualitySeverity | string;
+  status: DataQualityStatus | string;
+  entity_type: DataQualityEntityType | string;
+  entity_id: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  title: string;
+  description: string;
+  recommendation: string;
+  action_url: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataQualityIssueFilters {
+  severity?: DataQualitySeverity | "";
+  status?: DataQualityStatus | "";
+  issue_type?: string;
+  entity_type?: DataQualityEntityType | "";
+  investigation_id?: string;
+  engagement_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DataQualityIssueListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: DataQualityIssue[];
+}
+
+export interface DataQualityOverviewResponse {
+  total_issues: number;
+  open_issues: number;
+  critical_issues: number;
+  high_issues: number;
+  warning_issues: number;
+  acknowledged_issues: number;
+  resolved_issues: number;
+  ignored_issues: number;
+  by_entity_type: Record<string, number>;
+  by_issue_type: Record<string, number>;
+  last_scan_at: string | null;
+  scan_status: "not_run" | "healthy" | "attention" | "critical" | string;
+}
+
+export interface DataQualityScanResponse {
+  scanned_at: string;
+  detected: number;
+  created: number;
+  existing: number;
+  scan_limit: number;
+  overview: DataQualityOverviewResponse;
+}
+
+export interface MaintenanceDryRunResponse {
+  generated_at: string;
+  would_detect: number;
+  by_severity: Record<string, number>;
+  by_entity_type: Record<string, number>;
+  recommendations: string[];
+  destructive_changes: boolean;
+}
+
+export interface StaleNotificationArchiveResponse {
+  archived: number;
+  older_than_days: number;
+  message: string;
+}
+
+export type EngagementStatus = "draft" | "active" | "completed" | "archived";
+export type AuthorizationStatus =
+  | "not_provided"
+  | "pending_review"
+  | "approved"
+  | "expired"
+  | "revoked";
+export type ScopeType =
+  | "domain"
+  | "subdomain"
+  | "ip"
+  | "cidr"
+  | "email"
+  | "username"
+  | "organization"
+  | "other";
+export type ScopeStatus = "in_scope" | "out_of_scope" | "pending_review";
+export type ScopeReviewStatus =
+  | "not_reviewed"
+  | "in_scope"
+  | "out_of_scope"
+  | "pending_review";
+export type AuthorizationEvidenceType =
+  | "contract"
+  | "email_approval"
+  | "statement_of_work"
+  | "internal_authorization"
+  | "other";
+
+export interface Engagement {
+  id: string;
+  title: string;
+  client_name: string;
+  client_contact: string | null;
+  description: string | null;
+  status: EngagementStatus;
+  authorization_status: AuthorizationStatus;
+  start_date: string | null;
+  end_date: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  linked_investigations_count: number;
+  scope_counts: Record<ScopeStatus, number>;
+}
+
+export interface EngagementListResponse {
+  total: number;
+  items: Engagement[];
+}
+
+export interface EngagementCreateRequest {
+  title: string;
+  client_name: string;
+  client_contact?: string | null;
+  description?: string | null;
+  status?: EngagementStatus;
+  authorization_status?: AuthorizationStatus;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+export type EngagementUpdateRequest = Partial<EngagementCreateRequest>;
+
+export interface EngagementScopeItem {
+  id: string;
+  engagement_id: string;
+  scope_type: ScopeType;
+  value: string;
+  description: string | null;
+  status: ScopeStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EngagementScopeItemCreateRequest {
+  scope_type: ScopeType;
+  value: string;
+  description?: string | null;
+  status?: ScopeStatus;
+}
+
+export type EngagementScopeItemUpdateRequest =
+  Partial<EngagementScopeItemCreateRequest>;
+
+export interface AuthorizationEvidence {
+  id: string;
+  engagement_id: string;
+  title: string;
+  description: string | null;
+  evidence_type: AuthorizationEvidenceType;
+  reference: string | null;
+  status: AuthorizationStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthorizationEvidenceCreateRequest {
+  title: string;
+  description?: string | null;
+  evidence_type: AuthorizationEvidenceType;
+  reference?: string | null;
+  status?: AuthorizationStatus;
+}
+
+export type AuthorizationEvidenceUpdateRequest =
+  Partial<AuthorizationEvidenceCreateRequest>;
+
+export interface ScopeCheckRequest {
+  value: string;
+  scope_type?: ScopeType | null;
+}
+
+export interface ScopeCheckResponse {
+  status: ScopeStatus;
+  matched_scope_item: EngagementScopeItem | null;
+  warning: string;
+  recommended_action: string;
 }
 
 export interface AuditLogEntry {
@@ -93,6 +525,10 @@ export interface GeneralSettings {
 export interface SecuritySettings {
   classification_banner: string;
   require_export_confirmation: boolean;
+  require_engagement_for_new_investigations: boolean;
+  warn_on_out_of_scope_targets: boolean;
+  block_out_of_scope_targets: boolean;
+  require_approved_authorization: boolean;
 }
 
 export interface RetentionSettings {
@@ -319,8 +755,11 @@ export interface Investigation {
   stage: InvestigationStage;
   owner_id: string;
   reviewer_id: string | null;
+  engagement_id: string | null;
   authorization_statement: string;
   scope_definition: string | null;
+  scope_review_status: ScopeReviewStatus;
+  scope_notes: string | null;
   priority: InvestigationPriority;
   business_impact: string | null;
   due_date: string | null;
@@ -542,6 +981,9 @@ export interface InvestigationCreateRequest {
   authorization_statement: string;
   scope_definition?: string | null;
   reviewer_id?: string | null;
+  engagement_id?: string | null;
+  scope_review_status?: ScopeReviewStatus;
+  scope_notes?: string | null;
 }
 
 export interface InvestigationUpdateRequest {
@@ -549,6 +991,9 @@ export interface InvestigationUpdateRequest {
   description?: string | null;
   status?: InvestigationStatus;
   scope_definition?: string | null;
+  engagement_id?: string | null;
+  scope_review_status?: ScopeReviewStatus;
+  scope_notes?: string | null;
 }
 
 export interface CollaborationUser {
@@ -1854,6 +2299,117 @@ export interface CaseReviewResponse {
   updated_at: string;
 }
 
+export type CaseClosureStatus = "draft" | "in_review" | "approved" | "closed" | "reopened";
+export type CaseClosureChecklistStatus =
+  | "pending"
+  | "completed"
+  | "blocked"
+  | "not_applicable";
+export type CaseFinalRiskRating =
+  | "low"
+  | "moderate"
+  | "elevated"
+  | "high"
+  | "critical"
+  | "not_assessed";
+export type CaseDeliverableType =
+  | "executive_report"
+  | "technical_report"
+  | "evidence_appendix"
+  | "remediation_plan"
+  | "scope_summary"
+  | "audit_summary"
+  | "final_package";
+export type CaseDeliverableStatus =
+  | "draft"
+  | "ready"
+  | "approved"
+  | "delivered"
+  | "archived";
+export type CasePackageReadinessStatus =
+  | "ready"
+  | "ready_with_warnings"
+  | "missing_required_deliverables";
+
+export interface CaseClosureChecklistItem {
+  id: string;
+  investigation_id: string;
+  closure_id: string | null;
+  key: string;
+  label: string;
+  description: string | null;
+  status: CaseClosureChecklistStatus;
+  required: boolean;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseDeliverable {
+  id: string;
+  investigation_id: string;
+  title: string;
+  deliverable_type: CaseDeliverableType;
+  status: CaseDeliverableStatus;
+  report_id: string | null;
+  export_format: ReportFormat | null;
+  file_reference: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseDeliverableListResponse {
+  total: number;
+  items: CaseDeliverable[];
+}
+
+export interface EvidencePackageSummary {
+  evidence_count: number;
+  findings_with_evidence: number;
+  findings_without_evidence: number;
+  high_risk_evidence_highlights: string[];
+  source_summary: Record<string, number>;
+  evidence_chain_status: string;
+  scope_relation: string;
+  report_appendix_readiness: string;
+}
+
+export interface CasePackageManifestResponse {
+  package_id: string;
+  investigation_id: string;
+  engagement_id: string | null;
+  included_deliverables: CaseDeliverable[];
+  missing_deliverables: CaseDeliverableType[];
+  warnings: string[];
+  readiness_status: CasePackageReadinessStatus;
+  evidence_package: EvidencePackageSummary;
+  generated_at: string;
+  generated_by: string | null;
+}
+
+export interface CaseClosureResponse {
+  id: string;
+  investigation_id: string;
+  status: CaseClosureStatus;
+  closure_summary: string | null;
+  final_risk_rating: CaseFinalRiskRating;
+  reviewed_by: string | null;
+  approved_by: string | null;
+  closed_by: string | null;
+  reviewed_at: string | null;
+  approved_at: string | null;
+  closed_at: string | null;
+  checklist: CaseClosureChecklistItem[];
+  deliverables: CaseDeliverable[];
+  evidence_package: EvidencePackageSummary;
+  warnings: string[];
+  blockers: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ReportApprovalResponse {
   report_id: string;
   investigation_id: string;
@@ -2528,4 +3084,108 @@ export interface InvestigationEvidence {
 export interface InvestigationEvidenceListResponse {
   total: number;
   items: InvestigationEvidence[];
+}
+
+export type MonitoringStatus = "healthy" | "degraded" | "unavailable";
+export type MonitoringSeverity = "info" | "warning" | "critical";
+
+export interface MonitoringServiceStatus {
+  key: string;
+  label: string;
+  status: MonitoringStatus;
+  detail: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface MonitoringSystem {
+  generated_at: string;
+  source: "container" | "local_agent";
+  metric_scope: string;
+  available: boolean;
+  stale: boolean;
+  agent_id: string | null;
+  platform: string;
+  collected_at: string | null;
+  received_at: string | null;
+  cpu_percent: number | null;
+  memory_percent: number | null;
+  disk_percent: number | null;
+  process_count: number | null;
+  uptime_seconds: number | null;
+  detail: string;
+}
+
+export interface MonitoringAssetItem {
+  investigation_id: string;
+  title: string;
+  status: MonitoringStatus;
+  investigation_status: string;
+  scope_status: string;
+  authorization_status: string;
+  targets: number;
+  stale_targets: number;
+  unresolved_high: number;
+  unresolved_critical: number;
+  evidence_records: number;
+  report_status: string;
+  closure_status: string;
+  action_url: string;
+}
+
+export interface MonitoringAlert {
+  key: string;
+  severity: MonitoringSeverity;
+  title: string;
+  message: string;
+  category: string;
+  action_url: string;
+  investigation_id: string | null;
+  count: number;
+}
+
+export interface MonitoringRecentError {
+  category: string;
+  action: string;
+  occurred_at: string;
+  investigation_id: string | null;
+}
+
+export interface MonitoringOverviewResponse {
+  generated_at: string;
+  status: MonitoringStatus;
+  release_version: string;
+  polling_interval_options: number[];
+  recommended_polling_interval: number;
+  services: {
+    generated_at: string;
+    status: MonitoringStatus;
+    items: MonitoringServiceStatus[];
+  };
+  system: MonitoringSystem;
+  assets: {
+    generated_at: string;
+    stale_after_days: number;
+    investigations: number;
+    targets: number;
+    healthy_assets: number;
+    assets_needing_review: number;
+    stale_assets: number;
+    high_risk_assets: number;
+    out_of_scope_assets: number;
+    unresolved_high: number;
+    unresolved_critical: number;
+    findings_by_severity: Record<string, number>;
+    authorization_risks: number;
+    repeated_report_failures: number;
+    repeated_ai_degraded: number;
+    items: MonitoringAssetItem[];
+  };
+  alerts: {
+    generated_at: string;
+    total: number;
+    notifications_created: number;
+    notifications_existing: number;
+    items: MonitoringAlert[];
+  };
+  recent_errors: MonitoringRecentError[];
 }

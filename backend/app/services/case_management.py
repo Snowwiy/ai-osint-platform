@@ -35,6 +35,7 @@ from app.services.investigation import (
     ensure_user_is_member,
     get_investigation,
 )
+from app.services.notification import notify_task_assigned
 
 
 class CaseItemNotFoundError(Exception):
@@ -311,6 +312,16 @@ async def create_task(
             "status": task.status,
         },
     )
+    if task.assigned_to:
+        await notify_task_assigned(
+            db,
+            actor_user_id=user.id,
+            assigned_to=task.assigned_to,
+            investigation_id=investigation_id,
+            task_id=task.id,
+            task_title=task.title,
+            priority=task.priority,
+        )
     await db.flush()
     await db.refresh(task)
     return task
@@ -372,6 +383,15 @@ async def update_task(
                     ),
                     "assigned_to": str(task.assigned_to) if task.assigned_to else None,
                 },
+            )
+            await notify_task_assigned(
+                db,
+                actor_user_id=user.id,
+                assigned_to=task.assigned_to,
+                investigation_id=investigation_id,
+                task_id=task.id,
+                task_title=task.title,
+                priority=task.priority,
             )
     if "due_date" in updates:
         task.due_date = updates["due_date"]

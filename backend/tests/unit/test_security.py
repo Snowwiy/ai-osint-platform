@@ -113,7 +113,7 @@ def test_decode_token_raises_on_tampered_signature() -> None:
 def test_decode_token_raises_on_wrong_secret() -> None:
     token = pyjwt.encode(
         {"sub": "user-1", "exp": datetime.now(UTC) + timedelta(hours=1)},
-        "wrong-secret-key",
+        "wrong-secret-key-with-32-byte-minimum",
         algorithm="HS256",
     )
     with pytest.raises(pyjwt.InvalidSignatureError):

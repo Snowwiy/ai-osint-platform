@@ -173,6 +173,15 @@ async def get_feature_flags(db: AsyncSession) -> FeatureFlagSettings:
     )
 
 
+async def get_security_settings(db: AsyncSession) -> SecuritySettings:
+    row = await _settings_row(db)
+    return _model_from_json(
+        SecuritySettings,
+        row.security,
+        default_security_settings(),
+    )
+
+
 async def update_feature_flags(
     db: AsyncSession,
     user: User,

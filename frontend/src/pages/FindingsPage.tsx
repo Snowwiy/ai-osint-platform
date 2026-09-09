@@ -15,6 +15,7 @@ import { InvestigationTabs } from "../components/InvestigationTabs";
 import { BookmarkButton } from "../components/BookmarkButton";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { SeverityBadge } from "../components/SeverityBadge";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -33,6 +34,7 @@ import {
   updateFindingStatus,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type {
   Finding,
@@ -312,6 +314,29 @@ export function FindingsPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="findings"
+          route={`/investigations/${investigationId}/findings`}
+          filters={{ severity, source, target, sortMode }}
+          onApply={(view) => {
+            const next = view.filters;
+            if (typeof next.severity === "string") {
+              setSeverity(next.severity as Severity | "all");
+            }
+            if (typeof next.source === "string") {
+              setSource(next.source);
+            }
+            if (typeof next.target === "string") {
+              setTarget(next.target);
+            }
+            if (next.sortMode === "newest" || next.sortMode === "severity") {
+              setSortMode(next.sortMode);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
       <DetectionCoveragePanel
         data={coverage.data}
         isLoading={coverage.isLoading}
@@ -382,7 +407,7 @@ export function FindingsPage(): JSX.Element {
                     finding={finding}
                     members={members.data ?? []}
                     canMutate={canMutate}
-                    detectionRecommendation={recommendations.data?.recommendations.find(
+                    detectionRecommendation={safeArray(recommendations.data?.recommendations).find(
                       (item) => item.finding_id === finding.id,
                     )}
                     onStatusChange={(status) =>
@@ -1068,7 +1093,7 @@ function RecommendedPlaybooks({
                   <p className="mt-1 text-xs leading-5">{item.reason}</p>
                   <p className="mt-1 text-xs text-raven-cyan">
                     {item.playbook.framework ?? "Defensive workflow"} ·{" "}
-                    {item.playbook.steps.length} steps
+                    {safeArray(item.playbook.steps).length} steps
                   </p>
                 </div>
                 {canMutate ? (

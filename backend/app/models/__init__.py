@@ -2,7 +2,18 @@ from app.models.ai_analysis import AiAnalysis
 from app.models.admin_settings import AdminSettings
 from app.models.audit_log import AuditLog
 from app.models.base import Base
+from app.models.case_closure import (
+    CaseClosure,
+    CaseClosureChecklistItem,
+    CaseDeliverable,
+)
 from app.models.case_review import CaseReview
+from app.models.data_quality import DataQualityIssue
+from app.models.engagement import (
+    AuthorizationEvidence,
+    Engagement,
+    EngagementScopeItem,
+)
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -21,6 +32,7 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.notification import Notification
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -31,6 +43,7 @@ from app.models.recon_entity import ReconEntity
 from app.models.recon_relationship import ReconRelationship
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
+from app.models.saved_view import SavedView
 from app.models.scan_job import ScanJob
 from app.models.target import Target
 from app.models.threat_finding import ThreatFinding
@@ -54,7 +67,14 @@ __all__ = [
     "AdminSettings",
     "AuditLog",
     "Base",
+    "CaseClosure",
+    "CaseClosureChecklistItem",
+    "CaseDeliverable",
     "CaseReview",
+    "DataQualityIssue",
+    "AuthorizationEvidence",
+    "Engagement",
+    "EngagementScopeItem",
     "Finding",
     "FindingEvidence",
     "FindingTag",
@@ -79,10 +99,12 @@ __all__ = [
     "PlaybookStep",
     "KnowledgeChunk",
     "KnowledgeDocument",
+    "Notification",
     "ReconEntity",
     "ReconRelationship",
     "Report",
     "ReportTemplate",
+    "SavedView",
     "ScanJob",
     "Target",
     "ThreatFinding",

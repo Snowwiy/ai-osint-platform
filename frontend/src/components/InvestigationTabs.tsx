@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, useLocation, useParams } from "react-router-dom";
 
 const tabs = [
   { label: "Overview", path: "" },
@@ -15,11 +15,13 @@ const tabs = [
   { label: "Correlations", path: "correlations" },
   { label: "IOCs", path: "iocs" },
   { label: "Reports", path: "reports" },
+  { label: "Closure", path: "closure" },
   { label: "AI Analysis", path: "analysis" },
 ];
 
 export function InvestigationTabs(): JSX.Element {
   const { investigationId } = useParams();
+  const location = useLocation();
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export function InvestigationTabs(): JSX.Element {
       inline: "center",
       behavior: "smooth",
     });
-  }, [investigationId]);
+  }, [investigationId, location.pathname]);
 
   if (!investigationId) {
     return <></>;
@@ -41,7 +43,7 @@ export function InvestigationTabs(): JSX.Element {
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-5 bg-gradient-to-l from-raven-bg to-transparent" />
       <nav
         ref={navRef}
-        className="themed-scrollbar flex max-w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain px-1 pb-3"
+        className="tab-scrollbar flex max-w-full min-w-0 scroll-px-6 gap-2 overflow-x-auto overscroll-x-contain px-1 pb-3"
         aria-label="Investigation workspace sections"
       >
         {tabs.map((tab) => {

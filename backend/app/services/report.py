@@ -15,6 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.models.audit_log import AuditLog
 from app.models.case_review import CaseReview
+from app.models.engagement import (
+    AuthorizationEvidence,
+    Engagement,
+    EngagementScopeItem,
+)
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -50,6 +55,7 @@ from app.schemas.report import (
 )
 from app.services.ai.evidence_builder import EvidenceItem
 from app.services.ai.framework_mapper import map_frameworks
+from app.services.case_closure import closure_report_summary
 from app.services.defensive_intelligence import (
     build_coverage_response,
     build_detection_recommendations,
@@ -191,6 +197,9 @@ class PlaybookRunContext:
 @dataclass(frozen=True)
 class ReportContext:
     investigation: Investigation
+    engagement: Engagement | None
+    engagement_scope: list[EngagementScopeItem]
+    authorization_evidence: list[AuthorizationEvidence]
     report_type: str
     report_focus: str
     findings: list[Finding]
@@ -229,6 +238,7 @@ class ReportContext:
     indicator_summary: list[str]
     threat_intelligence_summary: list[str]
     review_workflow_summary: list[str]
+    closure_workflow_summary: list[str]
     evidence_chain: list[str]
     evidence_intelligence: list[str]
     analyst_notes: list[str]
@@ -708,19 +718,63 @@ def render_markdown_report(context: ReportContext) -> str:
         "",
         "## Scope and Authorization",
         "",
+        f"Engagement: {_engagement_label(context)}",
+        "",
+        (
+            "Client: "
+            f"{context.engagement.client_name if context.engagement else 'Not linked'}"
+        ),
+        "",
+        (
+            "Engagement authorization status: "
+            f"{context.engagement.authorization_status if context.engagement else 'not_provided'}"
+        ),
+        "",
         f"Authorization: {context.investigation.authorization_statement}",
         "",
         f"Scope: {context.investigation.scope_definition or 'No scope note provided.'}",
         "",
-        "## Methodology",
-        "",
         (
-            "This report uses stored passive recon entities, threat intelligence "
-            "findings, correlation findings, and local defensive knowledge citations."
+            "Investigation scope review: "
+            f"{context.investigation.scope_review_status}"
         ),
         "",
-        "## Key Findings",
+        (
+            "Scope notes: "
+            f"{context.investigation.scope_notes or 'No scope review notes stored.'}"
+        ),
         "",
+        ]
+    )
+    lines.extend(["### Approved Engagement Scope", ""])
+    if context.engagement_scope:
+        for scope_item in context.engagement_scope[:20]:
+            lines.append(
+                f"- {scope_item.scope_type}: {scope_item.value} ({scope_item.status})"
+            )
+    else:
+        lines.append("- No engagement scope items are stored.")
+    lines.extend(["", "### Authorization Evidence Metadata", ""])
+    if context.authorization_evidence:
+        for evidence_item in context.authorization_evidence[:10]:
+            lines.append(
+                f"- {evidence_item.evidence_type}: {evidence_item.title} "
+                f"({evidence_item.status})"
+            )
+    else:
+        lines.append("- No authorization evidence metadata is stored.")
+    lines.extend(
+        [
+            "",
+            "## Methodology",
+            "",
+            (
+                "This report uses stored passive recon entities, threat intelligence "
+                "findings, correlation findings, and local defensive knowledge citations."
+            ),
+            "",
+            "## Key Findings",
+            "",
         ]
     )
     if context.findings:
@@ -768,6 +822,11 @@ def render_markdown_report(context: ReportContext) -> str:
         lines.append(
             "- No formal case review workflow metadata is currently stored."
         )
+    lines.extend(["", "### Case Closure and Deliverables", ""])
+    if context.closure_workflow_summary:
+        lines.extend(f"- {item}" for item in context.closure_workflow_summary)
+    else:
+        lines.append("- Case closure workflow has not been prepared.")
 
     lines.extend(
         [
@@ -1142,6 +1201,15 @@ async def _build_context(
     playbook_runs = await _playbook_runs(db, investigation.id)
     bookmarks = await _bookmarks(db, investigation.id)
     tags = await _tags(db, investigation.id)
+    engagement = await _engagement(db, investigation.engagement_id)
+    engagement_scope = (
+        await _engagement_scope(db, engagement.id) if engagement is not None else []
+    )
+    authorization_evidence = (
+        await _authorization_evidence(db, engagement.id)
+        if engagement is not None
+        else []
+    )
     branding = await get_report_branding(db)
     risk_score = await get_investigation_risk_score(
         db,
@@ -1218,6 +1286,7 @@ async def _build_context(
         findings,
         reports,
     )
+    closure_workflow_summary = await closure_report_summary(db, investigation)
     defensive_confidence = (
         round(
             sum(finding.confidence_score for finding in findings)
@@ -1228,6 +1297,9 @@ async def _build_context(
     )
     return ReportContext(
         investigation=investigation,
+        engagement=engagement,
+        engagement_scope=engagement_scope,
+        authorization_evidence=authorization_evidence,
         report_type=report_type,
         report_focus=_report_focus(report_type),
         findings=findings,
@@ -1297,6 +1369,7 @@ async def _build_context(
         indicator_summary=_indicator_summary(recon_entities, threat_findings),
         threat_intelligence_summary=threat_intelligence_summary,
         review_workflow_summary=review_workflow_summary,
+        closure_workflow_summary=closure_workflow_summary,
         evidence_chain=_evidence_chain(evidence, case_evidence),
         evidence_intelligence=evidence_intelligence,
         analyst_notes=_analyst_notes(notes),
@@ -1368,6 +1441,44 @@ async def _related_investigations(
             key=lambda item: item[1][0].lower(),
         )
     ]
+
+
+async def _engagement(
+    db: AsyncSession,
+    engagement_id: uuid.UUID | None,
+) -> Engagement | None:
+    if engagement_id is None:
+        return None
+    try:
+        return await db.get(Engagement, engagement_id)
+    except Exception as exc:
+        logger.warning("Report engagement lookup failed: %s", exc)
+        await db.rollback()
+        return None
+
+
+async def _engagement_scope(
+    db: AsyncSession,
+    engagement_id: uuid.UUID,
+) -> list[EngagementScopeItem]:
+    result = await db.execute(
+        select(EngagementScopeItem)
+        .where(EngagementScopeItem.engagement_id == engagement_id)
+        .order_by(EngagementScopeItem.status, EngagementScopeItem.scope_type)
+    )
+    return list(result.scalars().all())
+
+
+async def _authorization_evidence(
+    db: AsyncSession,
+    engagement_id: uuid.UUID,
+) -> list[AuthorizationEvidence]:
+    result = await db.execute(
+        select(AuthorizationEvidence)
+        .where(AuthorizationEvidence.engagement_id == engagement_id)
+        .order_by(AuthorizationEvidence.status, AuthorizationEvidence.updated_at.desc())
+    )
+    return list(result.scalars().all())
 
 
 async def _findings(
@@ -1958,6 +2069,8 @@ def _metadata(context: ReportContext) -> dict[str, Any]:
         "evidence_intelligence_count": len(context.evidence_intelligence),
         "threat_intelligence_count": len(context.threat_intelligence_summary),
         "review_workflow_count": len(context.review_workflow_summary),
+        "closure_workflow_count": len(context.closure_workflow_summary),
+        "closure_workflow": context.closure_workflow_summary[:10],
         "risk_level": str(context.risk_summary["level"]),
         "highest_score": highest_score if isinstance(highest_score, int) else 0,
         "investigation_risk_score": context.investigation_risk_score,
@@ -1976,7 +2089,22 @@ def _metadata(context: ReportContext) -> dict[str, Any]:
         "ioc_count": len(context.iocs),
         "recurring_ioc_count": len(context.ioc_correlations),
         "ioc_priority_score": context.ioc_prioritization.score,
+        "engagement_id": str(context.engagement.id) if context.engagement else None,
+        "engagement_title": context.engagement.title if context.engagement else None,
+        "client_name": context.engagement.client_name if context.engagement else None,
+        "authorization_status": (
+            context.engagement.authorization_status
+            if context.engagement
+            else "not_provided"
+        ),
+        "scope_item_count": len(context.engagement_scope),
     }
+
+
+def _engagement_label(context: ReportContext) -> str:
+    if context.engagement is None:
+        return "Not linked to an engagement."
+    return f"{context.engagement.title} ({context.engagement.status})"
 
 
 def _executive_callouts(

@@ -23,6 +23,7 @@ import {
 } from "../components/InvestigationEditModal";
 import { PageHeader } from "../components/PageHeader";
 import { PurgeInvestigationModal } from "../components/PurgeInvestigationModal";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { StatusBadge } from "../components/StatusBadge";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
@@ -31,6 +32,7 @@ import {
   deleteInvestigation,
   getInvestigationTags,
   listFindings,
+  listEngagements,
   listInvestigationsWithScope,
   listTags,
   listTargets,
@@ -39,7 +41,7 @@ import {
   updateInvestigation,
 } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
-import type { Investigation } from "../types";
+import type { Engagement, Investigation } from "../types";
 
 export function InvestigationsPage(): JSX.Element {
   const [isCreating, setIsCreating] = useState(false);
@@ -60,6 +62,10 @@ export function InvestigationsPage(): JSX.Element {
   const availableTags = useQuery({
     queryKey: ["tags"],
     queryFn: listTags,
+  });
+  const engagements = useQuery({
+    queryKey: ["engagements", false],
+    queryFn: () => listEngagements(false),
   });
   const investigationItems = investigations.data?.items ?? [];
   const availableTagItems = availableTags.data?.items ?? [];
@@ -199,6 +205,24 @@ export function InvestigationsPage(): JSX.Element {
         }
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="investigation_list"
+          route="/investigations"
+          filters={{ scope, selectedTag }}
+          onApply={(view) => {
+            const nextScope = view.filters.scope;
+            const nextTag = view.filters.selectedTag;
+            if (typeof nextScope === "string") {
+              setScope(nextScope);
+            }
+            if (typeof nextTag === "string") {
+              setSelectedTag(nextTag);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
       <div className="mb-5 flex flex-wrap gap-2">
         {[
           ["all", "All accessible"],
@@ -409,11 +433,15 @@ export function InvestigationsPage(): JSX.Element {
         />
       )}
       {isCreating ? (
-        <NewInvestigationModal onClose={() => setIsCreating(false)} />
+        <NewInvestigationModal
+          engagementOptions={engagements.data?.items ?? []}
+          onClose={() => setIsCreating(false)}
+        />
       ) : null}
       {editing ? (
         <InvestigationEditModal
           investigation={editing}
+          engagementOptions={engagements.data?.items ?? []}
           error={updateMutation.error?.message}
           isSaving={updateMutation.isPending}
           onClose={() => {
@@ -453,12 +481,19 @@ export function InvestigationsPage(): JSX.Element {
   );
 }
 
-function NewInvestigationModal({ onClose }: { onClose: () => void }): JSX.Element {
+function NewInvestigationModal({
+  engagementOptions,
+  onClose,
+}: {
+  engagementOptions: Engagement[];
+  onClose: () => void;
+}): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [authorizationStatement, setAuthorizationStatement] = useState("");
+  const [engagementId, setEngagementId] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const createMutation = useMutation({
     mutationFn: createInvestigation,
@@ -487,6 +522,7 @@ function NewInvestigationModal({ onClose }: { onClose: () => void }): JSX.Elemen
       description: description.trim() || null,
       authorization_statement: cleanAuthorization,
       scope_definition: description.trim() || null,
+      engagement_id: engagementId || null,
     });
   }
 
@@ -543,6 +579,30 @@ function NewInvestigationModal({ onClose }: { onClose: () => void }): JSX.Elemen
           rows={5}
           className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
         />
+
+        <label
+          className="mt-4 block text-sm text-raven-muted"
+          htmlFor="engagement"
+        >
+          Engagement
+        </label>
+        <select
+          id="engagement"
+          value={engagementId}
+          onChange={(event) => setEngagementId(event.target.value)}
+          className="mt-2 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-raven-text outline-none focus:border-raven-violet"
+        >
+          <option value="">No linked engagement</option>
+          {engagementOptions.map((engagement) => (
+            <option key={engagement.id} value={engagement.id}>
+              {engagement.title} - {engagement.client_name}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs leading-5 text-raven-muted">
+          Linking an engagement surfaces authorization and scope governance across
+          this investigation.
+        </p>
 
         {validationError ?? createMutation.error?.message ? (
           <div className="mt-4 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">

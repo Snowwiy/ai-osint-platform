@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.audit_log import AuditLog
 from app.models.case_review import CaseReview
+from app.models.engagement import Engagement
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
 from app.models.investigation import Investigation
@@ -38,6 +39,7 @@ from app.schemas.investigation import (
 )
 from app.schemas.recon import EntityType, RelationshipType
 from app.services.audit import record_event
+from app.services.governance import get_security_settings
 
 _RECON_ENTITY_TYPES: tuple[EntityType, ...] = (
     "Domain",
@@ -76,6 +78,14 @@ class InvalidStageTransitionError(Exception):
 
 
 class InvestigationPurgeConflictError(Exception):
+    pass
+
+
+class EngagementLinkNotFoundError(Exception):
+    pass
+
+
+class EngagementStateConflictError(Exception):
     pass
 
 
@@ -273,6 +283,20 @@ async def create_investigation(
     user: User,
     data: InvestigationCreate,
 ) -> Investigation:
+    security = await get_security_settings(db)
+    if security.require_engagement_for_new_investigations and data.engagement_id is None:
+        raise EngagementStateConflictError(
+            "A linked engagement is required before creating investigations."
+        )
+    if data.engagement_id is not None:
+        engagement = await _ensure_engagement_exists(db, data.engagement_id)
+        if (
+            security.require_approved_authorization
+            and engagement.authorization_status != "approved"
+        ):
+            raise EngagementStateConflictError(
+                "Approved engagement authorization is required."
+            )
     investigation = Investigation(
         title=data.title,
         description=data.description,
@@ -281,6 +305,9 @@ async def create_investigation(
         stage="intake",
         authorization_statement=data.authorization_statement,
         scope_definition=data.scope_definition,
+        engagement_id=data.engagement_id,
+        scope_review_status=data.scope_review_status,
+        scope_notes=data.scope_notes,
     )
     db.add(investigation)
     await db.flush()
@@ -301,6 +328,16 @@ async def create_investigation(
             invited_by=user.id,
         )
     )
+    if investigation.engagement_id is not None:
+        await record_event(
+            db,
+            action="investigation.engagement_linked",
+            actor_id=user.id,
+            resource_type="investigation",
+            resource_id=investigation.id,
+            investigation_id=investigation.id,
+            metadata={"engagement_id": str(investigation.engagement_id)},
+        )
     await db.flush()
     await db.refresh(investigation)
     return investigation
@@ -418,12 +455,44 @@ async def update_investigation(
             investigation_id=investigation.id,
             metadata={"reviewer_id": str(updates["reviewer_id"])},
         )
+    if "engagement_id" in updates and updates["engagement_id"] is not None:
+        await _ensure_engagement_exists(db, updates["engagement_id"])
+    previous_engagement_id = investigation.engagement_id
     for field, value in updates.items():
         setattr(investigation, field, value)
     db.add(investigation)
+    if "engagement_id" in updates and investigation.engagement_id != previous_engagement_id:
+        await record_event(
+            db,
+            action="investigation.engagement_linked",
+            actor_id=user.id,
+            resource_type="investigation",
+            resource_id=investigation.id,
+            investigation_id=investigation.id,
+            metadata={
+                "old_engagement_id": (
+                    str(previous_engagement_id) if previous_engagement_id else None
+                ),
+                "new_engagement_id": (
+                    str(investigation.engagement_id)
+                    if investigation.engagement_id
+                    else None
+                ),
+            },
+        )
     await db.flush()
     await db.refresh(investigation)
     return investigation
+
+
+async def _ensure_engagement_exists(
+    db: AsyncSession,
+    engagement_id: uuid.UUID,
+) -> Engagement:
+    engagement = await db.get(Engagement, engagement_id)
+    if engagement is None:
+        raise EngagementLinkNotFoundError("Engagement not found")
+    return engagement
 
 
 async def update_investigation_status(

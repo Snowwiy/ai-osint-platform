@@ -74,6 +74,17 @@ TimelineEventType = Literal[
     "remediation_validated",
     "remediation_validation_failed",
     "remediation_accepted_risk",
+    "closure_created",
+    "closure_checklist_generated",
+    "closure_checklist_item_updated",
+    "closure_submitted_for_review",
+    "closure_approved",
+    "closure_closed",
+    "closure_reopened",
+    "deliverable_created",
+    "deliverable_updated",
+    "deliverable_approved",
+    "deliverable_packaged",
 ]
 
 

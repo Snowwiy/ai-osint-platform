@@ -15,6 +15,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at top left, rgba(124, 58, 237, 0.22), transparent 34rem),
     linear-gradient(135deg, #070a12 0%, #0c111d 48%, #111827 100%);
@@ -32,6 +33,11 @@ select {
 
 html {
   scroll-behavior: smooth;
+}
+
+#root {
+  min-width: 0;
+  min-height: 100vh;
 }
 
 .themed-scrollbar {
@@ -60,6 +66,15 @@ html {
   background-clip: padding-box;
 }
 
+.tab-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tab-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .workspace-content {
   overflow-wrap: anywhere;
 }
@@ -73,4 +88,29 @@ html {
 
 .workspace-content table {
   overflow-wrap: normal;
+}
+
+.workspace-content img,
+.workspace-content svg,
+.workspace-content canvas {
+  max-width: 100%;
+}
+
+.workspace-content input,
+.workspace-content select,
+.workspace-content textarea {
+  max-width: 100%;
+}
+
+.workspace-content [role="dialog"] {
+  max-width: calc(100vw - 2rem);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid #22d3ee;
+  outline-offset: 2px;
 }

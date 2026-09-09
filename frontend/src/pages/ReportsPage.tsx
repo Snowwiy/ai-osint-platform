@@ -17,6 +17,7 @@ import { InvestigationTabs } from "../components/InvestigationTabs";
 import { LongValue } from "../components/LongValue";
 import { PageHeader } from "../components/PageHeader";
 import { ReportStatusBadge } from "../components/ReportStatusBadge";
+import { SavedViewsPanel } from "../components/SavedViewsPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
@@ -33,6 +34,7 @@ import {
   submitReportApproval,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { reportGuidance } from "../lib/reportGuidance";
 import { useAuth } from "../lib/useAuth";
 import type {
@@ -68,7 +70,10 @@ export function ReportsPage(): JSX.Element {
     queryFn: getFeatureAvailability,
     staleTime: 30_000,
   });
-  const allowedFormats = features.data?.allowed_export_formats ?? formats;
+  const allowedFormats = useMemo(() => {
+    const configured = safeArray(features.data?.allowed_export_formats);
+    return configured.length ? configured : formats;
+  }, [features.data?.allowed_export_formats]);
   useEffect(() => {
     if (allowedFormats.length && !allowedFormats.includes(format)) {
       setFormat(allowedFormats[0]);
@@ -89,8 +94,11 @@ export function ReportsPage(): JSX.Element {
     queryFn: () => listReportTemplates(),
     staleTime: 60_000,
   });
-  const templateItems = templates.data?.items ?? [];
-  const reportItems = reports.data?.items ?? [];
+  const templateItems = useMemo(
+    () => templates.data?.items ?? [],
+    [templates.data?.items],
+  );
+  const reportItems = safeArray(reports.data?.items);
   const availableTemplates = useMemo(
     () =>
       templateItems.filter(
@@ -276,6 +284,35 @@ export function ReportsPage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <InvestigationTabs />
+      <div className="mb-5">
+        <SavedViewsPanel
+          viewType="reports"
+          route={`/investigations/${investigationId}/reports`}
+          filters={{ reportType, format, templateId, showArchived }}
+          onApply={(view) => {
+            const next = view.filters;
+            if (
+              typeof next.reportType === "string" &&
+              reportTypes.some((item) => item.type === next.reportType)
+            ) {
+              setReportType(next.reportType as ReportType);
+            }
+            if (
+              typeof next.format === "string" &&
+              formats.includes(next.format as ReportFormat)
+            ) {
+              setFormat(next.format as ReportFormat);
+            }
+            if (typeof next.templateId === "string") {
+              setTemplateId(next.templateId);
+            }
+            if (typeof next.showArchived === "boolean") {
+              setShowArchived(next.showArchived);
+            }
+            setToast({ kind: "success", message: `Loaded ${view.name}.` });
+          }}
+        />
+      </div>
 
       <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px_auto] xl:items-end">
@@ -347,9 +384,9 @@ export function ReportsPage(): JSX.Element {
         )}
         <QualityWarnings
           isLoading={quality.isLoading}
-          warnings={quality.data?.warnings ?? []}
+          warnings={safeArray(quality.data?.warnings)}
           availableEvidence={quality.data?.available_evidence ?? {}}
-          missingSections={quality.data?.missing_sections ?? []}
+          missingSections={safeArray(quality.data?.missing_sections)}
         />
       </section>
 

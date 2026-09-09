@@ -1,5 +1,10 @@
 # Backup And Recovery
 
+> Legacy implementation reference. For the frozen RC2 local PostgreSQL and
+> report-volume procedures, use `LOCAL_BACKUP_RESTORE.md` at the repository root.
+> Preserve this file as historical design context; do not treat it as the current
+> release runbook.
+
 This phase adds local backup utilities only. No cloud backup provider is used.
 
 ## JSON Export

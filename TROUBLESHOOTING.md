@@ -2,6 +2,8 @@
 
 ## Backend Shows Unavailable
 
+For the consolidated local-only repair flow, see `LOCAL_HEALTH_REPAIR.md`.
+
 1. Check service status:
 
    ```powershell
@@ -59,10 +61,47 @@ and apply `alembic upgrade head` before changing code.
 ## Login Problems
 
 - Wrong credentials should show `Invalid username or password.`
+- Public registration is disabled by default; disabled registration should show
+  a clean message instead of a raw endpoint error.
+- Pending or disabled accounts cannot access protected areas. Existing admin
+  bootstrap accounts should remain active.
+- Invite codes are backend-only secrets and should never be displayed in the UI
+  or logs.
+- Pending accounts can be approved in Admin → Users.
+- Disabled or rejected accounts can be reviewed in Admin → Users by a platform
+  administrator.
+- If an admin cannot disable or demote another admin, confirm at least one other
+  active administrator exists.
 - Session expiry should redirect to login.
 - Backend `401` responses outside login usually mean the access token expired
   or was cleared.
 - Do not expose request IDs in the normal login card.
+
+## Deferred Hosting Planning
+
+Hosting is not part of the RC2 validation scope. The following references are
+for a future planning phase after final manual QA:
+
+- Use `DEPLOYMENT_PREFLIGHT.md` before pointing the platform at a hosted
+  PostgreSQL database or public domain.
+- Supabase is supported as hosted PostgreSQL only. Do not expose `DATABASE_URL`
+  to the frontend and do not enable Supabase Auth for this architecture.
+- For domain setup, align `FRONTEND_URL`, `BACKEND_CORS_ORIGINS`, and
+  `VITE_API_BASE_URL` exactly.
+
+## Suspected Secret Exposure
+
+Do not paste or print a suspected credential while diagnosing it. Stop the
+affected local service, rotate or revoke the value at its source, replace the
+local `.env` value, and inspect tracked filenames with the non-secret-output
+checks in `SECRETS_AUDIT_CHECKLIST.md`. Removing a value from the current file
+does not remove it from Git history; any history remediation must be a separate,
+coordinated operation after rotation.
+
+If backend logs may have received a secret, preserve only the minimum evidence
+needed for review and restrict access to the log files. SQL parameter echo is
+disabled and the application formatter redacts common secret forms, but neither
+control is a substitute for rotation after confirmed exposure.
 
 ## Report Issues
 
@@ -81,6 +120,81 @@ and apply `alembic upgrade head` before changing code.
 - Invalid UUID filters should show a validation error, not a backend crash.
 - Empty audit results are valid and should render an empty state.
 - Audit metadata should be displayed safely and never include secrets.
+
+## Engagement Or Scope Issues
+
+- Existing investigations do not require an engagement. Link one from the
+  investigation edit dialog when client context or report scope metadata is
+  needed.
+- If a target shows an out-of-scope or pending-review warning, open the linked
+  Engagements page and confirm the scope item exists with `in_scope` status.
+- CIDR matching is local and deterministic. Confirm the scope item is stored as
+  a CIDR value such as `192.0.2.0/24`.
+- Authorization statuses such as `not_provided`, `pending_review`, `expired`,
+  and `revoked` are intentionally visible in the workspace and reports.
+- Scope checks do not perform DNS lookups, active probing, crawling, or external
+  enrichment.
+- If target creation is blocked, review governance settings for
+  `BLOCK_OUT_OF_SCOPE_TARGETS` or approved-authorization enforcement.
+
+## Case Closure Or Deliverable Issues
+
+- If closure cannot be completed, generate or refresh the checklist and review
+  required `pending` or `blocked` items. Owners/admins can close with an
+  explicit override reason when governance allows it.
+- If the package manifest is missing deliverables, create records for executive
+  report, technical report, and evidence appendix, then mark them `ready`,
+  `approved`, or `delivered`.
+- If evidence package readiness shows warnings, link findings to evidence
+  records or document accepted residual gaps in the closure summary.
+- If a closed case needs more work, reopen it from the Closure tab. Reopening
+  preserves history and emits audit/timeline events.
+- If closure metadata is missing from a report, regenerate the report after
+  closure and deliverable records are created.
+
+## Activity Inbox Issues
+
+- Activity Inbox is internal only. It does not send email, SMS, browser push, or
+  chat notifications.
+- If unread counts look stale, refresh the inbox or dashboard. Workflow alerts
+  are deduplicated, so rebuilding alerts should not create repeated copies.
+- If an admin does not see pending user approval alerts, open Admin → Users and
+  confirm pending accounts exist, then use the workflow alert rebuild endpoint
+  if needed.
+- If an action link is unavailable, open the related module manually. The alert
+  should still remain readable and dismissible.
+- Notification errors should show concise copy with optional technical details,
+  not raw endpoint dumps in normal UI.
+
+## Global Search And Saved Views Issues
+
+- Global Search is internal-only. It searches stored application records and
+  does not browse the internet, crawl targets, or call external search
+  providers.
+- If Global Search returns no results, confirm the record exists, is not hidden
+  by archive filters, and is accessible to the current user through RBAC or
+  investigation membership.
+- Non-admin users should not see user-management results. Admin users see only
+  safe user metadata, never password hashes or secrets.
+- If Ctrl+K does not open search, click the search control in the authenticated
+  layout and confirm the browser tab has focus.
+- If a saved view does not load expected filters, delete and recreate it after
+  clearing the page filters. Saved views store JSON-safe filter values only.
+- Saved views are private to the creating user by default. Another analyst not
+  seeing your saved view is expected behavior.
+
+## Data Quality Center Issues
+
+- Apply migrations with `docker compose exec backend alembic upgrade head` if
+  quality data is unavailable. The Phase 5P head is `0028_phase5p_quality`.
+- A scan is bounded and local. If it fails, inspect backend logs and database
+  health; investigation and reporting workflows remain usable.
+- A recurring resolved issue reopens when the same condition is detected.
+  Ignored issues remain ignored unless an administrator resolves them.
+- **Archive stale notifications** soft-archives only read or dismissed records
+  older than the threshold. It never deletes notification content.
+- Diagnostic metadata intentionally omits credentials, invite codes, database
+  URLs, provider keys, and tokens.
 
 ## Frontend Build Or Layout Problems
 
@@ -109,7 +223,7 @@ and apply `alembic upgrade head` before changing code.
 - Inspect worker logs:
 
   ```powershell
-  docker compose logs -f celery_worker
+  docker compose logs -f celery-worker
   ```
 
 - Confirm Redis is healthy.
@@ -136,13 +250,13 @@ Expected AI degraded behavior:
 Seed demo data from the backend container:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py
+docker compose exec backend python -m scripts.seed_demo_data
 ```
 
 Clear demo data:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py --clear
+./scripts/local/reset_demo.ps1 -Confirmation RESET-DEMO
 ```
 
 Admin API equivalents:
@@ -152,6 +266,16 @@ Admin API equivalents:
 
 If seed fails, check that an active admin user exists, migrations are current,
 and demo mode is enabled when using the admin UI action.
+
+The lower-level clear command requires an explicit phrase:
+
+```powershell
+docker compose exec -T backend python -m scripts.seed_demo_data `
+  --clear --confirm-clear CLEAR-DEMO-DATA
+```
+
+Back up and restore instructions are in `LOCAL_BACKUP_RESTORE.md`. Do not use
+`docker compose down -v` for routine repair because it deletes local volumes.
 
 ## Release Candidate CI Failures
 
@@ -172,6 +296,15 @@ If frontend build fails:
 2. Check for unsafe `.length`, `.map`, `.filter`, `.reduce`, or
    `localeCompare` on optional API data.
 3. Prefer `safeArray`, `safeString`, `safeNumber`, and friendly empty states.
+
+The frontend uses route-level lazy loading. A brief `Opening workspace` state is
+expected on the first visit to a route. If a route chunk cannot load, use the
+friendly retry action; do not treat an optional provider degradation as a total
+backend outage.
+
+If an Activity Inbox, Global Search, or Data Quality action opens the wrong
+record, confirm the URL begins with `/` and uses the current internal query key.
+External and protocol-relative action URLs are intentionally rejected.
 
 ## Report Export Troubleshooting
 

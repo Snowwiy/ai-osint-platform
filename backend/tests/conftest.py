@@ -57,6 +57,12 @@ class FakeRedis:
         self._data.clear()
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def dispose_test_engine() -> None:
+    yield
+    await _test_engine.dispose()
+
+
 def _prepare_database() -> None:
     global _db_prepared
     if _db_prepared:
@@ -190,6 +196,7 @@ async def inactive_user(db: AsyncSession) -> User:
         hashed_password=hash_password(TEST_PASSWORD),
         role="analyst",
         is_active=False,
+        account_status="disabled",
     )
     db.add(user)
     await db.commit()

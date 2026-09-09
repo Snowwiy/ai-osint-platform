@@ -11,6 +11,7 @@ from app.schemas.common import PaginatedResponse
 from app.schemas.user import UserCreate, UserCreateResponse, UserResponse, UserUpdate
 from app.services.user import (
     SelfDeactivateError,
+    UnsafeUserChangeError,
     UserConflictError,
     UserNotFoundError,
     create_user,
@@ -68,6 +69,8 @@ async def get_user_endpoint(
         return await get_user(db, user_id)
     except UserNotFoundError as exc:
         raise HTTPException(status_code=404, detail="User not found") from exc
+    except UnsafeUserChangeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -81,6 +84,8 @@ async def update_user_endpoint(
         return await update_user(db, user_id, body)
     except UserNotFoundError as exc:
         raise HTTPException(status_code=404, detail="User not found") from exc
+    except UnsafeUserChangeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -96,3 +101,5 @@ async def deactivate_user_endpoint(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except UserNotFoundError as exc:
         raise HTTPException(status_code=404, detail="User not found") from exc
+    except UnsafeUserChangeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc

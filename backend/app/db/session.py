@@ -12,7 +12,9 @@ from app.core.config import settings
 
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.debug_enabled,
+    # SQLAlchemy echo includes bound parameter values, which can contain hashes,
+    # tokens, or analyst-entered data. Keep it disabled in every environment.
+    echo=False,
     connect_args={
         "server_settings": {
             "statement_timeout": str(settings.DATABASE_STATEMENT_TIMEOUT_MS),

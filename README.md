@@ -5,6 +5,12 @@ authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
 stakeholder-ready reports without active scanning or offensive automation.
 
+Current release candidate: `5.0.0-rc2`. The validated runtime is local Docker
+Compose; production and free-tier hosting remain deferred.
+
+Local mode requires development-only values from `.env.example`; it does not
+require production secrets, hosted services, DNS, or Supabase.
+
 ## What Problem It Solves
 
 Security teams often need a repeatable way to turn authorized external exposure
@@ -25,6 +31,15 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - FastAPI backend with async SQLAlchemy, Alembic, PostgreSQL, Redis, and Celery
 - React/Vite/TypeScript frontend with a RavenTech dark analyst workspace
 - JWT authentication, RBAC, investigation membership, and admin controls
+- Config-gated user registration, approval workflow, and admin user governance
+- Engagement records with client metadata, authorization status, approved scope,
+  and advisory out-of-scope target warnings
+- Case closure workflow with final review checklist, deliverable tracking,
+  evidence package manifest, and residual-risk handoff summary
+- Internal Notification Center and Activity Inbox for approvals, assignments,
+  closure blockers, scope warnings, report readiness, and governance alerts
+- Internal global search, private saved views, pinned view shortcuts, and
+  quick-access navigation for analyst productivity
 - Passive recon for DNS, RDAP, certificates, HTTP/TLS metadata, ASN/IP metadata
 - Deterministic findings, risk, readiness, executive posture, and prioritization
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
@@ -32,6 +47,10 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - HTML, Markdown, PDF, and DOCX report exports
 - Optional AI analysis with deterministic fallback when the provider is unavailable
 - Operations Center with health, diagnostics, backups, restore dry-run validation
+- Local Monitoring Center with service telemetry, RBAC-aware Asset Watch,
+  deduplicated internal alerts, and an optional localhost-only host metrics agent
+- Responsive route-level loading, friendly retry states, guarded internal links,
+  and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
 
 ## Defensive-Only Scope
@@ -78,6 +97,7 @@ docker compose up -d
 docker compose logs backend -f
 docker compose exec backend alembic upgrade head
 curl http://localhost:8000/health
+curl http://localhost:8000/health/ready
 curl http://localhost:8000/api/v1/release
 ```
 
@@ -85,11 +105,91 @@ Frontend:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 `npm run dev` must be run from the `frontend/` directory.
+
+For a guided startup and health check:
+
+```powershell
+./scripts/local/start_local.ps1
+./scripts/local/check_local_health.ps1
+```
+
+Public registration is disabled by default. To enable it in a local or staging
+environment, review `PUBLIC_REGISTRATION_ENABLED`,
+`REGISTRATION_REQUIRES_APPROVAL`, `REGISTRATION_INVITE_CODE`, and
+`DEFAULT_REGISTERED_USER_ROLE` in `.env.example`. Public registration never
+creates admin users; continue using the admin bootstrap workflow for platform
+administrators.
+
+Platform administrators can review registered users in Admin → Users, approve
+pending accounts, reject registrations, disable or reactivate users, and change
+safe platform roles. The backend prevents disabling or demoting the last active
+administrator.
+
+## Engagement Scope Governance
+
+Engagements document client or organization context, authorization status,
+approved scope items, and authorization evidence metadata. Investigations can
+optionally link to an engagement. Linked cases surface scope review status in
+the workspace, warn analysts when a target is not clearly in scope, and include
+safe scope/authorization context in generated reports.
+
+This is a lightweight governance layer, not multi-tenant SaaS, billing, hosting,
+or a client portal. Unknown scope is treated conservatively as pending review.
+No DNS lookup, active probing, crawling, or external enrichment is performed by
+scope matching.
+
+## Case Closure And Deliverables
+
+Case Closure helps analysts prepare a defensible final handoff. Each
+investigation can generate a deterministic closure checklist, record final risk,
+track client-ready deliverables, and create an evidence package manifest. The
+manifest references stored reports, findings, evidence summaries, scope status,
+and warnings; it does not create external storage or a client portal.
+
+Closure is analyst-driven. Required blockers prevent normal closure unless an
+owner or administrator records an override reason. Closure, deliverable, and
+package actions are audit logged and included in generated reports.
+
+## Notification Center
+
+The Activity Inbox surfaces internal workflow alerts for pending user approvals,
+assigned work, report approvals, case closure review, deliverable readiness,
+scope warnings, and governance reminders. Notifications are stored in the
+application database, scoped to authorized users, and audit logged when created,
+read, dismissed, or rebuilt.
+
+No email, SMS, browser push, Slack, Discord, Teams, or third-party delivery is
+included in this release candidate.
+
+## Global Search And Saved Views
+
+Global Search helps authenticated analysts find accessible investigations,
+engagements, findings, reports, deliverables, notifications, scope records,
+closure data, IOCs, and threat intelligence objects. Search is internal-only,
+RBAC-aware, and backed by existing PostgreSQL data. It does not crawl the web,
+query external search providers, or perform enrichment.
+
+Saved Views let analysts preserve frequently used filters for investigations,
+findings, reports, notifications, and engagements. Views are user-specific by
+default, can be pinned for Quick Access, and never store credentials, tokens,
+API keys, invite codes, or database URLs.
+
+## Data Quality And Safe Maintenance
+
+The admin-only Data Quality Center runs bounded, deterministic consistency
+checks across investigations, engagements, findings, reports, closures,
+notifications, saved views, users, demo records, and system configuration.
+Issues retain severity and workflow status so administrators can acknowledge,
+ignore, or resolve them with an audit trail.
+
+Scans recommend manual corrections. They never delete user data, change roles,
+close cases, alter scope authorization, or rewrite evidence. The optional stale
+notification action only soft-archives old read or dismissed notifications.
 
 ## Validation Commands
 
@@ -110,8 +210,8 @@ Demo mode is disabled by default for production-safe behavior. When enabled by a
 admin feature flag, seed synthetic defensive data:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py
-docker compose exec backend python scripts/seed_demo_data.py --clear
+docker compose exec backend python -m scripts.seed_demo_data
+./scripts/local/reset_demo.ps1 -Confirmation RESET-DEMO
 ```
 
 The same workflow is available to admins through:
@@ -120,16 +220,61 @@ The same workflow is available to admins through:
 - `DELETE /api/v1/admin/demo/clear`
 
 The seeded case is labeled `[DEMO]`, uses reserved identifiers, performs no live
-requests, and makes no compromise claims.
+requests, and makes no compromise claims. Reset creates a local database safety
+backup by default and targets fixed synthetic records only.
+
+## Local Operations
+
+Create a timestamped PostgreSQL backup without copying `.env` or secrets:
+
+```powershell
+./scripts/local/backup_db.ps1
+./scripts/local/backup_db.ps1 -IncludeReports
+```
+
+Restore validation is non-destructive by default: the restore tool refuses the
+live `raventech` database and creates a new database name.
+
+```powershell
+./scripts/local/restore_db.ps1 -BackupPath ./backups/local/raventech-<timestamp>.dump
+```
+
+See [LOCAL_BACKUP_RESTORE.md](LOCAL_BACKUP_RESTORE.md) for safeguards and
+[LOCAL_HEALTH_REPAIR.md](LOCAL_HEALTH_REPAIR.md) for practical recovery steps.
+
+For local service telemetry and investigation watch status, open **Monitoring**
+after signing in. See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) for endpoint,
+RBAC, polling, alert-deduplication, and optional Windows host-agent details.
 
 ## Demo Flow
+
+Start with [LOCAL_DEMO_BUNDLE.md](LOCAL_DEMO_BUNDLE.md) for the complete local
+setup, seed/reset, health, report, validation, screenshot, and artifact workflow.
 
 See [PORTFOLIO_DEMO_FLOW.md](PORTFOLIO_DEMO_FLOW.md) for a 10-minute portfolio
 presentation script and [SCREENSHOTS_CHECKLIST.md](SCREENSHOTS_CHECKLIST.md) for
 recommended screenshots.
 
-For release packaging, see [RELEASE_NOTES_RC1.md](RELEASE_NOTES_RC1.md) and
-[RELEASE_CANDIDATE_CHECKLIST.md](RELEASE_CANDIDATE_CHECKLIST.md).
+The complete presentation handoff is in
+[PORTFOLIO_PACKAGE.md](PORTFOLIO_PACKAGE.md), and the frozen platform boundary is
+recorded in [FINAL_PLATFORM_FREEZE.md](FINAL_PLATFORM_FREEZE.md).
+
+For the current release freeze, see [RELEASE_NOTES_RC2.md](RELEASE_NOTES_RC2.md),
+[MANUAL_QA_RC2.md](MANUAL_QA_RC2.md), and
+[FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC1 notes remain available as
+historical release context.
+
+The reviewed GitHub release copy is in
+[GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no
+GitHub release or hosted environment is created by the repository.
+
+For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
+planning, and registration controls, see
+[DEPLOYMENT_PREFLIGHT.md](DEPLOYMENT_PREFLIGHT.md).
+
+Provider comparisons for a future, separately authorized phase are documented
+in [FREE_TIER_HOSTING_OPTIONS.md](FREE_TIER_HOSTING_OPTIONS.md). These are
+planning notes only; no hosting, DNS, or database migration has been performed.
 
 ## Screenshot Placeholders
 
@@ -141,21 +286,34 @@ Recommended portfolio screenshots:
 - Findings, correlations, IOC intelligence, and threat intelligence
 - AI fallback with citations
 - Reports and export actions
-- Review board, governance settings, audit log, and operations center
+- Activity Inbox, review board, governance settings, audit log, and operations
+  center
+- Global Search, saved views, and dashboard Quick Access
+- Admin Data Quality Center with non-destructive maintenance recommendations
 
 ## Known Limitations
 
 - Passive recon only; no active scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
+- Current tested operation is local Docker Compose; production/free-tier hosting
+  and the Supabase production database migration are deferred
 - No cloud deployment implementation, billing, SSO, or external ticketing
+- Internal notifications only; no email, SMS, push, or chat integrations
+- Internal search only; no external search provider, crawling, or internet-wide
+  discovery
+- Engagement governance is metadata and advisory by default; operators must
+  still validate written authorization and scope policy
 - No external paid threat feed requirement
 - Demo data is synthetic and should not be interpreted as real compromise data
+- Data quality checks are bounded heuristics; administrators must review every
+  recommendation before correcting source records
 
 See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current repository is packaged as a release-candidate portfolio build. Future
-work can focus on deployment automation, enterprise SSO, external ticketing,
-production observability, and additional governed integrations while preserving
-the defensive-only boundary.
+The current repository is packaged as the `5.0.0-rc2` release-candidate
+portfolio and local demo build. Final manual QA, local operations, backup/restore,
+and security hygiene are complete. The `v5.0.0-rc2` tag identifies the validated
+local package; hosting, DNS, and Supabase production database work remain
+deferred to a separately authorized phase.

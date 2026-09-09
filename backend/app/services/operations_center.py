@@ -93,13 +93,7 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
             bool(settings.APP_SECRET_KEY),
             "Application signing key is present.",
             "A signing key is required for JWT authentication.",
-            misconfigured=(
-                len(settings.APP_SECRET_KEY) < 32
-                or (
-                    settings.is_production
-                    and settings.APP_SECRET_KEY.startswith(("dev-", "change-me"))
-                )
-            ),
+            misconfigured=settings.has_weak_secret_key,
             misconfigured_detail="Signing key is too weak for this environment.",
         ),
         _configured(
@@ -108,6 +102,53 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
             settings.ACCESS_TOKEN_EXPIRE_MINUTES > 0,
             "Access token expiration is configured.",
             "Token expiration must be greater than zero.",
+        ),
+        EnvironmentValidationItem(
+            name="PUBLIC_REGISTRATION_ENABLED",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "Public registration is enabled."
+                if settings.PUBLIC_REGISTRATION_ENABLED
+                else "Public registration is disabled by default."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="REGISTRATION_REQUIRES_APPROVAL",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "New registered users require administrator approval."
+                if settings.REGISTRATION_REQUIRES_APPROVAL
+                else "New registered users are active immediately."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="REGISTRATION_INVITE_CODE",
+            scope="backend",
+            status=(
+                "configured"
+                if settings.REGISTRATION_INVITE_CODE.strip()
+                else "missing"
+            ),
+            required=False,
+            detail=(
+                "Registration invite code is configured."
+                if settings.REGISTRATION_INVITE_CODE.strip()
+                else "No registration invite code is configured."
+            ),
+        ),
+        EnvironmentValidationItem(
+            name="DEFAULT_REGISTERED_USER_ROLE",
+            scope="backend",
+            status="configured",
+            required=False,
+            detail=(
+                "Registered users are never created as admins. Effective role: "
+                f"{settings.effective_registered_user_role}."
+            ),
         ),
         _configured(
             "ANTHROPIC_API_KEY",
@@ -335,6 +376,12 @@ async def _recent_operation_events(db: AsyncSession) -> list[RecentOperationEven
         "data.exported",
         "diagnostics.generated",
         "restore.validated",
+        "data_quality.scan_completed",
+        "data_quality.issue_acknowledged",
+        "data_quality.issue_ignored",
+        "data_quality.issue_resolved",
+        "maintenance.dry_run_completed",
+        "maintenance.stale_notifications_archived",
     )
     try:
         result = await db.execute(
@@ -442,6 +489,7 @@ def _redact(value: str) -> str:
         settings.OPENAI_API_KEY,
         settings.VT_API_KEY,
         settings.ABUSEIPDB_API_KEY,
+        settings.REGISTRATION_INVITE_CODE,
     )
     for secret in sensitive_values:
         if secret and len(secret) >= 4:

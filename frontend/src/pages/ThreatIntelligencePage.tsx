@@ -174,7 +174,7 @@ export function ThreatIntelligencePage(): JSX.Element {
           </p>
         </div>
         <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <nav className="themed-scrollbar flex min-w-0 gap-2 overflow-x-auto pb-1">
+          <nav className="tab-scrollbar flex min-w-0 gap-2 overflow-x-auto pb-1">
             {views.map((item) => (
               <button
                 key={item.id}

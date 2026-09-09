@@ -8,9 +8,13 @@ from urllib.parse import urlparse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.engagement import Engagement
 from app.models.target import Target
 from app.models.user import User
 from app.schemas.target import TargetCreate
+from app.services.audit import record_event
+from app.services.engagement import list_scope_items, match_scope_value
+from app.services.governance import get_security_settings
 from app.services.investigation import (
     CASE_ADMIN_ROLES,
     ensure_investigation_permission,
@@ -103,7 +107,7 @@ async def create_target(
     user: User,
     data: TargetCreate,
 ) -> Target:
-    await get_investigation(db, user, data.investigation_id)
+    investigation = await get_investigation(db, user, data.investigation_id)
     await ensure_investigation_permission(
         db,
         user,
@@ -112,6 +116,44 @@ async def create_target(
         "Only investigation owners or admins can manage targets",
     )
     normalized = validate_target_value(data.target_type, data.target_value)
+    if investigation.engagement_id is not None:
+        security = await get_security_settings(db)
+        engagement = await db.get(Engagement, investigation.engagement_id)
+        scope_items = await list_scope_items(db, user, investigation.engagement_id)
+        scope_type = _target_scope_type(data.target_type)
+        scope_result = match_scope_value(normalized, scope_type, scope_items)
+        if security.warn_on_out_of_scope_targets and scope_result.status != "in_scope":
+            await record_event(
+                db,
+                action="investigation.scope_warning_created",
+                actor_id=user.id,
+                resource_type="target",
+                investigation_id=data.investigation_id,
+                metadata={
+                    "engagement_id": str(investigation.engagement_id),
+                    "target_type": data.target_type,
+                    "target_value": normalized,
+                    "scope_status": scope_result.status,
+                    "matched_scope_item_id": (
+                        str(scope_result.matched_item.id)
+                        if scope_result.matched_item
+                        else None
+                    ),
+                },
+            )
+        if (
+            security.block_out_of_scope_targets
+            and scope_result.status != "in_scope"
+        ):
+            raise TargetValidationError(scope_result.warning)
+        if (
+            security.require_approved_authorization
+            and engagement is not None
+            and engagement.authorization_status != "approved"
+        ):
+            raise TargetValidationError(
+                "Approved engagement authorization is required before adding targets."
+            )
 
     existing = await db.execute(
         select(Target).where(
@@ -183,3 +225,17 @@ async def delete_target(db: AsyncSession, user: User, target_id: uuid.UUID) -> N
         "Only investigation owners or admins can remove targets",
     )
     await db.delete(target)
+
+
+def _target_scope_type(target_type: str) -> str | None:
+    if target_type == "domain":
+        return "domain"
+    if target_type == "ip":
+        return "ip"
+    if target_type == "email":
+        return "email"
+    if target_type == "username":
+        return "username"
+    if target_type == "org":
+        return "organization"
+    return None

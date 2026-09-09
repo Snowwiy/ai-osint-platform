@@ -18,6 +18,25 @@
       idle.
 - [ ] Dashboard handles missing executive fields with a degraded or empty panel.
 - [ ] Route-level page errors show the friendly fallback, not a raw React crash.
+- [ ] Frontend lint completes without React Hook dependency warnings.
+- [ ] Frontend build emits route chunks without the previous oversized initial
+      bundle warning.
+
+## Final UX And Responsive Pass
+
+- [ ] Investigation and threat-intelligence tab rows scroll without clipping the
+      active item or shifting the full page horizontally.
+- [ ] Global Search remains inside the viewport and its controls wrap cleanly.
+- [ ] Activity Inbox opens above the desktop user card and remains usable on a
+      narrow viewport.
+- [ ] Tables scroll inside their panels; long identifiers and metadata wrap or
+      truncate with an accessible full-value affordance.
+- [ ] Invalid or missing status, severity, date, array, and nested summary values
+      render a safe fallback instead of `undefined`, `null`, or a crash.
+- [ ] Error panels provide a retry action and keep endpoint/request details
+      collapsed.
+- [ ] Engagement, pending-user, notification, search, and Data Quality action
+      links open the expected filtered or detail view.
 
 ## Investigation Workflow
 
@@ -39,6 +58,37 @@
 - [ ] Custom templates can be deactivated and restored.
 - [ ] Report errors show a concise message with optional technical details.
 
+## Case Closure And Deliverables
+
+- [ ] Closure tab loads for an existing investigation.
+- [ ] Closure checklist can be generated and refreshed.
+- [ ] Checklist item status can be updated without raw endpoint errors.
+- [ ] Closure can be submitted for review, approved, closed, and reopened by an
+      allowed owner/admin.
+- [ ] Closure without required checklist completion requires an explicit
+      override reason.
+- [ ] Deliverable records can be created, marked ready, approved, and archived.
+- [ ] Package manifest generation returns included deliverables, missing
+      deliverables, warnings, and evidence package readiness.
+- [ ] Closure metadata appears in executive, technical, and evidence appendix
+      reports.
+- [ ] Closure and deliverable actions appear in audit and timeline views.
+
+## Notifications And Activity Inbox
+
+- [ ] Notification bell appears only after login.
+- [ ] Unread count updates after marking an alert read.
+- [ ] Activity Inbox loads with clear loading, empty, and error states.
+- [ ] Filters by status, severity, and alert type work.
+- [ ] Dismiss action works without raw endpoint errors.
+- [ ] Mark all read updates unread count.
+- [ ] Admin pending user approval alert links to Admin → Users.
+- [ ] Closure review, report ready, deliverable ready, scope warning, and
+      governance demo alerts appear after demo seed.
+- [ ] Notification audit events appear for create, read, dismiss, and mark all
+      read actions.
+- [ ] No email, SMS, browser push, or chat delivery is implied in the UI.
+
 ## Governance And Audit
 
 - [ ] Admin Settings loads for administrators only.
@@ -46,6 +96,21 @@
 - [ ] Retention settings show archive eligibility without destructive deletion.
 - [ ] Audit filters work and an empty audit result is clear.
 - [ ] Important workflow and export actions appear in audit.
+
+## Data Quality And Maintenance
+
+- [ ] Admin Data Quality Center loads; non-admin access is denied cleanly.
+- [ ] Dry run reports recommendations and no destructive changes.
+- [ ] Run scan persists bounded issues without changing source records.
+- [ ] Severity, status, issue-type, and entity filters work.
+- [ ] Issue detail wraps long values and exposes only safe metadata.
+- [ ] Issues can be acknowledged, ignored, and resolved when allowed.
+- [ ] Invalid issue transitions return a clean conflict response.
+- [ ] Operations shows counts or a clean degraded quality panel.
+- [ ] Stale notification maintenance requires confirmation and only soft-archives
+      old read or dismissed notifications.
+- [ ] Audit records scan, issue workflow, dry-run, and maintenance actions.
+- [ ] Demo seed is idempotent and demo clear removes synthetic quality issues.
 
 ## Demo Mode
 
@@ -61,13 +126,24 @@
 
 - [ ] Knowledge Search states that it uses only local defensive content.
 - [ ] Example searches work and references can be copied.
+- [ ] Global Search opens with Ctrl+K and from the authenticated layout.
+- [ ] Global Search returns only authorized investigations, findings, reports,
+      engagements, notifications, IOCs, and threat intelligence objects.
+- [ ] Non-admin users do not see admin user-management search results.
+- [ ] Search result navigation opens the expected in-app route.
+- [ ] Saved views can be created, loaded, pinned, unpinned, set as default, and
+      deleted on investigations, findings, reports, notifications, and
+      engagements.
+- [ ] Dashboard Quick Access shows pinned saved views, recent investigations,
+      and unread notification count.
+- [ ] Search and saved-view actions appear in audit logs without secrets.
 - [ ] Empty states explain the section and the next action.
 - [ ] Sidebar remains scrollable at reduced viewport height.
 - [ ] Long identifiers and report content remain readable.
 - [ ] Threat Intelligence, IOC correlations, and dashboard widgets stay readable
       with long domains, URLs, and UUIDs.
 
-## Production Readiness
+## RC2 Release Readiness
 
 - [ ] Manual backend validation commands pass.
 - [ ] Manual frontend lint and build commands pass.
@@ -75,10 +151,13 @@
 - [ ] Admin export controls and feature flags save without stale errors.
 - [ ] Archive and restore flows do not expose destructive actions incorrectly.
 - [ ] Frontend development starts only after running `cd frontend`.
+- [ ] Local Docker Compose remains the tested runtime; no hosting, DNS, or
+      production database changes were made during the RC2 freeze.
 
 ## Release Candidate Regression Pack
 
 - [ ] Case review can be submitted, approved, rejected, and closed.
+- [ ] Case closure checklist, deliverables, and package manifest workflows work.
 - [ ] Closure before approval requires an explicit owner/admin override reason.
 - [ ] Report approval can be submitted, approved, and rejected.
 - [ ] Remediation validation can be submitted, validated, failed, or accepted

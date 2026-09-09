@@ -23,6 +23,7 @@ import {
   updatePlaybookRunStep,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { safeArray } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type {
   PlaybookRun,
@@ -221,11 +222,12 @@ function PlaybookRunCard({
     analystNote: string,
   ) => void;
 }): JSX.Element {
-  const complete = run.steps.filter((step) =>
+  const steps = safeArray(run.steps);
+  const complete = steps.filter((step) =>
     ["completed", "skipped"].includes(step.status),
   ).length;
-  const progress = run.steps.length
-    ? Math.round((complete / run.steps.length) * 100)
+  const progress = steps.length
+    ? Math.round((complete / steps.length) * 100)
     : 0;
 
   return (
@@ -313,7 +315,7 @@ function PlaybookRunCard({
       <div className="mt-4">
         <div className="mb-2 flex items-center justify-between text-xs text-raven-muted">
           <span>
-            {complete} of {run.steps.length} steps complete
+            {complete} of {steps.length} steps complete
           </span>
           <span>{progress}%</span>
         </div>
@@ -326,7 +328,7 @@ function PlaybookRunCard({
       </div>
 
       <div className="mt-4 space-y-3">
-        {run.steps.map((step) => (
+        {steps.map((step) => (
           <RunStep
             key={step.id}
             step={step}

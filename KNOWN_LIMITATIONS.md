@@ -2,13 +2,69 @@
 
 ## Product Boundaries
 
-- Passive recon only; no active scanning or Nmap integration.
+- Passive, defensive OSINT workflow only; no active scanning or Nmap
+  integration.
 - No exploitation, attack automation, or offensive workflow.
 - No internet-wide enumeration or crawler.
-- No autonomous agents or unattended remediation.
+- No autonomous agents, unattended remediation, or autonomous offensive
+  actions.
 - No external SSO, billing, or managed cloud deployment.
 - No external paid threat feeds are required or bundled.
 - No cloud deployment implementation is included in the release candidate.
+- Production hosting and DNS configuration remain deferred until after final
+  platform review.
+- Local Docker Compose is the current tested operating mode. Production and
+  free-tier hosting have not been validated.
+- The production database has not been migrated to Supabase.
+- Notifications are internal Activity Inbox records only. Email, SMS, browser
+  push, and chat integrations are not included.
+- Global Search is internal-only and database-backed. It does not use external
+  search providers, crawl the web, or perform internet-wide discovery.
+
+## Authentication And User Governance
+
+The platform uses its own backend authentication model. Public registration is
+configuration-gated and defaults to disabled. Registered users may require admin
+approval before they can sign in, and account approval does not replace
+organization-specific identity review.
+
+The current platform role model remains intentionally small: admin and analyst
+at the platform level, with viewer-style access handled through investigation
+membership. External SSO/OAuth and Supabase Auth migration are intentionally not
+included.
+
+## Engagement And Scope Governance
+
+Engagements are lightweight governance records for client metadata,
+authorization status, approved scope items, and authorization evidence
+references. They are not billing records, tenant boundaries, a hosted client
+portal, or legal document storage.
+
+Scope checks are deterministic and local. They support exact values, conservative
+domain/subdomain matching, exact IP matching, and CIDR matching. They do not
+perform DNS resolution, active probing, crawling, scanning, or external
+enrichment. Unknown values are marked pending review by default.
+
+Out-of-scope handling is warning-first unless an operator explicitly enables a
+blocking governance policy.
+
+## Case Closure And Deliverables
+
+Case closure is a review workflow, not a legal sign-off system or client portal.
+Deliverables are tracked as application records and package manifests. The
+platform does not upload, host, email, or externally deliver final packages.
+
+Evidence package manifests summarize stored evidence, findings, reports,
+authorization status, and warnings. They do not duplicate all raw report files
+or create external storage. Analysts remain responsible for final client
+handoff review.
+
+## Notifications
+
+The Notification Center is designed for internal workflow visibility. It stores
+alerts for approvals, assignments, reports, closure, scope, and governance in
+the database. It does not deliver messages outside the application, and it is
+not a replacement for an enterprise incident-management or ticketing platform.
 
 ## Provider Availability
 
@@ -41,11 +97,38 @@ Knowledge Search uses only locally curated and indexed content. It does not
 browse the internet. Search quality depends on the available local documents
 and their indexing state.
 
+## Global Search And Saved Views
+
+Global Search searches safe fields from accessible internal records only.
+Results depend on RBAC, investigation membership, and stored application data.
+It is not a replacement for an enterprise search appliance and intentionally
+does not index secrets, password hashes, invite codes, raw credentials,
+authorization headers, database URLs, or provider keys.
+
+Saved views store user-specific filter preferences and routes. They do not
+share filters across users by default and should not be used to store sensitive
+notes or credentials.
+
+## Data Quality Checks
+
+The Data Quality Center uses bounded deterministic checks over stored records.
+It can flag likely duplicates, stale workflow items, missing evidence, invalid
+internal routes, configuration risks, and cross-workflow inconsistencies, but
+it does not prove that records are semantically identical or legally complete.
+
+No automatic destructive cleanup is included. Administrators must review and
+correct source records through governed workflows. Notification maintenance is
+limited to explicit soft archive of old read or dismissed items.
+
 ## Reporting
 
 Report quality depends on stored findings, notes, evidence, remediation data,
 and framework mappings. Readiness warnings are advisory and do not guarantee
 that a report is complete for a specific regulatory or legal purpose.
+
+All reports and exported deliverables require analyst review. Generated content
+must not be treated as autonomous approval, legal sign-off, or a verified claim
+of compromise.
 
 PDF and DOCX rendering can vary slightly by viewer. Organization-specific legal
 language, classification markings, and branding require administrator review.
@@ -54,18 +137,45 @@ language, classification markings, and branding require administrator review.
 
 - Health checks can report optional services as degraded while core workflows
   remain available.
+- Monitoring is local, pull-based, and active only while a client polls the
+  authenticated endpoints. It is not an external uptime monitor or durable
+  observability system.
+- Default system metrics describe the backend container and may be estimates.
+  Full Windows host metrics require the optional localhost-only PowerShell agent.
+- Only the latest accepted host-agent sample is retained in backend memory; it
+  is cleared on restart and considered stale after ten minutes.
+- Docker status is intentionally limited because the backend does not mount the
+  Docker socket. Use `docker compose ps` for authoritative container state.
+- Monitoring alerts are deterministic snapshots with daily per-user
+  deduplication in the internal Activity Inbox. They do not send email, SMS,
+  push messages, webhooks, or run automated remediation.
 - Worker readiness verifies broker reachability, not full job throughput.
 - Retention policies mark archive eligibility; they do not automatically
   destroy records.
 - Soft archive is used to preserve investigation history and auditability.
-- The frontend production bundle currently produces a non-blocking Vite chunk
-  size warning and has not yet been split into route-level bundles.
+- Frontend pages are split into route-level bundles. The initial production
+  bundle remains a shared application shell rather than a minimal static page,
+  but it no longer triggers the configured Vite chunk-size warning.
+- The current password hashing dependency emits an upstream Python deprecation
+  warning for the standard-library `crypt` module. It does not affect the Python
+  3.12 release-candidate runtime, but the hashing dependency must be reviewed
+  before a future Python 3.13 upgrade.
+- The frontend remains on React Router 6 during the RC2 freeze. `npm audit`
+  reports two moderate advisories whose available automated fix requires the
+  breaking React Router 7 migration. This client-rendered application does not
+  use React Router SSR hydration, and dynamic application routes are constrained
+  to safe internal paths, but the major upgrade must be planned and retested in
+  a separately authorized post-freeze phase.
+- A local environment without `REPORT_LOGO_PATH` emits a configuration advisory
+  and uses text branding for report exports.
 
 ## Validation Responsibility
 
-Before production use, operators should complete the manual QA checklist,
-verify database migrations, configure backups, review secrets and CORS, confirm
-export controls, and validate organization-specific RBAC and retention policy.
+Before any future production use, operators should complete the RC2 manual QA
+checklist, verify database migrations, configure backups, review secrets and
+CORS, confirm export controls, and validate organization-specific RBAC and
+retention policy. Public registration must remain governed through explicit
+enablement, invite/approval policy, and administrator review.
 
 The documented local deployment assumes Docker Compose, local environment
 variables, PostgreSQL, Redis, and frontend development commands run from the

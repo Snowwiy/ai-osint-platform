@@ -1,10 +1,10 @@
-import { AlertTriangle, Loader2, SearchX } from "lucide-react";
+import { AlertTriangle, Loader2, RefreshCw, SearchX } from "lucide-react";
 
 import { ApiError } from "../lib/api";
 
 export function LoadingBlock({ label = "Loading" }: { label?: string }): JSX.Element {
   return (
-    <div className="flex min-h-40 items-center justify-center rounded-lg border border-raven-border bg-raven-panel/80 text-raven-muted">
+    <div className="flex min-h-40 items-center justify-center rounded-lg border border-raven-border bg-raven-panel/80 text-raven-muted" role="status" aria-live="polite">
       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
       <span>{label}</span>
     </div>
@@ -14,9 +14,11 @@ export function LoadingBlock({ label = "Loading" }: { label?: string }): JSX.Ele
 export function ErrorBlock({
   message,
   title = "Unable to load data",
+  onRetry,
 }: {
   message: string | Error;
   title?: string;
+  onRetry?: () => void;
 }): JSX.Element {
   const error = normalizeErrorMessage(message);
   return (
@@ -32,6 +34,14 @@ export function ErrorBlock({
       {error.suggestion ? (
         <p className="mt-2 break-words text-rose-100/70">{error.suggestion}</p>
       ) : null}
+      <button
+        type="button"
+        onClick={onRetry ?? (() => window.location.reload())}
+        className="mt-3 inline-flex items-center gap-2 rounded-md border border-rose-300/30 px-3 py-2 text-xs font-medium text-rose-100 hover:bg-rose-500/10"
+      >
+        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+        Retry
+      </button>
       {error.details.length ? (
         <details className="mt-3 rounded-md border border-rose-300/20 bg-raven-bg/40 p-3">
           <summary className="cursor-pointer text-xs font-medium text-rose-100/80">

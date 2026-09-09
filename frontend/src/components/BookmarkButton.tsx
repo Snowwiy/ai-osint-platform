@@ -8,6 +8,7 @@ import {
 } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
 import type { EvidenceBookmarkCreateRequest } from "../types";
+import { safeArray } from "../lib/safe";
 
 export function BookmarkButton({
   investigationId,
@@ -38,7 +39,7 @@ export function BookmarkButton({
     member?.role === "owner" ||
     member?.role === "admin" ||
     member?.role === "analyst";
-  const existing = bookmarks.data?.items.find(
+  const existing = safeArray(bookmarks.data?.items).find(
     (item) =>
       item.entity_id === (entityId ?? null) &&
       item.finding_id === (findingId ?? null) &&

@@ -1,13 +1,33 @@
 import type {
   AdminQaStatusResponse,
+  AdminUserActionResponse,
+  AdminUserFilters,
+  AdminUserListResponse,
   AdminOverviewResponse,
   AdminSettingsResponse,
   AdminSettingsUpdate,
   AnalysisResponse,
+  AuthorizationEvidence,
+  AuthorizationEvidenceCreateRequest,
+  AuthorizationEvidenceUpdateRequest,
   AuditLogFilters,
   AuditLogListResponse,
   CaseReviewResponse,
+  CaseClosureChecklistItem,
+  CaseClosureChecklistStatus,
+  CaseClosureResponse,
+  CaseDeliverable,
+  CaseDeliverableListResponse,
+  CaseDeliverableStatus,
+  CaseDeliverableType,
+  CaseFinalRiskRating,
+  CasePackageManifestResponse,
   CorrelationResponse,
+  DataQualityIssue,
+  DataQualityIssueFilters,
+  DataQualityIssueListResponse,
+  DataQualityOverviewResponse,
+  DataQualityScanResponse,
   CrossInvestigationCorrelationResponse,
   CrossInvestigationSignalType,
   CollaborationDashboardResponse,
@@ -20,6 +40,13 @@ import type {
   DetectionKnowledgeResponse,
   DefensivePlaybook,
   DemoSeedResponse,
+  Engagement,
+  EngagementCreateRequest,
+  EngagementListResponse,
+  EngagementScopeItem,
+  EngagementScopeItemCreateRequest,
+  EngagementScopeItemUpdateRequest,
+  EngagementUpdateRequest,
   ExecutiveDashboardResponse,
   ExecutiveInvestigationSummaryResponse,
   ExecutivePostureResponse,
@@ -81,6 +108,7 @@ import type {
   InvestigationTaskUpdateRequest,
   InvestigationUpdateRequest,
   KnowledgeSearchResponse,
+  MaintenanceDryRunResponse,
   IOCConfidence,
   IOCCorrelationResponse,
   IOCDetail,
@@ -88,6 +116,14 @@ import type {
   IOCListResponse,
   IOCType,
   FrameworkKnowledgeResponse,
+  GlobalSearchFilters,
+  GlobalSearchResponse,
+  NotificationActionResponse,
+  NotificationFilters,
+  NotificationListResponse,
+  NotificationMarkAllReadResponse,
+  NotificationUnreadCountResponse,
+  MonitoringOverviewResponse,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -107,6 +143,9 @@ import type {
   ReportTemplateUpdateRequest,
   ReportingCenterFilters,
   ReportingCenterResponse,
+  RegisterRequest,
+  RegisterResponse,
+  RegistrationPolicyResponse,
   RetentionSettings,
   RetentionStatusResponse,
   ReconResponse,
@@ -114,6 +153,14 @@ import type {
   RestoreValidationResponse,
   RemediationValidationResponse,
   ReviewBoardResponse,
+  ScopeCheckRequest,
+  ScopeCheckResponse,
+  SavedView,
+  SavedViewCreateRequest,
+  SavedViewListResponse,
+  SavedViewType,
+  SavedViewUpdateRequest,
+  StaleNotificationArchiveResponse,
   Target,
   TargetCreateRequest,
   TargetListResponse,
@@ -129,6 +176,7 @@ import type {
   TokenResponse,
   UserProfile,
   AnalystWorkloadResponse,
+  PlatformUserRole,
 } from "../types";
 
 const API_BASE_URL =
@@ -207,6 +255,34 @@ export async function login(identifier: string, password: string): Promise<Token
   return response;
 }
 
+export async function getRegistrationPolicy(): Promise<RegistrationPolicyResponse> {
+  return request<RegistrationPolicyResponse>("/auth/registration-policy", {
+    skipAuth: true,
+  });
+}
+
+export async function registerAccount(
+  body: RegisterRequest,
+): Promise<RegisterResponse> {
+  try {
+    return await request<RegisterResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+      skipAuth: true,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && [403, 409, 422].includes(error.status)) {
+      throw new ApiError(
+        error.metadata.detail || error.message,
+        error.status,
+        error.endpoint,
+        error.metadata,
+      );
+    }
+    throw error;
+  }
+}
+
 export async function logout(): Promise<void> {
   const refreshToken = window.localStorage.getItem(REFRESH_TOKEN_KEY);
   try {
@@ -240,6 +316,138 @@ export async function listInvestigationsWithScope(
   }
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return request<InvestigationListResponse>(`/investigations/${suffix}`);
+}
+
+export async function listEngagements(
+  includeArchived = false,
+): Promise<EngagementListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<EngagementListResponse>(`/engagements/${suffix}`);
+}
+
+export async function createEngagement(
+  body: EngagementCreateRequest,
+): Promise<Engagement> {
+  return request<Engagement>("/engagements/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getEngagement(id: string): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}`);
+}
+
+export async function updateEngagement(
+  id: string,
+  body: EngagementUpdateRequest,
+): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function archiveEngagement(id: string): Promise<Engagement> {
+  return request<Engagement>(`/engagements/${id}/archive`, {
+    method: "POST",
+  });
+}
+
+export async function listEngagementScopeItems(
+  engagementId: string,
+): Promise<EngagementScopeItem[]> {
+  return request<EngagementScopeItem[]>(`/engagements/${engagementId}/scope`);
+}
+
+export async function createEngagementScopeItem(
+  engagementId: string,
+  body: EngagementScopeItemCreateRequest,
+): Promise<EngagementScopeItem> {
+  return request<EngagementScopeItem>(`/engagements/${engagementId}/scope`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateEngagementScopeItem(
+  engagementId: string,
+  scopeItemId: string,
+  body: EngagementScopeItemUpdateRequest,
+): Promise<EngagementScopeItem> {
+  return request<EngagementScopeItem>(
+    `/engagements/${engagementId}/scope/${scopeItemId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteEngagementScopeItem(
+  engagementId: string,
+  scopeItemId: string,
+): Promise<void> {
+  return request<void>(`/engagements/${engagementId}/scope/${scopeItemId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listAuthorizationEvidence(
+  engagementId: string,
+): Promise<AuthorizationEvidence[]> {
+  return request<AuthorizationEvidence[]>(
+    `/engagements/${engagementId}/authorization`,
+  );
+}
+
+export async function createAuthorizationEvidence(
+  engagementId: string,
+  body: AuthorizationEvidenceCreateRequest,
+): Promise<AuthorizationEvidence> {
+  return request<AuthorizationEvidence>(
+    `/engagements/${engagementId}/authorization`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateAuthorizationEvidence(
+  engagementId: string,
+  evidenceId: string,
+  body: AuthorizationEvidenceUpdateRequest,
+): Promise<AuthorizationEvidence> {
+  return request<AuthorizationEvidence>(
+    `/engagements/${engagementId}/authorization/${evidenceId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function deleteAuthorizationEvidence(
+  engagementId: string,
+  evidenceId: string,
+): Promise<void> {
+  return request<void>(
+    `/engagements/${engagementId}/authorization/${evidenceId}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+export async function checkEngagementScope(
+  engagementId: string,
+  body: ScopeCheckRequest,
+): Promise<ScopeCheckResponse> {
+  return request<ScopeCheckResponse>(`/engagements/${engagementId}/scope/check`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function createInvestigation(
@@ -619,8 +827,252 @@ export async function getAdminQaStatus(): Promise<AdminQaStatusResponse> {
   return request<AdminQaStatusResponse>("/admin/qa/status");
 }
 
+export async function listAdminUsers(
+  filters: AdminUserFilters = {},
+): Promise<AdminUserListResponse> {
+  const params = new URLSearchParams();
+  if (filters.role) {
+    params.set("role", filters.role);
+  }
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+  if (filters.search?.trim()) {
+    params.set("search", filters.search.trim());
+  }
+  params.set("limit", String(filters.limit ?? 50));
+  params.set("offset", String(filters.offset ?? 0));
+  return request<AdminUserListResponse>(`/admin/users?${params.toString()}`);
+}
+
+export async function adminUserAction(
+  userId: string,
+  action: "approve" | "reject" | "disable" | "reactivate",
+): Promise<AdminUserActionResponse> {
+  return request<AdminUserActionResponse>(`/admin/users/${userId}/${action}`, {
+    method: "POST",
+  });
+}
+
+export async function updateAdminUserRole(
+  userId: string,
+  role: PlatformUserRole,
+): Promise<AdminUserActionResponse> {
+  return request<AdminUserActionResponse>(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function listNotifications(
+  filters: NotificationFilters = {},
+): Promise<NotificationListResponse> {
+  const params = new URLSearchParams();
+  if (filters.status) {
+    params.set("status", filters.status);
+  }
+  if (filters.severity) {
+    params.set("severity", filters.severity);
+  }
+  if (filters.notification_type) {
+    params.set("notification_type", filters.notification_type);
+  }
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) {
+    params.set("engagement_id", filters.engagement_id);
+  }
+  if (typeof filters.limit === "number") {
+    params.set("limit", String(filters.limit));
+  }
+  if (typeof filters.offset === "number") {
+    params.set("offset", String(filters.offset));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<NotificationListResponse>(`/notifications${suffix}`);
+}
+
+export async function getNotificationUnreadCount(): Promise<NotificationUnreadCountResponse> {
+  return request<NotificationUnreadCountResponse>("/notifications/unread-count");
+}
+
+export async function markNotificationRead(
+  notificationId: string,
+): Promise<NotificationActionResponse> {
+  return request<NotificationActionResponse>(
+    `/notifications/${notificationId}/read`,
+    { method: "PATCH" },
+  );
+}
+
+export async function dismissNotification(
+  notificationId: string,
+): Promise<NotificationActionResponse> {
+  return request<NotificationActionResponse>(
+    `/notifications/${notificationId}/dismiss`,
+    { method: "PATCH" },
+  );
+}
+
+export async function markAllNotificationsRead(): Promise<NotificationMarkAllReadResponse> {
+  return request<NotificationMarkAllReadResponse>("/notifications/mark-all-read", {
+    method: "POST",
+  });
+}
+
+export async function globalSearch(
+  filters: GlobalSearchFilters = {},
+): Promise<GlobalSearchResponse> {
+  const params = new URLSearchParams();
+  if (filters.q?.trim()) {
+    params.set("q", filters.q.trim());
+  }
+  if (filters.type) {
+    params.set("type", filters.type);
+  }
+  if (typeof filters.limit === "number") {
+    params.set("limit", String(filters.limit));
+  }
+  if (typeof filters.offset === "number") {
+    params.set("offset", String(filters.offset));
+  }
+  if (filters.include_archived) {
+    params.set("include_archived", "true");
+  }
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) {
+    params.set("engagement_id", filters.engagement_id);
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<GlobalSearchResponse>(`/search${suffix}`);
+}
+
+export async function listSavedViews(filters: {
+  view_type?: SavedViewType | "";
+  pinned?: boolean;
+} = {}): Promise<SavedViewListResponse> {
+  const params = new URLSearchParams();
+  if (filters.view_type) {
+    params.set("view_type", filters.view_type);
+  }
+  if (typeof filters.pinned === "boolean") {
+    params.set("pinned", String(filters.pinned));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<SavedViewListResponse>(`/saved-views${suffix}`);
+}
+
+export async function createSavedView(
+  body: SavedViewCreateRequest,
+): Promise<SavedView> {
+  return request<SavedView>("/saved-views", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateSavedView(
+  savedViewId: string,
+  body: SavedViewUpdateRequest,
+): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteSavedView(savedViewId: string): Promise<void> {
+  return request<void>(`/saved-views/${savedViewId}`, { method: "DELETE" });
+}
+
+export async function pinSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/pin`, {
+    method: "POST",
+  });
+}
+
+export async function unpinSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/unpin`, {
+    method: "POST",
+  });
+}
+
+export async function setDefaultSavedView(savedViewId: string): Promise<SavedView> {
+  return request<SavedView>(`/saved-views/${savedViewId}/set-default`, {
+    method: "POST",
+  });
+}
+
+export async function getDataQualityOverview(): Promise<DataQualityOverviewResponse> {
+  return request<DataQualityOverviewResponse>("/admin/data-quality/overview");
+}
+
+export async function runDataQualityScan(): Promise<DataQualityScanResponse> {
+  return request<DataQualityScanResponse>("/admin/data-quality/run", {
+    method: "POST",
+  });
+}
+
+export async function listDataQualityIssues(
+  filters: DataQualityIssueFilters = {},
+): Promise<DataQualityIssueListResponse> {
+  const params = new URLSearchParams();
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.issue_type?.trim()) params.set("issue_type", filters.issue_type.trim());
+  if (filters.entity_type) params.set("entity_type", filters.entity_type);
+  if (filters.investigation_id) {
+    params.set("investigation_id", filters.investigation_id);
+  }
+  if (filters.engagement_id) params.set("engagement_id", filters.engagement_id);
+  params.set("limit", String(filters.limit ?? 50));
+  params.set("offset", String(filters.offset ?? 0));
+  return request<DataQualityIssueListResponse>(
+    `/admin/data-quality/issues?${params.toString()}`,
+  );
+}
+
+export async function getDataQualityIssue(issueId: string): Promise<DataQualityIssue> {
+  return request<DataQualityIssue>(`/admin/data-quality/issues/${issueId}`);
+}
+
+export async function updateDataQualityIssueStatus(
+  issueId: string,
+  action: "acknowledge" | "ignore" | "resolve",
+): Promise<DataQualityIssue> {
+  return request<DataQualityIssue>(
+    `/admin/data-quality/issues/${issueId}/${action}`,
+    { method: "PATCH" },
+  );
+}
+
+export async function runMaintenanceDryRun(): Promise<MaintenanceDryRunResponse> {
+  return request<MaintenanceDryRunResponse>("/admin/maintenance/dry-run", {
+    method: "POST",
+  });
+}
+
+export async function archiveStaleNotifications(
+  olderThanDays = 90,
+): Promise<StaleNotificationArchiveResponse> {
+  return request<StaleNotificationArchiveResponse>(
+    "/admin/maintenance/archive-stale-notifications",
+    {
+      method: "POST",
+      body: JSON.stringify({ older_than_days: olderThanDays }),
+    },
+  );
+}
+
 export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
   return request<OperationsStatusResponse>("/operations/status");
+}
+
+export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
+  return request<MonitoringOverviewResponse>("/monitoring/overview");
 }
 
 export async function getOperationsEnvironment(): Promise<EnvironmentValidationResponse> {
@@ -1203,6 +1655,147 @@ export async function closeCase(
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export async function getCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(`/investigations/${investigationId}/closure`);
+}
+
+export async function generateClosureChecklist(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/generate-checklist`,
+    { method: "POST" },
+  );
+}
+
+export async function updateCaseClosure(
+  investigationId: string,
+  body: {
+    closure_summary?: string | null;
+    final_risk_rating?: CaseFinalRiskRating | null;
+  },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(`/investigations/${investigationId}/closure`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function submitCaseClosureReview(
+  investigationId: string,
+  body: { closure_summary?: string | null },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/submit-review`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function approveCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/approve`,
+    { method: "POST" },
+  );
+}
+
+export async function closeCaseClosure(
+  investigationId: string,
+  body: { closure_summary: string; override_reason?: string | null },
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/close`,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function reopenCaseClosure(
+  investigationId: string,
+): Promise<CaseClosureResponse> {
+  return request<CaseClosureResponse>(
+    `/investigations/${investigationId}/closure/reopen`,
+    { method: "POST" },
+  );
+}
+
+export async function updateClosureChecklistItem(
+  investigationId: string,
+  itemId: string,
+  body: { status: CaseClosureChecklistStatus; description?: string | null },
+): Promise<CaseClosureChecklistItem> {
+  return request<CaseClosureChecklistItem>(
+    `/investigations/${investigationId}/closure/checklist/${itemId}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
+
+export async function listCaseDeliverables(
+  investigationId: string,
+  includeArchived = false,
+): Promise<CaseDeliverableListResponse> {
+  const suffix = includeArchived ? "?include_archived=true" : "";
+  return request<CaseDeliverableListResponse>(
+    `/investigations/${investigationId}/deliverables${suffix}`,
+  );
+}
+
+export async function createCaseDeliverable(
+  investigationId: string,
+  body: {
+    title: string;
+    deliverable_type: CaseDeliverableType;
+    status?: CaseDeliverableStatus;
+    report_id?: string | null;
+    export_format?: ReportFormat | null;
+    file_reference?: string | null;
+  },
+): Promise<CaseDeliverable> {
+  return request<CaseDeliverable>(`/investigations/${investigationId}/deliverables`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateCaseDeliverable(
+  investigationId: string,
+  deliverableId: string,
+  body: {
+    title?: string;
+    deliverable_type?: CaseDeliverableType;
+    status?: CaseDeliverableStatus;
+    report_id?: string | null;
+    export_format?: ReportFormat | null;
+    file_reference?: string | null;
+  },
+): Promise<CaseDeliverable> {
+  return request<CaseDeliverable>(
+    `/investigations/${investigationId}/deliverables/${deliverableId}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
+
+export async function archiveCaseDeliverable(
+  investigationId: string,
+  deliverableId: string,
+): Promise<void> {
+  await request<void>(
+    `/investigations/${investigationId}/deliverables/${deliverableId}`,
+    { method: "DELETE" },
+  );
+}
+
+export async function createCasePackageManifest(
+  investigationId: string,
+): Promise<CasePackageManifestResponse> {
+  return request<CasePackageManifestResponse>(
+    `/investigations/${investigationId}/deliverables/package`,
+    { method: "POST" },
+  );
 }
 
 export async function getEvidenceCompleteness(

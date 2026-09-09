@@ -1,8 +1,10 @@
 import {
   Activity,
   BarChart3,
+  Bell,
   Bookmark,
   BrainCircuit,
+  BriefcaseBusiness,
   BookOpenCheck,
   Clock3,
   Handshake,
@@ -14,9 +16,11 @@ import {
   Home,
   ListChecks,
   LogOut,
+  MonitorCog,
   Network,
   Radar,
   Search,
+  SearchCheck,
   Settings,
   ShieldAlert,
   ShieldCheck,
@@ -28,6 +32,8 @@ import { NavLink, Outlet, useParams } from "react-router-dom";
 import { getBackendHealth, getFeatureAvailability } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
 import type { FeatureFlagSettings, HealthResponse } from "../types";
+import { GlobalSearch } from "./GlobalSearch";
+import { NotificationBell } from "./NotificationBell";
 
 interface NavigationItem {
   label: string;
@@ -76,6 +82,7 @@ const topNav: NavigationItem[] = [
     feature: "enable_collaboration",
   },
   { label: "Investigations", to: "/investigations", icon: ShieldCheck },
+  { label: "Engagements", to: "/engagements", icon: BriefcaseBusiness },
   {
     label: "Evidence Intelligence",
     to: "/evidence-intelligence",
@@ -90,6 +97,8 @@ const topNav: NavigationItem[] = [
     feature: "enable_report_exports",
   },
   { label: "Knowledge", to: "/knowledge", icon: Search },
+  { label: "Inbox", to: "/notifications", icon: Bell },
+  { label: "Monitoring", to: "/monitoring", icon: MonitorCog },
 ];
 
 const investigationNav: InvestigationNavigationItem[] = [
@@ -150,7 +159,9 @@ export function AppShell(): JSX.Element {
       ? [
           ...enabledTopNav,
           { label: "Audit", to: "/admin/audit", icon: ClipboardList },
+          { label: "Users", to: "/admin/users", icon: UsersRound },
           { label: "Operations", to: "/admin/operations", icon: Activity },
+          { label: "Data Quality", to: "/admin/data-quality", icon: SearchCheck },
           { label: "Settings", to: "/admin/settings", icon: Settings },
           {
             label: "Demo QA",
@@ -162,7 +173,7 @@ export function AppShell(): JSX.Element {
 
   return (
     <div className="min-h-screen text-raven-text">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 flex-col overflow-hidden border-r border-raven-border bg-raven-bg/95 px-4 py-5 backdrop-blur lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 flex-col border-r border-raven-border bg-raven-bg/95 px-4 py-5 backdrop-blur lg:flex">
         <div className="flex flex-none items-center gap-3 px-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-raven-violet text-white">
             RT
@@ -175,7 +186,11 @@ export function AppShell(): JSX.Element {
           </div>
         </div>
 
-        <div className="themed-scrollbar mt-6 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scroll-smooth">
+        <div className="mt-5 flex-none">
+          <GlobalSearch />
+        </div>
+
+        <div className="themed-scrollbar mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scroll-smooth">
           <nav className="space-y-1">
             {visibleTopNav.map((item) => (
               <ShellLink
@@ -222,8 +237,13 @@ export function AppShell(): JSX.Element {
             }
             onRetry={() => void health.refetch()}
           />
-          <p className="truncate text-sm font-medium">{user?.username}</p>
-          <p className="text-xs text-raven-muted">{user?.role}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user?.username}</p>
+              <p className="text-xs text-raven-muted">{user?.role}</p>
+            </div>
+            <NotificationBell />
+          </div>
           <button
             type="button"
             onClick={() => void logout()}
@@ -244,15 +264,18 @@ export function AppShell(): JSX.Element {
                 Defensive Intelligence & Threat Investigation Workspace
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="rounded-md border border-raven-border p-2 text-raven-muted"
-            >
-              <LogOut className="h-4 w-4" aria-hidden="true" />
-            </button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-md border border-raven-border p-2 text-raven-muted"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
-          <nav className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <nav className="tab-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {visibleTopNav.map((item) => (
               <MobileLink key={item.to} to={item.to} label={item.label} />
             ))}
@@ -265,6 +288,9 @@ export function AppShell(): JSX.Element {
                 })
               : null}
           </nav>
+          <div className="mt-3">
+            <GlobalSearch />
+          </div>
         </header>
 
         {featureFlags?.enable_demo_mode ? (

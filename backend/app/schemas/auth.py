@@ -2,8 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from app.schemas.user import validate_password_strength
 
 
 class LoginRequest(BaseModel):
@@ -16,6 +26,59 @@ class LoginRequest(BaseModel):
         if not self.email and not self.username:
             raise ValueError("email or username is required")
         return self
+
+
+class RegistrationPolicyResponse(BaseModel):
+    public_registration_enabled: bool
+    requires_approval: bool
+    invite_code_required: bool
+    default_role: str
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=2, max_length=50)
+    email: EmailStr
+    password: str
+    full_name: str | None = Field(default=None, max_length=120)
+    invite_code: str | None = Field(default=None, max_length=120)
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        clean = value.strip().lower()
+        if not clean:
+            raise ValueError("username is required")
+        if not 2 <= len(clean) <= 50:
+            raise ValueError("username must be 2-50 characters")
+        return clean
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+    @field_validator("full_name", "invite_code")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        clean = value.strip()
+        return clean or None
+
+
+class RegisterResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+    email: str
+    role: str
+    is_active: bool
+    account_status: Literal["active", "pending"]
+    message: str
 
 
 class UserBrief(BaseModel):

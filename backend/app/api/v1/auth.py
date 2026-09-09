@@ -22,6 +22,9 @@ from app.schemas.auth import (
     LoginRequest,
     LogoutRequest,
     PasswordChangeRequest,
+    RegisterRequest,
+    RegisterResponse,
+    RegistrationPolicyResponse,
     RefreshRequest,
     TokenResponse,
     UserBrief,
@@ -32,12 +35,18 @@ from app.services.auth import (
     InactiveUserError,
     InvalidCredentialsError,
     RedisLike,
+    RegistrationConflictError,
+    RegistrationDisabledError,
+    RegistrationInviteError,
     TokenError,
     change_password,
     login,
     logout,
+    register_user,
+    registration_policy,
     refresh_tokens,
 )
+from app.services.notification import notify_user_registered
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -76,7 +85,28 @@ async def login_endpoint(
         )
     except InactiveUserError as exc:
         await _record_failed_login(redis, identifier, request)
-        raise HTTPException(status_code=403, detail="Account disabled") from exc
+        blocked_action = (
+            "user.login_blocked_pending"
+            if exc.account_status == "pending"
+            else "user.login_blocked_disabled"
+        )
+        await record_event(
+            db,
+            action=blocked_action,
+            actor_id=exc.user_id,
+            resource_type="user",
+            resource_id=exc.user_id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+            metadata={
+                "status": exc.account_status,
+                "identifier": _identifier_fingerprint(identifier),
+            },
+        )
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        ) from exc
     except InvalidCredentialsError as exc:
         await _record_failed_login(redis, identifier, request)
         raise HTTPException(
@@ -100,6 +130,54 @@ async def login_endpoint(
         refresh_token=refresh_token,
         user=UserBrief.model_validate(user),
     )
+
+
+@router.get(
+    "/registration-policy",
+    response_model=RegistrationPolicyResponse,
+)
+async def registration_policy_endpoint() -> dict[str, object]:
+    return registration_policy()
+
+
+@router.post(
+    "/register",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register_endpoint(
+    body: RegisterRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> RegisterResponse:
+    try:
+        response = await register_user(db, body)
+    except RegistrationDisabledError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except RegistrationInviteError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except RegistrationConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await record_event(
+        db,
+        action="user.registered",
+        actor_id=response.id,
+        resource_type="user",
+        resource_id=response.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={
+            "account_status": response.account_status,
+            "role": response.role,
+            "approval_required": not response.is_active,
+            "invite_code_required": bool(settings.REGISTRATION_INVITE_CODE.strip()),
+        },
+    )
+    registered_user = await db.get(User, response.id)
+    if registered_user is not None:
+        await notify_user_registered(db, registered_user=registered_user)
+    return response
 
 
 async def _enforce_auth_bruteforce(

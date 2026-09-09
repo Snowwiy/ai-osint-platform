@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import getpass
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
@@ -40,6 +41,9 @@ async def main() -> None:
             else:
                 existing.role = "admin"
                 existing.is_active = True
+                existing.account_status = "active"
+                existing.approved_at = existing.approved_at or datetime.now(UTC)
+                existing.registration_source = "admin_bootstrap"
                 db.add(existing)
                 await db.commit()
                 print(f"Promoted existing user to admin: {email}")
@@ -51,6 +55,9 @@ async def main() -> None:
             hashed_password=hash_password(password),
             role="admin",
             is_active=True,
+            account_status="active",
+            registration_source="admin_bootstrap",
+            approved_at=datetime.now(UTC),
         )
         db.add(user)
         await db.commit()
