@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
+import { AdminOnly } from "./components/AdminOnly";
 import { FeatureGate } from "./components/FeatureGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RouteErrorFallback } from "./components/RouteErrorFallback";
@@ -119,7 +120,10 @@ const router = createBrowserRouter([
           { path: "admin/settings", element: <AdminSettingsPage /> },
           { path: "admin/operations", element: <OperationsCenterPage /> },
           { path: "admin/data-quality", element: <DataQualityPage /> },
-          { path: "admin/demo-checklist", element: <DemoChecklistPage /> },
+          {
+            path: "admin/demo-checklist",
+            element: <AdminOnly><DemoChecklistPage /></AdminOnly>,
+          },
           { path: "investigations", element: <InvestigationsPage /> },
           { path: "engagements", element: <EngagementsPage /> },
           { path: "evidence-intelligence", element: <EvidenceIntelligencePage /> },

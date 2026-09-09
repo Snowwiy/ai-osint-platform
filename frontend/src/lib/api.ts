@@ -78,6 +78,11 @@ import type {
   InvestigationRecommendationsResponse,
   InvestigationRiskScoreResponse,
   InvestigationStage,
+  LanAsset,
+  LanAssetListResponse,
+  LanDiscoveryResponse,
+  LanServiceListResponse,
+  LanTelemetryListResponse,
   InvestigationEscalation,
   InvestigationHandoff,
   InvestigationHandoffRequest,
@@ -1073,6 +1078,39 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
+}
+
+export async function listLanAssets(): Promise<LanAssetListResponse> {
+  return request<LanAssetListResponse>("/monitoring/lan/assets");
+}
+
+export async function getLanAsset(assetId: string): Promise<LanAsset> {
+  return request<LanAsset>(`/monitoring/lan/assets/${assetId}`);
+}
+
+export async function updateLanAsset(
+  assetId: string,
+  body: Partial<Pick<LanAsset, "hostname" | "vendor" | "asset_type" | "notes" | "is_authorized" | "monitoring_enabled">>,
+): Promise<LanAsset> {
+  return request<LanAsset>(`/monitoring/lan/assets/${assetId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function discoverLan(cidr?: string): Promise<LanDiscoveryResponse> {
+  return request<LanDiscoveryResponse>("/monitoring/lan/discover", {
+    method: "POST",
+    body: JSON.stringify(cidr ? { cidr } : {}),
+  });
+}
+
+export async function listLanTelemetry(assetId: string): Promise<LanTelemetryListResponse> {
+  return request<LanTelemetryListResponse>(`/monitoring/lan/assets/${assetId}/telemetry`);
+}
+
+export async function listLanServices(assetId: string): Promise<LanServiceListResponse> {
+  return request<LanServiceListResponse>(`/monitoring/lan/assets/${assetId}/services`);
 }
 
 export async function getOperationsEnvironment(): Promise<EnvironmentValidationResponse> {

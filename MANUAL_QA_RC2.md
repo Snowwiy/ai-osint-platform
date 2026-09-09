@@ -40,7 +40,7 @@ docker compose exec backend alembic check
 ```
 
 Pass when `/health` and `/health/ready` return `status: ok`, current and head are
-`0028_phase5p_quality`, exactly one head exists, and Alembic reports no upgrade
+`0029_phase5y_lan`, exactly one head exists, and Alembic reports no upgrade
 operations. Responses must not expose connection strings, credentials, or raw
 exceptions.
 

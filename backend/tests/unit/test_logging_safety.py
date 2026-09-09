@@ -23,15 +23,17 @@ def test_structured_fields_redact_nested_sensitive_values() -> None:
 def test_formatter_redacts_secrets_embedded_in_message(monkeypatch) -> None:
     secret_key = "unit-test-secret-key-that-must-not-appear"
     database_url = "postgresql+asyncpg://tester:db-password@database:5432/test"
+    agent_token = "unit-test-lan-agent-token"
     monkeypatch.setattr(settings, "APP_SECRET_KEY", secret_key)
     monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    monkeypatch.setattr(settings, "LAN_AGENT_TOKEN", agent_token)
     record = logging.LogRecord(
         name="security-test",
         level=logging.ERROR,
         pathname=__file__,
         lineno=1,
         msg=(
-            f"key={secret_key} db={database_url} "
+            f"key={secret_key} db={database_url} agent={agent_token} "
             "Authorization: Bearer header-token password=plain-password"
         ),
         args=(),
@@ -45,6 +47,7 @@ def test_formatter_redacts_secrets_embedded_in_message(monkeypatch) -> None:
     assert "db-password" not in formatted
     assert "header-token" not in formatted
     assert "plain-password" not in formatted
+    assert agent_token not in formatted
     assert "[REDACTED]" in payload["message"]
 
 

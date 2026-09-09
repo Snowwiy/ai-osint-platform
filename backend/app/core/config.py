@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from typing import Literal
 
 from pydantic import AliasChoices, Field
@@ -68,6 +69,14 @@ class Settings(BaseSettings):
     REPORT_PRIMARY_COLOR: str = "#7C3AED"
     REPORT_SECONDARY_COLOR: str = "#111827"
     ENABLE_DEMO_MODE: bool = False
+    LAN_MONITORING_ENABLED: bool = False
+    LAN_ALLOWED_CIDRS: str = "192.168.0.0/24"
+    LAN_DISCOVERY_INTERVAL_SECONDS: int = 300
+    LAN_DISCOVERY_PING_ENABLED: bool = False
+    LAN_SERVICE_CHECK_ENABLED: bool = False
+    LAN_SERVICE_CHECK_PORTS: str = "22,80,443,3389"
+    LAN_AGENT_TOKEN: str = Field(default="", exclude=True)
+    LAN_AGENT_MAX_STALE_MINUTES: int = 10
     PUBLIC_REGISTRATION_ENABLED: bool = False
     REGISTRATION_REQUIRES_APPROVAL: bool = True
     REGISTRATION_INVITE_CODE: str = Field(default="", exclude=True)
@@ -145,6 +154,43 @@ class Settings(BaseSettings):
             errors.append("ACCESS_TOKEN_EXPIRE_MINUTES must be greater than zero.")
         if self.MAX_REQUEST_BODY_BYTES < 64_000:
             errors.append("MAX_REQUEST_BODY_BYTES is too low for normal API usage.")
+        if self.LAN_DISCOVERY_INTERVAL_SECONDS < 60:
+            errors.append("LAN_DISCOVERY_INTERVAL_SECONDS must be at least 60.")
+        if self.LAN_AGENT_MAX_STALE_MINUTES < 2:
+            errors.append("LAN_AGENT_MAX_STALE_MINUTES must be at least 2.")
+        try:
+            networks = [
+                ipaddress.ip_network(value.strip(), strict=False)
+                for value in self.LAN_ALLOWED_CIDRS.split(",")
+                if value.strip()
+            ]
+            private_networks = (
+                ipaddress.IPv4Network("10.0.0.0/8"),
+                ipaddress.IPv4Network("172.16.0.0/12"),
+                ipaddress.IPv4Network("192.168.0.0/16"),
+            )
+            if not networks:
+                errors.append("LAN_ALLOWED_CIDRS must contain at least one private CIDR.")
+            elif any(
+                network.version != 4
+                or not any(network.subnet_of(private) for private in private_networks)
+                for network in networks
+            ):
+                errors.append("LAN_ALLOWED_CIDRS accepts private IPv4 CIDRs only.")
+        except ValueError:
+            errors.append("LAN_ALLOWED_CIDRS contains an invalid CIDR.")
+        try:
+            ports = [
+                int(value.strip())
+                for value in self.LAN_SERVICE_CHECK_PORTS.split(",")
+                if value.strip()
+            ]
+            if any(port < 1 or port > 65535 for port in ports):
+                raise ValueError
+            if len(ports) > 32:
+                errors.append("LAN_SERVICE_CHECK_PORTS is limited to 32 ports.")
+        except ValueError:
+            errors.append("LAN_SERVICE_CHECK_PORTS must contain valid TCP ports.")
         if self.is_production:
             if self.has_placeholder_secret_key:
                 errors.append("SECRET_KEY must be replaced for production.")
@@ -180,6 +226,10 @@ class Settings(BaseSettings):
             warnings.append(
                 "PUBLIC_REGISTRATION_ENABLED is true in production; verify invite "
                 "and approval policy before exposing the service."
+            )
+        if self.LAN_MONITORING_ENABLED and not self.LAN_AGENT_TOKEN:
+            warnings.append(
+                "LAN_AGENT_TOKEN is empty; endpoint-agent registration and telemetry are disabled."
             )
         return warnings
 

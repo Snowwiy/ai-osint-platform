@@ -36,3 +36,19 @@ def test_production_cors_wildcard_is_rejected() -> None:
     )
 
     assert "CORS_ORIGINS cannot contain '*' in production." in production_settings.startup_errors()
+
+
+def test_lan_monitoring_defaults_are_non_intrusive() -> None:
+    local_settings = Settings(_env_file=None)
+
+    assert local_settings.LAN_MONITORING_ENABLED is False
+    assert local_settings.LAN_DISCOVERY_PING_ENABLED is False
+    assert local_settings.LAN_SERVICE_CHECK_ENABLED is False
+    assert local_settings.LAN_AGENT_TOKEN == ""
+    assert "LAN_AGENT_TOKEN" not in local_settings.model_dump()
+
+
+def test_public_lan_cidr_is_rejected_at_startup() -> None:
+    local_settings = Settings(_env_file=None, LAN_ALLOWED_CIDRS="8.8.8.0/24")
+
+    assert "LAN_ALLOWED_CIDRS accepts private IPv4 CIDRs only." in local_settings.startup_errors()

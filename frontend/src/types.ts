@@ -3189,3 +3189,97 @@ export interface MonitoringOverviewResponse {
   };
   recent_errors: MonitoringRecentError[];
 }
+
+export interface LanRiskIndicator {
+  key: string;
+  severity: "info" | "warning" | "critical";
+  label: string;
+  detail: string;
+}
+
+export interface LanAsset {
+  id: string;
+  ip_address: string;
+  mac_address: string | null;
+  hostname: string | null;
+  vendor: string | null;
+  asset_type: string;
+  status: "online" | "offline" | "unknown";
+  source: string;
+  first_seen: string;
+  last_seen: string | null;
+  last_checked_at: string | null;
+  confidence: number;
+  notes: string | null;
+  is_authorized: boolean;
+  monitoring_enabled: boolean;
+  agent_connected: boolean;
+  response_latency_ms: number | null;
+  risk_indicators: LanRiskIndicator[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LanAssetListResponse {
+  generated_at: string;
+  enabled: boolean;
+  allowed_cidrs: string[];
+  discovery_interval_seconds: number;
+  ping_enabled: boolean;
+  service_check_enabled: boolean;
+  docker_limited: boolean;
+  limitation: string;
+  total: number;
+  online: number;
+  offline: number;
+  unauthorized: number;
+  agent_connected: number;
+  items: LanAsset[];
+}
+
+export interface LanTelemetryItem {
+  id: string;
+  lan_asset_id: string;
+  cpu_percent: number | null;
+  memory_percent: number | null;
+  disk_percent: number | null;
+  uptime_seconds: number | null;
+  os_name: string | null;
+  os_version: string | null;
+  agent_version: string | null;
+  collected_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface LanTelemetryListResponse {
+  total: number;
+  items: LanTelemetryItem[];
+}
+
+export interface LanServiceObservation {
+  id: string;
+  lan_asset_id: string;
+  port: number;
+  protocol: string;
+  service_name: string | null;
+  status: string;
+  observed_at: string;
+  source: string;
+}
+
+export interface LanServiceListResponse {
+  total: number;
+  service_checks_enabled: boolean;
+  items: LanServiceObservation[];
+}
+
+export interface LanDiscoveryResponse {
+  enabled: boolean;
+  cidr: string;
+  observations_received: number;
+  assets_created: number;
+  assets_updated: number;
+  service_observations_created: number;
+  limitation: string | null;
+  message: string;
+}

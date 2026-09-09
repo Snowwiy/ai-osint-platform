@@ -1,6 +1,6 @@
 # Local Monitoring Center
 
-The Monitoring Center provides local-only operational visibility for RavenTech
+The Monitoring Center provides local operational visibility for RavenTech
 OSINT `5.0.0-rc2`. It polls authenticated backend summaries and does not scan
 targets, contact external services, expose Docker control, or perform automated
 remediation.
@@ -38,8 +38,10 @@ Polling occurs only while the page is open.
 
 ## API and authorization
 
-All routes require authentication. Read routes follow normal active-user and
-investigation-membership rules; agent ingestion requires an administrator.
+All UI/read routes require user authentication. Investigation monitoring follows
+normal membership rules; server-agent ingestion requires an administrator.
+LAN inventory routes are admin-only, while endpoint-agent routes use the
+separately configured local shared-token header described in `LAN_MONITORING.md`.
 
 ```text
 GET  /api/v1/monitoring/overview
@@ -65,8 +67,8 @@ run the optional local agent from the repository root:
 ./scripts/local/local_monitor_agent.ps1 -IntervalSeconds 30
 ```
 
-The script accepts localhost backend URLs only and prompts securely for a
-current admin bearer token. The token remains in process memory, is sent only in
+In server mode the script accepts localhost or private RFC1918 backend URLs and
+prompts securely for a current admin bearer token. The token remains in process memory, is sent only in
 the Authorization header, and is not placed in telemetry, command arguments,
 files, or logs. The payload is limited to agent ID, platform, timestamp, CPU,
 memory, disk, process count, and uptime. Stop continuous collection with
@@ -101,3 +103,12 @@ No email, SMS, browser push, webhook, or third-party notification is sent.
 
 The validated mode remains local Docker Compose. Hosting, deployment, DNS, and
 Supabase migration are deferred.
+
+## Optional authorized LAN monitoring
+
+The **LAN Assets** and **Endpoint Agents** tabs are admin-only because they show
+internal addresses and host telemetry. LAN monitoring is disabled by default,
+uses explicitly configured private ranges, and does not weaken the server
+monitoring path. See [LAN_MONITORING.md](LAN_MONITORING.md) for safe enablement,
+agent-token handling, Docker limitations, polling, discovery rate limits, and
+non-intrusive risk indicators.

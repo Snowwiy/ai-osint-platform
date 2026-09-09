@@ -2,8 +2,9 @@
 
 ## Product Boundaries
 
-- Passive, defensive OSINT workflow only; no active scanning or Nmap
-  integration.
+- Passive, defensive OSINT investigation workflow only; no generalized active
+  scanning or Nmap integration. Separately enabled LAN monitoring performs only
+  bounded private-network ICMP/TCP connectivity observations.
 - No exploitation, attack automation, or offensive workflow.
 - No internet-wide enumeration or crawler.
 - No autonomous agents, unattended remediation, or autonomous offensive
@@ -20,6 +21,8 @@
   push, and chat integrations are not included.
 - Global Search is internal-only and database-backed. It does not use external
   search providers, crawl the web, or perform internet-wide discovery.
+- LAN monitoring is disabled by default, limited to explicitly configured
+  private RFC1918 IPv4 ranges, and is not an internet or vulnerability scanner.
 
 ## Authentication And User Governance
 
@@ -146,6 +149,16 @@ language, classification markings, and branding require administrator review.
   is cleared on restart and considered stale after ten minutes.
 - Docker status is intentionally limited because the backend does not mount the
   Docker socket. Use `docker compose ps` for authoritative container state.
+- Docker Desktop may not expose the Windows neighbor table or ICMP utility to
+  the backend. LAN discovery can therefore return no observations; router/static
+  observations or the optional manual endpoint agent are the supported fallback.
+- LAN online/offline state is observation-based and can be affected by endpoint
+  firewalls, sleeping devices, container routing, and the selected interval.
+- Service observations are bounded TCP connectivity indicators only. They do
+  not identify versions, prove vulnerability, authenticate, or validate CVEs.
+- The LAN agent uses one operator-managed local shared token and has no remote
+  rotation or fleet-management service. It must be run manually and installs no
+  persistence or autostart.
 - Monitoring alerts are deterministic snapshots with daily per-user
   deduplication in the internal Activity Inbox. They do not send email, SMS,
   push messages, webhooks, or run automated remediation.

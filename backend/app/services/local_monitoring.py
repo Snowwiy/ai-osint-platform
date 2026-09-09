@@ -408,6 +408,10 @@ async def get_monitoring_alerts(
     system_data = system or get_system_metrics()
     asset_data = assets or await get_asset_watch(db, user)
     alerts = _build_alerts(service_data, system_data, asset_data)
+    if user.role == "admin":
+        from app.services.lan_monitoring import get_lan_alerts
+
+        alerts.extend(await get_lan_alerts(db))
     created = existing = 0
     day_bucket = datetime.now(UTC).date().isoformat()
     for alert in alerts:

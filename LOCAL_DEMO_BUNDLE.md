@@ -46,7 +46,7 @@ optionally starts Vite. The expected local URLs are:
 - Backend: `http://localhost:8000`
 - API documentation: `http://localhost:8000/docs`
 
-## Seed Synthetic Demo Data
+## Optional: Seed Synthetic Demo Data
 
 Set `ENABLE_DEMO_MODE=true` only in the local `.env`, restart the backend, and
 prepare the idempotent workspace:
@@ -58,6 +58,13 @@ docker compose exec -T backend python -m scripts.seed_demo_data
 The command requires an active administrator, reuses the fixed synthetic
 workspace, and does not make live recon requests. Re-running it must not create
 duplicate demo records.
+
+Normal platform navigation has no demo-mode banner. The optional seed/reset
+controls are available only to administrators under **QA Tools**, and synthetic
+records remain labeled so they cannot be mistaken for operational data.
+Keep `ENABLE_DEMO_MODE=false` and disable the corresponding Admin Settings flag
+when QA data is not needed; this hides/prevents preparation controls without
+deleting the guarded seed/reset implementation.
 
 ## Reset Synthetic Demo Data
 
@@ -82,7 +89,7 @@ curl.exe http://localhost:8000/api/v1/release
 ```
 
 The expected release is `5.0.0-rc2`, with migration head
-`0028_phase5p_quality` and `status: ok` for health and readiness.
+`0029_phase5y_lan` and `status: ok` for health and readiness.
 
 ## Generate Demo Reports
 
@@ -142,6 +149,7 @@ Use `FINAL_QA_CHECKLIST.md` for the full acceptance gate and
 - Public registration is disabled by default and must remain governed.
 - AI providers are optional; deterministic fallback remains available.
 - Demo data is synthetic and reports require analyst review.
-- The platform performs passive, defensive OSINT only—no active scanning,
-  exploitation, crawling, or autonomous offensive actions.
+- The platform performs passive, defensive OSINT investigation only. Optional
+  LAN reachability checks are bounded and disabled by default; no vulnerability
+  scanning, exploitation, crawling, or autonomous offensive actions are included.
 - See `KNOWN_LIMITATIONS.md` for dependency and operational advisories.

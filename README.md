@@ -3,7 +3,7 @@
 RavenTech OSINT is a defensive intelligence and investigation workspace for
 authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
-stakeholder-ready reports without active scanning or offensive automation.
+stakeholder-ready reports without intrusive scanning or offensive automation.
 
 Current release candidate: `5.0.0-rc2`. The validated runtime is local Docker
 Compose; production and free-tier hosting remain deferred.
@@ -47,18 +47,21 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - HTML, Markdown, PDF, and DOCX report exports
 - Optional AI analysis with deterministic fallback when the provider is unavailable
 - Operations Center with health, diagnostics, backups, restore dry-run validation
-- Local Monitoring Center with service telemetry, RBAC-aware Asset Watch,
-  deduplicated internal alerts, and an optional localhost-only host metrics agent
+- Local Monitoring Center with service telemetry, RBAC-aware investigation
+  watch, disabled-by-default authorized LAN inventory, endpoint telemetry,
+  deduplicated internal alerts, and an optional manual host agent
 - Responsive route-level loading, friendly retry states, guarded internal links,
   and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
 
 ## Defensive-Only Scope
 
-RavenTech OSINT is intentionally defensive. It does not implement active scanning,
-Nmap, exploitation, payload generation, malware handling, autonomous agents,
-internet-wide crawling, or offensive tradecraft. Demo data is synthetic and uses
-reserved identifiers.
+RavenTech OSINT is intentionally defensive. It does not implement generalized
+active or vulnerability scanning, Nmap, exploitation, payload generation,
+malware handling, autonomous agents, internet-wide crawling, or offensive
+tradecraft. Optional LAN monitoring is limited to explicitly authorized private
+ranges and separately enabled ICMP/TCP connectivity observations. Demo data is
+synthetic and uses reserved identifiers.
 
 ## Architecture Overview
 
@@ -221,7 +224,9 @@ The same workflow is available to admins through:
 
 The seeded case is labeled `[DEMO]`, uses reserved identifiers, performs no live
 requests, and makes no compromise claims. Reset creates a local database safety
-backup by default and targets fixed synthetic records only.
+backup by default and targets fixed synthetic records only. Demo presentation
+is not shown in normal navigation; administrator-only **QA Tools** retain the
+optional seed/reset workflow.
 
 ## Local Operations
 
@@ -245,6 +250,8 @@ See [LOCAL_BACKUP_RESTORE.md](LOCAL_BACKUP_RESTORE.md) for safeguards and
 For local service telemetry and investigation watch status, open **Monitoring**
 after signing in. See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) for endpoint,
 RBAC, polling, alert-deduplication, and optional Windows host-agent details.
+Authorized private-LAN monitoring is disabled by default; its bounded setup and
+security boundary are documented in [LAN_MONITORING.md](LAN_MONITORING.md).
 
 ## Demo Flow
 
@@ -293,7 +300,8 @@ Recommended portfolio screenshots:
 
 ## Known Limitations
 
-- Passive recon only; no active scanning or exploitation
+- Passive OSINT recon only; optional LAN monitoring is bounded connectivity
+  observation, never vulnerability scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
 - Current tested operation is local Docker Compose; production/free-tier hosting
   and the Supabase production database migration are deferred

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
+import { LanMonitoringPanel } from "../components/LanMonitoringPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getMonitoringOverview } from "../lib/api";
 import {
@@ -16,9 +17,11 @@ import {
 import type { MonitoringStatus } from "../types";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
+type MonitoringTab = "server" | "services" | "lan" | "agents" | "alerts";
 
 export function MonitoringCenterPage(): JSX.Element {
   const [pollSeconds, setPollSeconds] = useState(30);
+  const [tab, setTab] = useState<MonitoringTab>("server");
   const overview = useQuery({
     queryKey: ["monitoring-overview"],
     queryFn: getMonitoringOverview,
@@ -34,6 +37,7 @@ export function MonitoringCenterPage(): JSX.Element {
   const alerts = safeArray(data?.alerts?.items);
   const errors = safeArray(data?.recent_errors);
   const system = data?.system;
+  const overviewVisible = tab === "server" || tab === "services" || tab === "alerts";
 
   return (
     <>
@@ -68,11 +72,19 @@ export function MonitoringCenterPage(): JSX.Element {
         }
       />
 
-      {overview.isLoading ? <LoadingBlock label="Loading local telemetry" /> : null}
-      {overview.error ? (
+      <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
+        {(["server", "services", "lan", "agents", "alerts"] as MonitoringTab[]).map((item) => (
+          <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
+            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item}
+          </button>
+        ))}
+      </nav>
+
+      {overviewVisible && overview.isLoading ? <LoadingBlock label="Loading local telemetry" /> : null}
+      {overviewVisible && overview.error ? (
         <ErrorBlock message={overview.error} onRetry={() => void overview.refetch()} />
       ) : null}
-      {!overview.isLoading && !overview.error && data ? (
+      {overviewVisible && !overview.isLoading && !overview.error && data ? (
         <div className="space-y-5">
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
             <div className="flex min-w-0 items-center gap-3">
@@ -85,7 +97,7 @@ export function MonitoringCenterPage(): JSX.Element {
             <StatusPill status={data.status} />
           </section>
 
-          <section>
+          {tab === "services" ? <section>
             <h2 className="mb-3 text-lg font-semibold">Services</h2>
             {serviceItems.length ? (
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -100,9 +112,9 @@ export function MonitoringCenterPage(): JSX.Element {
                 ))}
               </div>
             ) : <EmptyBlock message="No service telemetry is available." />}
-          </section>
+          </section> : null}
 
-          <section>
+          {tab === "server" ? <section>
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <h2 className="text-lg font-semibold">System metrics</h2>
               <p className="text-xs text-raven-muted">{safeString(system?.metric_scope, "local scope")} · {safeString(system?.source, "unavailable").replace(/_/g, " ")}</p>
@@ -115,9 +127,9 @@ export function MonitoringCenterPage(): JSX.Element {
               <Metric label="Uptime" value={duration(system?.uptime_seconds)} />
             </div>
             <p className="mt-2 text-xs text-raven-muted">{safeString(system?.detail, "System metrics are unavailable.")} Last sample: {safeDate(system?.collected_at)?.toLocaleString() ?? "not available"}</p>
-          </section>
+          </section> : null}
 
-          <section>
+          {tab === "server" ? <section>
             <h2 className="mb-3 text-lg font-semibold">Asset watch</h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               <Metric label="Investigations" value={metricValue(data.assets?.investigations)} />
@@ -150,9 +162,9 @@ export function MonitoringCenterPage(): JSX.Element {
                 </table>
               </div>
             ) : <div className="mt-3"><EmptyBlock message="No accessible investigations are available to watch." /></div>}
-          </section>
+          </section> : null}
 
-          <section className="grid gap-5 xl:grid-cols-2">
+          {tab === "alerts" ? <section className="grid gap-5 xl:grid-cols-2">
             <div>
               <h2 className="mb-3 text-lg font-semibold">Alerts ({safeNumber(data.alerts?.total)})</h2>
               {alerts.length ? <div className="space-y-2">{alerts.map((alert) => (
@@ -170,9 +182,11 @@ export function MonitoringCenterPage(): JSX.Element {
                 </div>
               ))}</div> : <EmptyBlock title="No recent errors" message="No accessible sanitized backend error events were found." />}
             </div>
-          </section>
+          </section> : null}
         </div>
       ) : null}
+      {tab === "lan" ? <LanMonitoringPanel /> : null}
+      {tab === "agents" ? <LanMonitoringPanel agentsOnly /> : null}
     </>
   );
 }

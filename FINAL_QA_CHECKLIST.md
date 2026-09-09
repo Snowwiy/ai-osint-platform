@@ -16,7 +16,7 @@ check blocks the current release-freeze commit and push.
 - [ ] `curl http://localhost:8000/health` returns `status: ok`.
 - [ ] `curl http://localhost:8000/health/ready` returns `status: ok`.
 - [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc2` and
-      `0028_phase5p_quality` without secrets.
+      `0029_phase5y_lan` without secrets.
 - [ ] From `frontend/`, `npm run build` passes.
 - [ ] `docker compose ps` shows required local services running; backend and
       PostgreSQL are healthy.
@@ -94,6 +94,22 @@ check blocks the current release-freeze commit and push.
       ingestion is admin-only and the bearer token is never persisted or logged.
 - [ ] Missing/stale agent data falls back cleanly to container metrics and does
       not make the platform unavailable.
+- [ ] Normal navigation shows no global demo-mode banner; QA Tools and demo
+      seed/reset controls are admin-only, while synthetic records remain labeled.
+- [ ] LAN monitoring is disabled by default and LAN inventory routes deny
+      non-admin users.
+- [ ] Public, non-RFC1918, out-of-range, and discovery ranges larger than `/24`
+      are rejected.
+- [ ] Discovery is admin-triggered and rate limited; ping and bounded configured
+      TCP connects remain disabled unless separately enabled.
+- [ ] Docker neighbor-table limitations return a clear empty/limitation state
+      without privileged mode or a crash.
+- [ ] Agent registration/telemetry rejects missing, invalid, or unset shared
+      tokens and never echoes or logs them.
+- [ ] Endpoint detail tolerates missing telemetry, services, MAC, hostname,
+      latency, and notes without a React crash.
+- [ ] LAN alerts deduplicate, and port/resource/version results are labeled risk
+      indicators rather than confirmed vulnerabilities.
 
 ## UI And Portfolio Review
 

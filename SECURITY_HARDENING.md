@@ -202,7 +202,20 @@ application code must still avoid logging raw request bodies or credentials.
 - Keep PostgreSQL and Redis internal to Docker networking where possible.
 - Expose the backend only through approved internal routes.
 - Restrict frontend CORS to known origins.
-- Do not add active scanning or offensive capabilities.
+- Do not add generalized active, vulnerability, internet-wide, or offensive
+  scanning capabilities. Keep optional LAN checks within the bounded controls
+  documented below.
+- Keep `LAN_MONITORING_ENABLED=false` unless an administrator has documented the
+  private ranges and operator authorization. Phase 5Y rejects public ranges and
+  limits each discovery request to `/24` or smaller.
+- Keep ping and service checks disabled unless separately approved. Configured
+  TCP checks establish connectivity only and must never send payloads, test
+  credentials, brute force, fingerprint versions, or validate exploits.
+- Store `LAN_AGENT_TOKEN` only in the untracked backend environment. Rotate it
+  after suspected exposure; never pass it as a command argument or include it in
+  logs, telemetry metadata, screenshots, reports, or frontend variables.
+- Do not mount the Docker socket or use privileged containers for discovery.
+  Prefer the manual endpoint agent or sanitized router/static observations.
 
 ## Internal Notifications
 

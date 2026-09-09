@@ -186,7 +186,8 @@ control is a substitute for rotation after confirmed exposure.
 ## Data Quality Center Issues
 
 - Apply migrations with `docker compose exec backend alembic upgrade head` if
-  quality data is unavailable. The Phase 5P head is `0028_phase5p_quality`.
+  quality or LAN monitoring data is unavailable. The current head is
+  `0029_phase5y_lan`.
 - A scan is bounded and local. If it fails, inspect backend logs and database
   health; investigation and reporting workflows remain usable.
 - A recurring resolved issue reopens when the same condition is detected.
