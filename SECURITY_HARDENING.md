@@ -11,6 +11,17 @@ safe internal operation, governance, and supportability.
 - Keep API keys out of frontend builds.
 - Use the Operations Center environment validation to confirm presence without
   displaying values.
+- Keep `DATABASE_URL`, `REDIS_URL`, provider keys, invite codes, and admin
+  bootstrap credentials backend-only. The frontend may receive only public
+  build configuration such as `VITE_API_BASE_URL`.
+- Placeholder signing keys generate a local warning and are rejected in
+  production mode. CORS wildcard configuration is also rejected in production.
+
+The Phase 5V tracked-file audit found no private keys, provider keys, JWTs,
+committed `.env` files, or production credentials. Credential-shaped database
+URLs in tracked files are restricted to explicit local/CI examples and
+historical documentation placeholders. Repeat the checks in
+`SECRETS_AUDIT_CHECKLIST.md` before any future hosting review.
 
 ## Environment Separation
 
@@ -26,6 +37,21 @@ Production-style operation should use:
 - Non-development signing keys
 - Persistent database and report volumes
 - Restricted access to Docker host and volumes
+
+## Dependency Hygiene
+
+- Install Python dependencies from the existing backend manifests and require
+  `python -m pip check` to pass. Avoid opportunistic major upgrades during the
+  RC2 freeze.
+- Install frontend dependencies from `package-lock.json`. Phase 5V refreshed
+  safe in-range transitive packages and retained React Router 6 to avoid an
+  unreviewed breaking migration.
+- `npm audit` currently reports two moderate React Router advisories whose
+  automated fix moves to React Router 7. The Vite application does not use SSR
+  hydration, and dynamic destinations are normalized to internal routes. Plan
+  the major upgrade with dedicated regression testing after the freeze.
+- The upstream Passlib `crypt` deprecation warning remains documented; do not
+  hide it globally or pin insecure replacements.
 
 ## RBAC
 
@@ -142,6 +168,11 @@ Do not log secrets in audit metadata.
 - Treat backups as sensitive operational data.
 - Validate backups with dry-run restore before upgrades.
 - Use PostgreSQL-native backup for authoritative recovery.
+- Keep `backups/` and generated report output Git-ignored. A database dump can
+  contain user and investigation data even though the scripts do not copy
+  `.env` or provider configuration.
+- Restore only into a new, explicitly named review database. Never bypass the
+  refusal of the live and PostgreSQL system database names.
 
 ## Logging
 
@@ -159,6 +190,12 @@ Logs should not include:
 - JWTs
 - Refresh tokens
 - Raw `.env` values
+
+SQLAlchemy parameter echo is disabled in all environments. The JSON formatter
+redacts sensitive structured fields, configured secret values, authorization
+credentials, credential-bearing PostgreSQL/Redis URLs, and common secret
+assignments found inside message or exception strings. This is defense in depth;
+application code must still avoid logging raw request bodies or credentials.
 
 ## Network Exposure
 

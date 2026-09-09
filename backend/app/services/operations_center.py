@@ -93,13 +93,7 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
             bool(settings.APP_SECRET_KEY),
             "Application signing key is present.",
             "A signing key is required for JWT authentication.",
-            misconfigured=(
-                len(settings.APP_SECRET_KEY) < 32
-                or (
-                    settings.is_production
-                    and settings.APP_SECRET_KEY.startswith(("dev-", "change-me"))
-                )
-            ),
+            misconfigured=settings.has_weak_secret_key,
             misconfigured_detail="Signing key is too weak for this environment.",
         ),
         _configured(

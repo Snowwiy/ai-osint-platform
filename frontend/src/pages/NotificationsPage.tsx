@@ -20,7 +20,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../lib/api";
-import { safeArray, safeDate, safeString } from "../lib/safe";
+import { safeArray, safeDate, safeInternalRoute, safeString } from "../lib/safe";
 import type {
   NotificationFilters,
   NotificationItem,
@@ -408,7 +408,7 @@ function NotificationRow({
           </button>
           {item.action_url ? (
             <Link
-              to={item.action_url}
+              to={safeInternalRoute(item.action_url, "/notifications")}
               className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-cyan hover:border-raven-violet"
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />

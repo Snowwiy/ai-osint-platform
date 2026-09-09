@@ -89,6 +89,20 @@ for a future planning phase after final manual QA:
 - For domain setup, align `FRONTEND_URL`, `BACKEND_CORS_ORIGINS`, and
   `VITE_API_BASE_URL` exactly.
 
+## Suspected Secret Exposure
+
+Do not paste or print a suspected credential while diagnosing it. Stop the
+affected local service, rotate or revoke the value at its source, replace the
+local `.env` value, and inspect tracked filenames with the non-secret-output
+checks in `SECRETS_AUDIT_CHECKLIST.md`. Removing a value from the current file
+does not remove it from Git history; any history remediation must be a separate,
+coordinated operation after rotation.
+
+If backend logs may have received a secret, preserve only the minimum evidence
+needed for review and restrict access to the log files. SQL parameter echo is
+disabled and the application formatter redacts common secret forms, but neither
+control is a substitute for rotation after confirmed exposure.
+
 ## Report Issues
 
 - Check Admin Settings export controls.

@@ -12,6 +12,9 @@ production infrastructure.
   configuration into an archive.
 - Treat database and report backups as sensitive application data even though
   they contain no configuration secrets.
+- Do not upload dumps or report archives to source control, public file-sharing
+  links, issue attachments, or CI artifacts. `backups/` and generated report
+  output are excluded by `.gitignore`.
 
 ## Create a PostgreSQL Backup
 
@@ -54,6 +57,8 @@ The command fails if the target already exists. It does not drop, truncate, or
 rewire the live application database. Validate the restored database manually
 before planning any separately reviewed cutover. If restoration fails after the
 new database is created, it is retained for inspection rather than deleted.
+Do not weaken these safeguards or rename a target to one of the refused live or
+PostgreSQL system database names.
 
 List restored databases without exposing credentials:
 

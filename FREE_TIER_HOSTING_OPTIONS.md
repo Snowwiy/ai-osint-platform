@@ -50,6 +50,13 @@ Before any hosting work is approved, document and test:
 - synthetic-only demo data and a governed registration policy;
 - an exit path if a free plan changes or pauses the service.
 
+Before credentials are created, complete `SECRETS_AUDIT_CHECKLIST.md`. Use each
+provider's secret store for backend-only values, expose only the public frontend
+API base URL to the Vite build, replace the local signing key, and use explicit
+HTTPS CORS origins. Never place database, Redis, signing, invite, admin bootstrap,
+or AI/provider credentials in frontend environment variables. These are future
+requirements only; no provider secrets or services are configured in RC2.
+
 ## Non-Negotiable Boundaries
 
 - Do not deploy or configure DNS during Phase 5S.

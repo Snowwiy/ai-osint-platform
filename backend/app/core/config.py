@@ -109,6 +109,15 @@ class Settings(BaseSettings):
         return self.APP_ENVIRONMENT == "development"
 
     @property
+    def has_placeholder_secret_key(self) -> bool:
+        normalized = self.APP_SECRET_KEY.strip().lower()
+        return normalized.startswith(("dev-", "change-me", "replace-with"))
+
+    @property
+    def has_weak_secret_key(self) -> bool:
+        return len(self.APP_SECRET_KEY.strip()) < 32 or self.has_placeholder_secret_key
+
+    @property
     def sync_database_url(self) -> str:
         return self.DATABASE_URL.replace("+asyncpg", "+psycopg2")
 
@@ -137,7 +146,7 @@ class Settings(BaseSettings):
         if self.MAX_REQUEST_BODY_BYTES < 64_000:
             errors.append("MAX_REQUEST_BODY_BYTES is too low for normal API usage.")
         if self.is_production:
-            if self.APP_SECRET_KEY.startswith(("dev-", "change-me")):
+            if self.has_placeholder_secret_key:
                 errors.append("SECRET_KEY must be replaced for production.")
             if len(self.APP_SECRET_KEY) < 32:
                 errors.append("SECRET_KEY must be at least 32 characters.")
@@ -149,9 +158,9 @@ class Settings(BaseSettings):
 
     def startup_warnings(self) -> list[str]:
         warnings: list[str] = []
-        if not self.is_production and self.APP_SECRET_KEY.startswith("dev-"):
+        if not self.is_production and self.has_weak_secret_key:
             warnings.append(
-                "Using development SECRET_KEY; do not use this in production."
+                "Using a weak or placeholder SECRET_KEY; do not use this in production."
             )
         if self.is_staging and self.debug_enabled:
             warnings.append("Staging should not run with debug behavior enabled.")

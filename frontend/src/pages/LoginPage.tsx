@@ -7,6 +7,7 @@ import {
   getRegistrationPolicy,
   registerAccount,
 } from "../lib/api";
+import { safeInternalRoute } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type { RegistrationPolicyResponse } from "../types";
 
@@ -66,7 +67,7 @@ export function LoginPage(): JSX.Element {
     setError(null);
     try {
       await login(identifier, password);
-      navigate(state?.from?.pathname ?? "/", { replace: true });
+      navigate(safeInternalRoute(state?.from?.pathname), { replace: true });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Login failed");
     } finally {

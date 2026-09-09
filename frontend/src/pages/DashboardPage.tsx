@@ -35,6 +35,7 @@ import {
   readRecentInvestigations,
   type RecentInvestigation,
 } from "../lib/recentInvestigations";
+import { safeInternalRoute } from "../lib/safe";
 import type {
   DashboardHighlightItem,
   DashboardOverviewResponse,
@@ -795,7 +796,7 @@ function QuickAccess({
               {visiblePinned.map((view) => (
                 <Link
                   key={view.id}
-                  to={view.route.startsWith("/") ? view.route : "/"}
+                  to={safeInternalRoute(view.route)}
                   className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-raven-border bg-raven-panelSoft p-3 text-sm hover:border-raven-violet"
                 >
                   <span className="min-w-0">

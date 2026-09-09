@@ -148,6 +148,12 @@ language, classification markings, and branding require administrator review.
   warning for the standard-library `crypt` module. It does not affect the Python
   3.12 release-candidate runtime, but the hashing dependency must be reviewed
   before a future Python 3.13 upgrade.
+- The frontend remains on React Router 6 during the RC2 freeze. `npm audit`
+  reports two moderate advisories whose available automated fix requires the
+  breaking React Router 7 migration. This client-rendered application does not
+  use React Router SSR hydration, and dynamic application routes are constrained
+  to safe internal paths, but the major upgrade must be planned and retested in
+  a separately authorized post-freeze phase.
 - A local environment without `REPORT_LOGO_PATH` emits a configuration advisory
   and uses text branding for report exports.
 
