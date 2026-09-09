@@ -80,7 +80,7 @@ The dataset makes no live network requests and no compromise claims.
 12. **Generate executive report:** Download PDF/DOCX/HTML/Markdown as allowed.
 13. **Governance close:** Show audit log, settings, feature flags, and exports.
 
-## Release Candidate Stability Demo Pass
+## RC2 Stability Demo Pass
 
 Before presenting, walk through these quick checks:
 
@@ -96,7 +96,8 @@ Before presenting, walk through these quick checks:
   section scrolls into view without moving the full page horizontally.
 - Open an Activity Inbox action, a Global Search result, and a Data Quality
   issue link and confirm each stays inside the authenticated workspace.
-- Confirm `GET /api/v1/release` shows `5.0.0-rc1` or the configured version.
+- Confirm `GET /api/v1/release` shows `5.0.0-rc2` or the explicitly configured
+  version.
 
 ## Safer Demo Defaults
 
@@ -136,5 +137,5 @@ They are idempotent and removed by demo clear.
 - **Raw endpoint visible:** Open the expanded technical details only when
   debugging; normal user-facing copy should stay concise.
 
-See `RELEASE_NOTES_RC1.md` for release-candidate scope, validation commands,
-and upgrade notes.
+See `MANUAL_QA_RC2.md` for the locked QA script and `RELEASE_NOTES_RC2.md` for
+release-candidate scope, validation status, and known limitations.

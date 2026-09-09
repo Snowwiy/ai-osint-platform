@@ -36,16 +36,22 @@ async def _database_check() -> dict[str, Any]:
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT 1"))
         return {"status": "ok"}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)}
+    except Exception:
+        return {
+            "status": "error",
+            "detail": "Database connectivity check failed.",
+        }
 
 
 async def _redis_check(redis: Any) -> dict[str, Any]:
     try:
         await redis.ping()
         return {"status": "ok"}
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)}
+    except Exception:
+        return {
+            "status": "error",
+            "detail": "Redis connectivity check failed.",
+        }
 
 
 async def _migration_check() -> dict[str, Any]:
@@ -59,8 +65,11 @@ async def _migration_check() -> dict[str, Any]:
             "current": current,
             "head": head,
         }
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)}
+    except Exception:
+        return {
+            "status": "error",
+            "detail": "Migration state check failed.",
+        }
 
 
 def _storage_check() -> dict[str, Any]:
@@ -76,8 +85,8 @@ def _storage_check() -> dict[str, Any]:
             details[name] = "writable" if path.is_dir() else "missing"
             if details[name] != "writable":
                 status = "degraded"
-        except Exception as exc:
-            details[name] = str(exc)
+        except Exception:
+            details[name] = "unavailable"
             status = "error"
     return {"status": status, "paths": details}
 
@@ -89,8 +98,11 @@ async def _worker_check(redis: Any) -> dict[str, Any]:
             "status": "ok",
             "detail": "Redis broker reachable; Celery worker should be supervised.",
         }
-    except Exception as exc:
-        return {"status": "error", "detail": str(exc)}
+    except Exception:
+        return {
+            "status": "error",
+            "detail": "Redis broker connectivity check failed.",
+        }
 
 
 def _ai_provider_check() -> dict[str, Any]:

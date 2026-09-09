@@ -102,6 +102,8 @@ export function OperationalCoordinationPanel({
     () => safeArray(members.data).filter((member) => member.user_id !== ownerId),
     [members.data, ownerId],
   );
+  const availableStateTransitions =
+    stateTransitions[investigation.status] ?? [];
 
   const ownershipMutation = useMutation({
     mutationFn: () =>
@@ -215,7 +217,7 @@ export function OperationalCoordinationPanel({
           <p className="mt-2 text-sm capitalize text-raven-cyan">
             Current state: {investigation.status}
           </p>
-          {canManage && stateTransitions[investigation.status].length ? (
+          {canManage && availableStateTransitions.length ? (
             <>
               <select
                 value={state}
@@ -225,7 +227,7 @@ export function OperationalCoordinationPanel({
                 className="mt-4 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-sm text-raven-text"
               >
                 <option value="">Select next state</option>
-                {stateTransitions[investigation.status].map((item) => (
+                {availableStateTransitions.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>

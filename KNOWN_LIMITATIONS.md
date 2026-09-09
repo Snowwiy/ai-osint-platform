@@ -2,7 +2,8 @@
 
 ## Product Boundaries
 
-- Passive recon only; no active scanning or Nmap integration.
+- Passive, defensive OSINT workflow only; no active scanning or Nmap
+  integration.
 - No exploitation, attack automation, or offensive workflow.
 - No internet-wide enumeration or crawler.
 - No autonomous agents or unattended remediation.
@@ -11,6 +12,9 @@
 - No cloud deployment implementation is included in the release candidate.
 - Hosting and DNS configuration remain deferred until after platform
   finalization.
+- Local Docker Compose is the current tested operating mode. Production and
+  free-tier hosting have not been validated.
+- The production database has not been migrated to Supabase.
 - Notifications are internal Activity Inbox records only. Email, SMS, browser
   push, and chat integrations are not included.
 - Global Search is internal-only and database-backed. It does not use external
@@ -121,6 +125,10 @@ Report quality depends on stored findings, notes, evidence, remediation data,
 and framework mappings. Readiness warnings are advisory and do not guarantee
 that a report is complete for a specific regulatory or legal purpose.
 
+All reports and exported deliverables require analyst review. Generated content
+must not be treated as autonomous approval, legal sign-off, or a verified claim
+of compromise.
+
 PDF and DOCX rendering can vary slightly by viewer. Organization-specific legal
 language, classification markings, and branding require administrator review.
 
@@ -139,12 +147,16 @@ language, classification markings, and branding require administrator review.
   warning for the standard-library `crypt` module. It does not affect the Python
   3.12 release-candidate runtime, but the hashing dependency must be reviewed
   before a future Python 3.13 upgrade.
+- A local environment without `REPORT_LOGO_PATH` emits a configuration advisory
+  and uses text branding for report exports.
 
 ## Validation Responsibility
 
-Before production use, operators should complete the manual QA checklist,
-verify database migrations, configure backups, review secrets and CORS, confirm
-export controls, and validate organization-specific RBAC and retention policy.
+Before any future production use, operators should complete the RC2 manual QA
+checklist, verify database migrations, configure backups, review secrets and
+CORS, confirm export controls, and validate organization-specific RBAC and
+retention policy. Public registration must remain governed through explicit
+enablement, invite/approval policy, and administrator review.
 
 The documented local deployment assumes Docker Compose, local environment
 variables, PostgreSQL, Redis, and frontend development commands run from the

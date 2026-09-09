@@ -75,7 +75,10 @@ and apply `alembic upgrade head` before changing code.
   or was cleared.
 - Do not expose request IDs in the normal login card.
 
-## Deployment Preflight
+## Deferred Hosting Planning
+
+Hosting is not part of the RC2 validation scope. The following references are
+for a future planning phase after final manual QA:
 
 - Use `DEPLOYMENT_PREFLIGHT.md` before pointing the platform at a hosted
   PostgreSQL database or public domain.

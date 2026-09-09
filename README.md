@@ -89,6 +89,7 @@ docker compose up -d
 docker compose logs backend -f
 docker compose exec backend alembic upgrade head
 curl http://localhost:8000/health
+curl http://localhost:8000/health/ready
 curl http://localhost:8000/api/v1/release
 ```
 
@@ -212,8 +213,10 @@ See [PORTFOLIO_DEMO_FLOW.md](PORTFOLIO_DEMO_FLOW.md) for a 10-minute portfolio
 presentation script and [SCREENSHOTS_CHECKLIST.md](SCREENSHOTS_CHECKLIST.md) for
 recommended screenshots.
 
-For release packaging, see [RELEASE_NOTES_RC1.md](RELEASE_NOTES_RC1.md) and
-[RELEASE_CANDIDATE_CHECKLIST.md](RELEASE_CANDIDATE_CHECKLIST.md).
+For the current release freeze, see [RELEASE_NOTES_RC2.md](RELEASE_NOTES_RC2.md),
+[MANUAL_QA_RC2.md](MANUAL_QA_RC2.md), and
+[RELEASE_CANDIDATE_CHECKLIST.md](RELEASE_CANDIDATE_CHECKLIST.md). RC1 notes
+remain available as historical release context.
 
 For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
 planning, and registration controls, see
@@ -238,6 +241,8 @@ Recommended portfolio screenshots:
 
 - Passive recon only; no active scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
+- Current tested operation is local Docker Compose; production/free-tier hosting
+  and the Supabase production database migration are deferred
 - No cloud deployment implementation, billing, SSO, or external ticketing
 - Internal notifications only; no email, SMS, push, or chat integrations
 - Internal search only; no external search provider, crawling, or internet-wide
@@ -253,7 +258,6 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current repository is packaged as a release-candidate portfolio build. Future
-work can focus on deployment automation, enterprise SSO, external ticketing,
-production observability, and additional governed integrations while preserving
-the defensive-only boundary.
+The current repository is packaged as the `5.0.0-rc2` release-candidate
+portfolio build. The next step is final manual QA and review. Hosting and
+production database planning remain deferred until that review is complete.
