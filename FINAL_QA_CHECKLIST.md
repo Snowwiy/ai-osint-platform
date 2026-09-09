@@ -4,7 +4,7 @@ Version: `5.0.0-rc2`
 
 Run from the repository root unless a section says otherwise. Complete this
 checklist with synthetic or explicitly authorized data only. A failed required
-check blocks the Phase 5S commit and push.
+check blocks the current release-freeze commit and push.
 
 ## Automated Validation
 
@@ -92,7 +92,15 @@ check blocks the Phase 5S commit and push.
 - [ ] No hosting, deployment, DNS, Supabase migration, provider, feature, or
       frontend redesign change is present.
 - [ ] No production secret or customer data is present.
-- [ ] `git diff --check` passes and the diff contains only Phase 5S files.
+- [ ] Local backup creates a non-empty custom-format PostgreSQL dump without
+      including `.env` or secret configuration.
+- [ ] Restore validation refuses the live database and restores only into a new,
+      previously absent database.
+- [ ] Demo prepare can run repeatedly without duplicates or a 500 response.
+- [ ] Guarded demo reset takes a safety backup by default, removes only fixed
+      synthetic records, and preserves non-demo investigations.
+- [ ] `./scripts/local/check_local_health.ps1` passes.
+- [ ] `git diff --check` passes and the diff contains only the current phase.
 - [ ] `git status` is reviewed before commit.
-- [ ] Commit uses `chore: freeze platform and prep portfolio package`.
+- [ ] Commit uses the message required by the current phase.
 - [ ] Push to `origin/dev` succeeds and the working tree is clean/synchronized.

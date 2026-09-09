@@ -23,6 +23,7 @@ htmlcov/
 # Data volumes
 chroma_data/
 reports_output/
+backups/
 
 # Node
 node_modules/

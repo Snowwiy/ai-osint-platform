@@ -43,6 +43,22 @@ containing:
 
 The dataset makes no live network requests and no compromise claims.
 
+Prepare the idempotent workspace from PowerShell:
+
+```powershell
+docker compose exec -T backend python -m scripts.seed_demo_data
+```
+
+For a clean local reset, use the guarded wrapper. It takes a database safety
+backup by default, clears only fixed synthetic records, and reseeds them:
+
+```powershell
+./scripts/local/reset_demo.ps1 -Confirmation RESET-DEMO
+```
+
+See `LOCAL_BACKUP_RESTORE.md` before clearing demo data. Do not use demo reset
+against a hosted or production environment.
+
 ## Locked RC2 Demo Flow
 
 Use this order for portfolio and local client-style demonstrations:
@@ -131,3 +147,7 @@ They are idempotent and removed by demo clear.
 
 See `MANUAL_QA_RC2.md` for the locked QA script and `RELEASE_NOTES_RC2.md` for
 release-candidate scope, validation status, and known limitations.
+
+The currently validated demo runtime is local Docker Compose. Hosting, DNS, and
+Supabase migration are deferred, and no production secrets are required for the
+local synthetic walkthrough.

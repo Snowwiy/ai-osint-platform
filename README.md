@@ -8,6 +8,9 @@ stakeholder-ready reports without active scanning or offensive automation.
 Current release candidate: `5.0.0-rc2`. The validated runtime is local Docker
 Compose; production and free-tier hosting remain deferred.
 
+Local mode requires development-only values from `.env.example`; it does not
+require production secrets, hosted services, DNS, or Supabase.
+
 ## What Problem It Solves
 
 Security teams often need a repeatable way to turn authorized external exposure
@@ -106,6 +109,13 @@ npm run dev
 
 `npm run dev` must be run from the `frontend/` directory.
 
+For a guided startup and health check:
+
+```powershell
+./scripts/local/start_local.ps1
+./scripts/local/check_local_health.ps1
+```
+
 Public registration is disabled by default. To enable it in a local or staging
 environment, review `PUBLIC_REGISTRATION_ENABLED`,
 `REGISTRATION_REQUIRES_APPROVAL`, `REGISTRATION_INVITE_CODE`, and
@@ -198,8 +208,8 @@ Demo mode is disabled by default for production-safe behavior. When enabled by a
 admin feature flag, seed synthetic defensive data:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py
-docker compose exec backend python scripts/seed_demo_data.py --clear
+docker compose exec backend python -m scripts.seed_demo_data
+./scripts/local/reset_demo.ps1 -Confirmation RESET-DEMO
 ```
 
 The same workflow is available to admins through:
@@ -208,7 +218,27 @@ The same workflow is available to admins through:
 - `DELETE /api/v1/admin/demo/clear`
 
 The seeded case is labeled `[DEMO]`, uses reserved identifiers, performs no live
-requests, and makes no compromise claims.
+requests, and makes no compromise claims. Reset creates a local database safety
+backup by default and targets fixed synthetic records only.
+
+## Local Operations
+
+Create a timestamped PostgreSQL backup without copying `.env` or secrets:
+
+```powershell
+./scripts/local/backup_db.ps1
+./scripts/local/backup_db.ps1 -IncludeReports
+```
+
+Restore validation is non-destructive by default: the restore tool refuses the
+live `raventech` database and creates a new database name.
+
+```powershell
+./scripts/local/restore_db.ps1 -BackupPath ./backups/local/raventech-<timestamp>.dump
+```
+
+See [LOCAL_BACKUP_RESTORE.md](LOCAL_BACKUP_RESTORE.md) for safeguards and
+[LOCAL_HEALTH_REPAIR.md](LOCAL_HEALTH_REPAIR.md) for practical recovery steps.
 
 ## Demo Flow
 
@@ -270,5 +300,6 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 ## Roadmap
 
 The current repository is packaged as the `5.0.0-rc2` release-candidate
-portfolio build. The next step is final manual QA and review. Hosting and
-production database planning remain deferred until that review is complete.
+portfolio build. Final manual QA is complete; local operations and backup/restore
+preparation are the current scope. Hosting, DNS, and Supabase production database
+planning remain deferred to a separately authorized phase.

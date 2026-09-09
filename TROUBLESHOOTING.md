@@ -2,6 +2,8 @@
 
 ## Backend Shows Unavailable
 
+For the consolidated local-only repair flow, see `LOCAL_HEALTH_REPAIR.md`.
+
 1. Check service status:
 
    ```powershell
@@ -207,7 +209,7 @@ for a future planning phase after final manual QA:
 - Inspect worker logs:
 
   ```powershell
-  docker compose logs -f celery_worker
+  docker compose logs -f celery-worker
   ```
 
 - Confirm Redis is healthy.
@@ -234,13 +236,13 @@ Expected AI degraded behavior:
 Seed demo data from the backend container:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py
+docker compose exec backend python -m scripts.seed_demo_data
 ```
 
 Clear demo data:
 
 ```powershell
-docker compose exec backend python scripts/seed_demo_data.py --clear
+./scripts/local/reset_demo.ps1 -Confirmation RESET-DEMO
 ```
 
 Admin API equivalents:
@@ -250,6 +252,16 @@ Admin API equivalents:
 
 If seed fails, check that an active admin user exists, migrations are current,
 and demo mode is enabled when using the admin UI action.
+
+The lower-level clear command requires an explicit phrase:
+
+```powershell
+docker compose exec -T backend python -m scripts.seed_demo_data `
+  --clear --confirm-clear CLEAR-DEMO-DATA
+```
+
+Back up and restore instructions are in `LOCAL_BACKUP_RESTORE.md`. Do not use
+`docker compose down -v` for routine repair because it deletes local volumes.
 
 ## Release Candidate CI Failures
 

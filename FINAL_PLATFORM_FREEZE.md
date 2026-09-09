@@ -3,13 +3,13 @@
 ## Freeze Identity
 
 - Current version: `5.0.0-rc2`
-- Validated code baseline: `97b7561` (`chore: freeze rc2 stability and validation`)
+- Validated code baseline: `344407a` (`chore: complete final manual qa bug pass`)
 - Branch: `dev`
-- Phase 5S scope: portfolio, demo, QA, screenshot, and pre-hosting planning
-  documentation only
+- Current allowed scope: local operations, guarded backup/restore, demo reset,
+  and health-repair documentation only
 
-The Phase 5S packaging commit is the commit containing this document. The
-application code baseline remains the Phase 5R commit above.
+Phase 5T completed the final manual QA bug pass. The current local-operations
+phase must preserve the application and API freeze.
 
 ## Completed Modules
 
@@ -41,13 +41,14 @@ At the Phase 5S baseline:
 - `/health` and `/health/ready`: `status: ok`
 - `/api/v1/release`: `5.0.0-rc2`
 - Alembic: one current head, `0028_phase5p_quality`, with no schema drift
-- pytest: 211 passed
+- pytest: 214 passed at the Phase 5T baseline; 215 passed after the local
+  operations safety regression test was added
 - frontend TypeScript/Vite production build: passed
 - Phase 5R ruff, strict mypy, and `pip check`: passed
 - Git: clean and synchronized with `origin/dev` at the baseline commit
 
 The full validation gate in `FINAL_QA_CHECKLIST.md` must pass again immediately
-before the Phase 5S commit and push.
+before every release-freeze commit and push.
 
 ## Remaining Non-Blocking Warnings
 
@@ -79,6 +80,8 @@ See `KNOWN_LIMITATIONS.md` for the complete list.
   quality workflows
 - `5.0.0-rc2` release identity
 - Local Docker validation commands and the RC2 manual QA flow
+- Local backup files are timestamped, Git-ignored, and contain no `.env` file;
+  restore defaults to a new database and never overwrites the live database
 - Portfolio narrative, screenshots list, and demo order
 
 ## What Must Not Change Before Hosting Review
@@ -92,5 +95,7 @@ See `KNOWN_LIMITATIONS.md` for the complete list.
   Supabase Auth, or add real credentials.
 - Do not change dependencies, migrations, environment contracts, report storage,
   or worker topology without a separate reviewed phase and a full validation run.
+- Do not restore over the live database, replace named volumes, or clear demo
+  records without the documented confirmation and backup safeguards.
 - Accept only documented blocker/regression fixes; record and revalidate every
   such change before hosting planning resumes.

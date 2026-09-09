@@ -6,8 +6,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 from app.models.ioc import IOC, IOCObservation
+from app.models.investigation import Investigation
 from app.services.data_quality import QualityCandidate, _check_demo_state
-from app.services.demo import _ensure_ioc
+from app.services.demo import DEMO_INVESTIGATION_ID, _ensure_ioc, clear_demo_workspace
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -75,3 +76,30 @@ def test_demo_quality_accepts_reused_natural_key_ioc() -> None:
     )
 
     assert not any(issue.issue_type == "incomplete_demo_data" for issue in output)
+
+
+async def test_clear_demo_workspace_is_repeatable_and_preserves_non_demo_case(
+    db: AsyncSession,
+    admin_user,
+    test_investigation: Investigation,
+) -> None:
+    db.add(
+        Investigation(
+            id=DEMO_INVESTIGATION_ID,
+            title="[DEMO] Synthetic case",
+            owner_id=admin_user.id,
+            authorization_statement=(
+                "This synthetic test case is authorized for local automated testing "
+                "only and does not represent a real organization, target, or incident."
+            ),
+            status="active",
+        )
+    )
+    await db.commit()
+
+    await clear_demo_workspace(db, admin_user)
+    await clear_demo_workspace(db, admin_user)
+    await db.commit()
+
+    assert await db.get(Investigation, DEMO_INVESTIGATION_ID) is None
+    assert await db.get(Investigation, test_investigation.id) is not None

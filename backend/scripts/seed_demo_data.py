@@ -22,6 +22,11 @@ async def main() -> None:
         action="store_true",
         help="Remove fixed synthetic demo records instead of seeding them.",
     )
+    parser.add_argument(
+        "--confirm-clear",
+        metavar="PHRASE",
+        help="Required with --clear; must be CLEAR-DEMO-DATA.",
+    )
     args = parser.parse_args()
 
     async with AsyncSessionLocal() as db:
@@ -36,6 +41,11 @@ async def main() -> None:
             raise SystemExit("No active admin user found to own demo data.")
 
         if args.clear:
+            if args.confirm_clear != "CLEAR-DEMO-DATA":
+                raise SystemExit(
+                    "Refusing to clear demo records. Re-run with "
+                    "--confirm-clear CLEAR-DEMO-DATA."
+                )
             await clear_demo_workspace(db, admin)
             await db.commit()
             print("Synthetic demo workspace records were cleared.")
