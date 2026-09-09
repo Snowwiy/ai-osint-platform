@@ -16,6 +16,7 @@ import {
   Home,
   ListChecks,
   LogOut,
+  MonitorCog,
   Network,
   Radar,
   Search,
@@ -97,6 +98,7 @@ const topNav: NavigationItem[] = [
   },
   { label: "Knowledge", to: "/knowledge", icon: Search },
   { label: "Inbox", to: "/notifications", icon: Bell },
+  { label: "Monitoring", to: "/monitoring", icon: MonitorCog },
 ];
 
 const investigationNav: InvestigationNavigationItem[] = [

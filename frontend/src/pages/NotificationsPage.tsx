@@ -58,6 +58,7 @@ const typeOptions = [
   "system_health_warning",
   "deliverable_ready",
   "evidence_package_ready",
+  "monitoring_alert",
 ];
 
 export function NotificationsPage(): JSX.Element {

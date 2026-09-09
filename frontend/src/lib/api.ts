@@ -123,6 +123,7 @@ import type {
   NotificationListResponse,
   NotificationMarkAllReadResponse,
   NotificationUnreadCountResponse,
+  MonitoringOverviewResponse,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -1068,6 +1069,10 @@ export async function archiveStaleNotifications(
 
 export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
   return request<OperationsStatusResponse>("/operations/status");
+}
+
+export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
+  return request<MonitoringOverviewResponse>("/monitoring/overview");
 }
 
 export async function getOperationsEnvironment(): Promise<EnvironmentValidationResponse> {

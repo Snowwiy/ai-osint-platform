@@ -137,6 +137,18 @@ language, classification markings, and branding require administrator review.
 
 - Health checks can report optional services as degraded while core workflows
   remain available.
+- Monitoring is local, pull-based, and active only while a client polls the
+  authenticated endpoints. It is not an external uptime monitor or durable
+  observability system.
+- Default system metrics describe the backend container and may be estimates.
+  Full Windows host metrics require the optional localhost-only PowerShell agent.
+- Only the latest accepted host-agent sample is retained in backend memory; it
+  is cleared on restart and considered stale after ten minutes.
+- Docker status is intentionally limited because the backend does not mount the
+  Docker socket. Use `docker compose ps` for authoritative container state.
+- Monitoring alerts are deterministic snapshots with daily per-user
+  deduplication in the internal Activity Inbox. They do not send email, SMS,
+  push messages, webhooks, or run automated remediation.
 - Worker readiness verifies broker reachability, not full job throughput.
 - Retention policies mark archive eligibility; they do not automatically
   destroy records.

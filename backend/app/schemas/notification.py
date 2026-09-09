@@ -27,6 +27,7 @@ NotificationType = Literal[
     "system_health_warning",
     "deliverable_ready",
     "evidence_package_ready",
+    "monitoring_alert",
 ]
 
 

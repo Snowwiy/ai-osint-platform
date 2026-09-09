@@ -47,6 +47,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - HTML, Markdown, PDF, and DOCX report exports
 - Optional AI analysis with deterministic fallback when the provider is unavailable
 - Operations Center with health, diagnostics, backups, restore dry-run validation
+- Local Monitoring Center with service telemetry, RBAC-aware Asset Watch,
+  deduplicated internal alerts, and an optional localhost-only host metrics agent
 - Responsive route-level loading, friendly retry states, guarded internal links,
   and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
@@ -239,6 +241,10 @@ live `raventech` database and creates a new database name.
 
 See [LOCAL_BACKUP_RESTORE.md](LOCAL_BACKUP_RESTORE.md) for safeguards and
 [LOCAL_HEALTH_REPAIR.md](LOCAL_HEALTH_REPAIR.md) for practical recovery steps.
+
+For local service telemetry and investigation watch status, open **Monitoring**
+after signing in. See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) for endpoint,
+RBAC, polling, alert-deduplication, and optional Windows host-agent details.
 
 ## Demo Flow
 

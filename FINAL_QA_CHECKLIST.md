@@ -77,6 +77,24 @@ check blocks the current release-freeze commit and push.
 - [ ] Governance settings, feature flags, export controls, and demo-mode state
       display consistently.
 
+## Local Monitoring
+
+- [ ] Monitoring requires authentication; an analyst sees only accessible
+      investigations and an administrator sees the platform-authorized set.
+- [ ] Overview, services, system, assets, and alerts endpoints return bounded,
+      sanitized responses without secrets or raw exceptions.
+- [ ] Service cards reflect backend, database, Redis, worker, migration, report
+      storage, and deliberately limited Docker visibility.
+- [ ] Poll selection remains between 15 and 300 seconds and manual refresh works.
+- [ ] Asset Watch summarizes targets, findings, evidence, reports, closure,
+      scope, and authorization without active scanning.
+- [ ] Repeated overview polling creates at most one Activity Inbox notification
+      per alert/user/day.
+- [ ] Optional local agent rejects non-local backend URLs and invalid telemetry;
+      ingestion is admin-only and the bearer token is never persisted or logged.
+- [ ] Missing/stale agent data falls back cleanly to container metrics and does
+      not make the platform unavailable.
+
 ## UI And Portfolio Review
 
 - [ ] No normal flow shows raw endpoint dumps, stack traces, `undefined`, or

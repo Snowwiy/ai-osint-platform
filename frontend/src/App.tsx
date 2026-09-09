@@ -29,6 +29,7 @@ const InvestigationsPage = lazy(() => import("./pages/InvestigationsPage").then(
 const KnowledgeSearchPage = lazy(() => import("./pages/KnowledgeSearchPage").then((module) => ({ default: module.KnowledgeSearchPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })));
 const MembersPage = lazy(() => import("./pages/MembersPage").then((module) => ({ default: module.MembersPage })));
+const MonitoringCenterPage = lazy(() => import("./pages/MonitoringCenterPage").then((module) => ({ default: module.MonitoringCenterPage })));
 const NotesPage = lazy(() => import("./pages/NotesPage").then((module) => ({ default: module.NotesPage })));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 const OperationsCenterPage = lazy(() => import("./pages/OperationsCenterPage").then((module) => ({ default: module.OperationsCenterPage })));
@@ -126,6 +127,7 @@ const router = createBrowserRouter([
           { path: "knowledge", element: <KnowledgeSearchPage /> },
           { path: "review-board", element: <ReviewBoardPage /> },
           { path: "notifications", element: <NotificationsPage /> },
+          { path: "monitoring", element: <MonitoringCenterPage /> },
           {
             path: "investigations/:investigationId",
             children: [

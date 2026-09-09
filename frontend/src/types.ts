@@ -3085,3 +3085,107 @@ export interface InvestigationEvidenceListResponse {
   total: number;
   items: InvestigationEvidence[];
 }
+
+export type MonitoringStatus = "healthy" | "degraded" | "unavailable";
+export type MonitoringSeverity = "info" | "warning" | "critical";
+
+export interface MonitoringServiceStatus {
+  key: string;
+  label: string;
+  status: MonitoringStatus;
+  detail: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface MonitoringSystem {
+  generated_at: string;
+  source: "container" | "local_agent";
+  metric_scope: string;
+  available: boolean;
+  stale: boolean;
+  agent_id: string | null;
+  platform: string;
+  collected_at: string | null;
+  received_at: string | null;
+  cpu_percent: number | null;
+  memory_percent: number | null;
+  disk_percent: number | null;
+  process_count: number | null;
+  uptime_seconds: number | null;
+  detail: string;
+}
+
+export interface MonitoringAssetItem {
+  investigation_id: string;
+  title: string;
+  status: MonitoringStatus;
+  investigation_status: string;
+  scope_status: string;
+  authorization_status: string;
+  targets: number;
+  stale_targets: number;
+  unresolved_high: number;
+  unresolved_critical: number;
+  evidence_records: number;
+  report_status: string;
+  closure_status: string;
+  action_url: string;
+}
+
+export interface MonitoringAlert {
+  key: string;
+  severity: MonitoringSeverity;
+  title: string;
+  message: string;
+  category: string;
+  action_url: string;
+  investigation_id: string | null;
+  count: number;
+}
+
+export interface MonitoringRecentError {
+  category: string;
+  action: string;
+  occurred_at: string;
+  investigation_id: string | null;
+}
+
+export interface MonitoringOverviewResponse {
+  generated_at: string;
+  status: MonitoringStatus;
+  release_version: string;
+  polling_interval_options: number[];
+  recommended_polling_interval: number;
+  services: {
+    generated_at: string;
+    status: MonitoringStatus;
+    items: MonitoringServiceStatus[];
+  };
+  system: MonitoringSystem;
+  assets: {
+    generated_at: string;
+    stale_after_days: number;
+    investigations: number;
+    targets: number;
+    healthy_assets: number;
+    assets_needing_review: number;
+    stale_assets: number;
+    high_risk_assets: number;
+    out_of_scope_assets: number;
+    unresolved_high: number;
+    unresolved_critical: number;
+    findings_by_severity: Record<string, number>;
+    authorization_risks: number;
+    repeated_report_failures: number;
+    repeated_ai_degraded: number;
+    items: MonitoringAssetItem[];
+  };
+  alerts: {
+    generated_at: string;
+    total: number;
+    notifications_created: number;
+    notifications_existing: number;
+    items: MonitoringAlert[];
+  };
+  recent_errors: MonitoringRecentError[];
+}

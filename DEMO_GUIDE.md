@@ -84,7 +84,8 @@ Use this order for portfolio and local client-style demonstrations:
     Ctrl+K Global Search, and open a pinned Saved View.
 11. **Data Quality:** Show Dry run or scan results and a safe issue transition.
 12. **Audit and governance:** Close with audit events, settings, feature/export
-    controls, health, migration, and `5.0.0-rc2` release metadata.
+    controls, then open **Monitoring** to show local service health, container
+    telemetry, RBAC-scoped Asset Watch, and `5.0.0-rc2` release metadata.
 
 Detailed presenter language is in `PORTFOLIO_DEMO_FLOW.md`.
 
@@ -106,6 +107,9 @@ Before presenting, walk through these quick checks:
   issue link and confirm each stays inside the authenticated workspace.
 - Confirm `GET /api/v1/release` shows `5.0.0-rc2` or the explicitly configured
   version.
+- Open Monitoring and confirm service cards, system metrics, alerts, and the
+  synthetic investigation load without raw errors. Docker may show unavailable
+  because the application intentionally has no Docker socket access.
 
 ## Safer Demo Defaults
 
