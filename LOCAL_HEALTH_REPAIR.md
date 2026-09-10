@@ -6,6 +6,7 @@ does not contain hosting, DNS, or Supabase migration steps.
 ## First Check
 
 ```powershell
+./scripts/local/check_platform.ps1
 ./scripts/local/check_local_health.ps1
 docker compose logs backend --tail=100
 docker compose logs celery-worker --tail=100
@@ -115,7 +116,7 @@ repair command because it deletes local data volumes.
 ## Clean Local Startup
 
 ```powershell
-./scripts/local/start_local.ps1
+./scripts/local/start_platform.ps1
 cd frontend
 npm run dev
 ```
@@ -123,8 +124,18 @@ npm run dev
 Or start the frontend in the background with:
 
 ```powershell
-./scripts/local/start_local.ps1 -StartFrontend
+./scripts/local/start_platform.ps1 -OpenFrontend
 ```
+
+To stop or restart without touching data volumes:
+
+```powershell
+./scripts/local/stop_platform.ps1
+./scripts/local/restart_platform.ps1 -OpenFrontend
+```
+
+The Operations → Local Operator Console mirrors these checks and provides
+copy-ready commands. It is informational only and does not execute host actions.
 
 No production secrets are required. Local `.env` values are still credentials
 and must not be committed or copied into support output.

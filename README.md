@@ -245,6 +245,24 @@ optional seed/reset workflow.
 
 ## Local Operations
 
+The repeatable local operator workflow is available through Windows-friendly
+launcher scripts. They use Docker Compose, apply migrations without deleting
+data, and check health, readiness, and release metadata without printing
+secrets:
+
+```powershell
+./scripts/local/start_platform.ps1 -OpenFrontend
+./scripts/local/check_platform.ps1
+./scripts/local/restart_platform.ps1 -OpenFrontend
+./scripts/local/stop_platform.ps1
+./scripts/local/open_platform.ps1 -Target frontend
+```
+
+After signing in, **Operations → Local Operator Console** shows the same
+read-only status, local URLs, LAN flags, agent coverage, and copy-ready
+commands. The browser never executes host commands. See
+`LOCAL_DEMO_BUNDLE.md` for seed/reset, backup/restore, and agent steps.
+
 Create a timestamped PostgreSQL backup without copying `.env` or secrets:
 
 ```powershell

@@ -22,8 +22,11 @@ import {
   getOperationsEnvironment,
   getOperationsStatus,
   getDataQualityOverview,
+  getMonitoringActivation,
+  listEndpointAgents,
   validateRestoreBackup,
 } from "../lib/api";
+import { LocalOperatorConsole } from "../components/LocalOperatorConsole";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import type { FileDownloadResult } from "../lib/api";
 import type {
@@ -54,6 +57,16 @@ export function OperationsCenterPage(): JSX.Element {
   const quality = useQuery({
     queryKey: ["data-quality-overview"],
     queryFn: getDataQualityOverview,
+    retry: 1,
+  });
+  const activation = useQuery({
+    queryKey: ["monitoring-activation"],
+    queryFn: getMonitoringActivation,
+    retry: 1,
+  });
+  const agents = useQuery({
+    queryKey: ["endpoint-agents"],
+    queryFn: listEndpointAgents,
     retry: 1,
   });
   const restore = useMutation({
@@ -157,6 +170,8 @@ export function OperationsCenterPage(): JSX.Element {
               void status.refetch();
               void environment.refetch();
               void quality.refetch();
+              void activation.refetch();
+              void agents.refetch();
             }}
             className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted hover:border-raven-violet hover:text-raven-text"
           >
@@ -170,6 +185,20 @@ export function OperationsCenterPage(): JSX.Element {
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <PlatformHealthPanel data={status.data} />
         <ReleasePanel data={status.data} />
+      </section>
+
+      <section className="mt-5">
+        <LocalOperatorConsole
+          status={status.data}
+          activation={activation.data}
+          agents={agents.data}
+          refreshing={status.isFetching || activation.isFetching || agents.isFetching}
+          onRefresh={() => {
+            void status.refetch();
+            void activation.refetch();
+            void agents.refetch();
+          }}
+        />
       </section>
 
       <section className="mt-5 grid gap-4 xl:grid-cols-[1fr_1fr]">

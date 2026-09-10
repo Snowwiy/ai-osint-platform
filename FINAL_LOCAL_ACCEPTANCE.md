@@ -19,6 +19,9 @@ Validated mode: local Docker Compose services with a local Vite frontend.
 - Authorized private-LAN inventory, manual TCP-connect service checks, service
   history, sanitized SSH hints, endpoint enrollment, asset groups, expected
   services, coverage summaries, and advisory posture scoring
+- Local launcher scripts and a read-only Operator Console for health,
+  readiness, release, Docker service status, local URLs, LAN flags, agent
+  coverage, and backup/agent command guidance
 
 ## Localization acceptance
 
@@ -70,6 +73,8 @@ results are advisory risk indicators and never proof of compromise.
 10. Generate English and Spanish reports and export PDF/DOCX/HTML/Markdown.
 11. Review notifications, triage, search, saved views, data quality, and audit.
 12. Confirm no raw errors, secrets, crash screen, clipped controls, or overflow.
+13. From **Operations**, refresh the Local Operator Console and verify commands
+    are copy-only; run `check_platform.ps1` manually when needed.
 
 ## Automated validation proof
 

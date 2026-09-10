@@ -161,6 +161,13 @@ language, classification markings, and branding require administrator review.
 
 ## Operations
 
+- Local launcher scripts are Windows-friendly wrappers around Docker Compose and
+  local HTTP probes. They intentionally do not remove volumes, reset databases,
+  or expose environment values. The in-app Operator Console is read-only;
+  command buttons copy text for a human operator and do not execute host actions.
+- A future desktop shell may open the local frontend and check backend health,
+  but desktop packaging and installers are not part of the validated RC4 mode.
+
 - Platform health is degraded only when required dependencies fail. Missing
   optional host-agent telemetry and Docker neighbor visibility are labeled as
   informational coverage limitations while core workflows remain healthy.

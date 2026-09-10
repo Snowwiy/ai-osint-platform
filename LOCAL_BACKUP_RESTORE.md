@@ -4,6 +4,12 @@ These procedures support the validated local Docker Compose mode only. They do
 not deploy the application, configure DNS, migrate to Supabase, or handle
 production infrastructure.
 
+For the normal operator lifecycle, use `start_platform.ps1`,
+`check_platform.ps1`, `restart_platform.ps1`, and `stop_platform.ps1`. These
+scripts never run `docker compose down -v`, reset the database, or print local
+credentials. The Operations → Local Operator Console only copies commands for a
+human to run.
+
 ## Prerequisites
 
 - Run commands from the repository root in PowerShell.

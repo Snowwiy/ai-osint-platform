@@ -13,6 +13,11 @@ RegisteredUserRole = Literal["viewer", "analyst"]
 class Settings(BaseSettings):
     APP_NAME: str = "RavenTech OSINT"
     APP_VERSION: str = "5.0.0-rc4"
+    APP_MODE: str = "local"
+    DESKTOP_MODE_ENABLED: bool = False
+    LOCAL_FRONTEND_URL: str = "http://localhost:5173"
+    LOCAL_BACKEND_URL: str = "http://localhost:8000"
+    LOCAL_OPERATOR_OPEN_BROWSER: bool = True
     APP_RELEASE_CHANNEL: str = Field(
         default="release-candidate",
         validation_alias=AliasChoices("APP_RELEASE_CHANNEL", "RELEASE_CHANNEL"),

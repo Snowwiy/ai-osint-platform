@@ -126,7 +126,7 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             f"LAN_SERVICE_CHECK_PORTS={','.join(str(port) for port in ports)}",
         ],
         restart_commands=[
-            "docker compose up -d --force-recreate backend worker",
+            "docker compose up -d --force-recreate backend celery-worker",
             "docker compose ps",
         ],
         windows_firewall_note=(

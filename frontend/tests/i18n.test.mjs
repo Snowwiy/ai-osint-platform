@@ -45,3 +45,20 @@ test("report forms send only supported language values and no secrets", () => {
   assert.doesNotMatch(reports, /password|credential|secret|token/i);
   assert.doesNotMatch(center, /password|credential|secret|token/i);
 });
+
+test("local operator console and launcher scripts remain safe and copy-only", () => {
+  const consoleSource = read("src/components/LocalOperatorConsole.tsx");
+  for (const script of [
+    "../../scripts/local/start_platform.ps1",
+    "../../scripts/local/stop_platform.ps1",
+    "../../scripts/local/restart_platform.ps1",
+    "../../scripts/local/check_platform.ps1",
+    "../../scripts/local/open_platform.ps1",
+  ]) {
+    assert.ok(readFileSync(new URL(script, import.meta.url), "utf8").length > 0, `missing ${script}`);
+  }
+  assert.match(consoleSource, /Local Operator Console/);
+  assert.match(consoleSource, /browser never executes host commands/);
+  assert.match(consoleSource, /start_platform\.ps1/);
+  assert.doesNotMatch(consoleSource, /(?:password|credential|secret|token)\s*[:=]\s*["'`]/i);
+});

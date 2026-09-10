@@ -13,6 +13,23 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AK — desktop readiness and local operator workflow
+
+- [ ] `scripts/local/start_platform.ps1 -OpenFrontend` starts services, applies
+      migrations, and checks health/readiness/release without printing secrets.
+- [ ] `scripts/local/check_platform.ps1` reports healthy local status and
+      `scripts/local/stop_platform.ps1` stops services without removing volumes.
+- [ ] Restart and browser-open helpers work; the legacy `start_local.ps1` helper
+      remains available.
+- [ ] Operations → Local Operator Console shows read-only backend health,
+      readiness, RC4 release, database/Redis/worker status, local URLs, LAN
+      flags, configured ranges/ports, and agent coverage.
+- [ ] Operator command buttons show copy confirmation and never execute host
+      commands; no secrets appear in the payload or UI.
+- [ ] English/Spanish localization remains available on the Operator Console.
+- [ ] Desktop shell, installer, hosting, deployment, DNS, Supabase, router
+      automation, and offensive functionality remain deferred/out of scope.
+
 Run from the repository root unless a section says otherwise. Complete this
 checklist with synthetic or explicitly authorized data only. A failed required
 check blocks the current release-freeze commit and push.

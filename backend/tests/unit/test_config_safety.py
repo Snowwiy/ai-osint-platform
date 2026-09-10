@@ -41,6 +41,11 @@ def test_production_cors_wildcard_is_rejected() -> None:
 def test_lan_monitoring_defaults_are_non_intrusive() -> None:
     local_settings = Settings(_env_file=None)
 
+    assert local_settings.APP_MODE == "local"
+    assert local_settings.DESKTOP_MODE_ENABLED is False
+    assert local_settings.LOCAL_FRONTEND_URL == "http://localhost:5173"
+    assert local_settings.LOCAL_BACKEND_URL == "http://localhost:8000"
+    assert local_settings.LOCAL_OPERATOR_OPEN_BROWSER is True
     assert local_settings.LAN_MONITORING_ENABLED is False
     assert local_settings.LAN_DISCOVERY_PING_ENABLED is False
     assert local_settings.LAN_SERVICE_CHECK_ENABLED is False

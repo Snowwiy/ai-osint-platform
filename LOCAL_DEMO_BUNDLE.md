@@ -35,12 +35,13 @@ source control.
 From the repository root:
 
 ```powershell
-./scripts/local/start_local.ps1 -StartFrontend
+./scripts/local/start_platform.ps1 -OpenFrontend
 ```
 
-The script starts PostgreSQL, Redis, the backend, and the Celery worker; applies
-`alembic upgrade head`; waits for readiness; runs the local health check; and
-optionally starts Vite. The expected local URLs are:
+The launcher starts PostgreSQL, Redis, the backend, and the Celery worker;
+applies `alembic upgrade head`; waits for readiness; checks health/readiness and
+release metadata; and optionally opens the Vite URL. The older
+`start_local.ps1 -StartFrontend` helper remains supported. The expected local URLs are:
 
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8000`
@@ -82,6 +83,7 @@ the safety backup.
 ## Run Health Checks
 
 ```powershell
+./scripts/local/check_platform.ps1
 ./scripts/local/check_local_health.ps1
 curl.exe http://localhost:8000/health
 curl.exe http://localhost:8000/health/ready
@@ -168,3 +170,7 @@ Partial recon runs should read **Success with partial enrichment warnings**
 when valid entities were stored. Do not expand raw provider JSON unless needed.
 This demo bundle does not include desktop packaging, an installer, hosting,
 deployment, DNS changes, or Supabase migration.
+
+The local Operator Console is read-only. Copy buttons prepare commands for a
+human operator; they never execute PowerShell, Docker, backup, restore, or agent
+commands in the browser.
