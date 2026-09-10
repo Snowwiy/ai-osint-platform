@@ -380,3 +380,15 @@ and Supabase remain unchanged.
   after replacing the example CIDR. Do not expose the backend publicly.
 - A partial enrichment warning does not invalidate stored entities. Expand the
   compact provider list, retain the successful result, and retry safely later.
+
+## RC4 language preference
+
+- The UI defaults to English and stores only `en` or `es` under
+  `raventech.language` in browser local storage.
+- Privacy modes can block local storage; select the language again for that
+  session or clear only that key to reset the preference.
+- Missing Spanish copy intentionally falls back to English, including some
+  dynamic provider, evidence, and analyst-authored text. Raw translation keys
+  must never be displayed.
+- Report language is selected separately during generation and retained as safe
+  report metadata for retries and downloads.

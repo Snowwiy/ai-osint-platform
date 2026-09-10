@@ -10,6 +10,7 @@ import {
 import { safeInternalRoute } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
 import type { RegistrationPolicyResponse } from "../types";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 interface LocationState {
   from?: { pathname?: string };
@@ -137,6 +138,7 @@ export function LoginPage(): JSX.Element {
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-8 text-raven-text">
       <div className="w-full max-w-md">
+        <div className="mb-4 flex justify-end"><LanguageSwitcher /></div>
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-raven-violet text-white">
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />

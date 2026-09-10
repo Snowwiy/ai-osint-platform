@@ -34,6 +34,8 @@ import { useAuth } from "../lib/useAuth";
 import type { FeatureFlagSettings, HealthResponse } from "../types";
 import { GlobalSearch } from "./GlobalSearch";
 import { NotificationBell } from "./NotificationBell";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useI18n } from "../lib/i18n";
 
 interface NavigationItem {
   label: string;
@@ -132,6 +134,7 @@ const investigationNav: InvestigationNavigationItem[] = [
 ];
 
 export function AppShell(): JSX.Element {
+  const { t } = useI18n();
   const { user, logout } = useAuth();
   const params = useParams();
   const investigationId = params.investigationId;
@@ -196,7 +199,7 @@ export function AppShell(): JSX.Element {
               <ShellLink
                 key={item.to}
                 to={item.to}
-                label={item.label}
+                label={t(item.label)}
                 icon={item.icon}
               />
             ))}
@@ -216,7 +219,7 @@ export function AppShell(): JSX.Element {
                     <ShellLink
                       key={item.label}
                       to={to}
-                      label={item.label}
+                      label={t(item.label)}
                       icon={item.icon}
                       end={!item.path}
                     />
@@ -237,6 +240,9 @@ export function AppShell(): JSX.Element {
             }
             onRetry={() => void health.refetch()}
           />
+          <div className="mb-3">
+            <LanguageSwitcher />
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user?.username}</p>
@@ -250,7 +256,7 @@ export function AppShell(): JSX.Element {
             className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text hover:border-raven-violet"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
-            Sign out
+            {t("Sign out")}
           </button>
         </div>
       </aside>
@@ -265,6 +271,7 @@ export function AppShell(): JSX.Element {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <LanguageSwitcher compact />
               <NotificationBell />
               <button
                 type="button"
@@ -277,14 +284,14 @@ export function AppShell(): JSX.Element {
           </div>
           <nav className="tab-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {visibleTopNav.map((item) => (
-              <MobileLink key={item.to} to={item.to} label={item.label} />
+              <MobileLink key={item.to} to={item.to} label={t(item.label)} />
             ))}
             {investigationId
               ? enabledInvestigationNav.map((item) => {
                   const to = item.path
                     ? `/investigations/${investigationId}/${item.path}`
                     : `/investigations/${investigationId}`;
-                  return <MobileLink key={item.label} to={to} label={item.label} />;
+                  return <MobileLink key={item.label} to={to} label={t(item.label)} />;
                 })
               : null}
           </nav>

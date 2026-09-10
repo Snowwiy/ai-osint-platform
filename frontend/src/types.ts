@@ -2212,6 +2212,7 @@ export interface ReportCreateRequest {
   title?: string | null;
   template_id?: string | null;
   output_format?: ReportFormat;
+  language?: "en" | "es";
 }
 
 export interface ReportSummary {
@@ -2548,6 +2549,7 @@ export interface ReportBulkGenerateRequest {
   report_type: ReportType;
   template_id?: string | null;
   output_format: ReportFormat;
+  language?: "en" | "es";
 }
 
 export interface ReportBulkGenerateResponse {

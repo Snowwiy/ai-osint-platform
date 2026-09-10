@@ -1,4 +1,5 @@
 import type { ReportStatus } from "../types";
+import { useI18n } from "../lib/i18n";
 
 const tones: Record<ReportStatus, string> = {
   queued: "border-sky-400/30 bg-sky-500/10 text-sky-100",
@@ -13,6 +14,7 @@ export function ReportStatusBadge({
 }: {
   status: ReportStatus;
 }): JSX.Element {
+  const { t } = useI18n();
   return (
     <span
       className={[
@@ -20,7 +22,7 @@ export function ReportStatusBadge({
         tones[status],
       ].join(" ")}
     >
-      {status.replace(/_/g, " ")}
+      {t(status.replace(/_/g, " "))}
     </span>
   );
 }

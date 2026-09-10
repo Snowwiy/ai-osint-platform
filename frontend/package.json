@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:i18n": "node --test tests/i18n.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",

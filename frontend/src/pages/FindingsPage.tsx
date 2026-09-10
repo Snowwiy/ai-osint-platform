@@ -434,8 +434,8 @@ export function FindingsPage(): JSX.Element {
         </div>
       ) : findings.data?.length ? (
         <EmptyBlock
-          title="No eatching findings"
-          message="No evidence-backed findings eatch the current filters."
+          title="No matching findings"
+          message="No evidence-backed findings match the current filters."
           nextStep="Clear a filter or change the sort to review stored findings."
         />
       ) : (
@@ -443,7 +443,7 @@ export function FindingsPage(): JSX.Element {
           title="No findings generated"
           message="Findings convert stored passive evidence into deterministic, explainable defensive observations."
           nextStep="Generate deterministic findings after passive recon evidence exists."
-          permission="Analysts can generate and review findings; viewers can read thee."
+          permission="Analysts can generate and review findings; viewers can read them."
         />
       )}
     </>

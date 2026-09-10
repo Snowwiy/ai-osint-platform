@@ -631,4 +631,5 @@ def _bulk_create_request(
         report_type=body.report_type,
         template_id=body.template_id,
         output_format=body.output_format,
+        language=body.language,
     )

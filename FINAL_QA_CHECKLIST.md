@@ -11,7 +11,7 @@
 - [ ] Monitoring Center states avoid raw API errors, crash screens, and horizontal overflow.
 - [ ] No secrets, active scanning, hosting, deployment, DNS, or Supabase changes exist.
 
-Version: `5.0.0-rc3`
+Version: `5.0.0-rc4`
 
 Run from the repository root unless a section says otherwise. Complete this
 checklist with synthetic or explicitly authorized data only. A failed required
@@ -26,7 +26,7 @@ check blocks the current release-freeze commit and push.
 - [ ] `docker compose exec backend alembic check`
 - [ ] `curl http://localhost:8000/health` returns `status: ok`.
 - [ ] `curl http://localhost:8000/health/ready` returns `status: ok`.
-- [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc3` and
+- [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc4` and
       `0036_phase5ai_posture` without secrets.
 - [ ] From `frontend/`, `npm run build` passes.
 - [ ] `docker compose ps` shows required local services running; backend and
@@ -158,9 +158,9 @@ check blocks the current release-freeze commit and push.
 - [ ] `git status` is reviewed before commit.
 - [ ] Commit uses the message required by the current phase.
 - [ ] Push to `origin/dev` succeeds and the working tree is clean/synchronized.
-- [ ] If `v5.0.0-rc3` already exists, verify its target instead of recreating or
+- [ ] If `v5.0.0-rc4` already exists, verify its target instead of recreating or
       moving it blindly; otherwise create it only on the validated package commit.
-- [ ] Push `v5.0.0-rc3` only after the release-package commit reaches
+- [ ] Push `v5.0.0-rc4` only after the release-package commit reaches
       `origin/dev`, then verify the local and remote tag targets match.
 
 ## Phase 5AB monitoring reliability
@@ -243,10 +243,10 @@ check blocks the current release-freeze commit and push.
 - [ ] Monitoring tabs, cards, tables, modals, and buttons remain unclipped and
       avoid raw endpoint errors or React crash screens at narrow widths.
 
-## RC3 final local acceptance flow
+## RC4 final local acceptance flow
 
 1. [ ] Start the local platform and apply the current migration head.
-2. [ ] Verify `/health`, `/health/ready`, and `/api/v1/release` report healthy RC3.
+2. [ ] Verify `/health`, `/health/ready`, and `/api/v1/release` report healthy RC4.
 3. [ ] Verify registration policy, login, logout, and invalid-login handling.
 4. [ ] Open every main navigation page without raw errors or a crash screen.
 5. [ ] Run authorized passive target recon using synthetic test data.
@@ -262,9 +262,9 @@ check blocks the current release-freeze commit and push.
 15. [ ] Confirm no raw errors, stack traces, React crash screen, overflow, or
         clipped tabs/buttons appear.
 
-## Phase 5AH feature-freeze gate
+## Prior RC3 feature-freeze gate
 
-- [ ] Only RC3 metadata, acceptance documentation, small regression tests, and
+- [ ] The prior RC3 metadata, acceptance documentation, regression tests, and
       validation-blocking fixes are present; no new module or migration exists.
 - [ ] Local Docker Compose remains the only validated product mode.
 - [ ] Monitoring remains authorized/local, service checks remain TCP-connect
@@ -292,3 +292,24 @@ check blocks the current release-freeze commit and push.
       wording, top manual actions, and no-exploit-validation language.
 - [ ] Migration current/head is `0036_phase5ai_posture`; exports and frontend
       build remain stable.
+
+## Phase 5AJ bilingual localization and RC4 freeze
+
+- [ ] English is the default and Spanish can be selected on login and in the
+      authenticated shell without changing authorization or backend logs.
+- [ ] The `raventech.language` preference survives refresh; unavailable storage
+      falls back safely to English and missing Spanish copy shows English text.
+- [ ] Navigation, login/register, shared status/severity badges, loading, empty,
+      error, actions, monitoring, recon, reports, search, administration, data
+      quality, audit, and QA headings render professional Spanish copy.
+- [ ] No `namespace.translation_key`, secret, token, password, raw endpoint
+      error, or React crash screen is visible in tested localized workflows.
+- [ ] Recon partial-enrichment, provider-error, Docker/LAN, optional telemetry,
+      non-standard SSH, risk, and manual isolation copy works in both languages.
+- [ ] English and Spanish reports retain the selected language on retry and
+      export successfully as PDF, DOCX, HTML, and Markdown.
+- [ ] `/api/v1/release` reports `5.0.0-rc4`; migration current/head remains
+      `0036_phase5ai_posture` and no Phase 5AJ migration exists.
+- [ ] `npm run test:i18n` and `npm run build` pass before commit/tag.
+- [ ] Desktop packaging, hosting, deployment, DNS, Supabase, router automation,
+      public scanning, and offensive behavior remain absent.

@@ -1,6 +1,7 @@
 import clsx from "clsx";
 
 import type { InvestigationStatus } from "../types";
+import { useI18n } from "../lib/i18n";
 
 const statusStyles: Record<InvestigationStatus, string> = {
   intake: "border-slate-400/30 bg-slate-400/10 text-slate-200",
@@ -17,6 +18,7 @@ export function StatusBadge({
 }: {
   status: InvestigationStatus;
 }): JSX.Element {
+  const { t } = useI18n();
   const label = typeof status === "string" && status.trim()
     ? status.replace(/_/g, " ")
     : "unknown";
@@ -28,7 +30,7 @@ export function StatusBadge({
         statusStyles[status] ?? "border-raven-border bg-raven-panelSoft text-raven-muted",
       )}
     >
-      {label}
+      {t(label)}
     </span>
   );
 }

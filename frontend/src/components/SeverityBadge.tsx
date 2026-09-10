@@ -1,6 +1,7 @@
 import clsx from "clsx";
 
 import type { Severity } from "../types";
+import { useI18n } from "../lib/i18n";
 
 const styles: Record<Severity, string> = {
   info: "border-cyan-300/30 bg-cyan-400/10 text-cyan-100",
@@ -11,6 +12,7 @@ const styles: Record<Severity, string> = {
 };
 
 export function SeverityBadge({ severity }: { severity: Severity }): JSX.Element {
+  const { t } = useI18n();
   const label = typeof severity === "string" && severity.trim()
     ? severity.replace(/_/g, " ")
     : "unknown";
@@ -21,7 +23,7 @@ export function SeverityBadge({ severity }: { severity: Severity }): JSX.Element
         styles[severity] ?? "border-raven-border bg-raven-panelSoft text-raven-muted",
       )}
     >
-      {label}
+      {t(label)}
     </span>
   );
 }

@@ -110,6 +110,10 @@ disclaimer. Unrelated LAN assets are not added to an investigation report.
 
 ## Deployment boundary
 
+The Security Posture UI and its manual recommendation terminology support
+English and Spanish with English fallback. Stored evidence and stable audit
+identifiers are not rewritten when display language changes.
+
 This feature is validated only in the local web application. It adds no desktop
 packaging, Electron, Tauri, installer, hosting, deployment, DNS, Supabase
 migration, public scanning, router automation, or offensive capability.

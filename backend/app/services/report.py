@@ -290,7 +290,11 @@ async def create_report(
         template_id=body.template_id,
     )
     branding = await get_report_branding(db)
-    default_title = f"{investigation.title} {body.report_type.title()} Report"
+    default_title = (
+        f"Informe {body.report_type.replace('_', ' ').title()} — {investigation.title}"
+        if body.language == "es"
+        else f"{investigation.title} {body.report_type.title()} Report"
+    )
     title = body.title or " ".join(
         part for part in (branding.report_title_prefix, default_title) if part
     )
@@ -307,6 +311,7 @@ async def create_report(
             "template_name": report_template.name if report_template else None,
             "sections": _template_sections(report_template, body.report_type),
             "branding": branding.model_dump(),
+            "language": body.language,
         },
     )
     db.add(report)
@@ -446,6 +451,8 @@ async def _generate_report_content(
         report.progress_label = "Rendering report content"
         markdown = _filter_markdown_sections(render_markdown_report(context), sections)
         html = render_html_report(context)
+        language = _report_language(report.report_metadata)
+        markdown, html = _localize_report_output(markdown, html, language)
         markdown, html = _apply_report_governance(
             markdown,
             html,
@@ -470,6 +477,7 @@ async def _generate_report_content(
                 "preferred_format": report.report_format,
                 "export_controls": controls.model_dump(),
                 "branding": branding.model_dump(),
+                "language": language,
             }
         )
         report.html_content = html
@@ -1183,6 +1191,96 @@ def render_markdown_report(context: ReportContext) -> str:
         else:
             lines.append("- No IOC evidence references are stored.")
     return "\n".join(lines).strip() + "\n"
+
+
+def _report_language(metadata: dict[str, Any] | None) -> str:
+    return "es" if metadata and metadata.get("language") == "es" else "en"
+
+
+def _localize_report_output(
+    markdown: str, html: str, language: str
+) -> tuple[str, str]:
+    if language != "es":
+        return (
+            markdown.rstrip()
+            + "\n\n## Limitations\n\nThis report is defensive and advisory. "
+            "It does not validate exploitation or prove compromise.\n",
+            html.replace(
+                "</body>",
+                "<h2>Limitations</h2><p>This report is defensive and advisory. "
+                "It does not validate exploitation or prove compromise.</p></body>",
+                1,
+            ),
+        )
+    labels = {
+        "Executive Summary": "Resumen ejecutivo",
+        "Executive Callouts": "Puntos ejecutivos",
+        "Top risks": "Riesgos principales",
+        "Immediate remediation priorities": "Prioridades inmediatas de remediación",
+        "Investigation readiness": "Preparación de la investigación",
+        "Key infrastructure observations": "Observaciones principales de infraestructura",
+        "Defensive Posture": "Postura defensiva",
+        "Monitoring Priorities": "Prioridades de monitoreo",
+        "Recurring Infrastructure and Risk Indicators": "Infraestructura recurrente e indicadores de riesgo",
+        "Business Impact": "Impacto comercial",
+        "Severity Heatmap": "Mapa de severidad",
+        "Scope and Authorization": "Alcance y autorización",
+        "Approved Engagement Scope": "Alcance aprobado del servicio",
+        "Authorization Evidence Metadata": "Metadatos de evidencia de autorización",
+        "Methodology": "Metodología",
+        "Key Findings": "Hallazgos principales",
+        "Risk Summary": "Resumen de riesgos",
+        "Threat Intelligence": "Inteligencia de amenazas",
+        "Case Review and Governance": "Revisión y gobernanza del caso",
+        "Case Closure and Deliverables": "Cierre del caso y entregables",
+        "Technical Evidence": "Evidencia técnica",
+        "Remediation Tracking": "Seguimiento de remediación",
+        "Recommendations": "Recomendaciones",
+        "Appendix": "Apéndice",
+        "Security Posture": "Postura de seguridad",
+        "Monitoring Summary": "Resumen de monitoreo",
+        "Organization": "Organización",
+        "Prepared by": "Preparado por",
+        "Generated at": "Generado el",
+        "Investigation stage": "Etapa de investigación",
+        "Defensive confidence": "Confianza defensiva",
+        "Confidentiality": "Confidencialidad",
+        "Report focus": "Enfoque del informe",
+        "Severity": "Severidad",
+        "Finding": "Hallazgo",
+        "Confidence": "Confianza",
+        "Evidence": "Evidencia",
+        "Scope": "Alcance",
+        "Source": "Fuente",
+        "Status": "Estado",
+        "Critical": "Crítico",
+        "High": "Alto",
+        "Medium": "Medio",
+        "Low": "Bajo",
+        "Info": "Informativo",
+    }
+    for english, spanish in labels.items():
+        markdown = markdown.replace(f"## {english}", f"## {spanish}")
+        markdown = markdown.replace(f"### {english}", f"### {spanish}")
+        markdown = markdown.replace(f"**{english}:**", f"**{spanish}:**")
+        html = html.replace(f">{english}<", f">{spanish}<")
+        html = html.replace(f">{english}:<", f">{spanish}:<")
+    html = html.replace('<html lang="en">', '<html lang="es">')
+    disclaimer = "No exploit validation was performed."
+    localized_disclaimer = "No se realizó validación de explotación."
+    markdown = markdown.replace(disclaimer, localized_disclaimer)
+    html = html.replace(disclaimer, localized_disclaimer)
+    return (
+        markdown.rstrip()
+        + "\n\n## Limitaciones\n\nEste informe es defensivo y orientativo. "
+        "No valida explotación ni demuestra compromiso.\n",
+        html.replace(
+            "</body>",
+            "<h2>Limitaciones</h2><p>Este informe es defensivo y orientativo. "
+            "No valida explotación ni demuestra compromiso.</p></body>",
+            1,
+        ),
+    )
 
 
 async def _build_context(

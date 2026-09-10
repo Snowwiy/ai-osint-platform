@@ -22,11 +22,13 @@ import {
   safeString,
 } from "../lib/safe";
 import type { MonitoringStatus } from "../types";
+import { useI18n } from "../lib/i18n";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
 type MonitoringTab = "server" | "services" | "activation" | "lan" | "agents" | "posture" | "baseline" | "changes" | "alerts" | "policies" | "maintenance";
 
 export function MonitoringCenterPage(): JSX.Element {
+  const { t } = useI18n();
   const [pollSeconds, setPollSeconds] = useState(30);
   const [tab, setTab] = useState<MonitoringTab>("server");
   const overview = useQuery({
@@ -80,7 +82,7 @@ export function MonitoringCenterPage(): JSX.Element {
       <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
         {(["server", "services", "activation", "lan", "agents", "posture", "baseline", "changes", "policies", "maintenance", "alerts"] as MonitoringTab[]).map((item) => (
           <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
-            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "posture" ? "Security Posture" : item === "baseline" ? "Vulnerability Baseline" : item === "changes" ? "Change Timeline" : item === "maintenance" ? "Maintenance Windows" : item}
+            {t(item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "posture" ? "Security Posture" : item === "baseline" ? "Vulnerability Baseline" : item === "changes" ? "Change Timeline" : item === "maintenance" ? "Maintenance Windows" : item.charAt(0).toUpperCase() + item.slice(1))}
           </button>
         ))}
       </nav>

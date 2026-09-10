@@ -7,7 +7,7 @@ The Monitoring Center exposes administrator-managed policies for CPU, memory, di
 Acknowledging a notification does not stop its rule. Suppression is explicit, reversible, and audited; it never deletes the alert or stops collection. Critical alerts remain visible unless an administrator explicitly suppresses them or configures a matching maintenance window. Active maintenance retains matching alerts with `suppressed_due_to_maintenance` while polling and telemetry continue.
 
 The Monitoring Center provides local operational visibility for RavenTech
-OSINT `5.0.0-rc3`. It polls authenticated backend summaries and does not scan
+OSINT `5.0.0-rc4`. It polls authenticated backend summaries and does not scan
 targets, contact external services, expose Docker control, or perform automated
 remediation.
 
@@ -220,3 +220,9 @@ New-NetFirewallRule -DisplayName "RavenTech local agent" -Direction Inbound -Pro
 ```
 
 Remove or disable that rule when LAN-agent access is no longer required.
+
+## RC4 localization
+
+Monitoring Center labels, statuses, empty/error states, activation guidance,
+and advisory posture terminology are available in English and Spanish. English
+is the safe fallback for uncommon provider- or evidence-generated prose.

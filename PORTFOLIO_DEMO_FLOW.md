@@ -101,7 +101,7 @@ Proves: deterministic maintenance, safe metadata, admin permissions.
 ## 12. Audit And Governance
 
 Finish with Audit Log, Admin Settings, feature/export controls, and the release
-or Operations panel. Confirm `5.0.0-rc3`, current migration, and healthy local
+or Operations panel. Confirm `5.0.0-rc4`, current migration, and healthy local
 checks without exposing secrets.
 
 Proves: accountability, configuration boundaries, release validation.

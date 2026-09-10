@@ -1,8 +1,8 @@
-# RavenTech OSINT 5.0.0-rc3
+# RavenTech OSINT 5.0.0-rc4
 
 ## Release Summary
 
-RavenTech OSINT `5.0.0-rc3` is a local-first release candidate for a defensive
+RavenTech OSINT `5.0.0-rc4` is a local-first bilingual release candidate for a defensive
 investigation and intelligence workspace. This package freezes the tested local
 Docker workflow and provides portfolio, demonstration, backup/restore, QA, and
 security-review documentation. It should not be described as production-hosted
@@ -10,6 +10,7 @@ or production-certified.
 
 ## Key Capabilities
 
+- English/Spanish UI and report output with persisted preference and English fallback
 - Authentication, governed registration, RBAC, investigation membership, and
   last-active-administrator protection
 - Dashboard, Operations Center, investigation lifecycle, engagement and scope
@@ -30,12 +31,12 @@ or production-certified.
 ## Validation Proof
 
 - Ruff: passed
-- mypy: passed across 214 backend source files
-- pytest: 272 passed
+- mypy: passed across 217 backend source files
+- pytest: 279 passed
 - `pip check`: passed
-- Alembic: one linear head, `0035_phase5ae_agents`, with no schema drift
+- Alembic: one linear head, `0036_phase5ai_posture`, with no schema drift
 - `/health` and `/health/ready`: `status: ok`
-- `/api/v1/release`: `5.0.0-rc3`
+- `/api/v1/release`: `5.0.0-rc4`
 - Frontend TypeScript/Vite production build: passed
 - Local Docker services: healthy/running
 - Phase 5V tracked-file secrets audit: no production secrets found
@@ -72,6 +73,6 @@ enumeration, or autonomous offensive actions.
 ## Release Handling
 
 This file is release copy for review. Creating it does not create or publish a
-GitHub release. The `v5.0.0-rc3` Git tag identifies the validated local release
+GitHub release. The `v5.0.0-rc4` Git tag identifies the validated local release
 candidate commit; any future GitHub release publication requires separate,
 explicit authorization.

@@ -1,10 +1,14 @@
 # RavenTech OSINT Known Limitations
 
-The completed validated mode for `5.0.0-rc3` is the local web application using
+The completed validated mode for `5.0.0-rc4` is the local web application using
 Docker Compose services and a local Vite frontend. Desktop packaging, installers,
 hosting, deployment, DNS, and Supabase migration are deferred.
 
 ## Product Boundaries
+
+- RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,
+  evidence, or analyst-authored prose can remain in English; missing localized
+  copy falls back to English and never exposes raw translation keys.
 
 - Passive, defensive OSINT investigation workflow only; no generalized active
   scanning or Nmap integration. Separately enabled LAN monitoring performs only

@@ -194,7 +194,7 @@ export function PlaybooksPage(): JSX.Element {
           title="No defensive playbook runs"
           message="Playbooks provide analyst-approved guidance for evidence validation and remediation."
           nextStep="Open an evidence-backed finding to review recommended defensive playbooks."
-          permission="Viewers can inspect runs but cannot start or update thee."
+          permission="Viewers can inspect runs but cannot start or update them."
         />
       )}
     </>

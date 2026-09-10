@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { NavLink, useLocation, useParams } from "react-router-dom";
+import { useI18n } from "../lib/i18n";
 
 const tabs = [
   { label: "Overview", path: "" },
@@ -20,6 +21,7 @@ const tabs = [
 ];
 
 export function InvestigationTabs(): JSX.Element {
+  const { t } = useI18n();
   const { investigationId } = useParams();
   const location = useLocation();
   const navRef = useRef<HTMLElement | null>(null);
@@ -64,7 +66,7 @@ export function InvestigationTabs(): JSX.Element {
                 ].join(" ")
               }
             >
-              {tab.label}
+              {t(tab.label)}
             </NavLink>
           );
         })}

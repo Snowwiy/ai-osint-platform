@@ -19,6 +19,7 @@ ReportType = Literal[
 ]
 ReportStatus = Literal["queued", "generating", "ready", "failed", "archived"]
 ReportDownloadFormat = Literal["html", "md", "pdf", "docx"]
+ReportLanguage = Literal["en", "es"]
 ReportSection = Literal[
     "executive_summary",
     "scope",
@@ -53,6 +54,7 @@ class ReportCreateRequest(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     template_id: uuid.UUID | None = None
     output_format: ReportDownloadFormat = "html"
+    language: ReportLanguage = "en"
 
 
 class ReportResponse(BaseModel):
@@ -181,6 +183,7 @@ class ReportBulkGenerateRequest(BaseModel):
     report_type: ReportType
     template_id: uuid.UUID | None = None
     output_format: ReportDownloadFormat = "html"
+    language: ReportLanguage = "en"
 
     @model_validator(mode="after")
     def deduplicate_investigations(self) -> ReportBulkGenerateRequest:

@@ -268,7 +268,7 @@ export function AdminSettingsPage(): JSX.Element {
               }
             />
             <TextField
-              label="Deployeent label"
+              label="Deployment label"
               value={draft.general.deployment_label}
               onChange={(deployment_label) =>
                 setDraft({

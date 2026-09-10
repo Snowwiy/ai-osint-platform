@@ -1,100 +1,86 @@
 # RavenTech OSINT Final Local Acceptance
 
-Release candidate: `5.0.0-rc3`
+Release candidate: `5.0.0-rc4`
 
 Validated mode: local Docker Compose services with a local Vite frontend.
 
-## Automated validation proof
-
-The Phase 5AH gate completed on 2026-09-10:
-
-- Ruff: passed
-- Strict mypy: passed across 214 source files
-- Pytest: 272 passed; one documented upstream Passlib deprecation warning
-- `pip check`: no broken requirements
-- Alembic: no new upgrade operations; current/head `0035_phase5ae_agents`
-- `/health` and `/health/ready`: HTTP 200 with `status: ok`
-- `/api/v1/release`: HTTP 200 with `5.0.0-rc3` and no secret fields
-- Frontend TypeScript/Vite production build: passed
-
 ## Completed local capabilities
 
-- Authentication, governed registration, admin user management, RBAC, and audit
-- Dashboard, Operations Center, investigations, targets, passive recon,
-  findings, intelligence, review, remediation, closure, and deliverables
-- HTML, Markdown, PDF, and DOCX report generation with analyst review
+- English and professional Spanish UI with an explicit language switcher,
+  persisted browser preference, and English fallback for missing copy
+- Authentication, governed registration, admin user management, RBAC, audit,
+  dashboards, operations, investigations, targets, passive recon, findings,
+  intelligence, review, remediation, closure, and deliverables
+- English or Spanish analyst-reviewed HTML, Markdown, PDF, and DOCX reports
 - Notifications, alert triage, Global Search, Saved Views, Data Quality Center,
   governance settings, health, readiness, and release metadata
-- Local monitoring policies, maintenance windows, alert cooldown/dedupe,
-  advisory vulnerability baseline, and change timeline
+- Monitoring policies, maintenance windows, cooldown/dedupe, change timeline,
+  vulnerability baseline, endpoint posture, and remediation recommendations
 - Authorized private-LAN inventory, manual TCP-connect service checks, service
   history, sanitized SSH hints, endpoint enrollment, asset groups, expected
-  services, and coverage summaries
+  services, coverage summaries, and advisory posture scoring
 
-## Local monitoring acceptance boundary
+## Localization acceptance
 
-LAN monitoring and service checks are configuration-gated and disabled by
-default. Checks are manual, rate limited, limited to configured ports, and
-restricted to explicitly authorized private assets/ranges. They perform TCP
-connects and a minimal sanitized banner hint only. They never authenticate,
-test credentials, brute force, execute commands, exploit, or scan the public
-internet.
+English remains the default. A user can choose English or Spanish from both the
+sign-in screen and authenticated shell. The choice is retained in local browser
+storage and contains no credential or secret. Missing Spanish copy displays its
+professional English source rather than a raw translation key.
 
-Docker may not expose host LAN neighbors. This is an informational coverage
-limitation, not a platform-health failure. Use approved static/router
-observations or a manually run endpoint agent when needed.
+Reports have an independent English/Spanish selection. Their language is stored
+as non-sensitive report metadata and retained for retries and PDF, DOCX, HTML,
+and Markdown downloads. Logs and audit event identifiers remain stable English
+internal identifiers.
 
-## Endpoint agent acceptance boundary
+## Monitoring and agent boundary
 
-An administrator creates an expiring enrollment credential. Plaintext is shown
-once; only its hash is retained, and revoked, expired, exhausted, invalid, or
-CIDR-mismatched credentials are rejected. The agent must be started manually.
-It collects basic CPU, memory, disk, uptime, OS, and service observation data
-only and provides no persistence, remote shell, remote commands, file access,
-browser-history access, password access, keystroke access, or credential access.
+LAN monitoring and service checks are disabled by default, manual, rate limited,
+restricted to configured authorized private assets/ranges, and TCP-connect only.
+They never authenticate, test credentials, brute force, execute commands,
+exploit, or scan the public internet. Docker neighbor visibility can be limited;
+that is an informational coverage limitation, not a platform-health failure.
 
-## Reports and evidence
-
-Reports can be reviewed and exported locally as PDF, DOCX, HTML, and Markdown.
-Engagement, authorization, scope, evidence, findings, remediation, closure, and
-deliverable context remain visible. Monitoring and baseline content is advisory
-and must not be presented as proof of compromise or exploitability.
+Endpoint credentials are revealed once and retained only as hashes. Agents are
+started manually and collect bounded system/posture signals only. They provide
+no persistence, remote shell, remote command, file/password/browser-history/
+keystroke collection, or automatic remediation. Posture, service, and baseline
+results are advisory risk indicators and never proof of compromise.
 
 ## Known non-blocking warnings
 
-- Optional passive providers may be unavailable; successful entities are
-  preserved and partial enrichment can be retried safely.
-- Optional host telemetry and Docker neighbor visibility may be unavailable
+- Optional passive providers may fail; valid stored entities remain usable and
+  partial enrichment can be retried safely.
+- Optional host telemetry and Docker neighbor visibility can be unavailable
   while required platform dependencies remain healthy.
-- The password-hashing dependency emits an upstream Python `crypt` deprecation
-  warning; review it before Python 3.13.
-- Local report branding may use the text fallback when no logo path is set.
+- Passlib emits an upstream Python `crypt` deprecation warning before Python
+  3.13; it does not fail the current validation suite.
+- Missing local report branding uses the safe text fallback.
 
 ## Manual acceptance checklist
 
-1. Start the local platform and apply the current migration head.
-2. Verify `/health`, `/health/ready`, and `/api/v1/release` report healthy RC3.
-3. Verify registration policy, login, logout, and clean invalid-login handling.
-4. Open every main navigation page and confirm no raw errors or crash screen.
-5. Run authorized passive target recon with test data.
-6. Confirm partial provider failures show valid stored results and safe retry.
-7. Review TCP service observations separately from recon URL/service entities.
-8. Open every Monitoring Center tab and verify loading, empty, and refresh states.
-9. Create and revoke a test enrollment credential; confirm one-time reveal.
-10. Review advisory vulnerability-baseline indicators and remediation context.
-11. Review alert triage, dedupe, recovery, suppression, and maintenance behavior.
-12. Export a reviewed report in PDF, DOCX, HTML, and Markdown.
-13. Run a bounded Data Quality scan and review its non-destructive results.
-14. Verify audit records for the exercised governed actions contain no secrets.
-15. Confirm there are no raw endpoint errors, stack traces, clipped controls,
-    horizontal overflow, or React crash screens.
+1. Start the local platform and apply migration head `0036_phase5ai_posture`.
+2. Verify health, readiness, and release endpoints report healthy RC4.
+3. Switch English/Spanish at sign-in, refresh, and confirm the choice persists.
+4. Login/register and open every main navigation page in both languages.
+5. Confirm missing translations fall back to English without raw keys.
+6. Run authorized passive recon and review partial-warning copy in both languages.
+7. Review service observations separately from recon URL/service entities.
+8. Open every Monitoring Center tab and review posture/recommendations.
+9. Create/revoke a test enrollment credential and confirm one-time reveal.
+10. Generate English and Spanish reports and export PDF/DOCX/HTML/Markdown.
+11. Review notifications, triage, search, saved views, data quality, and audit.
+12. Confirm no raw errors, secrets, crash screen, clipped controls, or overflow.
 
-Record completion in `FINAL_QA_CHECKLIST.md`. Any failed required item blocks
-the RC3 release commit and tag.
+## Automated validation proof
 
-## Deferred after RC3
+The RC4 gate passed Ruff, strict mypy across 217 source files, all 279 backend
+tests, three frontend localization contract tests, dependency and schema-drift
+checks, live health/readiness/release probes, and the frontend production build.
+Database current/head is `0036_phase5ai_posture`; the release endpoint reports
+`5.0.0-rc4`. The only warning is the documented upstream Passlib deprecation.
 
-Desktop packaging (including Electron, Tauri, and installers) and free-tier or
-production hosting are deferred. Deployment, DNS, and Supabase migration are
-also deferred. RC3 is a completed and validated local web release candidate;
-it does not claim a production deployment.
+## Deferred after RC4
+
+Desktop packaging, Electron, Tauri, installers, free-tier/production hosting,
+deployment, DNS, and Supabase migration remain deferred. RC4 is a completed
+local web release candidate and does not claim production deployment.

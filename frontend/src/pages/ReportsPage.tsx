@@ -37,6 +37,7 @@ import { useInvestigationId } from "../lib/hooks";
 import { safeArray } from "../lib/safe";
 import { reportGuidance } from "../lib/reportGuidance";
 import { useAuth } from "../lib/useAuth";
+import { useI18n, type AppLanguage } from "../lib/i18n";
 import type {
   ReportFormat,
   ReportSummary,
@@ -59,10 +60,12 @@ export function ReportsPage(): JSX.Element {
   const investigationId = useInvestigationId();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { language, t } = useI18n();
   const [toast, setToast] = useState<ToastState | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [reportType, setReportType] = useState<ReportType>("technical");
   const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [reportLanguage, setReportLanguage] = useState<AppLanguage>(language);
   const [templateId, setTemplateId] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const features = useQuery({
@@ -128,6 +131,7 @@ export function ReportsPage(): JSX.Element {
         report_type: reportType,
         template_id: selectedTemplate?.id,
         output_format: format,
+        language: reportLanguage,
       }),
     onSuccess: async (report) => {
       await invalidateReports(queryClient, investigationId);
@@ -288,7 +292,7 @@ export function ReportsPage(): JSX.Element {
         <SavedViewsPanel
           viewType="reports"
           route={`/investigations/${investigationId}/reports`}
-          filters={{ reportType, format, templateId, showArchived }}
+          filters={{ reportType, format, reportLanguage, templateId, showArchived }}
           onApply={(view) => {
             const next = view.filters;
             if (
@@ -306,6 +310,9 @@ export function ReportsPage(): JSX.Element {
             if (typeof next.templateId === "string") {
               setTemplateId(next.templateId);
             }
+            if (next.reportLanguage === "en" || next.reportLanguage === "es") {
+              setReportLanguage(next.reportLanguage);
+            }
             if (typeof next.showArchived === "boolean") {
               setShowArchived(next.showArchived);
             }
@@ -315,7 +322,7 @@ export function ReportsPage(): JSX.Element {
       </div>
 
       <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px_auto] xl:items-end">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px_140px_auto] xl:items-end">
           <Field label="Report type">
             <select
               value={reportType}
@@ -361,6 +368,16 @@ export function ReportsPage(): JSX.Element {
                   {item}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field label={t("Report language")}>
+            <select
+              value={reportLanguage}
+              onChange={(event) => setReportLanguage(event.target.value as AppLanguage)}
+              className="input-base"
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
             </select>
           </Field>
           <button

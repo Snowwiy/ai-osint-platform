@@ -179,6 +179,54 @@ async def test_report_download_formats(
     assert invalid.status_code == 422
 
 
+async def test_spanish_report_language_preserves_all_export_formats(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    test_investigation,
+) -> None:
+    created = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/reports",
+        headers=analyst_headers,
+        json={"report_type": "executive", "language": "es"},
+    )
+
+    assert created.status_code == 200
+    assert created.json()["report_metadata"]["language"] == "es"
+    report_id = created.json()["id"]
+    detail = await client.get(f"/api/v1/reports/{report_id}", headers=analyst_headers)
+    assert detail.status_code == 200
+    assert "## Resumen ejecutivo" in detail.json()["markdown_content"]
+    assert "## Limitaciones" in detail.json()["markdown_content"]
+    assert '<html lang="es">' in detail.json()["html_content"]
+    assert "<h2>Resumen ejecutivo</h2>" in detail.json()["html_content"]
+    assert "No valida explotación ni demuestra compromiso" in detail.json()[
+        "html_content"
+    ]
+
+    for output_format, signature in (("pdf", b"%PDF"), ("docx", b"PK")):
+        exported = await client.get(
+            f"/api/v1/reports/{report_id}/download",
+            headers=analyst_headers,
+            params={"format": output_format},
+        )
+        assert exported.status_code == 200
+        assert exported.content.startswith(signature)
+
+
+async def test_report_language_rejects_unknown_locale(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    test_investigation,
+) -> None:
+    response = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/reports",
+        headers=analyst_headers,
+        json={"report_type": "technical", "language": "translation.key"},
+    )
+
+    assert response.status_code == 422
+
+
 async def test_report_download_missing_logo_fallback(
     client: AsyncClient,
     analyst_headers: dict[str, str],

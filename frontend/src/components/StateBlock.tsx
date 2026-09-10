@@ -1,12 +1,14 @@
 import { AlertTriangle, Loader2, RefreshCw, SearchX } from "lucide-react";
 
 import { ApiError } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 
 export function LoadingBlock({ label = "Loading" }: { label?: string }): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-40 items-center justify-center rounded-lg border border-raven-border bg-raven-panel/80 text-raven-muted" role="status" aria-live="polite">
       <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-      <span>{label}</span>
+      <span>{t(label)}</span>
     </div>
   );
 }
@@ -20,6 +22,7 @@ export function ErrorBlock({
   title?: string;
   onRetry?: () => void;
 }): JSX.Element {
+  const { t } = useI18n();
   const error = normalizeErrorMessage(message);
   return (
     <div
@@ -28,7 +31,7 @@ export function ErrorBlock({
     >
       <div className="flex items-center gap-2 font-medium">
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-        <span>{title}</span>
+        <span>{t(title)}</span>
       </div>
       <p className="mt-2 break-words text-rose-100/85">{error.summary}</p>
       {error.suggestion ? (
@@ -40,12 +43,12 @@ export function ErrorBlock({
         className="mt-3 inline-flex items-center gap-2 rounded-md border border-rose-300/30 px-3 py-2 text-xs font-medium text-rose-100 hover:bg-rose-500/10"
       >
         <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-        Retry
+        {t("Retry")}
       </button>
       {error.details.length ? (
         <details className="mt-3 rounded-md border border-rose-300/20 bg-raven-bg/40 p-3">
           <summary className="cursor-pointer text-xs font-medium text-rose-100/80">
-            Technical details
+            {t("Technical details")}
           </summary>
           <dl className="mt-3 space-y-2 text-xs text-rose-100/70">
             {error.details.map((item) => (
@@ -75,16 +78,17 @@ export function EmptyBlock({
   nextStep?: string;
   permission?: string;
 }): JSX.Element {
+  const { t } = useI18n();
   return (
     <div className="rounded-lg border border-dashed border-raven-border bg-raven-panel/60 p-8 text-center text-sm text-raven-muted">
       <SearchX className="mx-auto mb-3 h-5 w-5 text-raven-muted" aria-hidden="true" />
-      <p className="font-medium text-raven-text">{title}</p>
-      <p className="mx-auto mt-2 max-w-2xl leading-6">{message}</p>
+      <p className="font-medium text-raven-text">{t(title)}</p>
+      <p className="mx-auto mt-2 max-w-2xl leading-6">{t(message)}</p>
       {nextStep ? (
-        <p className="mx-auto mt-2 max-w-2xl text-raven-text">{nextStep}</p>
+        <p className="mx-auto mt-2 max-w-2xl text-raven-text">{t(nextStep)}</p>
       ) : null}
       {permission ? (
-        <p className="mx-auto mt-2 max-w-2xl text-xs">{permission}</p>
+        <p className="mx-auto mt-2 max-w-2xl text-xs">{t(permission)}</p>
       ) : null}
     </div>
   );

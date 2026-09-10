@@ -39,6 +39,7 @@ import {
 import { reportGuidance } from "../lib/reportGuidance";
 import { useAuth } from "../lib/useAuth";
 import { safeArray } from "../lib/safe";
+import { useI18n, type AppLanguage } from "../lib/i18n";
 import type {
   ReportFormat,
   ReportingCenterFilters,
@@ -99,6 +100,7 @@ const safeSections: ReportSection[] = [
 export function ReportingCenterPage(): JSX.Element {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { language, t } = useI18n();
   const [filters, setFilters] = useState<ReportingCenterFilters>({
     sort: "newest",
     limit: 100,
@@ -109,6 +111,7 @@ export function ReportingCenterPage(): JSX.Element {
   const [reportType, setReportType] = useState<ReportType>("executive");
   const [templateId, setTemplateId] = useState("");
   const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [reportLanguage, setReportLanguage] = useState<AppLanguage>(language);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
@@ -196,6 +199,7 @@ export function ReportingCenterPage(): JSX.Element {
         report_type: reportType,
         template_id: selectedTemplate?.id,
         output_format: format,
+        language: reportLanguage,
       }),
     onSuccess: async (response) => {
       await invalidateReportingCenter(queryClient);
@@ -337,7 +341,7 @@ export function ReportingCenterPage(): JSX.Element {
 
       <section className="mb-5 min-w-0 overflow-hidden rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <h2 className="font-semibold">Generate reports</h2>
-        <div className="mt-4 grid gap-4 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 lg:grid-cols-5">
           <Field label="Report type">
             <select
               value={reportType}
@@ -382,6 +386,16 @@ export function ReportingCenterPage(): JSX.Element {
                   {item}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field label={t("Report language")}>
+            <select
+              value={reportLanguage}
+              onChange={(event) => setReportLanguage(event.target.value as AppLanguage)}
+              className="input-base"
+            >
+              <option value="en">English</option>
+              <option value="es">Español</option>
             </select>
           </Field>
           <div className="flex items-end">
@@ -483,10 +497,10 @@ export function ReportingCenterPage(): JSX.Element {
         </div>
       ) : (
         <EmptyBlock
-          title="No reports eatch"
+          title="No reports match"
           message="The Reporting Center collects analyst-approved exports across accessible investigations."
           nextStep="Clear filters or generate a report after findings, notes, or evidence are available."
-          permission="Viewers can download existing reports; contributors can generate thee."
+          permission="Viewers can download existing reports; contributors can generate them."
         />
       )}
       <p className="mt-3 text-sm text-raven-muted">

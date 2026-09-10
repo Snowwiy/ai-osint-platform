@@ -2,7 +2,7 @@
 
 ## RC3 freeze boundary
 
-The `5.0.0-rc3` validated mode is local Docker Compose. LAN monitoring and TCP
+The `5.0.0-rc4` validated mode is local Docker Compose. LAN monitoring and TCP
 service checks remain disabled by default, explicitly authorized, private-range
 limited, manual, rate limited, and bounded by configured ports and timeouts.
 They are connectivity observations only—not public scanning, authentication,
@@ -211,3 +211,9 @@ A URL such as `https://host/path` is a recon service target. An observation
 such as `443/tcp open` is separate historical evidence about the matched LAN
 asset. The target page labels these separately and shows open, closed, timeout,
 service guess, confidence, and possible/non-standard SSH state.
+
+## RC4 localization
+
+LAN, agent, service-observation, SSH, and Docker-limitation UI copy is available
+in English and Spanish. Localization does not expand authorization or alter the
+disabled-by-default, private-range, TCP-connect-only safety controls.
