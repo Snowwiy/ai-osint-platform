@@ -140,6 +140,9 @@ import type {
   NotificationMarkAllReadResponse,
   NotificationUnreadCountResponse,
   MonitoringOverviewResponse,
+  MonitoringTriageItem,
+  MonitoringTriageListResponse,
+  MonitoringTriageStatus,
   MonitoringPolicy,
   MonitoringPolicyListResponse,
   MaintenanceWindow,
@@ -1094,6 +1097,41 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
+}
+
+export async function listMonitoringTriage(filters: {
+  status?: MonitoringTriageStatus;
+  severity?: "info" | "success" | "warning" | "critical";
+  source?: string;
+  asset_id?: string;
+} = {}): Promise<MonitoringTriageListResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+  const query = params.toString();
+  return request<MonitoringTriageListResponse>(`/monitoring/triage${query ? `?${query}` : ""}`);
+}
+
+export async function updateMonitoringTriage(
+  alertId: string,
+  body: { status?: MonitoringTriageStatus; notes?: string | null; resolution_summary?: string | null },
+): Promise<MonitoringTriageItem> {
+  return request<MonitoringTriageItem>(`/monitoring/triage/${alertId}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export async function assignMonitoringTriage(alertId: string, ownerId: string | null): Promise<MonitoringTriageItem> {
+  return request<MonitoringTriageItem>(`/monitoring/triage/${alertId}/assign`, { method: "POST", body: JSON.stringify({ owner_id: ownerId }) });
+}
+
+export async function resolveMonitoringTriage(alertId: string, resolution: string): Promise<MonitoringTriageItem> {
+  return request<MonitoringTriageItem>(`/monitoring/triage/${alertId}/resolve`, { method: "POST", body: JSON.stringify({ resolution_summary: resolution }) });
+}
+
+export async function falsePositiveMonitoringTriage(alertId: string, resolution: string): Promise<MonitoringTriageItem> {
+  return request<MonitoringTriageItem>(`/monitoring/triage/${alertId}/false-positive`, { method: "POST", body: JSON.stringify({ resolution_summary: resolution }) });
+}
+
+export async function muteMonitoringTriage(alertId: string, reason: string): Promise<MonitoringTriageItem> {
+  return request<MonitoringTriageItem>(`/monitoring/triage/${alertId}/mute`, { method: "POST", body: JSON.stringify({ reason }) });
 }
 
 export async function listMonitoringPolicies(): Promise<MonitoringPolicyListResponse> {

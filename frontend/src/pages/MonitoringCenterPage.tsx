@@ -1,5 +1,5 @@
-import { AlertTriangle, RefreshCw, ServerCog } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RefreshCw, ServerCog } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -8,8 +8,9 @@ import { LanMonitoringPanel } from "../components/LanMonitoringPanel";
 import { VulnerabilityBaselinePanel } from "../components/VulnerabilityBaselinePanel";
 import { MonitoringPolicyPanel } from "../components/MonitoringPolicyPanel";
 import { MonitoringChangeTimelinePanel } from "../components/MonitoringChangeTimelinePanel";
+import { MonitoringTriagePanel } from "../components/MonitoringTriagePanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
-import { getMonitoringOverview, suppressMonitoringAlert, unsuppressMonitoringAlert } from "../lib/api";
+import { getMonitoringOverview } from "../lib/api";
 import {
   safeArray,
   safeDate,
@@ -25,8 +26,6 @@ type MonitoringTab = "server" | "services" | "lan" | "agents" | "baseline" | "ch
 export function MonitoringCenterPage(): JSX.Element {
   const [pollSeconds, setPollSeconds] = useState(30);
   const [tab, setTab] = useState<MonitoringTab>("server");
-  const [actionError, setActionError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
   const overview = useQuery({
     queryKey: ["monitoring-overview"],
     queryFn: getMonitoringOverview,
@@ -39,15 +38,8 @@ export function MonitoringCenterPage(): JSX.Element {
   );
   const serviceItems = safeArray(data?.services?.items);
   const assetItems = safeArray(data?.assets?.items);
-  const alerts = safeArray(data?.alerts?.items);
-  const errors = safeArray(data?.recent_errors);
   const system = data?.system;
-  const overviewVisible = tab === "server" || tab === "services" || tab === "alerts";
-  const suppression = useMutation({
-    mutationFn: ({ id, suppressed }: { id: string; suppressed: boolean }) => suppressed ? unsuppressMonitoringAlert(id) : suppressMonitoringAlert(id, "Suppressed by analyst from Monitoring Center."),
-    onSuccess: async () => { setActionError(null); await queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] }); },
-    onError: () => setActionError("The alert suppression could not be changed. Check your role and try again."),
-  });
+  const overviewVisible = tab === "server" || tab === "services";
 
   return (
     <>
@@ -94,7 +86,6 @@ export function MonitoringCenterPage(): JSX.Element {
       {overviewVisible && overview.error ? (
         <ErrorBlock message={overview.error} onRetry={() => void overview.refetch()} />
       ) : null}
-      {tab === "alerts" && actionError ? <div className="mb-4 rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100" role="alert">{actionError}</div> : null}
       {overviewVisible && !overview.isLoading && !overview.error && data ? (
         <div className="space-y-5">
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
@@ -176,25 +167,6 @@ export function MonitoringCenterPage(): JSX.Element {
             ) : <div className="mt-3"><EmptyBlock message="No accessible investigations are available to watch." /></div>}
           </section> : null}
 
-          {tab === "alerts" ? <section className="grid gap-5 xl:grid-cols-2">
-            <div>
-              <h2 className="mb-3 text-lg font-semibold">Alerts ({safeNumber(data.alerts?.total)})</h2>
-              {alerts.length ? <div className="space-y-2">{alerts.map((alert) => (
-                <div key={safeString(alert.key, alert.title)} className="min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-                  <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="font-medium hover:text-raven-cyan">{safeString(alert.title, "Monitoring alert")}</Link><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(alert.severity, "info")}</span>{alert.suppressed ? <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-100">{alert.suppressed_due_to_maintenance ? "Suppressed · maintenance" : "Suppressed"}</span> : null}</div><p className="mt-1 break-words text-sm text-raven-muted">{safeString(alert.message, "Review local telemetry.")}</p><p className="mt-1 text-xs text-raven-muted">Source {safeString(alert.source, alert.category)} · {safeDate(alert.observed_at)?.toLocaleString() ?? "time unavailable"}</p>{alert.suppression_reason ? <p className="mt-1 break-words text-xs text-raven-muted">{alert.suppression_reason}</p> : null}<div className="mt-2 flex flex-wrap gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="rounded-md border border-raven-border px-2 py-1 text-xs text-raven-cyan">Open action</Link>{alert.id ? <button type="button" onClick={() => suppression.mutate({ id: alert.id ?? "", suppressed: alert.suppressed })} disabled={suppression.isPending} title={suppression.isPending ? "An alert action is already in progress." : undefined} className="rounded-md border border-raven-border px-2 py-1 text-xs disabled:opacity-50">{alert.suppressed ? "Unsuppress" : "Suppress"}</button> : <span className="text-xs text-raven-muted">Notification limited by cooldown or daily cap.</span>}</div></div></div>
-                </div>
-              ))}</div> : <EmptyBlock title="No active alerts" message="Local services and accessible assets have no derived warning conditions." />}
-            </div>
-            <div>
-              <h2 className="mb-3 text-lg font-semibold">Recent backend errors</h2>
-              {errors.length ? <div className="space-y-2">{errors.map((error, index) => (
-                <div key={`${safeString(error.action, "error")}-${index}`} className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-                  <p className="font-medium">{safeString(error.action, "Recorded backend error")}</p>
-                  <p className="mt-1 text-xs text-raven-muted">{safeString(error.category, "system")} · {safeDate(error.occurred_at)?.toLocaleString() ?? "time unavailable"}</p>
-                </div>
-              ))}</div> : <EmptyBlock title="No recent errors" message="No accessible sanitized backend error events were found." />}
-            </div>
-          </section> : null}
         </div>
       ) : null}
       {tab === "lan" ? <LanMonitoringPanel /> : null}
@@ -203,6 +175,7 @@ export function MonitoringCenterPage(): JSX.Element {
       {tab === "changes" ? <MonitoringChangeTimelinePanel /> : null}
       {tab === "policies" ? <MonitoringPolicyPanel /> : null}
       {tab === "maintenance" ? <MonitoringPolicyPanel windows /> : null}
+      {tab === "alerts" ? <MonitoringTriagePanel /> : null}
     </>
   );
 }

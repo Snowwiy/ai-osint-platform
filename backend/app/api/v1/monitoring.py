@@ -65,6 +65,16 @@ from app.schemas.monitoring_history import (
     MonitoringChangeOverviewResponse,
     ServiceHistoryListResponse,
 )
+from app.schemas.monitoring_triage import (
+    MonitoringTriageAssign,
+    MonitoringTriageItem,
+    MonitoringTriageListResponse,
+    MonitoringTriageMute,
+    MonitoringTriageResolution,
+    MonitoringTriageUpdate,
+    TriageSeverity,
+    TriageStatus,
+)
 from app.services.monitoring_policy import (
     AlertNotFoundError,
     AlertSuppressionConflictError,
@@ -91,6 +101,18 @@ from app.services.monitoring_history import (
     changes_overview,
     list_changes,
     service_history,
+)
+from app.services.monitoring_triage import (
+    MonitoringTriageConflictError,
+    MonitoringTriageNotFoundError,
+    MonitoringTriageOwnerNotFoundError,
+    MonitoringTriageValidationError,
+    assign_triage,
+    false_positive_triage,
+    list_triage,
+    mute_triage,
+    resolve_triage,
+    update_triage,
 )
 from app.services.local_monitoring import (
     get_asset_watch,
@@ -130,6 +152,80 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@router.get("/triage", response_model=MonitoringTriageListResponse)
+async def monitoring_triage_endpoint(
+    triage_status: TriageStatus | None = Query(default=None, alias="status"),
+    severity: TriageSeverity | None = None,
+    source: str | None = Query(default=None, min_length=1, max_length=80),
+    asset_id: uuid.UUID | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageListResponse:
+    return await _safe_triage_call(
+        list_triage,
+        db,
+        current_user,
+        status=triage_status,
+        severity=severity,
+        source=source,
+        asset_id=asset_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.patch("/triage/{alert_id}", response_model=MonitoringTriageItem)
+async def monitoring_triage_update_endpoint(
+    alert_id: uuid.UUID,
+    body: MonitoringTriageUpdate,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageItem:
+    return await _safe_triage_call(update_triage, db, current_user, alert_id, body)
+
+
+@router.post("/triage/{alert_id}/assign", response_model=MonitoringTriageItem)
+async def monitoring_triage_assign_endpoint(
+    alert_id: uuid.UUID,
+    body: MonitoringTriageAssign,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageItem:
+    return await _safe_triage_call(assign_triage, db, current_user, alert_id, body)
+
+
+@router.post("/triage/{alert_id}/resolve", response_model=MonitoringTriageItem)
+async def monitoring_triage_resolve_endpoint(
+    alert_id: uuid.UUID,
+    body: MonitoringTriageResolution,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageItem:
+    return await _safe_triage_call(resolve_triage, db, current_user, alert_id, body)
+
+
+@router.post("/triage/{alert_id}/false-positive", response_model=MonitoringTriageItem)
+async def monitoring_triage_false_positive_endpoint(
+    alert_id: uuid.UUID,
+    body: MonitoringTriageResolution,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageItem:
+    return await _safe_triage_call(false_positive_triage, db, current_user, alert_id, body)
+
+
+@router.post("/triage/{alert_id}/mute", response_model=MonitoringTriageItem)
+async def monitoring_triage_mute_endpoint(
+    alert_id: uuid.UUID,
+    body: MonitoringTriageMute,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringTriageItem:
+    return await _safe_triage_call(mute_triage, db, current_user, alert_id, body)
 
 
 @router.get("/changes", response_model=MonitoringChangeListResponse)
@@ -696,4 +792,26 @@ async def _safe_history_call(
         raise
     except Exception as exc:
         logger.exception("monitoring.history operation failed")
+        raise _monitoring_unavailable() from exc
+
+
+async def _safe_triage_call(
+    function: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any
+) -> Any:
+    try:
+        return await function(*args, **kwargs)
+    except MonitoringTriageNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Monitoring alert not found.") from exc
+    except MonitoringTriageOwnerNotFoundError as exc:
+        raise HTTPException(status_code=422, detail="The selected owner is not active.") from exc
+    except MonitoringTriageValidationError as exc:
+        raise HTTPException(status_code=422, detail="That triage transition requires more information.") from exc
+    except MonitoringTriageConflictError as exc:
+        raise HTTPException(status_code=409, detail="The alert is already in that lifecycle state.") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail="You are not allowed to perform that triage action.") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("monitoring.triage operation failed")
         raise _monitoring_unavailable() from exc

@@ -156,3 +156,16 @@ endpoint telemetry, authorization state, and analyst-reviewed high/critical
 findings. It supports remediation ownership, due dates, and status transitions
 without performing network discovery or exploit validation. See
 [VULNERABILITY_BASELINE.md](VULNERABILITY_BASELINE.md).
+
+## Phase 5AD alert triage
+
+The Monitoring Center **Alerts** tab is a user-scoped incident queue backed by
+the existing internal monitoring notifications. Operators can filter by
+status, severity, or source; self-assign; record safe notes; investigate; mute
+or unmute; resolve; or mark an item false positive. These actions preserve the
+source notification and dedupe history rather than deleting evidence.
+
+Mute uses the existing alert-suppression lifecycle. Maintenance suppression is
+shown separately and collection continues during every suppression. Critical
+alerts can be muted only by an administrator. Recovered conditions are retired
+automatically. Notes must never contain credentials, tokens, keys, or secrets.

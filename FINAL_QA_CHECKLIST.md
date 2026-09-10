@@ -196,3 +196,17 @@ check blocks the current release-freeze commit and push.
       suppressions, and maintenance windows.
 - [ ] Change Timeline and asset history views render useful loading, empty,
       error, filtering, and acknowledgement states without horizontal overflow.
+
+## Phase 5AD alert triage and overlays
+
+- [ ] Triage is user-scoped and supports status, severity, source, and asset
+      filters with bounded pagination.
+- [ ] Assignment, investigate, mute/unmute, resolve, and false-positive actions
+      return clean errors and write audit events without secrets.
+- [ ] Maintenance suppression remains distinct from manual mute; monitoring and
+      notification history continue unchanged.
+- [ ] Analysts cannot mute critical alerts or assign another user.
+- [ ] Activity Inbox overlays page/sidebar content, scrolls independently, and
+      closes on outside click or Escape without clipping at small dimensions.
+- [ ] Alerts show useful loading, empty, retry, action, and disabled states with
+      no raw endpoint errors, crash screen, or horizontal overflow.

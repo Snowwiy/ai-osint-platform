@@ -158,3 +158,11 @@ changes. History never stores raw banners, passwords, tokens, credentials, or
 commands. It does not expand scope: public scanning, brute force,
 authentication, exploitation, and intrusive vulnerability tests remain
 prohibited.
+
+## Phase 5AD triage links
+
+LAN risk notifications now enter the preserved alert triage queue. When a
+notification identifies an asset, its triage card carries only the asset ID and
+sanitized context. Assignment, mute, resolution, and false-positive decisions
+do not initiate discovery or service checks and do not delete notification or
+LAN history.

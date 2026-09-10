@@ -368,3 +368,16 @@ History is derived only from configured local observations and authorized TCP
 checks. It stores no raw sensitive banners or credentials and introduces no
 public scanning, exploitation, brute force, hosting, deployment, DNS, or
 Supabase work. Version remains `5.0.0-rc2`.
+
+## Phase 5AD alert triage
+
+Monitoring alerts now have a lightweight, user-scoped incident queue with
+new, triaged, investigating, muted, resolved, and false-positive states. It
+supports ownership, safe notes, resolution summaries, filters, related-record
+links, and audited actions while preserving Activity Inbox notifications and
+dedupe behavior. Cooldowns, suppressions, and maintenance windows still apply.
+
+The Activity Inbox is now a viewport overlay with bounded scrolling,
+responsive placement, outside-click dismissal, and Escape handling. This phase
+adds no public scanning, exploitation, brute force, credential testing,
+hosting, deployment, DNS, or Supabase changes. Version remains `5.0.0-rc2`.

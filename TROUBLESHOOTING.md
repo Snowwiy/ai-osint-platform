@@ -330,3 +330,20 @@ External and protocol-relative action URLs are intentionally rejected.
 - Recon warnings use `provider_timeout`, `provider_http_error`, and
   `provider_parse_error`. Retry is safe; provider failures do not delete valid
   entities already stored, and raw endpoint errors are not shown.
+## Phase 5AD alert triage and Activity Inbox
+
+- If the Activity Inbox is empty, clear triage filters and confirm the alert is
+  an internal `monitoring_alert` for the signed-in user. Resolved and
+  false-positive alerts remain in triage history but leave the unread inbox.
+- A muted alert uses manual suppression; maintenance-suppressed alerts retain a
+  separate badge. Neither state stops monitoring collection. Analysts cannot
+  mute critical alerts; an administrator must explicitly do so.
+- If an action returns a conflict, refresh the queue because another action or
+  automatic recovery may already have moved the alert. Validation errors mean
+  a safe reason or resolution summary is missing or contains secret-like text.
+- The Activity Inbox is a fixed portal with its own bounded scroll region. It
+  should close with Escape or an outside click and must remain within the
+  viewport without competing with sidebar scroll.
+
+Triage adds no network checks or offensive behavior. Hosting, deployment, DNS,
+and Supabase remain unchanged.

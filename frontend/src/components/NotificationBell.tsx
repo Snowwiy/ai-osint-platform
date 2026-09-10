@@ -1,7 +1,8 @@
 import { Bell, CheckCheck, ExternalLink, Inbox, Loader2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -15,6 +16,8 @@ import type { NotificationItem } from "../types";
 
 export function NotificationBell(): JSX.Element {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const notifications = useQuery({
     queryKey: ["notifications", "bell"],
@@ -41,14 +44,36 @@ export function NotificationBell(): JSX.Element {
     mutationFn: markAllNotificationsRead,
     onSuccess: invalidate,
   });
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!panelRef.current?.contains(target) && !buttonRef.current?.contains(target)) setOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, [open]);
 
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-raven-border bg-raven-panelSoft text-raven-muted hover:border-raven-violet hover:text-raven-text"
         aria-label="Open activity inbox"
+        aria-expanded={open}
+        aria-controls="activity-inbox-overlay"
       >
         <Bell className="h-4 w-4" aria-hidden="true" />
         {unread > 0 ? (
@@ -58,25 +83,23 @@ export function NotificationBell(): JSX.Element {
         ) : null}
       </button>
 
-      {open ? (
-        <div className="fixed inset-x-3 top-16 z-30 max-h-[calc(100vh-5rem)] overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(22rem,calc(100vw-1.5rem))]">
+      {open ? createPortal(
+        <div ref={panelRef} id="activity-inbox-overlay" role="dialog" aria-label="Activity Inbox" className="fixed inset-x-3 top-16 z-[100] flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow sm:left-auto sm:right-4 sm:w-[min(22rem,calc(100vw-1.5rem))] lg:bottom-4 lg:left-72 lg:right-auto lg:top-auto lg:max-h-[min(36rem,calc(100dvh-2rem))]">
           <div className="flex items-center justify-between gap-3 border-b border-raven-border px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-raven-text">Activity Inbox</p>
               <p className="text-xs text-raven-muted">{unread} unread alerts</p>
             </div>
-            <button
-              type="button"
-              onClick={() => void markAllMutation.mutate()}
-              disabled={unread === 0 || markAllMutation.isPending}
-              className="inline-flex items-center gap-1 rounded border border-raven-border px-2 py-1 text-xs text-raven-muted hover:border-raven-violet hover:text-raven-text disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />
-              Read all
-            </button>
+            <div className="flex items-center gap-2"><button
+                type="button"
+                onClick={() => void markAllMutation.mutate()}
+                disabled={unread === 0 || markAllMutation.isPending}
+                title={unread === 0 ? "There are no unread alerts." : undefined}
+                className="inline-flex items-center gap-1 rounded border border-raven-border px-2 py-1 text-xs text-raven-muted hover:border-raven-violet hover:text-raven-text disabled:cursor-not-allowed disabled:opacity-50"
+              ><CheckCheck className="h-3.5 w-3.5" aria-hidden="true" />Read all</button><button type="button" onClick={() => setOpen(false)} className="rounded border border-raven-border p-1 text-raven-muted hover:text-raven-text" aria-label="Close activity inbox"><X className="h-4 w-4" /></button></div>
           </div>
 
-          <div className="themed-scrollbar max-h-[min(18rem,calc(100vh-12rem))] overscroll-contain overflow-y-auto p-3">
+          <div className="themed-scrollbar min-h-0 flex-1 overscroll-contain overflow-y-auto p-3">
             {notifications.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-raven-muted">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -99,6 +122,7 @@ export function NotificationBell(): JSX.Element {
                     item={item}
                     onRead={() => readMutation.mutate(item.id)}
                     onDismiss={() => dismissMutation.mutate(item.id)}
+                    onOpen={() => setOpen(false)}
                   />
                 ))}
               </div>
@@ -115,7 +139,7 @@ export function NotificationBell(): JSX.Element {
               Open activity inbox
             </Link>
           </div>
-        </div>
+        </div>, document.body,
       ) : null}
     </div>
   );
@@ -125,10 +149,12 @@ function NotificationPreview({
   item,
   onRead,
   onDismiss,
+  onOpen,
 }: {
   item: NotificationItem;
   onRead: () => void;
   onDismiss: () => void;
+  onOpen: () => void;
 }): JSX.Element {
   return (
     <div className="rounded-md border border-raven-border bg-raven-bg/50 p-3">
@@ -163,6 +189,7 @@ function NotificationPreview({
         {item.action_url ? (
           <Link
             to={safeInternalRoute(item.action_url, "/notifications")}
+            onClick={onOpen}
             className="inline-flex items-center gap-1 rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan hover:border-raven-violet"
           >
             Open

@@ -41,6 +41,7 @@ from app.models.lan_monitoring import (
 from app.models.notification import Notification
 from app.models.monitoring_policy import AlertSuppression, MaintenanceWindow, MonitoringPolicy
 from app.models.monitoring_history import MonitoringChangeEvent, ServiceObservationHistory
+from app.models.monitoring_triage import MonitoringAlertTriage
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -117,6 +118,7 @@ __all__ = [
     "MaintenanceWindow",
     "MonitoringChangeEvent",
     "ServiceObservationHistory",
+    "MonitoringAlertTriage",
     "ReconEntity",
     "ReconRelationship",
     "Report",

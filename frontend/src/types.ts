@@ -3166,6 +3166,28 @@ export interface MaintenanceWindow {
 export interface MaintenanceWindowListResponse { total: number; items: MaintenanceWindow[]; }
 export interface AlertSuppressionResponse { id: string; alert_id: string; source: "manual" | "maintenance"; reason: string; starts_at: string; ends_at: string | null; active: boolean; suppressed_due_to_maintenance: boolean; }
 
+export type MonitoringTriageStatus = "new" | "triaged" | "investigating" | "muted" | "resolved" | "false_positive";
+export interface MonitoringTriageItem {
+  alert_id: string;
+  status: MonitoringTriageStatus;
+  owner_id: string | null;
+  owner_name: string | null;
+  severity: NotificationSeverity;
+  source: string;
+  related_asset_id: string | null;
+  related_finding_id: string | null;
+  title: string;
+  description: string;
+  action_url: string | null;
+  first_seen: string;
+  last_seen: string;
+  notes: string | null;
+  resolution_summary: string | null;
+  suppressed: boolean;
+  suppressed_due_to_maintenance: boolean;
+}
+export interface MonitoringTriageListResponse { total: number; limit: number; offset: number; items: MonitoringTriageItem[]; }
+
 export interface MonitoringRecentError {
   category: string;
   action: string;
