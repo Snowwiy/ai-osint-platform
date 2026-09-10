@@ -33,6 +33,8 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
         "service_check_disabled_reason"
     ]
     assert "LAN_MONITORING_ENABLED=true" in payload["env_lines"]
+    assert "Docker Desktop" in payload["docker_limitation"]
+    assert "not a platform failure" in payload["optional_telemetry_note"]
     serialized = json.dumps(payload).lower()
     assert "lan_agent_token" not in serialized
     assert "rae_" not in serialized

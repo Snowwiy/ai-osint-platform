@@ -67,4 +67,6 @@ async def test_orchestrator_allows_partial_failures(
 
     assert result.status == "partial"
     assert result.errors
+    assert result.entities
+    assert any(entity.value == "example.com" for entity in result.entities)
     assert result.enrichment_id is not None

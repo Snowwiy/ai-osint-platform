@@ -3363,6 +3363,8 @@ export interface MonitoringActivationStatus {
   env_lines: string[];
   restart_commands: string[];
   windows_firewall_note: string;
+  docker_limitation: string;
+  optional_telemetry_note: string;
   agent_setup_steps: string[];
   token_enrollment_steps: string[];
 }

@@ -153,8 +153,9 @@ language, classification markings, and branding require administrator review.
 
 ## Operations
 
-- Health checks can report optional services as degraded while core workflows
-  remain available.
+- Platform health is degraded only when required dependencies fail. Missing
+  optional host-agent telemetry and Docker neighbor visibility are labeled as
+  informational coverage limitations while core workflows remain healthy.
 - Monitoring is local, pull-based, and active only while a client polls the
   authenticated endpoints. It is not an external uptime monitor or durable
   observability system.
@@ -171,9 +172,10 @@ language, classification markings, and branding require administrator review.
   firewalls, sleeping devices, container routing, and the selected interval.
 - Service observations are bounded TCP connectivity indicators only. They do
   not identify versions, prove vulnerability, authenticate, or validate CVEs.
-- The LAN agent uses one operator-managed local shared token and has no remote
-  rotation or fleet-management service. It must be run manually and installs no
-  persistence or autostart.
+- Endpoint enrollment uses administrator-created, hashed, expiring local
+  credentials with optional private-CIDR and enrollment-count limits. It is not
+  a remote fleet-management service: agents run manually and install no
+  persistence, autostart, shell, or command channel.
 - Monitoring alerts are deterministic snapshots with daily per-user
   deduplication in the internal Activity Inbox. They do not send email, SMS,
   push messages, webhooks, or run automated remediation.
@@ -210,3 +212,17 @@ enablement, invite/approval policy, and administrator review.
 The documented local deployment assumes Docker Compose, local environment
 variables, PostgreSQL, Redis, and frontend development commands run from the
 `frontend/` directory.
+
+## Phase 5AG completion boundary
+
+Local Docker Compose is the only validated product mode. LAN discovery and TCP
+service checks remain disabled until explicitly enabled in local configuration,
+and Docker Desktop may not expose host neighbor data. Target service checks
+require an exact match to an existing authorized, monitored private LAN asset;
+they do not resolve or scan public targets.
+
+Recon provider warnings can coexist with valid stored entities. They describe
+partial enrichment availability, not invalid evidence or a confirmed security
+issue. Port observations, SSH hints, and baseline results are advisory risk
+indicators only. Desktop packaging, installers, hosting, deployment, DNS work,
+and Supabase migration remain outside the validated scope.

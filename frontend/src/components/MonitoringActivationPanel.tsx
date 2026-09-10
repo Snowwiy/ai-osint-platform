@@ -26,6 +26,7 @@ export function MonitoringActivationPanel(): JSX.Element {
         <p className="mt-1 text-sm text-raven-muted">Configured TCP ports: {safeArray(data.service_ports).join(", ") || "none"}</p>
         {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} /> : null}
         {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} /> : null}
+        <div className="mt-3 grid gap-2 md:grid-cols-2"><Notice text={data.docker_limitation} /><Notice text={data.optional_telemetry_note} /></div>
       </section>
 
       <section className="grid min-w-0 gap-4 lg:grid-cols-2">

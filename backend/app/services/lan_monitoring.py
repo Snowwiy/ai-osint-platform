@@ -133,6 +133,13 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "If another approved LAN device must reach the backend, allow inbound TCP 8000 "
             "only from the configured private CIDR in Windows Defender Firewall."
         ),
+        docker_limitation=(
+            "Docker Desktop may not expose the host neighbor table to the backend. "
+            "Use approved static/router observations or the optional endpoint agent."
+        ),
+        optional_telemetry_note=(
+            "Missing endpoint-agent telemetry is an optional coverage gap, not a platform failure."
+        ),
         agent_setup_steps=[
             "Create a short-lived enrollment token as an administrator.",
             "Run the supplied Windows PowerShell or Linux Python helper manually.",

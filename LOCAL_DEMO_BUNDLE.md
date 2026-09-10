@@ -89,7 +89,7 @@ curl.exe http://localhost:8000/api/v1/release
 ```
 
 The expected release is `5.0.0-rc2`, with migration head
-`0030_phase5z_base` and `status: ok` for health and readiness.
+`0035_phase5ae_agents` and `status: ok` for health and readiness.
 
 ## Generate Demo Reports
 
@@ -153,3 +153,18 @@ Use `FINAL_QA_CHECKLIST.md` for the full acceptance gate and
   LAN reachability checks are bounded and disabled by default; no vulnerability
   scanning, exploitation, crawling, or autonomous offensive actions are included.
 - See `KNOWN_LIMITATIONS.md` for dependency and operational advisories.
+
+## Phase 5AG local monitoring demonstration
+
+Use only synthetic or explicitly authorized private-LAN data. In **Monitoring
+→ Activation**, show that LAN monitoring and service checks are configuration
+gated, review the non-secret `.env` guidance, and explain the Docker neighbor
+limitation. In **Endpoint Agents**, demonstrate command placeholders without
+creating or displaying a real token in recordings. On a target card, contrast
+the recon URL/service entity with the separate TCP observation table and its
+advisory SSH/risk badges.
+
+Partial recon runs should read **Success with partial enrichment warnings**
+when valid entities were stored. Do not expand raw provider JSON unless needed.
+This demo bundle does not include desktop packaging, an installer, hosting,
+deployment, DNS changes, or Supabase migration.

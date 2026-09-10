@@ -473,7 +473,7 @@ function StatusPill({
         classes[status],
       ].join(" ")}
     >
-      {status === "completed_with_warnings" ? "Success with warnings" : status}
+      {status === "completed_with_warnings" ? "Success with partial enrichment warnings" : status}
     </span>
   );
 }
@@ -603,9 +603,13 @@ function TargetServiceCheckPanel({ target, canRun }: { target: Target; canRun: b
     <p className="mt-2 text-xs text-raven-muted">Configured ports: {data.configured_ports.join(", ") || "none"} · last check {data.last_service_check_at ? new Date(data.last_service_check_at).toLocaleString() : "never"}</p>
     {data.target_is_url_service ? <p className="mt-2 text-xs text-raven-cyan">The URL is a recon service entity. The rows below are separate TCP port observations for its matched private LAN asset.</p> : null}
     {run.isError ? <p className="mt-2 text-xs text-rose-100">The manual service check did not run. Review local enablement, authorization, and the cooldown before retrying.</p> : null}
-    {data.observations.length ? <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[640px] text-left text-xs"><thead className="text-raven-muted"><tr><th className="p-2">Port</th><th className="p-2">State</th><th className="p-2">Service guess</th><th className="p-2">Confidence</th><th className="p-2">Observed</th></tr></thead><tbody>{data.observations.map((item) => <tr key={item.id} className="border-t border-raven-border"><td className="p-2 font-mono">{item.port}/{item.protocol}</td><td className="p-2 capitalize">{item.status}</td><td className="p-2">{item.service_label || item.service_name || "Unknown"}{item.non_standard_ssh ? <span className="ml-2 rounded-full border border-amber-300/30 px-2 py-0.5 text-amber-100">Non-standard SSH</span> : item.service_name === "ssh" ? <span className="ml-2 rounded-full border border-raven-cyan/30 px-2 py-0.5 text-raven-cyan">Possible SSH</span> : null}</td><td className="p-2">{item.confidence}%</td><td className="p-2">{new Date(item.observed_at).toLocaleString()}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-xs text-raven-muted">No TCP port observations are stored for this target's matched LAN asset.</p>}
+    {data.observations.length ? <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead className="text-raven-muted"><tr><th className="p-2">Port</th><th className="p-2">State</th><th className="p-2">Service guess</th><th className="p-2">Confidence</th><th className="p-2">Risk</th><th className="p-2">Observed</th></tr></thead><tbody>{data.observations.map((item) => <tr key={item.id} className="border-t border-raven-border"><td className="p-2 font-mono">{item.port}/{item.protocol}</td><td className="p-2 capitalize">{item.status}</td><td className="p-2">{item.service_label || item.service_name || "Unknown"}{item.non_standard_ssh ? <span className="ml-2 rounded-full border border-amber-300/30 px-2 py-0.5 text-amber-100">Non-standard SSH</span> : item.service_name === "ssh" ? <span className="ml-2 rounded-full border border-raven-cyan/30 px-2 py-0.5 text-raven-cyan">Possible SSH</span> : null}</td><td className="p-2">{item.confidence}%</td><td className="p-2">{isRiskyObservation(item.port, item.status, item.non_standard_ssh) ? <span className="rounded-full border border-amber-300/30 px-2 py-0.5 text-amber-100">Advisory indicator</span> : "None"}</td><td className="p-2">{new Date(item.observed_at).toLocaleString()}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-xs text-raven-muted">No TCP port observations are stored for this target's matched LAN asset.</p>}
     <p className="mt-2 text-xs text-raven-muted">Manual, private-LAN, TCP connect only. No login attempts, credentials, brute force, commands, or exploitation.</p>
   </section>;
+}
+
+function isRiskyObservation(port: number, status: string, nonStandardSsh: boolean): boolean {
+  return status === "open" && (nonStandardSsh || [445, 3389, 5432, 6379].includes(port));
 }
 
 function targetPlaceholder(type: TargetType): string {

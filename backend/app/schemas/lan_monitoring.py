@@ -278,6 +278,8 @@ class MonitoringActivationStatus(BaseModel):
     env_lines: list[str]
     restart_commands: list[str]
     windows_firewall_note: str
+    docker_limitation: str
+    optional_telemetry_note: str
     agent_setup_steps: list[str]
     token_enrollment_steps: list[str]
 
