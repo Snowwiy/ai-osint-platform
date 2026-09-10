@@ -227,3 +227,18 @@ check blocks the current release-freeze commit and push.
       prompt securely, stop with Ctrl+C, and configure no persistence.
 - [ ] Overlay, tabs, health, LAN inventory, triage dedupe, and narrow layouts
       retain prior regression coverage.
+
+## Phase 5AF activation and recon UX
+
+- [ ] Activation status shows effective LAN/service flags, allowed private
+      CIDRs, ports, disabled reasons, safe `.env` lines, and restart guidance.
+- [ ] Activation and command-builder output contains no token or secret; the UI
+      never edits `.env` and firewall guidance scopes TCP 8000 privately.
+- [ ] Target eligibility requires an exact existing authorized private-LAN
+      asset match; analysts may read status and only admins may execute checks.
+- [ ] URL recon services remain visually separate from TCP port observations,
+      including status, service guess, confidence, and SSH badges.
+- [ ] Partial enrichment warnings say stored results are valid and retry is
+      safe; provider codes include timeout, HTTP, parse, and connectivity.
+- [ ] Monitoring tabs, cards, tables, modals, and buttons remain unclipped and
+      avoid raw endpoint errors or React crash screens at narrow widths.

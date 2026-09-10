@@ -11,6 +11,8 @@ def provider_error_code(exc: Exception) -> str:
         return "provider_timeout"
     if isinstance(exc, json.JSONDecodeError):
         return "provider_parse_error"
-    if isinstance(exc, (httpx.HTTPStatusError, httpx.RequestError)):
+    if isinstance(exc, httpx.HTTPStatusError):
         return "provider_http_error"
+    if isinstance(exc, httpx.RequestError):
+        return "provider_connectivity_error"
     return "provider_error"

@@ -1,4 +1,4 @@
-import { ChevronDown, PlayCircle } from "lucide-react";
+import { ChevronDown, PlayCircle, ShieldCheck } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -10,10 +10,13 @@ import {
   checkEngagementScope,
   createTarget,
   getInvestigation,
+  getTargetServiceCheck,
   listTargets,
   runPassiveRecon,
+  runTargetServiceCheck,
 } from "../lib/api";
 import { useInvestigationId } from "../lib/hooks";
+import { useAuth } from "../lib/useAuth";
 import type {
   NormalizedEntity,
   ReconError,
@@ -32,6 +35,7 @@ interface ReconState {
 }
 
 export function TargetsPage(): JSX.Element {
+  const { user } = useAuth();
   const investigationId = useInvestigationId();
   const queryClient = useQueryClient();
   const [targetType, setTargetType] = useState<TargetType>("domain");
@@ -326,6 +330,7 @@ export function TargetsPage(): JSX.Element {
                     <div className="mt-4">
                       {result ? <ReconResultPanel result={result} /> : null}
                     </div>
+                    <TargetServiceCheckPanel target={target} canRun={user?.role === "admin"} />
                   </article>
                 );
               })}
@@ -360,6 +365,7 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
   const entities = uniqueEntities(response.entities);
   const grouped = groupEntities(entities);
   const errors = uniqueErrors(response.errors);
+  const warningGroups = groupProviderErrors(errors);
   const hasStoredData = entities.length > 0 || response.relationships.length > 0;
   const status = reconDisplayStatus(response);
   const summary = reconSummary(response, hasStoredData, errors.length);
@@ -379,25 +385,26 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
       {errors.length ? (
         <details className="mt-3 rounded-md border border-amber-300/30 bg-amber-400/10">
           <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm text-amber-100">
-            <span>Partial source failures ({errors.length})</span>
+            <span>Partial enrichment warnings ({warningGroups.length} provider{warningGroups.length === 1 ? "" : "s"})</span>
             <span className="text-xs text-amber-100/70">Open details</span>
           </summary>
           <div className="border-t border-amber-300/20 px-3 py-3">
+            <p className="mb-3 text-sm text-emerald-100">Stored results are valid. Retry is safe; provider failures did not remove saved entities.</p>
             <div className="flex flex-wrap gap-2">
-              {errors.map((error) => (
+              {warningGroups.map((group) => (
                 <span
-                  key={`${error.source}-${error.message}`}
+                  key={group.source}
                   className="rounded border border-amber-300/30 px-2 py-1 text-xs text-amber-100"
                 >
-                  {providerLabel(error.source)}
+                  {providerLabel(group.source)} · {group.errors.length}
                 </span>
               ))}
             </div>
             <ul className="mt-3 space-y-2 text-sm text-amber-100/85">
-              {errors.map((error) => (
-                <li key={`${error.source}-${error.message}`}>
-                  <span className="font-medium">{providerLabel(error.source)}:</span>{" "}
-                  {friendlyErrorMessage(error)}
+              {warningGroups.map((group) => (
+                <li key={group.source}>
+                  <span className="font-medium">{providerLabel(group.source)}:</span>{" "}
+                  {group.errors.map(friendlyErrorMessage).join(" ")}
                 </li>
               ))}
             </ul>
@@ -438,7 +445,7 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
       <details className="mt-3">
         <summary className="flex cursor-pointer items-center gap-2 text-sm text-raven-cyan">
           <ChevronDown className="h-4 w-4" aria-hidden="true" />
-          Raw JSON
+          Raw provider JSON (optional)
         </summary>
         <pre className="mt-3 max-h-96 overflow-auto rounded-md bg-raven-bg p-3 text-xs text-raven-muted">
           {JSON.stringify(response, null, 2)}
@@ -466,7 +473,7 @@ function StatusPill({
         classes[status],
       ].join(" ")}
     >
-      {status}
+      {status === "completed_with_warnings" ? "Success with warnings" : status}
     </span>
   );
 }
@@ -495,10 +502,10 @@ function reconSummary(
     return "Passive recon completed and stored normalized entities.";
   }
   if (hasStoredData && response.target_type === "ip") {
-    return "IP recon stored valid entities, but some enrichment providers failed.";
+    return "IP recon stored valid entities. Partial enrichment warnings are informational, and retry is safe.";
   }
   if (hasStoredData) {
-    return "Recon stored valid entities, with warnings from some passive sources.";
+    return "Stored results are valid. Some passive enrichment providers returned warnings; retry is safe.";
   }
   return "Recon did not store entities because all required passive sources failed.";
 }
@@ -558,8 +565,9 @@ function providerLabel(source: string): string {
 function friendlyErrorMessage(error: ReconError): string {
   const raw = error.message || "Provider did not return data.";
   if (raw === "provider_timeout") return "Provider timed out; retry is safe and stored results were preserved.";
-  if (raw === "provider_http_error") return "Provider returned an HTTP or connectivity error.";
+  if (raw === "provider_http_error") return "Provider returned an HTTP error; stored results were preserved.";
   if (raw === "provider_parse_error") return "Provider returned an unreadable response.";
+  if (raw === "provider_connectivity_error") return "Provider could not be reached; retry is safe and stored results were preserved.";
   if (raw === "provider_error") return "Provider failed without exposing internal details.";
   if (raw.includes("timed out") || raw.toLowerCase().includes("timeout")) {
     return "Request timed out.";
@@ -568,6 +576,36 @@ function friendlyErrorMessage(error: ReconError): string {
     return "Provider returned an HTTP error.";
   }
   return raw;
+}
+
+function groupProviderErrors(errors: ReconError[]): Array<{ source: string; errors: ReconError[] }> {
+  const groups = new Map<string, ReconError[]>();
+  for (const error of errors) groups.set(error.source, [...(groups.get(error.source) ?? []), error]);
+  return Array.from(groups, ([source, items]) => ({ source, errors: items }));
+}
+
+function TargetServiceCheckPanel({ target, canRun }: { target: Target; canRun: boolean }): JSX.Element {
+  const status = useQuery({
+    queryKey: ["target-service-check", target.id],
+    queryFn: () => getTargetServiceCheck(target.id),
+    retry: 1,
+  });
+  const run = useMutation({
+    mutationFn: () => runTargetServiceCheck(target.id),
+    onSuccess: async () => status.refetch(),
+  });
+  if (status.isLoading) return <p className="mt-4 text-xs text-raven-muted">Checking local TCP service-check eligibility…</p>;
+  if (status.error || !status.data) return <p className="mt-4 text-xs text-raven-muted">Local service-check eligibility is temporarily unavailable.</p>;
+  const data = status.data;
+  const disabledReason = !canRun ? "Administrator access is required to run a manual TCP service check." : !data.eligible ? data.reason : run.isPending ? "This manual service check is already running." : "Run one rate-limited TCP connect check against configured ports.";
+  return <section className="mt-4 min-w-0 rounded-md border border-raven-border bg-raven-bg/30 p-3">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><ShieldCheck className="h-4 w-4 text-raven-cyan" /><h3 className="text-sm font-medium">Authorized LAN port observations</h3>{data.eligible ? <span className="rounded-full border border-emerald-400/30 px-2 py-0.5 text-xs text-emerald-100">Eligible</span> : <span className="rounded-full border border-raven-border px-2 py-0.5 text-xs text-raven-muted">Not eligible</span>}</div><p className="mt-1 text-xs text-raven-muted">{data.reason}</p></div><button type="button" disabled={!canRun || !data.eligible || run.isPending} title={disabledReason} onClick={() => run.mutate()} className="rounded border border-raven-border px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">{run.isPending ? "Checking configured ports" : "Run TCP service check"}</button></div>
+    <p className="mt-2 text-xs text-raven-muted">Configured ports: {data.configured_ports.join(", ") || "none"} · last check {data.last_service_check_at ? new Date(data.last_service_check_at).toLocaleString() : "never"}</p>
+    {data.target_is_url_service ? <p className="mt-2 text-xs text-raven-cyan">The URL is a recon service entity. The rows below are separate TCP port observations for its matched private LAN asset.</p> : null}
+    {run.isError ? <p className="mt-2 text-xs text-rose-100">The manual service check did not run. Review local enablement, authorization, and the cooldown before retrying.</p> : null}
+    {data.observations.length ? <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[640px] text-left text-xs"><thead className="text-raven-muted"><tr><th className="p-2">Port</th><th className="p-2">State</th><th className="p-2">Service guess</th><th className="p-2">Confidence</th><th className="p-2">Observed</th></tr></thead><tbody>{data.observations.map((item) => <tr key={item.id} className="border-t border-raven-border"><td className="p-2 font-mono">{item.port}/{item.protocol}</td><td className="p-2 capitalize">{item.status}</td><td className="p-2">{item.service_label || item.service_name || "Unknown"}{item.non_standard_ssh ? <span className="ml-2 rounded-full border border-amber-300/30 px-2 py-0.5 text-amber-100">Non-standard SSH</span> : item.service_name === "ssh" ? <span className="ml-2 rounded-full border border-raven-cyan/30 px-2 py-0.5 text-raven-cyan">Possible SSH</span> : null}</td><td className="p-2">{item.confidence}%</td><td className="p-2">{new Date(item.observed_at).toLocaleString()}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-xs text-raven-muted">No TCP port observations are stored for this target's matched LAN asset.</p>}
+    <p className="mt-2 text-xs text-raven-muted">Manual, private-LAN, TCP connect only. No login attempts, credentials, brute force, commands, or exploitation.</p>
+  </section>;
 }
 
 function targetPlaceholder(type: TargetType): string {

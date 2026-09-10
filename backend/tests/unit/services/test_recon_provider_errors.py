@@ -25,3 +25,7 @@ def test_provider_failures_have_stable_sanitized_codes() -> None:
         provider_error_code(json.JSONDecodeError("invalid", "not-json", 0))
         == "provider_parse_error"
     )
+    assert (
+        provider_error_code(httpx.ConnectError("offline", request=request))
+        == "provider_connectivity_error"
+    )

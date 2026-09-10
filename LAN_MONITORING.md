@@ -179,3 +179,21 @@ observed open and observed open ports outside the allowed set are risk
 indicators only. Existing non-standard SSH, database, Redis, SMB, RDP, and
 authorization indicators remain based solely on stored observations; creating
 a baseline never opens a socket or runs a scan.
+
+## Phase 5AF activation and target checks
+
+Use **Monitoring → Activation** to inspect effective LAN/service-check flags,
+private allowlists, configured ports, disabled reasons, local restart commands,
+and endpoint enrollment steps. Enabling remains an explicit local `.env` edit;
+the application does not mutate configuration.
+
+Authorized domain and URL targets become service-check eligible only when their
+hostname exactly matches an existing authorized, monitored private-LAN asset.
+Authorized IP targets require the same exact private asset match. No DNS lookup
+is added for eligibility and public targets are never checked. Execution is a
+manual, administrator-only reuse of the rate-limited TCP-connect engine.
+
+A URL such as `https://host/path` is a recon service target. An observation
+such as `443/tcp open` is separate historical evidence about the matched LAN
+asset. The target page labels these separately and shows open, closed, timeout,
+service guess, confidence, and possible/non-standard SSH state.

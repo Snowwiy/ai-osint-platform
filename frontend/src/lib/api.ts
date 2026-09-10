@@ -88,6 +88,8 @@ import type {
   VulnerabilityBaselineStatus,
   LanServiceListResponse,
   LanServiceCheckResponse,
+  MonitoringActivationStatus,
+  TargetServiceCheckStatus,
   AssetMonitoringHistory,
   MonitoringChangeListResponse,
   MonitoringChangeOverview,
@@ -1207,6 +1209,18 @@ export async function listLanServices(assetId: string): Promise<LanServiceListRe
 
 export async function runLanServiceCheck(assetId: string): Promise<LanServiceCheckResponse> {
   return request<LanServiceCheckResponse>(`/monitoring/lan/assets/${assetId}/service-check`, { method: "POST" });
+}
+
+export async function getMonitoringActivation(): Promise<MonitoringActivationStatus> {
+  return request<MonitoringActivationStatus>("/monitoring/activation");
+}
+
+export async function getTargetServiceCheck(targetId: string): Promise<TargetServiceCheckStatus> {
+  return request<TargetServiceCheckStatus>(`/monitoring/targets/${targetId}/service-check`);
+}
+
+export async function runTargetServiceCheck(targetId: string): Promise<LanServiceCheckResponse> {
+  return request<LanServiceCheckResponse>(`/monitoring/targets/${targetId}/service-check`, { method: "POST" });
 }
 
 export async function listMonitoringChanges(filters: {

@@ -394,3 +394,17 @@ Baseline results are defensive risk indicators derived from stored authorized
 observations. Phase 5AE adds no public scanning, exploitation, brute force,
 credential testing, hosting, deployment, DNS, or Supabase changes. Version
 remains `5.0.0-rc2`.
+
+## Phase 5AF monitoring activation
+
+The Monitoring Center now includes a read-only local activation guide for LAN
+monitoring and authorized TCP service checks, plus a safe Windows/Linux agent
+command builder. Target cards show whether they exactly match an authorized
+private LAN asset and display port observations separately from URL recon
+service entities. Partial recon enrichment now groups provider warnings and
+keeps stored results prominent with safe retry guidance.
+
+Activation requires an explicit local `.env` edit and Docker restart. No public
+scanning, DNS expansion, exploitation, brute force, credential collection,
+remote commands, hosting, deployment, or Supabase changes were added. Version
+remains `5.0.0-rc2`.

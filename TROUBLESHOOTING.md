@@ -360,3 +360,19 @@ and Supabase remain unchanged.
   existing authorized service observations; baseline creation does not scan.
 - Replace `BACKEND_HOST` with localhost or an approved private IP. Stop either
   helper with `Ctrl+C`; never paste tokens into command arguments or logs.
+
+## Phase 5AF activation and target eligibility
+
+- If discovery is disabled, open **Monitoring → Activation** and confirm
+  `LAN_MONITORING_ENABLED`, then recreate the local backend/worker containers.
+- If a service-check button is disabled, confirm
+  `LAN_SERVICE_CHECK_ENABLED=true`, the target exactly matches an existing
+  private LAN asset, and that asset is authorized with monitoring enabled.
+- Target eligibility does not resolve public DNS names. Add an approved
+  private asset observation or endpoint agent with the matching hostname.
+- For Windows endpoint access, scope an inbound TCP 8000 firewall rule to the
+  configured RFC1918 CIDR only. For example, from elevated PowerShell use
+  `New-NetFirewallRule -DisplayName "RavenTech local agent" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress 192.168.0.0/24 -Action Allow`
+  after replacing the example CIDR. Do not expose the backend publicly.
+- A partial enrichment warning does not invalidate stored entities. Expand the
+  compact provider list, retain the successful result, and retry safely later.

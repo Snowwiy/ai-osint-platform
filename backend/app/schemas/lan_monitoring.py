@@ -268,6 +268,33 @@ class LanOpenPortsResponse(BaseModel):
     items: list[LanServiceResponse]
 
 
+class MonitoringActivationStatus(BaseModel):
+    lan_monitoring_enabled: bool
+    service_check_enabled: bool
+    allowed_cidrs: list[str]
+    service_ports: list[int]
+    discovery_disabled_reason: str | None
+    service_check_disabled_reason: str | None
+    env_lines: list[str]
+    restart_commands: list[str]
+    windows_firewall_note: str
+    agent_setup_steps: list[str]
+    token_enrollment_steps: list[str]
+
+
+class TargetServiceCheckStatus(BaseModel):
+    target_id: uuid.UUID
+    target_type: str
+    target_is_url_service: bool
+    eligible: bool
+    reason: str
+    lan_asset_id: uuid.UUID | None = None
+    ip_address: str | None = None
+    configured_ports: list[int]
+    last_service_check_at: datetime | None = None
+    observations: list[LanServiceResponse] = Field(default_factory=list)
+
+
 class LanDiscoveryResponse(BaseModel):
     enabled: bool
     cidr: str

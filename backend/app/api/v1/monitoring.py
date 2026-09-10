@@ -26,6 +26,8 @@ from app.schemas.lan_monitoring import (
     LanServiceCheckResponse,
     LanServiceListResponse,
     LanTelemetryListResponse,
+    MonitoringActivationStatus,
+    TargetServiceCheckStatus,
 )
 from app.schemas.agent_management import (
     AgentInventoryItem,
@@ -150,6 +152,8 @@ from app.services.monitoring_triage import (
     resolve_triage,
     update_triage,
 )
+from app.services.investigation import InvestigationNotFoundError
+from app.services.target import TargetNotFoundError, get_target
 from app.services.local_monitoring import (
     get_asset_watch,
     get_monitoring_alerts,
@@ -165,8 +169,11 @@ from app.services.lan_monitoring import (
     LanMonitoringDisabledError,
     LanServiceCheckDisabledError,
     check_asset_services,
+    check_target_services,
     discover_lan,
     get_lan_asset,
+    get_monitoring_activation,
+    get_target_service_check_status,
     ingest_agent_telemetry as ingest_lan_agent_telemetry,
     list_asset_services,
     list_asset_telemetry,
@@ -188,6 +195,13 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@router.get("/activation", response_model=MonitoringActivationStatus)
+async def monitoring_activation_endpoint(
+    _current_user: User = Depends(require_role("admin", "analyst")),
+) -> MonitoringActivationStatus:
+    return get_monitoring_activation()
 
 
 @router.get("/triage", response_model=MonitoringTriageListResponse)
@@ -816,6 +830,30 @@ async def lan_asset_service_check_endpoint(
     return await _safe_lan_call(check_asset_services, db, current_user, asset_id)
 
 
+@router.get(
+    "/targets/{target_id}/service-check", response_model=TargetServiceCheckStatus
+)
+async def target_service_check_status_endpoint(
+    target_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> TargetServiceCheckStatus:
+    target = await _monitoring_target(db, current_user, target_id)
+    return await _safe_lan_call(get_target_service_check_status, db, target)
+
+
+@router.post(
+    "/targets/{target_id}/service-check", response_model=LanServiceCheckResponse
+)
+async def target_service_check_endpoint(
+    target_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> LanServiceCheckResponse:
+    target = await _monitoring_target(db, current_user, target_id)
+    return await _safe_lan_call(check_target_services, db, current_user, target)
+
+
 @router.get("/services/open-ports", response_model=LanOpenPortsResponse)
 async def monitoring_open_ports_endpoint(
     limit: int = Query(default=500, ge=1, le=500),
@@ -918,6 +956,15 @@ def _monitoring_unavailable() -> HTTPException:
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Monitoring data is temporarily unavailable.",
     )
+
+
+async def _monitoring_target(
+    db: AsyncSession, user: User, target_id: uuid.UUID
+) -> Any:
+    try:
+        return await get_target(db, user, target_id)
+    except (TargetNotFoundError, InvestigationNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Target not found.") from exc
 
 
 async def _safe_lan_call(function: Callable[..., Awaitable[Any]], *args: Any) -> Any:

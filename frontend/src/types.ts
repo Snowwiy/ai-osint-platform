@@ -3353,6 +3353,33 @@ export interface LanServiceCheckResponse {
   message: string;
 }
 
+export interface MonitoringActivationStatus {
+  lan_monitoring_enabled: boolean;
+  service_check_enabled: boolean;
+  allowed_cidrs: string[];
+  service_ports: number[];
+  discovery_disabled_reason: string | null;
+  service_check_disabled_reason: string | null;
+  env_lines: string[];
+  restart_commands: string[];
+  windows_firewall_note: string;
+  agent_setup_steps: string[];
+  token_enrollment_steps: string[];
+}
+
+export interface TargetServiceCheckStatus {
+  target_id: string;
+  target_type: string;
+  target_is_url_service: boolean;
+  eligible: boolean;
+  reason: string;
+  lan_asset_id: string | null;
+  ip_address: string | null;
+  configured_ports: number[];
+  last_service_check_at: string | null;
+  observations: LanServiceObservation[];
+}
+
 export interface LanServiceListResponse {
   total: number;
   service_checks_enabled: boolean;

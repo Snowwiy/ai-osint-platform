@@ -184,3 +184,27 @@ Linux hosts may run
 `python scripts/local/local_monitor_agent.py --backend-url http://BACKEND_HOST:8000 --interval-seconds 30`.
 Both prompt securely for the token and stop with `Ctrl+C`; neither installs
 autostart or collects files, passwords, browser history, or remote commands.
+
+## Phase 5AF local activation
+
+The Monitoring Center **Activation** tab reads the effective local settings and
+shows the exact non-secret `.env` lines needed to enable LAN monitoring and TCP
+service checks. Review `LAN_ALLOWED_CIDRS` and `LAN_SERVICE_CHECK_PORTS`, save
+the local file, then run `docker compose up -d --force-recreate backend worker`
+and `docker compose ps`. The UI never writes `.env` or reveals an enrollment
+token after its create/rotate response.
+
+When an approved endpoint must reach the backend from Windows, allow inbound
+TCP port 8000 only from the configured private CIDR in Windows Defender
+Firewall. Never create a public or any-source firewall rule. The command
+builder uses a backend URL and interval with an `<ENROLLMENT_TOKEN>` prompt
+placeholder; agents remain manual, non-persistent, and telemetry-only.
+
+From an elevated PowerShell prompt, substitute the actual configured private
+CIDR and use a scoped rule such as:
+
+```powershell
+New-NetFirewallRule -DisplayName "RavenTech local agent" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress 192.168.0.0/24 -Action Allow
+```
+
+Remove or disable that rule when LAN-agent access is no longer required.

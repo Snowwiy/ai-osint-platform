@@ -8,6 +8,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlparse
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.models.audit_log import AuditLog
 from app.models.agent_management import AgentEnrollmentToken
 from app.models.lan_monitoring import LanAsset, LanAssetTelemetry, LanServiceObservation
 from app.models.monitoring_history import MonitoringChangeEvent
+from app.models.target import Target
 from app.models.user import User
 from app.schemas.lan_monitoring import (
     LanAgentRegistration,
@@ -37,6 +39,8 @@ from app.schemas.lan_monitoring import (
     LanServiceCheckResponse,
     LanServiceListResponse,
     LanOpenPortsResponse,
+    MonitoringActivationStatus,
+    TargetServiceCheckStatus,
     LanServiceResponse,
     LanTelemetryListResponse,
     LanTelemetryResponse,
@@ -95,6 +99,53 @@ class LanAssetNotFoundError(Exception):
 
 class LanDiscoveryRateLimitedError(Exception):
     pass
+
+
+def get_monitoring_activation() -> MonitoringActivationStatus:
+    allowed_cidrs = [str(item) for item in configured_networks()]
+    ports = configured_service_ports()
+    return MonitoringActivationStatus(
+        lan_monitoring_enabled=settings.LAN_MONITORING_ENABLED,
+        service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
+        allowed_cidrs=allowed_cidrs,
+        service_ports=ports,
+        discovery_disabled_reason=(
+            None
+            if settings.LAN_MONITORING_ENABLED
+            else "LAN discovery is disabled because LAN_MONITORING_ENABLED is false."
+        ),
+        service_check_disabled_reason=(
+            None
+            if settings.LAN_SERVICE_CHECK_ENABLED
+            else "TCP service checks are disabled because LAN_SERVICE_CHECK_ENABLED is false."
+        ),
+        env_lines=[
+            "LAN_MONITORING_ENABLED=true",
+            "LAN_SERVICE_CHECK_ENABLED=true",
+            f"LAN_ALLOWED_CIDRS={','.join(allowed_cidrs)}",
+            f"LAN_SERVICE_CHECK_PORTS={','.join(str(port) for port in ports)}",
+        ],
+        restart_commands=[
+            "docker compose up -d --force-recreate backend worker",
+            "docker compose ps",
+        ],
+        windows_firewall_note=(
+            "If another approved LAN device must reach the backend, allow inbound TCP 8000 "
+            "only from the configured private CIDR in Windows Defender Firewall."
+        ),
+        agent_setup_steps=[
+            "Create a short-lived enrollment token as an administrator.",
+            "Run the supplied Windows PowerShell or Linux Python helper manually.",
+            "Use the approved private backend URL and a 10-3600 second interval.",
+            "Stop the helper with Ctrl+C; no persistence or remote commands are installed.",
+        ],
+        token_enrollment_steps=[
+            "Copy the token from its one-time creation or rotation reveal.",
+            "Paste it only into the agent's secure prompt, never into a command argument.",
+            "Confirm the endpoint appears in inventory, then close the reveal.",
+            "Revoke or rotate the credential when enrollment is complete.",
+        ],
+    )
 
 
 class LanServiceCheckDisabledError(Exception):
@@ -594,6 +645,107 @@ async def check_asset_services(
         open_ports=sum(item.status == "open" for item in observations),
         message="Authorized TCP connect service check completed without authentication or exploit activity.",
     )
+
+
+async def get_target_service_check_status(
+    db: AsyncSession, target: Target
+) -> TargetServiceCheckStatus:
+    asset = await _target_lan_asset(db, target)
+    ports = configured_service_ports()
+    reason = _target_service_check_reason(asset)
+    observations: list[LanServiceResponse] = []
+    last_check: datetime | None = None
+    if asset is not None:
+        rows = list(
+            (
+                await db.execute(
+                    select(LanServiceObservation)
+                    .where(LanServiceObservation.lan_asset_id == asset.id)
+                    .order_by(LanServiceObservation.observed_at.desc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+        latest_by_port: dict[int, LanServiceObservation] = {}
+        for row in rows:
+            latest_by_port.setdefault(row.port, row)
+        observations = [
+            _service_response(item)
+            for item in sorted(latest_by_port.values(), key=lambda item: item.port)
+        ]
+        last_check = (
+            await db.execute(
+                select(func.max(AuditLog.created_at)).where(
+                    AuditLog.action == "lan.service_check.executed",
+                    AuditLog.resource_id == asset.id,
+                )
+            )
+        ).scalar_one_or_none()
+    return TargetServiceCheckStatus(
+        target_id=target.id,
+        target_type=target.target_type,
+        target_is_url_service=target.target_type == "url",
+        eligible=reason.startswith("Eligible:"),
+        reason=reason,
+        lan_asset_id=asset.id if asset else None,
+        ip_address=asset.ip_address if asset else None,
+        configured_ports=ports,
+        last_service_check_at=last_check,
+        observations=observations,
+    )
+
+
+async def check_target_services(
+    db: AsyncSession, user: User, target: Target
+) -> LanServiceCheckResponse:
+    status = await get_target_service_check_status(db, target)
+    if not status.eligible or status.lan_asset_id is None:
+        raise LanConfigurationError(status.reason)
+    return await check_asset_services(db, user, status.lan_asset_id)
+
+
+async def _target_lan_asset(db: AsyncSession, target: Target) -> LanAsset | None:
+    candidate = target.target_value.strip()
+    if target.target_type == "url":
+        candidate = urlparse(candidate).hostname or ""
+    if target.target_type in {"ip", "url"}:
+        try:
+            address = ipaddress.ip_address(candidate)
+        except ValueError:
+            pass
+        else:
+            if not isinstance(address, ipaddress.IPv4Address) or not any(
+                address in network for network in RFC1918_NETWORKS
+            ):
+                return None
+            return await _asset_by_ip(db, str(address))
+    normalized_host = candidate.rstrip(".").lower()
+    if not normalized_host:
+        return None
+    return (
+        await db.execute(
+            select(LanAsset).where(func.lower(LanAsset.hostname) == normalized_host)
+        )
+    ).scalar_one_or_none()
+
+
+def _target_service_check_reason(asset: LanAsset | None) -> str:
+    if not settings.LAN_MONITORING_ENABLED:
+        return "Ineligible: LAN monitoring is disabled in local configuration."
+    if not settings.LAN_SERVICE_CHECK_ENABLED:
+        return "Ineligible: authorized TCP service checks are disabled in local configuration."
+    if asset is None:
+        return "Ineligible: no existing private LAN asset matches this target IP or hostname."
+    try:
+        validate_allowed_ip(asset.ip_address)
+    except LanConfigurationError:
+        return "Ineligible: the matched asset is outside the configured private LAN allowlist."
+    if not asset.is_authorized:
+        return "Ineligible: the matched LAN asset is not authorized."
+    if not asset.monitoring_enabled:
+        return "Ineligible: monitoring is disabled for the matched LAN asset."
+    return "Eligible: this target maps to an authorized, monitored private LAN asset."
 
 
 def configured_service_ports() -> list[int]:
