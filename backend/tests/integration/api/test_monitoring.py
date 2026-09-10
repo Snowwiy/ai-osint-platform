@@ -65,7 +65,7 @@ async def test_monitoring_overview_and_services_are_safe(
     }
     assert overview.status_code == 200
     body = overview.json()
-    assert body["release_version"] == "5.0.0-rc2"
+    assert body["release_version"] == "5.0.0-rc3"
     assert body["recommended_polling_interval"] in body["polling_interval_options"]
     assert body["system"]["source"] == "container"
     assert body["system"]["metric_scope"] == "backend container"

@@ -66,7 +66,7 @@ Then verify boundaries:
    screenshots. Treat it as compromised even after deletion from the current
    file.
 5. Coordinate any history rewrite separately; it is destructive for
-   collaborators and is not part of the RC2 freeze.
+   collaborators and is not part of the RC3 freeze.
 6. Re-run the complete validation gate and document the incident without
    reproducing the credential.
 

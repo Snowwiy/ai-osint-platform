@@ -59,7 +59,7 @@ backup by default, clears only fixed synthetic records, and reseeds them:
 See `LOCAL_BACKUP_RESTORE.md` before clearing demo data. Do not use demo reset
 against a hosted or production environment.
 
-## Locked RC2 Demo Flow
+## Locked RC3 Demo Flow
 
 Use this order for portfolio and local client-style demonstrations:
 
@@ -85,11 +85,11 @@ Use this order for portfolio and local client-style demonstrations:
 11. **Data Quality:** Show Dry run or scan results and a safe issue transition.
 12. **Audit and governance:** Close with audit events, settings, feature/export
     controls, then open **Monitoring** to show local service health, container
-    telemetry, RBAC-scoped Asset Watch, and `5.0.0-rc2` release metadata.
+    telemetry, RBAC-scoped Asset Watch, and `5.0.0-rc3` release metadata.
 
 Detailed presenter language is in `PORTFOLIO_DEMO_FLOW.md`.
 
-## RC2 Stability Demo Pass
+## RC3 Stability Demo Pass
 
 Before presenting, walk through these quick checks:
 
@@ -105,7 +105,7 @@ Before presenting, walk through these quick checks:
   section scrolls into view without moving the full page horizontally.
 - Open an Activity Inbox action, a Global Search result, and a Data Quality
   issue link and confirm each stays inside the authenticated workspace.
-- Confirm `GET /api/v1/release` shows `5.0.0-rc2` or the explicitly configured
+- Confirm `GET /api/v1/release` shows `5.0.0-rc3` or the explicitly configured
   version.
 - Open Monitoring and confirm service cards, system metrics, alerts, and the
   synthetic investigation load without raw errors. Docker may show unavailable
@@ -149,7 +149,7 @@ They are idempotent and removed by demo clear.
 - **Raw endpoint visible:** Open the expanded technical details only when
   debugging; normal user-facing copy should stay concise.
 
-See `MANUAL_QA_RC2.md` for the locked QA script and `RELEASE_NOTES_RC2.md` for
+See `FINAL_LOCAL_ACCEPTANCE.md` for the locked QA flow and `RELEASE_NOTES_RC3.md` for
 release-candidate scope, validation status, and known limitations.
 
 The currently validated demo runtime is local Docker Compose. Hosting, DNS, and

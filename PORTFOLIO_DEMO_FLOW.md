@@ -1,6 +1,6 @@
 # RavenTech OSINT Portfolio Demo Flow
 
-This locked RC2 walkthrough is designed for a roughly ten-minute interview,
+This locked RC3 walkthrough is designed for a roughly ten-minute interview,
 GitHub, portfolio, or local client-style demonstration. Use only synthetic demo
 data and describe the platform as a locally validated release candidate—not a
 hosted production service.
@@ -101,14 +101,14 @@ Proves: deterministic maintenance, safe metadata, admin permissions.
 ## 12. Audit And Governance
 
 Finish with Audit Log, Admin Settings, feature/export controls, and the release
-or Operations panel. Confirm `5.0.0-rc2`, current migration, and healthy local
+or Operations panel. Confirm `5.0.0-rc3`, current migration, and healthy local
 checks without exposing secrets.
 
 Proves: accountability, configuration boundaries, release validation.
 
 ## Closing Statement
 
-“This RC2 build is validated locally with Docker Compose and a deterministic
+“This RC3 build is validated locally with Docker Compose and a deterministic
 test suite. Hosting, DNS, and production database migration are intentionally
 deferred. The platform excludes active scanning, exploitation, payloads,
 crawling, and autonomous offensive actions.”
@@ -124,4 +124,4 @@ crawling, and autonomous offensive actions.”
 - If a provider is unavailable, demonstrate the fallback rather than changing
   configuration during the walkthrough.
 - Follow `SCREENSHOTS_CHECKLIST.md` for portfolio captures and
-  `MANUAL_QA_RC2.md` before presenting.
+  `FINAL_LOCAL_ACCEPTANCE.md` before presenting.

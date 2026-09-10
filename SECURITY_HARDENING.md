@@ -48,7 +48,7 @@ Production-style operation should use:
 
 - Install Python dependencies from the existing backend manifests and require
   `python -m pip check` to pass. Avoid opportunistic major upgrades during the
-  RC2 freeze.
+  RC3 freeze.
 - Install frontend dependencies from `package-lock.json`. Phase 5V refreshed
   safe in-range transitive packages and retained React Router 6 to avoid an
   unreviewed breaking migration.

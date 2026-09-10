@@ -12,7 +12,7 @@ RegisteredUserRole = Literal["viewer", "analyst"]
 
 class Settings(BaseSettings):
     APP_NAME: str = "RavenTech OSINT"
-    APP_VERSION: str = "5.0.0-rc2"
+    APP_VERSION: str = "5.0.0-rc3"
     APP_RELEASE_CHANNEL: str = Field(
         default="release-candidate",
         validation_alias=AliasChoices("APP_RELEASE_CHANNEL", "RELEASE_CHANNEL"),

@@ -1,6 +1,6 @@
 # Backup And Recovery
 
-> Legacy implementation reference. For the frozen RC2 local PostgreSQL and
+> Legacy implementation reference. For the frozen RC3 local PostgreSQL and
 > report-volume procedures, use `LOCAL_BACKUP_RESTORE.md` at the repository root.
 > Preserve this file as historical design context; do not treat it as the current
 > release runbook.

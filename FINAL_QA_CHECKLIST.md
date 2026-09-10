@@ -11,7 +11,7 @@
 - [ ] Monitoring Center states avoid raw API errors, crash screens, and horizontal overflow.
 - [ ] No secrets, active scanning, hosting, deployment, DNS, or Supabase changes exist.
 
-Version: `5.0.0-rc2`
+Version: `5.0.0-rc3`
 
 Run from the repository root unless a section says otherwise. Complete this
 checklist with synthetic or explicitly authorized data only. A failed required
@@ -26,8 +26,8 @@ check blocks the current release-freeze commit and push.
 - [ ] `docker compose exec backend alembic check`
 - [ ] `curl http://localhost:8000/health` returns `status: ok`.
 - [ ] `curl http://localhost:8000/health/ready` returns `status: ok`.
-- [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc2` and
-      `0030_phase5z_base` without secrets.
+- [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc3` and
+      `0035_phase5ae_agents` without secrets.
 - [ ] From `frontend/`, `npm run build` passes.
 - [ ] `docker compose ps` shows required local services running; backend and
       PostgreSQL are healthy.
@@ -158,9 +158,9 @@ check blocks the current release-freeze commit and push.
 - [ ] `git status` is reviewed before commit.
 - [ ] Commit uses the message required by the current phase.
 - [ ] Push to `origin/dev` succeeds and the working tree is clean/synchronized.
-- [ ] If `v5.0.0-rc2` already exists, verify its target instead of recreating or
+- [ ] If `v5.0.0-rc3` already exists, verify its target instead of recreating or
       moving it blindly; otherwise create it only on the validated package commit.
-- [ ] Push `v5.0.0-rc2` only after the release-package commit reaches
+- [ ] Push `v5.0.0-rc3` only after the release-package commit reaches
       `origin/dev`, then verify the local and remote tag targets match.
 
 ## Phase 5AB monitoring reliability
@@ -242,3 +242,32 @@ check blocks the current release-freeze commit and push.
       safe; provider codes include timeout, HTTP, parse, and connectivity.
 - [ ] Monitoring tabs, cards, tables, modals, and buttons remain unclipped and
       avoid raw endpoint errors or React crash screens at narrow widths.
+
+## RC3 final local acceptance flow
+
+1. [ ] Start the local platform and apply the current migration head.
+2. [ ] Verify `/health`, `/health/ready`, and `/api/v1/release` report healthy RC3.
+3. [ ] Verify registration policy, login, logout, and invalid-login handling.
+4. [ ] Open every main navigation page without raw errors or a crash screen.
+5. [ ] Run authorized passive target recon using synthetic test data.
+6. [ ] Review `completed_with_warnings`: stored results are valid and retry is safe.
+7. [ ] Review TCP service observations separately from recon service entities.
+8. [ ] Open every Monitoring Center tab and verify refresh and empty states.
+9. [ ] Create and revoke an enrollment credential; verify one-time reveal.
+10. [ ] Review advisory vulnerability-baseline indicators and remediation data.
+11. [ ] Review alert triage, dedupe, recovery, suppression, and maintenance state.
+12. [ ] Export a reviewed report as PDF, DOCX, HTML, and Markdown.
+13. [ ] Run a bounded Data Quality scan and review its non-destructive results.
+14. [ ] Verify audit records for exercised actions contain no secrets.
+15. [ ] Confirm no raw errors, stack traces, React crash screen, overflow, or
+        clipped tabs/buttons appear.
+
+## Phase 5AH feature-freeze gate
+
+- [ ] Only RC3 metadata, acceptance documentation, small regression tests, and
+      validation-blocking fixes are present; no new module or migration exists.
+- [ ] Local Docker Compose remains the only validated product mode.
+- [ ] Monitoring remains authorized/local, service checks remain TCP-connect
+      only, and baseline results remain advisory rather than exploit validation.
+- [ ] Desktop packaging, Electron, Tauri, installers, hosting, deployment, DNS,
+      and Supabase migration remain deferred.

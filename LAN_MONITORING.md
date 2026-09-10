@@ -1,5 +1,13 @@
 # Authorized LAN Monitoring
 
+## RC3 freeze boundary
+
+The `5.0.0-rc3` validated mode is local Docker Compose. LAN monitoring and TCP
+service checks remain disabled by default, explicitly authorized, private-range
+limited, manual, rate limited, and bounded by configured ports and timeouts.
+They are connectivity observations only—not public scanning, authentication,
+credential testing, exploitation, or vulnerability validation.
+
 ## Alert policies and planned work
 
 LAN indicators for stale agents, offline and unauthorized assets, risky passively observed services, and weak coverage are governed by Monitoring Center policies. Cooldowns, dedupe keys, severity overrides, enablement, and per-rule caps reduce repeat noise. Maintenance windows may target asset IDs, service/category keys, or all local monitoring; matching alerts are marked and audited rather than deleted.
@@ -35,7 +43,7 @@ LAN_AGENT_MAX_STALE_MINUTES=10
 - ARP/neighbor observations are read only when visible inside the container.
 - ICMP echo checks run only when `LAN_DISCOVERY_PING_ENABLED=true`.
 - Bounded TCP connect checks use only configured ports and run only when both
-  ping discovery and `LAN_SERVICE_CHECK_ENABLED=true` are enabled. They do not
+  LAN monitoring and `LAN_SERVICE_CHECK_ENABLED=true` are enabled. They do not
   send application payloads, authenticate, enumerate versions, or test flaws.
 - Static/router observations can be submitted by an authenticated admin; any
   included service observations require the service-check flag.

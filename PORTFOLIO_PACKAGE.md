@@ -8,7 +8,7 @@ structured findings, analyst-owned remediation, governed case records, and
 stakeholder-ready reports while preserving scope, permissions, and audit
 context.
 
-Current release candidate: `5.0.0-rc2`.
+Current release candidate: `5.0.0-rc3`.
 
 ## Problem Solved
 
@@ -72,25 +72,25 @@ Keep the walkthrough to approximately ten minutes and avoid live external data.
 
 ## Validation Proof
 
-- 211 deterministic backend tests passed in local Docker Compose
+- 272 deterministic backend tests passed in local Docker Compose
 - ruff, strict mypy, and `pip check` passed
-- frontend lint and TypeScript/Vite production build passed
+- frontend TypeScript/Vite production build passed
 - `/health` and `/health/ready` returned `ok`
-- `/api/v1/release` returned `5.0.0-rc2`
+- `/api/v1/release` returned `5.0.0-rc3`
 - Alembic reported one current linear head with no model/schema drift
 - CI uses local PostgreSQL/Redis and requires no live AI, Supabase, hosting, or
   production credentials
 
-These checks support an RC2 portfolio/demo claim, not a production-hosting
+These checks support an RC3 portfolio/demo claim, not a production-hosting
 claim. Manual QA remains required before any future hosting work.
 
 ## GitHub Presentation Notes
 
-- Pin `README.md`, `PORTFOLIO_PACKAGE.md`, `RELEASE_NOTES_RC2.md`, and the
+- Pin `README.md`, `PORTFOLIO_PACKAGE.md`, `RELEASE_NOTES_RC3.md`, and the
   screenshot assets near the top of the repository narrative.
 - Use concise image captions that state the workflow and defensive control being
   demonstrated.
-- Link to `FINAL_PLATFORM_FREEZE.md`, `MANUAL_QA_RC2.md`, and
+- Link to `FINAL_PLATFORM_FREEZE.md`, `FINAL_LOCAL_ACCEPTANCE.md`, and
   `FINAL_QA_CHECKLIST.md` as validation evidence.
 - Describe the code as a release candidate validated locally; do not claim SLA,
   production deployment, customer operation, or legal/compliance certification.

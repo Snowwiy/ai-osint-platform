@@ -11,7 +11,7 @@ authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
 stakeholder-ready reports without intrusive scanning or offensive automation.
 
-Current release candidate: `5.0.0-rc2`. The validated runtime is local Docker
+Current release candidate: `5.0.0-rc3`. The validated runtime is local Docker
 Compose; production and free-tier hosting remain deferred.
 
 Local mode requires development-only values from `.env.example`; it does not
@@ -278,10 +278,10 @@ The complete presentation handoff is in
 [PORTFOLIO_PACKAGE.md](PORTFOLIO_PACKAGE.md), and the frozen platform boundary is
 recorded in [FINAL_PLATFORM_FREEZE.md](FINAL_PLATFORM_FREEZE.md).
 
-For the current release freeze, see [RELEASE_NOTES_RC2.md](RELEASE_NOTES_RC2.md),
-[MANUAL_QA_RC2.md](MANUAL_QA_RC2.md), and
-[FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC1 notes remain available as
-historical release context.
+For the current release freeze, see [RELEASE_NOTES_RC3.md](RELEASE_NOTES_RC3.md),
+[FINAL_LOCAL_ACCEPTANCE.md](FINAL_LOCAL_ACCEPTANCE.md), and
+[FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC2 and RC1 notes remain
+available as historical release context.
 
 The reviewed GitHub release copy is in
 [GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no
@@ -332,11 +332,11 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current repository is packaged as the `5.0.0-rc2` release-candidate
-portfolio and local demo build. Final manual QA, local operations, backup/restore,
-and security hygiene are complete. The `v5.0.0-rc2` tag identifies the validated
-local package; hosting, DNS, and Supabase production database work remain
-deferred to a separately authorized phase.
+The current repository is frozen as the `5.0.0-rc3` local web release candidate.
+Final manual QA, local operations, backup/restore, monitoring, and security
+hygiene are covered by the acceptance gate. The `v5.0.0-rc3` tag identifies the
+validated local package; desktop packaging, hosting, DNS, and Supabase production
+database work remain deferred to separately authorized phases.
 
 ## Phase 5AB monitoring reliability
 
@@ -351,9 +351,9 @@ an administrator, it performs rate-limited TCP connects only to configured
 ports on approved private LAN assets. It never authenticates, tests
 credentials, brute forces, sends exploit payloads, or scans public networks.
 Docker LAN limitations are informational and can be supplemented with the
-optional endpoint agent or static/router observations. This phase changes no
-hosting, deployment, DNS, or Supabase configuration and keeps version
-`5.0.0-rc2`.
+optional endpoint agent or static/router observations. This work is included
+in the `5.0.0-rc3` freeze and changed no hosting, deployment, DNS, or Supabase
+configuration.
 
 ## Phase 5AC LAN monitoring history
 
@@ -367,7 +367,7 @@ never deleted by acknowledgement.
 History is derived only from configured local observations and authorized TCP
 checks. It stores no raw sensitive banners or credentials and introduces no
 public scanning, exploitation, brute force, hosting, deployment, DNS, or
-Supabase work. Version remains `5.0.0-rc2`.
+Supabase work. These capabilities are included in the `5.0.0-rc3` freeze.
 
 ## Phase 5AD alert triage
 
@@ -380,7 +380,8 @@ dedupe behavior. Cooldowns, suppressions, and maintenance windows still apply.
 The Activity Inbox is now a viewport overlay with bounded scrolling,
 responsive placement, outside-click dismissal, and Escape handling. This phase
 adds no public scanning, exploitation, brute force, credential testing,
-hosting, deployment, DNS, or Supabase changes. Version remains `5.0.0-rc2`.
+hosting, deployment, DNS, or Supabase changes. These capabilities are included
+in the `5.0.0-rc3` freeze.
 
 ## Phase 5AE endpoint coverage
 
@@ -392,8 +393,8 @@ There is no remote shell, command execution, persistence, or autostart.
 
 Baseline results are defensive risk indicators derived from stored authorized
 observations. Phase 5AE adds no public scanning, exploitation, brute force,
-credential testing, hosting, deployment, DNS, or Supabase changes. Version
-remains `5.0.0-rc2`.
+credential testing, hosting, deployment, DNS, or Supabase changes. These
+capabilities are included in the `5.0.0-rc3` freeze.
 
 ## Phase 5AF monitoring activation
 
@@ -406,5 +407,17 @@ keeps stored results prominent with safe retry guidance.
 
 Activation requires an explicit local `.env` edit and Docker restart. No public
 scanning, DNS expansion, exploitation, brute force, credential collection,
-remote commands, hosting, deployment, or Supabase changes were added. Version
-remains `5.0.0-rc2`.
+remote commands, hosting, deployment, or Supabase changes were added. These
+capabilities are included in the `5.0.0-rc3` freeze.
+
+## RC3 local acceptance freeze
+
+The local web application is feature-frozen at `5.0.0-rc3`. Phase 5AG completed
+cross-workflow QA for monitoring, target/recon, reports, notifications, search,
+data quality, and governance. Phase 5AH changes release identity and acceptance
+documentation only, except for regression fixes required by the validation gate.
+
+See [FINAL_LOCAL_ACCEPTANCE.md](FINAL_LOCAL_ACCEPTANCE.md) for the manual
+acceptance flow and [RELEASE_NOTES_RC3.md](RELEASE_NOTES_RC3.md) for the release
+summary. Desktop packaging, installers, hosting, deployment, DNS, and Supabase
+migration remain explicitly deferred.

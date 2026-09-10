@@ -7,9 +7,14 @@ The Monitoring Center exposes administrator-managed policies for CPU, memory, di
 Acknowledging a notification does not stop its rule. Suppression is explicit, reversible, and audited; it never deletes the alert or stops collection. Critical alerts remain visible unless an administrator explicitly suppresses them or configures a matching maintenance window. Active maintenance retains matching alerts with `suppressed_due_to_maintenance` while polling and telemetry continue.
 
 The Monitoring Center provides local operational visibility for RavenTech
-OSINT `5.0.0-rc2`. It polls authenticated backend summaries and does not scan
+OSINT `5.0.0-rc3`. It polls authenticated backend summaries and does not scan
 targets, contact external services, expose Docker control, or perform automated
 remediation.
+
+RC3 is the completed validated local web mode. Optional host telemetry and host
+LAN visibility can improve coverage but are not required platform dependencies;
+their absence must not change a healthy platform into a degraded one. Desktop
+packaging, hosting, deployment, DNS, and Supabase migration remain deferred.
 
 ## Start and open
 

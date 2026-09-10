@@ -43,7 +43,7 @@ where useful, one narrow responsive view.
 - [ ] **Audit and governance:** audit event metadata plus settings/feature flags
       demonstrating defensive controls.
 - [ ] **Health and release endpoints:** `/health`, `/health/ready`, and
-      `/api/v1/release` showing `5.0.0-rc2` and `0030_phase5z_base` without
+      `/api/v1/release` showing `5.0.0-rc3` and `0035_phase5ae_agents` without
       secrets.
 
 ## Quality Gate For Every Capture
@@ -56,4 +56,4 @@ where useful, one narrow responsive view.
 - [ ] Caption states what the screen proves; it does not claim production
       hosting, live compromise, or autonomous action.
 
-No hosting or deployment screenshot belongs in the RC2 portfolio package.
+No hosting or deployment screenshot belongs in the RC3 portfolio package.

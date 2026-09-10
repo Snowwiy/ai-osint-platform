@@ -1,5 +1,9 @@
 # RavenTech OSINT Known Limitations
 
+The completed validated mode for `5.0.0-rc3` is the local web application using
+Docker Compose services and a local Vite frontend. Desktop packaging, installers,
+hosting, deployment, DNS, and Supabase migration are deferred.
+
 ## Product Boundaries
 
 - Passive, defensive OSINT investigation workflow only; no generalized active
@@ -192,7 +196,7 @@ language, classification markings, and branding require administrator review.
   warning for the standard-library `crypt` module. It does not affect the Python
   3.12 release-candidate runtime, but the hashing dependency must be reviewed
   before a future Python 3.13 upgrade.
-- The frontend remains on React Router 6 during the RC2 freeze. `npm audit`
+- The frontend remains on React Router 6 during the RC3 freeze. `npm audit`
   reports two moderate advisories whose available automated fix requires the
   breaking React Router 7 migration. This client-rendered application does not
   use React Router SSR hydration, and dynamic application routes are constrained
@@ -203,7 +207,7 @@ language, classification markings, and branding require administrator review.
 
 ## Validation Responsibility
 
-Before any future production use, operators should complete the RC2 manual QA
+Before any future production use, operators should complete the RC3 final QA
 checklist, verify database migrations, configure backups, review secrets and
 CORS, confirm export controls, and validate organization-specific RBAC and
 retention policy. Public registration must remain governed through explicit
@@ -226,3 +230,10 @@ partial enrichment availability, not invalid evidence or a confirmed security
 issue. Port observations, SSH hints, and baseline results are advisory risk
 indicators only. Desktop packaging, installers, hosting, deployment, DNS work,
 and Supabase migration remain outside the validated scope.
+
+## RC3 acceptance boundary
+
+RC3 freezes the local web application without adding a module or migration.
+Authorized service observations remain TCP-connect only, and all monitoring and
+baseline risk indicators remain advisory rather than exploit validation. The
+release makes no desktop-package, hosted-service, or production-deployment claim.

@@ -1,8 +1,8 @@
-# RavenTech OSINT 5.0.0-rc2
+# RavenTech OSINT 5.0.0-rc3
 
 ## Release Summary
 
-RavenTech OSINT `5.0.0-rc2` is a local-first release candidate for a defensive
+RavenTech OSINT `5.0.0-rc3` is a local-first release candidate for a defensive
 investigation and intelligence workspace. This package freezes the tested local
 Docker workflow and provides portfolio, demonstration, backup/restore, QA, and
 security-review documentation. It should not be described as production-hosted
@@ -21,18 +21,21 @@ or production-certified.
 - Review board, closure checklist, deliverables, and evidence package manifests
 - Internal notifications, RBAC-aware Global Search, private Saved Views, Data
   Quality Center, audit log, governance settings, and release/health endpoints
+- Local monitoring policies, maintenance windows, authorized LAN observations,
+  endpoint enrollment, coverage, change history, alert triage, and advisory
+  vulnerability baseline
 - Guarded local backup, non-overwriting restore, synthetic demo seed/reset, and
   local health-repair tooling
 
 ## Validation Proof
 
 - Ruff: passed
-- mypy: passed across 193 backend source files
-- pytest: 221 passed
+- mypy: passed across 214 backend source files
+- pytest: 272 passed
 - `pip check`: passed
-- Alembic: one linear head, `0030_phase5z_base`, with no schema drift
+- Alembic: one linear head, `0035_phase5ae_agents`, with no schema drift
 - `/health` and `/health/ready`: `status: ok`
-- `/api/v1/release`: `5.0.0-rc2`
+- `/api/v1/release`: `5.0.0-rc3`
 - Frontend TypeScript/Vite production build: passed
 - Local Docker services: healthy/running
 - Phase 5V tracked-file secrets audit: no production secrets found
@@ -42,7 +45,7 @@ or production-certified.
 Use [LOCAL_DEMO_BUNDLE.md](LOCAL_DEMO_BUNDLE.md) for the reproducible setup,
 synthetic demo seed/reset, health checks, report walkthrough, validation
 commands, and artifact checklist. Use
-[MANUAL_QA_RC2.md](MANUAL_QA_RC2.md) and
+[FINAL_LOCAL_ACCEPTANCE.md](FINAL_LOCAL_ACCEPTANCE.md) and
 [FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md) for detailed acceptance.
 
 ## Known Limitations
@@ -69,6 +72,6 @@ enumeration, or autonomous offensive actions.
 ## Release Handling
 
 This file is release copy for review. Creating it does not create or publish a
-GitHub release. The `v5.0.0-rc2` Git tag identifies the validated local release
+GitHub release. The `v5.0.0-rc3` Git tag identifies the validated local release
 candidate commit; any future GitHub release publication requires separate,
 explicit authorization.

@@ -143,7 +143,7 @@
 - [ ] Threat Intelligence, IOC correlations, and dashboard widgets stay readable
       with long domains, URLs, and UUIDs.
 
-## RC2 Release Readiness
+## RC3 Release Readiness
 
 - [ ] Manual backend validation commands pass.
 - [ ] Manual frontend lint and build commands pass.
@@ -152,7 +152,7 @@
 - [ ] Archive and restore flows do not expose destructive actions incorrectly.
 - [ ] Frontend development starts only after running `cd frontend`.
 - [ ] Local Docker Compose remains the tested runtime; no hosting, DNS, or
-      production database changes were made during the RC2 freeze.
+      production database changes were made during the RC3 freeze.
 
 ## Release Candidate Regression Pack
 

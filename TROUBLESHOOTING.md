@@ -79,7 +79,7 @@ and apply `alembic upgrade head` before changing code.
 
 ## Deferred Hosting Planning
 
-Hosting is not part of the RC2 validation scope. The following references are
+Hosting is not part of the RC3 validation scope. The following references are
 for a future planning phase after final manual QA:
 
 - Use `DEPLOYMENT_PREFLIGHT.md` before pointing the platform at a hosted
@@ -187,7 +187,7 @@ control is a substitute for rotation after confirmed exposure.
 
 - Apply migrations with `docker compose exec backend alembic upgrade head` if
   quality or LAN monitoring data is unavailable. The current head is
-  `0030_phase5z_base`.
+  `0035_phase5ae_agents`.
 - A scan is bounded and local. If it fails, inspect backend logs and database
   health; investigation and reporting workflows remain usable.
 - A recurring resolved issue reopens when the same condition is detected.
@@ -330,6 +330,10 @@ External and protocol-relative action URLs are intentionally rejected.
 - Recon warnings use `provider_timeout`, `provider_http_error`, and
   `provider_parse_error`. Retry is safe; provider failures do not delete valid
   entities already stored, and raw endpoint errors are not shown.
+
+The RC3 accepted mode is local Docker Compose plus the local Vite frontend.
+Do not troubleshoot it as a desktop package or hosted deployment; Electron,
+Tauri, installers, hosting, DNS, and Supabase migration remain deferred.
 ## Phase 5AD alert triage and Activity Inbox
 
 - If the Activity Inbox is empty, clear triage filters and confirm the alert is

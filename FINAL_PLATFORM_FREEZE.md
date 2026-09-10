@@ -1,111 +1,92 @@
 # RavenTech OSINT Final Platform Freeze
 
-## Freeze Identity
+## Freeze identity
 
-- Current version: `5.0.0-rc2`
-- Validated parent baseline: `e9c00df` (`chore: complete security freeze and secrets audit`)
+- Version: `5.0.0-rc3`
+- Validated parent baseline: `df0b1b5` (`fix: complete local monitoring and target workflow polish`)
 - Branch: `dev`
-- Release tag: `v5.0.0-rc2`, created only after the final Phase 5W validation
-- Current allowed scope: Phase 5W repository cleanup and local release-package
-  documentation only
+- Release tag: `v5.0.0-rc3`, created only after the RC3 validation gate passes
+- Validated mode: local Docker Compose backend services with a local Vite frontend
+- Database migration head: `0035_phase5ae_agents`
 
-Phase 5V completed the security freeze and secrets audit. Phase 5W packages the
-existing local release candidate without changing application features, API
-contracts, migrations, deployment, or defensive product boundaries.
+Phase 5AH freezes the completed local web application. It adds no product
+module, migration, provider, desktop wrapper, installer, hosted environment,
+DNS configuration, or Supabase integration. Only release metadata,
+acceptance documentation, and validation-blocking regression fixes are allowed.
 
-## Completed Modules
+## Frozen product surface
 
-- Login, config-gated registration, session handling, RBAC, membership, and
-  administrator user governance
-- Dashboard, executive dashboard, Operations Center, investigations, targets,
-  passive recon, findings, correlations, IOCs, Evidence Intelligence, and
-  Threat Intelligence
-- Engagement, authorization, and deterministic scope governance
-- Optional AI Analysis with deterministic evidence-backed fallback
-- Notes, tasks, bookmarks, playbooks, review board, remediation validation,
-  case closure, deliverables, and evidence package manifest
-- Analyst-reviewed report templates and HTML, Markdown, PDF, and DOCX exports
-- Internal notifications, RBAC-aware Global Search, owner-scoped Saved Views,
-  Data Quality Center, audit log, timeline, settings, feature flags, and
-  health/readiness/release endpoints
+- Authentication, config-gated registration, RBAC, investigation membership,
+  and administrator user governance
+- Dashboard, Operations Center, investigations, targets, passive recon,
+  findings, correlations, IOCs, intelligence, notes, tasks, and bookmarks
+- Engagement authorization and deterministic scope governance
+- Review, remediation, closure, deliverables, and audit workflows
+- Analyst-reviewed HTML, Markdown, PDF, and DOCX report exports
+- Internal notifications, alert triage, Global Search, Saved Views, Data Quality
+  Center, settings, feature flags, health, readiness, and release metadata
+- Local Monitoring Center with policies, maintenance windows, change history,
+  advisory baseline indicators, authorized LAN inventory, endpoint enrollment,
+  asset groups, coverage, and bounded TCP service observations
 
-## Tested Local Mode
+## Security and monitoring boundary
 
-The frozen, tested mode is local Docker Compose with FastAPI, PostgreSQL, Redis,
-Celery, and a separately started Vite frontend. Demo data is synthetic. No
-hosted environment, public DNS, Supabase database, or production secret set was
-used or validated.
+Monitoring is local and authorized. LAN discovery and service checks are
+disabled by default, private-range constrained, manually initiated, rate
+limited, and TCP-connect only. SSH recognition uses a minimal sanitized banner
+hint and never authenticates, tests credentials, executes commands, brute
+forces, sends exploit payloads, or validates vulnerabilities.
 
-## Validation Status
+Endpoint agents enroll with administrator-managed hashed credentials whose
+plaintext is revealed once. Agents collect limited system telemetry and have
+no persistence, autostart, remote shell, command channel, file collection,
+browser-history collection, keystroke collection, or credential collection.
 
-At the Phase 5W validation gate:
+Risk and vulnerability-baseline entries are advisory indicators derived from
+stored observations. They are not CVE claims, proof of compromise, or exploit
+validation and require analyst review.
 
-- `/health` and `/health/ready`: `status: ok`
-- `/api/v1/release`: `5.0.0-rc2`
-- Alembic: one current head, `0030_phase5z_base`, with no schema drift
-- pytest: 221 passed, including new config and logging safety regression tests
-- ruff, strict mypy, and `pip check`: passed
-- frontend ESLint and TypeScript/Vite 6.4.3 production build: passed
-- Safe in-range frontend dependency refresh: applied; breaking React Router 7
-  upgrade deferred and documented
+## Acceptance gate
 
-The full validation gate in `FINAL_QA_CHECKLIST.md` must pass again immediately
-before every release-freeze commit and push.
+The authoritative automated and manual gate is `FINAL_QA_CHECKLIST.md`. The
+resulting proof belongs in `FINAL_LOCAL_ACCEPTANCE.md` and
+`RELEASE_NOTES_RC3.md`. A failing required check blocks commit, push, and tag
+creation.
 
-## Remaining Non-Blocking Warnings
+The Phase 5AH automated gate completed on 2026-09-10: ruff passed; strict mypy
+passed across 214 source files; 272 pytest tests passed; `pip check` and Alembic
+schema checks passed; health, readiness, and release returned HTTP 200; and the
+frontend TypeScript/Vite production build passed. The only test-suite warning is
+the documented upstream Passlib/Python `crypt` deprecation.
 
-- Upstream `passlib` imports Python's deprecated `crypt` module under Python
-  3.12. Review the hashing dependency before Python 3.13; do not hide the
-  warning or pin an insecure dependency.
-- `npm audit` reports two moderate React Router advisories. The SSR path is not
-  used and dynamic client routes are guarded; the available automated fix is a
-  breaking React Router 7 upgrade reserved for a separately tested phase.
-- An empty local `REPORT_LOGO_PATH` produces an expected advisory and report
-  exports use text branding.
+Expected release responses after the local backend is recreated:
 
-## Known Limitations
+- `/health`: `status: ok`
+- `/health/ready`: `status: ok`
+- `/api/v1/release`: version `5.0.0-rc3`, channel `release-candidate`, migration
+  `0035_phase5ae_agents`, and no secrets
 
-- Passive, defensive OSINT only; no active scanning, exploitation, crawling, or
-  autonomous offensive action
-- AI is optional and provider failure uses deterministic fallback behavior
-- Reports and deliverables require analyst review
-- Public registration is disabled by default and must remain governed
-- Local Docker Compose is the only validated runtime
-- Production/free-tier hosting, DNS, and Supabase production migration are
-  deferred
-- External paid threat feeds and external search providers are not included
+## Known non-blocking limitations
 
-See `KNOWN_LIMITATIONS.md` for the complete list.
+- Docker Desktop may not expose host neighbor tables; approved static/router
+  observations or a manually run endpoint agent provide additional coverage.
+- Passive providers can time out, reject requests, or return malformed data;
+  stored valid entities remain usable and provider warnings are retriable.
+- Optional host telemetry absence does not degrade healthy required services.
+- The upstream password-hashing dependency emits a Python `crypt` deprecation
+  warning that must be reviewed before a future Python 3.13 upgrade.
+- React Router 6 remains frozen; any major dependency upgrade requires a
+  separately authorized and fully validated phase.
+- Missing local report branding falls back to text branding.
 
-## What Is Frozen
+## Deferred work
 
-- Public API contracts and database migration head
-- Authentication, permissions, governance, and defensive-only boundaries
-- Investigation, intelligence, reporting, closure, notification, search, and
-  quality workflows
-- `5.0.0-rc2` release identity
-- Local Docker validation commands and the RC2 manual QA flow
-- Local backup files are timestamped, Git-ignored, and contain no `.env` file;
-  restore defaults to a new database and never overwrites the live database
-- SQL parameter echo is disabled; application logs redact structured sensitive
-  fields and common secret-bearing strings
-- Frontend dynamic navigation is constrained to internal routes
-- Portfolio narrative, screenshots list, and demo order
-- Local demo bundle, artifact checklist, and reviewed GitHub release draft
+- Desktop packaging, Electron, Tauri, native installers, and autostart
+- Free-tier or production hosting and deployment
+- Public DNS and ingress configuration
+- Supabase database or authentication migration
+- Public or internet-wide scanning and any offensive capability
 
-## What Must Not Change Before Hosting Review
-
-- Do not add features, modules, providers, migrations, or frontend redesigns.
-- Do not weaken RBAC, last-active-admin protection, scope checks, registration
-  governance, report review, or audit behavior.
-- Do not add active scanning, exploitation, crawling, payloads, or autonomous
-  actions.
-- Do not deploy, configure DNS, migrate to Supabase, replace backend auth with
-  Supabase Auth, or add real credentials.
-- Do not make breaking dependency upgrades, add migrations, change environment
-  contracts, report storage, or worker topology without a separate reviewed
-  phase and a full validation run.
-- Do not restore over the live database, replace named volumes, or clear demo
-  records without the documented confirmation and backup safeguards.
-- Accept only documented blocker/regression fixes; record and revalidate every
-  such change before hosting planning resumes.
+This freeze is a completed local release candidate, not a production deployment
+claim. Future work must begin in a separately scoped phase and rerun the full
+acceptance gate.

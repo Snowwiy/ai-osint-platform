@@ -55,7 +55,7 @@ provider's secret store for backend-only values, expose only the public frontend
 API base URL to the Vite build, replace the local signing key, and use explicit
 HTTPS CORS origins. Never place database, Redis, signing, invite, admin bootstrap,
 or AI/provider credentials in frontend environment variables. These are future
-requirements only; no provider secrets or services are configured in RC2.
+requirements only; no provider secrets or services are configured in RC3.
 
 ## Non-Negotiable Boundaries
 
