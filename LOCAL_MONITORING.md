@@ -1,5 +1,11 @@
 # Local Monitoring Center
 
+## Phase 5AA policy tuning
+
+The Monitoring Center exposes administrator-managed policies for CPU, memory, disk, stale agents, offline or unauthorized assets, risky observed services, weak coverage, high/critical findings, and overdue remediation. Safe defaults start resource alerts at 90%, apply multi-hour cooldowns and dedupe keys, and cap daily notifications. Analysts may read policy state; only administrators may change it.
+
+Acknowledging a notification does not stop its rule. Suppression is explicit, reversible, and audited; it never deletes the alert or stops collection. Critical alerts remain visible unless an administrator explicitly suppresses them or configures a matching maintenance window. Active maintenance retains matching alerts with `suppressed_due_to_maintenance` while polling and telemetry continue.
+
 The Monitoring Center provides local operational visibility for RavenTech
 OSINT `5.0.0-rc2`. It polls authenticated backend summaries and does not scan
 targets, contact external services, expose Docker control, or perform automated

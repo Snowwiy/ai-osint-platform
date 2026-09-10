@@ -213,11 +213,52 @@ async def mark_notification_read(
             investigation_id=notification.investigation_id,
             metadata=_audit_metadata(notification),
         )
+        if notification.notification_type == "monitoring_alert":
+            await _apply_monitoring_acknowledgement(db, user, notification)
         await db.refresh(notification)
     return NotificationActionResponse(
         notification=_notification_response(notification),
         message="Notification marked as read.",
     )
+
+
+async def _apply_monitoring_acknowledgement(
+    db: AsyncSession, user: User, notification: Notification
+) -> None:
+    from app.models.monitoring_policy import MonitoringPolicy
+    from app.schemas.monitoring_policy import AlertSuppressionCreate
+    from app.services.monitoring_policy import (
+        AlertSuppressionConflictError,
+        suppress_alert,
+    )
+
+    metadata = (
+        notification.event_metadata
+        if isinstance(notification.event_metadata, dict)
+        else {}
+    )
+    rule_key = metadata.get("policy_rule")
+    if not isinstance(rule_key, str):
+        return
+    policy = (
+        await db.execute(
+            select(MonitoringPolicy).where(MonitoringPolicy.rule_key == rule_key)
+        )
+    ).scalar_one_or_none()
+    if policy is None or policy.acknowledge_behavior != "suppress":
+        return
+    try:
+        await suppress_alert(
+            db,
+            user,
+            notification.id,
+            AlertSuppressionCreate(
+                reason="Suppressed by configured acknowledgement behavior."
+            ),
+        )
+    except (PermissionError, AlertSuppressionConflictError):
+        # Critical and already-suppressed alerts remain visible; acknowledgement still succeeds.
+        return
 
 
 async def dismiss_notification(
@@ -896,12 +937,14 @@ async def _alerts_for_assignments(
         .join(Investigation, Investigation.id == Finding.investigation_id)
         .where(
             Finding.assigned_to.is_not(None),
-            ~Finding.status.in_((
-                "resolved",
-                "mitigated",
-                "false_positive",
-                "archived",
-            )),
+            ~Finding.status.in_(
+                (
+                    "resolved",
+                    "mitigated",
+                    "false_positive",
+                    "archived",
+                )
+            ),
         )
     )
     for finding, investigation in finding_result.all():
@@ -1149,9 +1192,7 @@ def _safe_metadata(value: object) -> dict[str, Any]:
         return {}
     blocked = {"password", "hashed_password", "token", "api_key", "invite_code"}
     return {
-        str(key): item
-        for key, item in value.items()
-        if str(key).lower() not in blocked
+        str(key): item for key, item in value.items() if str(key).lower() not in blocked
     }
 
 

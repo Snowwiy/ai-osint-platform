@@ -134,6 +134,11 @@ import type {
   NotificationMarkAllReadResponse,
   NotificationUnreadCountResponse,
   MonitoringOverviewResponse,
+  MonitoringPolicy,
+  MonitoringPolicyListResponse,
+  MaintenanceWindow,
+  MaintenanceWindowListResponse,
+  AlertSuppressionResponse,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -1083,6 +1088,25 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
+}
+
+export async function listMonitoringPolicies(): Promise<MonitoringPolicyListResponse> {
+  return request<MonitoringPolicyListResponse>("/monitoring/policies");
+}
+export async function updateMonitoringPolicy(id: string, body: Partial<MonitoringPolicy>): Promise<MonitoringPolicy> {
+  return request<MonitoringPolicy>(`/monitoring/policies/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+export async function listMaintenanceWindows(): Promise<MaintenanceWindowListResponse> {
+  return request<MaintenanceWindowListResponse>("/monitoring/maintenance-windows");
+}
+export async function createMaintenanceWindow(body: Pick<MaintenanceWindow, "title" | "start_time" | "end_time" | "affected_assets" | "affected_services" | "suppress_alerts" | "reason">): Promise<MaintenanceWindow> {
+  return request<MaintenanceWindow>("/monitoring/maintenance-windows", { method: "POST", body: JSON.stringify(body) });
+}
+export async function suppressMonitoringAlert(id: string, reason: string): Promise<AlertSuppressionResponse> {
+  return request<AlertSuppressionResponse>(`/monitoring/alerts/${id}/suppress`, { method: "POST", body: JSON.stringify({ reason }) });
+}
+export async function unsuppressMonitoringAlert(id: string): Promise<AlertSuppressionResponse> {
+  return request<AlertSuppressionResponse>(`/monitoring/alerts/${id}/unsuppress`, { method: "POST" });
 }
 
 export async function listLanAssets(): Promise<LanAssetListResponse> {

@@ -3133,6 +3133,7 @@ export interface MonitoringAssetItem {
 }
 
 export interface MonitoringAlert {
+  id: string | null;
   key: string;
   severity: MonitoringSeverity;
   title: string;
@@ -3141,7 +3142,27 @@ export interface MonitoringAlert {
   action_url: string;
   investigation_id: string | null;
   count: number;
+  suppressed: boolean;
+  suppressed_due_to_maintenance: boolean;
+  suppression_reason: string | null;
 }
+
+export interface MonitoringPolicy {
+  id: string; rule_key: string; title: string; description: string; enabled: boolean;
+  severity_override: MonitoringSeverity | null; threshold_value: number | null;
+  threshold_unit: string | null; cooldown_minutes: number; dedupe_key: string;
+  max_alerts_per_rule: number; acknowledge_behavior: "keep_active" | "suppress";
+  created_by: string | null; updated_by: string | null; created_at: string; updated_at: string;
+}
+export interface MonitoringPolicyListResponse { total: number; items: MonitoringPolicy[]; }
+export interface MaintenanceWindow {
+  id: string; title: string; start_time: string; end_time: string; affected_assets: string[];
+  affected_services: string[]; suppress_alerts: boolean; reason: string;
+  created_by: string | null; updated_by: string | null; created_at: string; updated_at: string;
+  status: "scheduled" | "active" | "completed";
+}
+export interface MaintenanceWindowListResponse { total: number; items: MaintenanceWindow[]; }
+export interface AlertSuppressionResponse { id: string; alert_id: string; source: "manual" | "maintenance"; reason: string; starts_at: string; ends_at: string | null; active: boolean; suppressed_due_to_maintenance: boolean; }
 
 export interface MonitoringRecentError {
   category: string;

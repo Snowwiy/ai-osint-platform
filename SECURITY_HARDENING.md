@@ -1,5 +1,11 @@
 # RavenTech OSINT Security Hardening
 
+## Monitoring-policy controls
+
+Monitoring policy and maintenance-window changes require the admin role; analysts retain read access under existing RBAC. Alert suppression is audited, critical-alert suppression requires an administrator, expired suppressions no longer apply, and alerts are never deleted during maintenance. API responses contain configuration and actor identifiers only—no tokens, secrets, or endpoint-agent credentials.
+
+Phase 5AA makes no hosting, deployment, DNS, or Supabase changes and introduces no active or intrusive scanning.
+
 RavenTech OSINT is a defensive investigation workspace. This guide focuses on
 safe internal operation, governance, and supportability.
 

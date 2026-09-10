@@ -1,5 +1,11 @@
 # Authorized LAN Monitoring
 
+## Alert policies and planned work
+
+LAN indicators for stale agents, offline and unauthorized assets, risky passively observed services, and weak coverage are governed by Monitoring Center policies. Cooldowns, dedupe keys, severity overrides, enablement, and per-rule caps reduce repeat noise. Maintenance windows may target asset IDs, service/category keys, or all local monitoring; matching alerts are marked and audited rather than deleted.
+
+These controls add no active scanning. Collection remains limited to the authorized passive/router/static observations and optional endpoint telemetry described below.
+
 LAN monitoring extends the local Monitoring Center with a deliberately bounded
 inventory of private, administrator-authorized networks. It is disabled by
 default and is not an internet scanner, vulnerability scanner, remote access

@@ -39,6 +39,7 @@ from app.models.lan_monitoring import (
     VulnerabilityBaselineFinding,
 )
 from app.models.notification import Notification
+from app.models.monitoring_policy import AlertSuppression, MaintenanceWindow, MonitoringPolicy
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -110,6 +111,9 @@ __all__ = [
     "LanServiceObservation",
     "VulnerabilityBaselineFinding",
     "Notification",
+    "MonitoringPolicy",
+    "AlertSuppression",
+    "MaintenanceWindow",
     "ReconEntity",
     "ReconRelationship",
     "Report",

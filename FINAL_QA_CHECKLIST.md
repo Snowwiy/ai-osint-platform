@@ -1,5 +1,16 @@
 # RavenTech OSINT Final QA Checklist
 
+## Phase 5AA — monitoring policies
+
+- [ ] Analyst can read policies and maintenance windows; unauthenticated access returns 401.
+- [ ] Only administrators can create or update policies and maintenance windows.
+- [ ] Resource, stale/offline, risky-service, unauthorized, weak-coverage, finding, and overdue rules have safe defaults.
+- [ ] Cooldown, dedupe, per-rule cap, enablement, severity override, and acknowledge behavior validate cleanly.
+- [ ] Suppress/unsuppress returns clean 403/404/409/422 outcomes and writes audit events.
+- [ ] Active maintenance marks alerts without deletion or collection interruption.
+- [ ] Monitoring Center states avoid raw API errors, crash screens, and horizontal overflow.
+- [ ] No secrets, active scanning, hosting, deployment, DNS, or Supabase changes exist.
+
 Version: `5.0.0-rc2`
 
 Run from the repository root unless a section says otherwise. Complete this

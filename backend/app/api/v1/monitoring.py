@@ -42,6 +42,34 @@ from app.schemas.monitoring import (
     MonitoringServicesResponse,
     MonitoringSystemResponse,
 )
+from app.schemas.monitoring_policy import (
+    AlertSuppressionCreate,
+    AlertSuppressionResponse,
+    MaintenanceWindowCreate,
+    MaintenanceWindowListResponse,
+    MaintenanceWindowResponse,
+    MaintenanceWindowUpdate,
+    MonitoringPolicyCreate,
+    MonitoringPolicyListResponse,
+    MonitoringPolicyResponse,
+    MonitoringPolicyUpdate,
+)
+from app.services.monitoring_policy import (
+    AlertNotFoundError,
+    AlertSuppressionConflictError,
+    MaintenanceWindowNotFoundError,
+    MonitoringPolicyNotFoundError,
+    create_policy,
+    create_window,
+    list_policies,
+    list_windows,
+    suppression_response,
+    suppress_alert,
+    unsuppress_alert,
+    update_policy,
+    update_window,
+    window_response,
+)
 from app.services.local_monitoring import (
     get_asset_watch,
     get_monitoring_alerts,
@@ -77,6 +105,148 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@router.get("/policies", response_model=MonitoringPolicyListResponse)
+async def monitoring_policies_endpoint(
+    _current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringPolicyListResponse:
+    items = await list_policies(db)
+    return MonitoringPolicyListResponse(
+        total=len(items),
+        items=[MonitoringPolicyResponse.model_validate(item) for item in items],
+    )
+
+
+@router.post(
+    "/policies",
+    response_model=MonitoringPolicyResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def monitoring_policy_create_endpoint(
+    body: MonitoringPolicyCreate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringPolicyResponse:
+    try:
+        return MonitoringPolicyResponse.model_validate(
+            await create_policy(db, current_user, body)
+        )
+    except AlertSuppressionConflictError as exc:
+        raise HTTPException(
+            status_code=409, detail="A policy with that rule key already exists."
+        ) from exc
+
+
+@router.patch("/policies/{policy_id}", response_model=MonitoringPolicyResponse)
+async def monitoring_policy_update_endpoint(
+    policy_id: uuid.UUID,
+    body: MonitoringPolicyUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringPolicyResponse:
+    try:
+        return MonitoringPolicyResponse.model_validate(
+            await update_policy(db, current_user, policy_id, body)
+        )
+    except MonitoringPolicyNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Monitoring policy not found."
+        ) from exc
+
+
+@router.get("/maintenance-windows", response_model=MaintenanceWindowListResponse)
+async def maintenance_windows_endpoint(
+    _current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MaintenanceWindowListResponse:
+    items = await list_windows(db)
+    return MaintenanceWindowListResponse(
+        total=len(items), items=[window_response(item) for item in items]
+    )
+
+
+@router.post(
+    "/maintenance-windows",
+    response_model=MaintenanceWindowResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def maintenance_window_create_endpoint(
+    body: MaintenanceWindowCreate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> MaintenanceWindowResponse:
+    return window_response(await create_window(db, current_user, body))
+
+
+@router.patch(
+    "/maintenance-windows/{window_id}", response_model=MaintenanceWindowResponse
+)
+async def maintenance_window_update_endpoint(
+    window_id: uuid.UUID,
+    body: MaintenanceWindowUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> MaintenanceWindowResponse:
+    try:
+        return window_response(await update_window(db, current_user, window_id, body))
+    except MaintenanceWindowNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Maintenance window not found."
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422, detail="Invalid maintenance window range."
+        ) from exc
+
+
+@router.post("/alerts/{alert_id}/suppress", response_model=AlertSuppressionResponse)
+async def monitoring_alert_suppress_endpoint(
+    alert_id: uuid.UUID,
+    body: AlertSuppressionCreate,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> AlertSuppressionResponse:
+    try:
+        return suppression_response(
+            await suppress_alert(db, current_user, alert_id, body)
+        )
+    except AlertNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Monitoring alert not found."
+        ) from exc
+    except AlertSuppressionConflictError as exc:
+        raise HTTPException(
+            status_code=409, detail="This alert is already suppressed."
+        ) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="Only an administrator can suppress a critical alert.",
+        ) from exc
+
+
+@router.post("/alerts/{alert_id}/unsuppress", response_model=AlertSuppressionResponse)
+async def monitoring_alert_unsuppress_endpoint(
+    alert_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> AlertSuppressionResponse:
+    try:
+        return suppression_response(await unsuppress_alert(db, current_user, alert_id))
+    except AlertNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Monitoring alert not found."
+        ) from exc
+    except AlertSuppressionConflictError as exc:
+        raise HTTPException(
+            status_code=409, detail="This alert has no active suppression."
+        ) from exc
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=403, detail="You cannot change this alert suppression."
+        ) from exc
 
 
 def _require_lan_agent_token(
@@ -224,7 +394,9 @@ async def lan_asset_criticality_endpoint(
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
 ) -> LanAssetResponse:
-    return await _safe_lan_call(update_asset_criticality, db, current_user, asset_id, body)
+    return await _safe_lan_call(
+        update_asset_criticality, db, current_user, asset_id, body
+    )
 
 
 @router.get("/lan/assets/{asset_id}/telemetry", response_model=LanTelemetryListResponse)
@@ -275,20 +447,33 @@ async def lan_agent_telemetry_ingest_endpoint(
 
 @router.get("/vulnerabilities", response_model=VulnerabilityBaselineListResponse)
 async def vulnerability_baseline_list_endpoint(
-    finding_status: str | None = Query(default=None, alias="status", pattern="^(open|acknowledged|in_progress|resolved|false_positive)$"),
-    severity: str | None = Query(default=None, pattern="^(info|low|medium|high|critical)$"),
+    finding_status: str | None = Query(
+        default=None,
+        alias="status",
+        pattern="^(open|acknowledged|in_progress|resolved|false_positive)$",
+    ),
+    severity: str | None = Query(
+        default=None, pattern="^(info|low|medium|high|critical)$"
+    ),
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
 ) -> VulnerabilityBaselineListResponse:
     return await _safe_baseline_call(
-        list_baseline_findings, db, current_user,
-        status=finding_status, severity=severity, limit=limit, offset=offset,
+        list_baseline_findings,
+        db,
+        current_user,
+        status=finding_status,
+        severity=severity,
+        limit=limit,
+        offset=offset,
     )
 
 
-@router.get("/vulnerabilities/overview", response_model=VulnerabilityBaselineOverviewResponse)
+@router.get(
+    "/vulnerabilities/overview", response_model=VulnerabilityBaselineOverviewResponse
+)
 async def vulnerability_baseline_overview_endpoint(
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
@@ -296,7 +481,9 @@ async def vulnerability_baseline_overview_endpoint(
     return await _safe_baseline_call(get_baseline_overview, db, current_user)
 
 
-@router.post("/vulnerabilities/run-baseline", response_model=VulnerabilityBaselineRunResponse)
+@router.post(
+    "/vulnerabilities/run-baseline", response_model=VulnerabilityBaselineRunResponse
+)
 async def vulnerability_baseline_run_endpoint(
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
@@ -304,14 +491,18 @@ async def vulnerability_baseline_run_endpoint(
     return await _safe_baseline_call(run_vulnerability_baseline, db, current_user)
 
 
-@router.patch("/vulnerabilities/{finding_id}", response_model=VulnerabilityBaselineFindingResponse)
+@router.patch(
+    "/vulnerabilities/{finding_id}", response_model=VulnerabilityBaselineFindingResponse
+)
 async def vulnerability_baseline_update_endpoint(
     finding_id: uuid.UUID,
     body: VulnerabilityBaselineUpdate,
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
 ) -> VulnerabilityBaselineFindingResponse:
-    return await _safe_baseline_call(update_baseline_finding, db, current_user, finding_id, body)
+    return await _safe_baseline_call(
+        update_baseline_finding, db, current_user, finding_id, body
+    )
 
 
 def _monitoring_unavailable() -> HTTPException:
@@ -321,13 +512,13 @@ def _monitoring_unavailable() -> HTTPException:
     )
 
 
-async def _safe_lan_call(
-    function: Callable[..., Awaitable[Any]], *args: Any
-) -> Any:
+async def _safe_lan_call(function: Callable[..., Awaitable[Any]], *args: Any) -> Any:
     try:
         return await function(*args)
     except LanMonitoringDisabledError as exc:
-        raise HTTPException(status_code=409, detail="LAN monitoring is disabled.") from exc
+        raise HTTPException(
+            status_code=409, detail="LAN monitoring is disabled."
+        ) from exc
     except LanConfigurationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except LanAssetNotFoundError as exc:
@@ -350,9 +541,13 @@ async def _safe_baseline_call(
     try:
         return await function(*args, **kwargs)
     except VulnerabilityBaselineDisabledError as exc:
-        raise HTTPException(status_code=409, detail="Vulnerability baseline monitoring is disabled.") from exc
+        raise HTTPException(
+            status_code=409, detail="Vulnerability baseline monitoring is disabled."
+        ) from exc
     except VulnerabilityBaselineFindingNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Vulnerability baseline finding not found.") from exc
+        raise HTTPException(
+            status_code=404, detail="Vulnerability baseline finding not found."
+        ) from exc
     except LanAssetNotFoundError as exc:
         raise HTTPException(status_code=404, detail="LAN asset not found.") from exc
     except HTTPException:

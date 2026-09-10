@@ -124,6 +124,7 @@ class MonitoringAssetsResponse(BaseModel):
 
 
 class MonitoringAlert(BaseModel):
+    id: uuid.UUID | None = None
     key: str
     severity: MonitoringSeverity
     title: str
@@ -132,6 +133,9 @@ class MonitoringAlert(BaseModel):
     action_url: str
     investigation_id: uuid.UUID | None = None
     count: int = Field(default=1, ge=1)
+    suppressed: bool = False
+    suppressed_due_to_maintenance: bool = False
+    suppression_reason: str | None = None
 
 
 class MonitoringAlertsResponse(BaseModel):

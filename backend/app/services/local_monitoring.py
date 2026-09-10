@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -20,6 +20,13 @@ from app.models.investigation import Investigation
 from app.models.investigation_evidence import InvestigationEvidence
 from app.models.investigation_member import InvestigationMember
 from app.models.report import Report
+from app.models.notification import Notification
+from app.models.monitoring_policy import (
+    AlertSuppression,
+    MaintenanceWindow,
+    MonitoringPolicy,
+)
+from app.models.lan_monitoring import VulnerabilityBaselineFinding
 from app.models.scan_job import ScanJob
 from app.models.target import Target
 from app.models.user import User
@@ -40,6 +47,8 @@ from app.schemas.monitoring import (
 )
 from app.services.health import health_snapshot
 from app.services.notification import create_notification
+from app.services.monitoring_policy import ensure_default_policies
+from app.services.audit import record_event
 
 POLLING_INTERVAL_OPTIONS = [15, 30, 60, 120, 300]
 RECOMMENDED_POLLING_INTERVAL = 30
@@ -128,9 +137,7 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
         MonitoringServiceStatus(
             key="report_storage",
             label="Report storage",
-            status=(
-                "healthy" if paths.get("reports") == "writable" else "unavailable"
-            ),
+            status=("healthy" if paths.get("reports") == "writable" else "unavailable"),
             detail=(
                 "Local report storage is writable."
                 if paths.get("reports") == "writable"
@@ -265,14 +272,17 @@ async def get_asset_watch(db: AsyncSession, user: User) -> MonitoringAssetsRespo
         db, select(Report).where(Report.investigation_id.in_(investigation_ids))
     )
     closures = await _models(
-        db, select(CaseClosure).where(CaseClosure.investigation_id.in_(investigation_ids))
+        db,
+        select(CaseClosure).where(CaseClosure.investigation_id.in_(investigation_ids)),
     )
     scan_jobs = (
         await _models(db, select(ScanJob).where(ScanJob.target_id.in_(target_ids)))
         if target_ids
         else []
     )
-    engagement_ids = {item.engagement_id for item in investigations if item.engagement_id}
+    engagement_ids = {
+        item.engagement_id for item in investigations if item.engagement_id
+    }
     engagements = (
         await _models(
             db,
@@ -289,13 +299,9 @@ async def get_asset_watch(db: AsyncSession, user: User) -> MonitoringAssetsRespo
     closures_by_investigation = {item.investigation_id: item for item in closures}
     engagements_by_id = {item.id: item for item in engagements}
     evidence_target_ids = {
-        item.target_id
-        for item in findings
-        if item.target_id is not None
+        item.target_id for item in findings if item.target_id is not None
     } | {
-        item.target_id
-        for item in scan_jobs
-        if item.status in {"completed", "partial"}
+        item.target_id for item in scan_jobs if item.status in {"completed", "partial"}
     }
     stale_cutoff = datetime.now(UTC) - timedelta(days=STALE_TARGET_DAYS)
     items: list[MonitoringAssetItem] = []
@@ -317,7 +323,8 @@ async def get_asset_watch(db: AsyncSession, user: User) -> MonitoringAssetsRespo
             for target in inv_targets
         )
         unresolved_high = sum(
-            item.severity == "high" and _finding_unresolved(item) for item in inv_findings
+            item.severity == "high" and _finding_unresolved(item)
+            for item in inv_findings
         )
         unresolved_critical = sum(
             item.severity == "critical" and _finding_unresolved(item)
@@ -374,9 +381,7 @@ async def get_asset_watch(db: AsyncSession, user: User) -> MonitoringAssetsRespo
         high_risk_assets=sum(
             item.unresolved_high + item.unresolved_critical > 0 for item in items
         ),
-        out_of_scope_assets=sum(
-            item.scope_status == "out_of_scope" for item in items
-        ),
+        out_of_scope_assets=sum(item.scope_status == "out_of_scope" for item in items),
         unresolved_high=sum(item.unresolved_high for item in items),
         unresolved_critical=sum(item.unresolved_critical for item in items),
         findings_by_severity={
@@ -389,7 +394,11 @@ async def get_asset_watch(db: AsyncSession, user: User) -> MonitoringAssetsRespo
         items=sorted(
             items,
             key=lambda item: (
-                0 if item.status == "unavailable" else 1 if item.status == "degraded" else 2,
+                0
+                if item.status == "unavailable"
+                else 1
+                if item.status == "degraded"
+                else 2,
                 item.title.lower(),
             ),
         )[:50],
@@ -407,30 +416,154 @@ async def get_monitoring_alerts(
     service_data = services or await get_service_status(None)
     system_data = system or get_system_metrics()
     asset_data = assets or await get_asset_watch(db, user)
-    alerts = _build_alerts(service_data, system_data, asset_data)
+    await ensure_default_policies(db)
+    policies = {
+        item.rule_key: item
+        for item in (await db.execute(select(MonitoringPolicy))).scalars().all()
+    }
+    alerts = _build_alerts(service_data, system_data, asset_data, policies)
     if user.role == "admin":
         from app.services.lan_monitoring import get_lan_alerts
 
         alerts.extend(await get_lan_alerts(db))
+    alerts.extend(await _overdue_remediation_alerts(db, user))
+    tuned_alerts = [_apply_policy(alert, policies) for alert in alerts]
+    alerts = [alert for alert in tuned_alerts if alert is not None]
     created = existing = 0
-    day_bucket = datetime.now(UTC).date().isoformat()
-    for alert in alerts:
-        result = await create_notification(
-            db,
-            user_id=user.id,
-            actor_user_id=user.id,
-            investigation_id=alert.investigation_id,
-            notification_type="monitoring_alert",
-            severity=alert.severity,
-            title=alert.title,
-            message=alert.message,
-            entity_type="monitoring",
-            action_url=alert.action_url,
-            metadata={"rule": alert.key, "category": alert.category, "count": alert.count},
-            dedupe_key=f"monitoring:{alert.key}:{day_bucket}:{user.id}",
+    now = datetime.now(UTC)
+    active_windows = list(
+        (
+            await db.execute(
+                select(MaintenanceWindow).where(
+                    MaintenanceWindow.suppress_alerts.is_(True),
+                    MaintenanceWindow.start_time <= now,
+                    MaintenanceWindow.end_time > now,
+                )
+            )
         )
-        created += int(result.created)
-        existing += int(not result.created)
+        .scalars()
+        .all()
+    )
+    for alert in alerts:
+        policy = policies.get(_policy_key_for_alert(alert))
+        cooldown = policy.cooldown_minutes if policy else 1440
+        maximum = policy.max_alerts_per_rule if policy else 1
+        rule = policy.rule_key if policy else alert.key
+        since = now - timedelta(hours=24)
+        recent_count = int(
+            (
+                await db.execute(
+                    select(func.count())
+                    .select_from(Notification)
+                    .where(
+                        Notification.user_id == user.id,
+                        Notification.notification_type == "monitoring_alert",
+                        Notification.created_at >= since,
+                        Notification.event_metadata["policy_rule"].astext == rule,
+                    )
+                )
+            ).scalar_one()
+        )
+        bucket = int(now.timestamp() // (cooldown * 60))
+        dedupe = policy.dedupe_key if policy else alert.key
+        if recent_count >= maximum:
+            existing += 1
+            notification = (
+                (
+                    await db.execute(
+                        select(Notification)
+                        .where(
+                            Notification.user_id == user.id,
+                            Notification.notification_type == "monitoring_alert",
+                            Notification.event_metadata["policy_rule"].astext == rule,
+                        )
+                        .order_by(Notification.created_at.desc())
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if notification is None:
+                continue
+        else:
+            result = await create_notification(
+                db,
+                user_id=user.id,
+                actor_user_id=user.id,
+                investigation_id=alert.investigation_id,
+                notification_type="monitoring_alert",
+                severity=alert.severity,
+                title=alert.title,
+                message=alert.message,
+                entity_type="monitoring",
+                action_url=alert.action_url,
+                metadata={
+                    "rule": alert.key,
+                    "policy_rule": rule,
+                    "category": alert.category,
+                    "count": alert.count,
+                    "cooldown_minutes": cooldown,
+                },
+                dedupe_key=f"monitoring:{dedupe}:{bucket}:{user.id}",
+            )
+            notification = result.notification
+            created += int(result.created)
+            existing += int(not result.created)
+        alert.id = notification.id
+        active = (
+            (
+                await db.execute(
+                    select(AlertSuppression)
+                    .where(
+                        AlertSuppression.alert_id == notification.id,
+                        AlertSuppression.active.is_(True),
+                        or_(
+                            AlertSuppression.ends_at.is_(None),
+                            AlertSuppression.ends_at > now,
+                        ),
+                    )
+                    .order_by(AlertSuppression.created_at.desc())
+                )
+            )
+            .scalars()
+            .first()
+        )
+        window = next(
+            (item for item in active_windows if _window_matches(item, alert)), None
+        )
+        if window and active is None:
+            active = AlertSuppression(
+                alert_id=notification.id,
+                source="maintenance",
+                reason=window.reason,
+                starts_at=now,
+                ends_at=window.end_time,
+                created_by=window.created_by,
+                event_metadata={"maintenance_window_id": str(window.id)},
+            )
+            db.add(active)
+            notification.event_metadata = {
+                **notification.event_metadata,
+                "suppressed": True,
+                "suppressed_due_to_maintenance": True,
+                "maintenance_window_id": str(window.id),
+            }
+            await db.flush()
+            await record_event(
+                db,
+                action="monitoring.alert_suppressed",
+                actor_id=window.created_by,
+                resource_type="notification",
+                resource_id=notification.id,
+                metadata={
+                    "source": "maintenance",
+                    "maintenance_window_id": str(window.id),
+                },
+            )
+        if active:
+            alert.suppressed = True
+            alert.suppressed_due_to_maintenance = active.source == "maintenance"
+            alert.suppression_reason = active.reason
     return MonitoringAlertsResponse(
         generated_at=datetime.now(UTC),
         total=len(alerts),
@@ -457,10 +590,7 @@ async def get_recent_errors(
         )
     rows = await _models(
         db,
-        select(AuditLog)
-        .where(*filters)
-        .order_by(AuditLog.created_at.desc())
-        .limit(50),
+        select(AuditLog).where(*filters).order_by(AuditLog.created_at.desc()).limit(50),
     )
     errors: list[MonitoringRecentError] = []
     for row in rows:
@@ -477,7 +607,9 @@ async def get_recent_errors(
             continue
         errors.append(
             MonitoringRecentError(
-                category="AI degraded" if row.action == "ai_analysis.executed" else "Report failure",
+                category="AI degraded"
+                if row.action == "ai_analysis.executed"
+                else "Report failure",
                 action=row.action,
                 occurred_at=row.created_at,
                 investigation_id=row.investigation_id,
@@ -490,6 +622,7 @@ def _build_alerts(
     services: MonitoringServicesResponse,
     system: MonitoringSystemResponse,
     assets: MonitoringAssetsResponse,
+    policies: dict[str, MonitoringPolicy] | None = None,
 ) -> list[MonitoringAlert]:
     alerts: list[MonitoringAlert] = []
     for item in services.items:
@@ -508,12 +641,15 @@ def _build_alerts(
                 action_url="/monitoring",
             )
         )
-    for key, label, value in (
-        ("cpu", "CPU", system.cpu_percent),
-        ("memory", "Memory", system.memory_percent),
-        ("disk", "Disk", system.disk_percent),
+    for key, label, value, policy_key in (
+        ("cpu", "CPU", system.cpu_percent, "cpu_threshold"),
+        ("memory", "Memory", system.memory_percent, "memory_threshold"),
+        ("disk", "Disk", system.disk_percent, "disk_threshold"),
     ):
-        if value is not None and value >= 85:
+        threshold = float(
+            getattr((policies or {}).get(policy_key), "threshold_value", 90) or 90
+        )
+        if value is not None and value >= threshold:
             alerts.append(
                 MonitoringAlert(
                     key=f"system:{key}:high",
@@ -600,6 +736,101 @@ def _build_alerts(
             )
         )
     return alerts
+
+
+def _policy_key_for_alert(alert: MonitoringAlert) -> str:
+    key = alert.key
+    if key.startswith("system:cpu:"):
+        return "cpu_threshold"
+    if key.startswith("system:memory:"):
+        return "memory_threshold"
+    if key.startswith("system:disk:"):
+        return "disk_threshold"
+    if "agent_stale" in key:
+        return "stale_agent"
+    if ":offline" in key:
+        return "offline_asset"
+    if "risky_service" in key:
+        return "risky_service"
+    if ":unauthorized" in key:
+        return "unauthorized_asset"
+    if ":coverage" in key or ":unmanaged" in key:
+        return "weak_coverage"
+    if key == "assets:unresolved-high-risk":
+        return "high_critical_finding"
+    if key == "remediation:overdue":
+        return "overdue_remediation"
+    return key
+
+
+def _apply_policy(
+    alert: MonitoringAlert, policies: dict[str, MonitoringPolicy]
+) -> MonitoringAlert | None:
+    policy = policies.get(_policy_key_for_alert(alert))
+    if policy is None:
+        return alert
+    if not policy.enabled:
+        return alert if alert.severity == "critical" else None
+    if policy.severity_override and alert.severity != "critical":
+        # Critical alerts stay visible and critical until explicitly suppressed.
+        alert.severity = cast(MonitoringSeverity, policy.severity_override)
+    return alert
+
+
+def _window_matches(window: MaintenanceWindow, alert: MonitoringAlert) -> bool:
+    assets = set(window.affected_assets or [])
+    services = set(window.affected_services or [])
+    asset_match = (
+        not assets
+        or "*" in assets
+        or (
+            alert.investigation_id is not None and str(alert.investigation_id) in assets
+        )
+    )
+    service_match = (
+        not services
+        or "*" in services
+        or alert.category in services
+        or any(value in alert.key for value in services)
+    )
+    return asset_match and service_match
+
+
+async def _overdue_remediation_alerts(
+    db: AsyncSession, user: User
+) -> list[MonitoringAlert]:
+    today = datetime.now(UTC).date()
+    statement = (
+        select(func.count())
+        .select_from(VulnerabilityBaselineFinding)
+        .where(
+            VulnerabilityBaselineFinding.remediation_due_date < today,
+            VulnerabilityBaselineFinding.status.in_(
+                ("open", "acknowledged", "in_progress")
+            ),
+        )
+    )
+    if user.role != "admin":
+        accessible = await _accessible_investigations(db, user)
+        statement = statement.where(
+            VulnerabilityBaselineFinding.investigation_id.in_(
+                [item.id for item in accessible]
+            )
+        )
+    count = int((await db.execute(statement)).scalar_one())
+    if not count:
+        return []
+    return [
+        MonitoringAlert(
+            key="remediation:overdue",
+            severity="critical",
+            title="Overdue remediation",
+            message=f"{count} baseline remediation items are overdue.",
+            category="remediation",
+            action_url="/monitoring",
+            count=count,
+        )
+    ]
 
 
 def _health_service(
@@ -702,13 +933,10 @@ async def _accessible_investigations(
 ) -> list[Investigation]:
     statement = select(Investigation)
     if user.role != "admin":
-        statement = (
-            statement.join(
-                InvestigationMember,
-                InvestigationMember.investigation_id == Investigation.id,
-            )
-            .where(InvestigationMember.user_id == user.id)
-        )
+        statement = statement.join(
+            InvestigationMember,
+            InvestigationMember.investigation_id == Investigation.id,
+        ).where(InvestigationMember.user_id == user.id)
     result = await db.execute(statement.order_by(Investigation.updated_at.desc()))
     return list(result.scalars().unique().all())
 
@@ -809,8 +1037,7 @@ def _empty_assets() -> MonitoringAssetsResponse:
         unresolved_high=0,
         unresolved_critical=0,
         findings_by_severity={
-            severity: 0
-            for severity in ("critical", "high", "medium", "low", "info")
+            severity: 0 for severity in ("critical", "high", "medium", "low", "info")
         },
         authorization_risks=0,
         repeated_report_failures=0,

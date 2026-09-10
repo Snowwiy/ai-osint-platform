@@ -1,13 +1,14 @@
 import { AlertTriangle, RefreshCw, ServerCog } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
 import { LanMonitoringPanel } from "../components/LanMonitoringPanel";
 import { VulnerabilityBaselinePanel } from "../components/VulnerabilityBaselinePanel";
+import { MonitoringPolicyPanel } from "../components/MonitoringPolicyPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
-import { getMonitoringOverview } from "../lib/api";
+import { getMonitoringOverview, suppressMonitoringAlert, unsuppressMonitoringAlert } from "../lib/api";
 import {
   safeArray,
   safeDate,
@@ -18,11 +19,13 @@ import {
 import type { MonitoringStatus } from "../types";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
-type MonitoringTab = "server" | "services" | "lan" | "agents" | "baseline" | "alerts";
+type MonitoringTab = "server" | "services" | "lan" | "agents" | "baseline" | "alerts" | "policies" | "maintenance";
 
 export function MonitoringCenterPage(): JSX.Element {
   const [pollSeconds, setPollSeconds] = useState(30);
   const [tab, setTab] = useState<MonitoringTab>("server");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const overview = useQuery({
     queryKey: ["monitoring-overview"],
     queryFn: getMonitoringOverview,
@@ -39,6 +42,11 @@ export function MonitoringCenterPage(): JSX.Element {
   const errors = safeArray(data?.recent_errors);
   const system = data?.system;
   const overviewVisible = tab === "server" || tab === "services" || tab === "alerts";
+  const suppression = useMutation({
+    mutationFn: ({ id, suppressed }: { id: string; suppressed: boolean }) => suppressed ? unsuppressMonitoringAlert(id) : suppressMonitoringAlert(id, "Suppressed by analyst from Monitoring Center."),
+    onSuccess: async () => { setActionError(null); await queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] }); },
+    onError: () => setActionError("The alert suppression could not be changed. Check your role and try again."),
+  });
 
   return (
     <>
@@ -74,9 +82,9 @@ export function MonitoringCenterPage(): JSX.Element {
       />
 
       <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
-        {(["server", "services", "lan", "agents", "baseline", "alerts"] as MonitoringTab[]).map((item) => (
+        {(["server", "services", "lan", "agents", "baseline", "alerts", "policies", "maintenance"] as MonitoringTab[]).map((item) => (
           <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
-            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "baseline" ? "Vulnerability Baseline" : item}
+            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "baseline" ? "Vulnerability Baseline" : item === "maintenance" ? "Maintenance Windows" : item}
           </button>
         ))}
       </nav>
@@ -85,6 +93,7 @@ export function MonitoringCenterPage(): JSX.Element {
       {overviewVisible && overview.error ? (
         <ErrorBlock message={overview.error} onRetry={() => void overview.refetch()} />
       ) : null}
+      {tab === "alerts" && actionError ? <div className="mb-4 rounded-lg border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100" role="alert">{actionError}</div> : null}
       {overviewVisible && !overview.isLoading && !overview.error && data ? (
         <div className="space-y-5">
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
@@ -169,9 +178,9 @@ export function MonitoringCenterPage(): JSX.Element {
             <div>
               <h2 className="mb-3 text-lg font-semibold">Alerts ({safeNumber(data.alerts?.total)})</h2>
               {alerts.length ? <div className="space-y-2">{alerts.map((alert) => (
-                <Link key={safeString(alert.key, alert.title)} to={safeInternalRoute(alert.action_url, "/monitoring")} className="block rounded-lg border border-raven-border bg-raven-panel/85 p-4 hover:border-raven-violet">
-                  <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 text-amber-200" aria-hidden="true" /><div className="min-w-0"><p className="font-medium">{safeString(alert.title, "Monitoring alert")}</p><p className="mt-1 break-words text-sm text-raven-muted">{safeString(alert.message, "Review local telemetry.")}</p></div></div>
-                </Link>
+                <div key={safeString(alert.key, alert.title)} className="min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+                  <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="font-medium hover:text-raven-cyan">{safeString(alert.title, "Monitoring alert")}</Link>{alert.suppressed ? <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-100">{alert.suppressed_due_to_maintenance ? "Suppressed · maintenance" : "Suppressed"}</span> : null}</div><p className="mt-1 break-words text-sm text-raven-muted">{safeString(alert.message, "Review local telemetry.")}</p>{alert.suppression_reason ? <p className="mt-1 break-words text-xs text-raven-muted">{alert.suppression_reason}</p> : null}{alert.id ? <button type="button" onClick={() => suppression.mutate({ id: alert.id ?? "", suppressed: alert.suppressed })} disabled={suppression.isPending} className="mt-2 rounded-md border border-raven-border px-2 py-1 text-xs disabled:opacity-50">{alert.suppressed ? "Unsuppress" : "Suppress"}</button> : <p className="mt-2 text-xs text-raven-muted">Notification limited by cooldown or daily cap.</p>}</div></div>
+                </div>
               ))}</div> : <EmptyBlock title="No active alerts" message="Local services and accessible assets have no derived warning conditions." />}
             </div>
             <div>
@@ -189,6 +198,8 @@ export function MonitoringCenterPage(): JSX.Element {
       {tab === "lan" ? <LanMonitoringPanel /> : null}
       {tab === "agents" ? <LanMonitoringPanel agentsOnly /> : null}
       {tab === "baseline" ? <VulnerabilityBaselinePanel /> : null}
+      {tab === "policies" ? <MonitoringPolicyPanel /> : null}
+      {tab === "maintenance" ? <MonitoringPolicyPanel windows /> : null}
     </>
   );
 }
