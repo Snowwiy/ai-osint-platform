@@ -753,7 +753,9 @@ def _policy_key_for_alert(alert: MonitoringAlert) -> str:
         return "stale_agent"
     if ":offline" in key:
         return "offline_asset"
-    if "risky_service" in key or "ssh_nonstandard" in key:
+    if ":change:" in key and alert.category == "baseline":
+        return "high_critical_finding"
+    if "risky_service" in key or "ssh_nonstandard" in key or ":change:" in key:
         return "risky_service"
     if ":unauthorized" in key:
         return "unauthorized_asset"
@@ -791,6 +793,7 @@ def _window_matches(window: MaintenanceWindow, alert: MonitoringAlert) -> bool:
         or (
             alert.investigation_id is not None and str(alert.investigation_id) in assets
         )
+        or any(asset in alert.key for asset in assets)
     )
     service_match = (
         not services

@@ -144,3 +144,17 @@ discovery limited inside Docker**, not as a platform failure. Use the optional
 local endpoint agent or sanitized static/router observations when host network
 visibility is required. Collection continues independently of alert
 suppression and maintenance windows.
+
+## Phase 5AC asset and service history
+
+Authorized observations now retain a service-history row for every configured
+TCP result and create change events only on meaningful transitions: discovered
+asset, offline/online, hostname or MAC change, new/closed port, changed service
+guess, and newly detected non-standard SSH. Endpoint-agent history records
+stale/resumed reporting and CPU, memory, or disk policy-threshold crossings.
+
+The asset detail view summarizes telemetry history, service history, and recent
+changes. History never stores raw banners, passwords, tokens, credentials, or
+commands. It does not expand scope: public scanning, brute force,
+authentication, exploitation, and intrusive vulnerability tests remain
+prohibited.

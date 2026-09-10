@@ -4,6 +4,7 @@ import logging
 import secrets
 import uuid
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
@@ -56,6 +57,14 @@ from app.schemas.monitoring_policy import (
     MonitoringPolicyResponse,
     MonitoringPolicyUpdate,
 )
+from app.schemas.monitoring_history import (
+    AssetHistoryResponse,
+    ChangeSeverity,
+    MonitoringChangeAcknowledgeResponse,
+    MonitoringChangeListResponse,
+    MonitoringChangeOverviewResponse,
+    ServiceHistoryListResponse,
+)
 from app.services.monitoring_policy import (
     AlertNotFoundError,
     AlertSuppressionConflictError,
@@ -71,6 +80,17 @@ from app.services.monitoring_policy import (
     update_policy,
     update_window,
     window_response,
+)
+from app.services.monitoring_history import (
+    ChangeAcknowledgement,
+    MonitoringChangeAlreadyAcknowledgedError,
+    MonitoringChangeNotFoundError,
+    MonitoringHistoryAssetNotFoundError,
+    acknowledge_change,
+    asset_history,
+    changes_overview,
+    list_changes,
+    service_history,
 )
 from app.services.local_monitoring import (
     get_asset_watch,
@@ -110,6 +130,51 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@router.get("/changes", response_model=MonitoringChangeListResponse)
+async def monitoring_changes_endpoint(
+    asset_id: uuid.UUID | None = None,
+    event_type: str | None = Query(default=None, min_length=1, max_length=80),
+    severity: ChangeSeverity | None = None,
+    acknowledgement: ChangeAcknowledgement | None = Query(default=None),
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringChangeListResponse:
+    if date_from and date_to:
+        normalized_from = date_from if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+        normalized_to = date_to if date_to.tzinfo else date_to.replace(tzinfo=UTC)
+        if normalized_from > normalized_to:
+            raise HTTPException(status_code=422, detail="date_from must be before date_to")
+    return await _safe_history_call(
+        list_changes, db, limit=limit, offset=offset, asset_id=asset_id,
+        event_type=event_type, severity=severity, acknowledgement=acknowledgement,
+        date_from=date_from, date_to=date_to,
+    )
+
+
+@router.get("/changes/overview", response_model=MonitoringChangeOverviewResponse)
+async def monitoring_changes_overview_endpoint(
+    _current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringChangeOverviewResponse:
+    return await _safe_history_call(changes_overview, db)
+
+
+@router.patch(
+    "/changes/{change_id}/acknowledge",
+    response_model=MonitoringChangeAcknowledgeResponse,
+)
+async def monitoring_change_acknowledge_endpoint(
+    change_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringChangeAcknowledgeResponse:
+    return await _safe_history_call(acknowledge_change, db, current_user, change_id)
 
 
 @router.get("/policies", response_model=MonitoringPolicyListResponse)
@@ -424,6 +489,31 @@ async def lan_asset_services_endpoint(
     return await _safe_lan_call(list_asset_services, db, asset_id, limit)
 
 
+@router.get("/lan/assets/{asset_id}/history", response_model=AssetHistoryResponse)
+async def lan_asset_history_endpoint(
+    asset_id: uuid.UUID,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AssetHistoryResponse:
+    return await _safe_history_call(asset_history, db, asset_id, limit, offset)
+
+
+@router.get(
+    "/lan/assets/{asset_id}/service-history",
+    response_model=ServiceHistoryListResponse,
+)
+async def lan_asset_service_history_endpoint(
+    asset_id: uuid.UUID,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceHistoryListResponse:
+    return await _safe_history_call(service_history, db, asset_id, limit, offset)
+
+
 @router.post(
     "/lan/assets/{asset_id}/service-check", response_model=LanServiceCheckResponse
 )
@@ -584,4 +674,26 @@ async def _safe_baseline_call(
         raise
     except Exception as exc:
         logger.exception("monitoring.vulnerability_baseline operation failed")
+        raise _monitoring_unavailable() from exc
+
+
+async def _safe_history_call(
+    function: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any
+) -> Any:
+    try:
+        return await function(*args, **kwargs)
+    except MonitoringChangeNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Monitoring change not found."
+        ) from exc
+    except MonitoringHistoryAssetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="LAN asset not found.") from exc
+    except MonitoringChangeAlreadyAcknowledgedError as exc:
+        raise HTTPException(
+            status_code=409, detail="Monitoring change is already acknowledged."
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("monitoring.history operation failed")
         raise _monitoring_unavailable() from exc

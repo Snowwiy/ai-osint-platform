@@ -128,6 +128,18 @@ Authorized LAN service observations are shown separately from required service
 health. They are risk indicators, not proof of exploitation or confirmed
 vulnerabilities. See [LAN_MONITORING.md](LAN_MONITORING.md).
 
+## Phase 5AC change timeline
+
+The **Change Timeline** records state transitions for LAN assets, ports,
+services, endpoint agents, policy-threshold telemetry, and vulnerability
+baseline indicators. Entries retain bounded old/new values, source, severity,
+time, acknowledgement state, and sanitized metadata. Filters cover asset,
+event type, severity, acknowledgement, and date range.
+
+Acknowledgement is an audited analyst workflow action; it does not delete
+history or stop collection. Change-derived alerts continue through monitoring
+policy cooldowns, dedupe limits, explicit suppressions, and maintenance windows.
+
 ## Optional authorized LAN monitoring
 
 The **LAN Assets** and **Endpoint Agents** tabs are admin-only because they show

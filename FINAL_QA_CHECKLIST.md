@@ -182,3 +182,17 @@ check blocks the current release-freeze commit and push.
 - [ ] No public scanning, authentication, brute force, command execution,
       exploitation, intrusive testing, hosting, deployment, DNS, or Supabase
       change is present.
+
+## Phase 5AC history and timeline
+
+- [ ] New asset, offline/online, hostname/MAC, port open/closed, service guess,
+      non-standard SSH, stale/resumed agent, threshold, and baseline transitions
+      produce bounded change events only when state changes.
+- [ ] Service history preserves previous/current TCP status, service guess,
+      confidence, source, and observed time without raw banners or secrets.
+- [ ] Change APIs enforce authentication, role access, pagination, filters,
+      safe 404/422 responses, and audited acknowledgement.
+- [ ] Change-derived notifications respect policy cooldowns, dedupe limits,
+      suppressions, and maintenance windows.
+- [ ] Change Timeline and asset history views render useful loading, empty,
+      error, filtering, and acknowledgement states without horizontal overflow.

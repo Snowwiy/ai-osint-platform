@@ -354,3 +354,17 @@ Docker LAN limitations are informational and can be supplemented with the
 optional endpoint agent or static/router observations. This phase changes no
 hosting, deployment, DNS, or Supabase configuration and keeps version
 `5.0.0-rc2`.
+
+## Phase 5AC LAN monitoring history
+
+The Monitoring Center now includes a filterable **Change Timeline** and
+per-asset service, telemetry, and change history. Meaningful local transitions
+include asset availability, identity observations, port/service state, SSH on
+approved non-standard ports, endpoint-agent reporting, resource-policy
+thresholds, and baseline indicator lifecycle. Entries are acknowledgeable but
+never deleted by acknowledgement.
+
+History is derived only from configured local observations and authorized TCP
+checks. It stores no raw sensitive banners or credentials and introduces no
+public scanning, exploitation, brute force, hosting, deployment, DNS, or
+Supabase work. Version remains `5.0.0-rc2`.

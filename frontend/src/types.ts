@@ -3314,6 +3314,72 @@ export interface LanServiceListResponse {
   items: LanServiceObservation[];
 }
 
+export type MonitoringChangeSeverity = "info" | "low" | "medium" | "high" | "critical";
+
+export interface MonitoringChange {
+  id: string;
+  asset_id: string | null;
+  event_type: string;
+  severity: MonitoringChangeSeverity;
+  title: string;
+  description: string;
+  old_value: string | null;
+  new_value: string | null;
+  source: string;
+  detected_at: string;
+  acknowledged_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface MonitoringChangeListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: MonitoringChange[];
+}
+
+export interface MonitoringChangeOverview {
+  total: number;
+  unacknowledged: number;
+  critical: number;
+  high: number;
+  new_assets: number;
+  port_changes: number;
+  agent_changes: number;
+  baseline_changes: number;
+}
+
+export interface ServiceHistoryItem {
+  id: string;
+  asset_id: string;
+  port: number;
+  protocol: string;
+  previous_status: string | null;
+  current_status: string;
+  service_name: string | null;
+  confidence: number;
+  observed_at: string;
+  source: string;
+}
+
+export interface ServiceHistoryListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: ServiceHistoryItem[];
+}
+
+export interface AssetMonitoringHistory {
+  asset_id: string;
+  changes: MonitoringChangeListResponse;
+  telemetry_samples: number;
+  telemetry_first_at: string | null;
+  telemetry_last_at: string | null;
+  latest_cpu_percent: number | null;
+  latest_memory_percent: number | null;
+  latest_disk_percent: number | null;
+}
+
 export interface LanDiscoveryResponse {
   enabled: boolean;
   cidr: string;

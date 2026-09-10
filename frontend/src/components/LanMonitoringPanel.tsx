@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   discoverLan,
   getLanAsset,
+  getLanAssetHistory,
+  getLanServiceHistory,
   listLanAssets,
   listLanServices,
   listLanTelemetry,
@@ -56,6 +58,18 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     queryFn: () => listLanServices(selectedId ?? ""),
     enabled: isAdmin && Boolean(selectedId),
   });
+  const history = useQuery({
+    queryKey: ["lan-asset-history", selectedId],
+    queryFn: () => getLanAssetHistory(selectedId ?? ""),
+    enabled: isAdmin && Boolean(selectedId),
+    retry: 1,
+  });
+  const serviceHistory = useQuery({
+    queryKey: ["lan-service-history", selectedId],
+    queryFn: () => getLanServiceHistory(selectedId ?? ""),
+    enabled: isAdmin && Boolean(selectedId),
+    retry: 1,
+  });
   const selected = detail.data ?? assets.find((asset) => asset.id === selectedId);
   useEffect(() => {
     setAssetOwner(safeString(selected?.owner));
@@ -99,7 +113,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     mutationFn: (assetId: string) => runLanServiceCheck(assetId),
     onSuccess: async (result) => {
       setToast({ kind: "success", message: `${result.message} ${result.open_ports} open port(s) observed.` });
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["lan-services", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-assets"] })]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["lan-services", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-service-history", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-asset-history", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-assets"] })]);
     },
     onError: () => setToast({ kind: "error", message: "The authorized service check could not run. Review enablement, authorization, and rate limits." }),
   });
@@ -198,6 +212,10 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>
             <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · observed {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Risk indicator only; review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div><h3 className="text-sm font-medium">Change timeline</h3>{history.isLoading ? <p className="mt-2 text-sm text-raven-muted">Loading asset history…</p> : history.error ? <p className="mt-2 text-sm text-rose-100">Asset history is temporarily unavailable.</p> : safeArray(history.data?.changes?.items).length ? <ul className="mt-2 space-y-2">{safeArray(history.data?.changes?.items).slice(0, 8).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{safeString(item.title, "Monitoring change")}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.severity, "info")}</span></div><p className="mt-1 break-words text-xs text-raven-muted">{safeDate(item.detected_at)?.toLocaleString() ?? "time unavailable"} · {safeString(item.event_type, "change")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No asset changes have been recorded yet.</p>}<p className="mt-2 text-xs text-raven-muted">Telemetry history: {safeNumber(history.data?.telemetry_samples)} sample(s) · latest {safeDate(history.data?.telemetry_last_at)?.toLocaleString() ?? "unavailable"}</p></div>
+            <div><h3 className="text-sm font-medium">Service history</h3>{serviceHistory.isLoading ? <p className="mt-2 text-sm text-raven-muted">Loading service history…</p> : serviceHistory.error ? <p className="mt-2 text-sm text-rose-100">Service history is temporarily unavailable.</p> : safeArray(serviceHistory.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(serviceHistory.data?.items).slice(0, 8).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.previous_status, "first observation")} → {safeString(item.current_status, "unknown")}</span></div><p className="mt-1 break-words text-xs text-raven-muted">{safeString(item.service_name, "unidentified service")} · confidence {safeNumber(item.confidence)}% · {safeDate(item.observed_at)?.toLocaleString() ?? "time unavailable"}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service history has been recorded.</p>}</div>
           </div>
           <p className="mt-4 text-xs text-raven-muted">Notes: {safeString(selected.notes, "No notes.")} · telemetry samples: {safeNumber(telemetry.data?.total)} · OS: {safeString(safeArray(telemetry.data?.items)[0]?.os_name, "unavailable")} {safeString(safeArray(telemetry.data?.items)[0]?.os_version)}</p>
         </section>

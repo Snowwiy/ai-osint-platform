@@ -27,6 +27,18 @@
   does not identify service versions, query CVE feeds, scan for flaws, validate
   exploits, or prove compromise. Its risk indicators require analyst review.
 
+## Monitoring history
+
+- The timeline starts collecting after migration `0033_phase5ac_history`; it
+  does not reconstruct transitions from older Phase 5AB rows.
+- Offline and stale-agent changes are evaluated when monitoring summaries or
+  timeline endpoints run. This local release has no always-on external monitor.
+- TCP status and service names are observations and bounded guesses, not proof
+  of service identity, compromise, CVEs, or exploitability.
+- Docker may not expose host neighbor tables. Static/router observations or the
+  optional endpoint agent are still required for complete host-LAN visibility.
+- Monitoring history remains local. No hosting, deployment, public scanning,
+  DNS automation, or Supabase migration is included.
 ## Authentication And User Governance
 
 The platform uses its own backend authentication model. Public registration is

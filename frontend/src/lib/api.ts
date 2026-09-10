@@ -88,6 +88,11 @@ import type {
   VulnerabilityBaselineStatus,
   LanServiceListResponse,
   LanServiceCheckResponse,
+  AssetMonitoringHistory,
+  MonitoringChangeListResponse,
+  MonitoringChangeOverview,
+  MonitoringChangeSeverity,
+  ServiceHistoryListResponse,
   LanTelemetryListResponse,
   InvestigationEscalation,
   InvestigationHandoff,
@@ -1145,6 +1150,36 @@ export async function listLanServices(assetId: string): Promise<LanServiceListRe
 
 export async function runLanServiceCheck(assetId: string): Promise<LanServiceCheckResponse> {
   return request<LanServiceCheckResponse>(`/monitoring/lan/assets/${assetId}/service-check`, { method: "POST" });
+}
+
+export async function listMonitoringChanges(filters: {
+  asset_id?: string;
+  event_type?: string;
+  severity?: MonitoringChangeSeverity;
+  acknowledgement?: "acknowledged" | "unacknowledged";
+  date_from?: string;
+  date_to?: string;
+} = {}): Promise<MonitoringChangeListResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+  const query = params.toString();
+  return request<MonitoringChangeListResponse>(`/monitoring/changes${query ? `?${query}` : ""}`);
+}
+
+export async function getMonitoringChangesOverview(): Promise<MonitoringChangeOverview> {
+  return request<MonitoringChangeOverview>("/monitoring/changes/overview");
+}
+
+export async function acknowledgeMonitoringChange(changeId: string): Promise<{ id: string; acknowledged_at: string }> {
+  return request(`/monitoring/changes/${changeId}/acknowledge`, { method: "PATCH" });
+}
+
+export async function getLanAssetHistory(assetId: string): Promise<AssetMonitoringHistory> {
+  return request<AssetMonitoringHistory>(`/monitoring/lan/assets/${assetId}/history`);
+}
+
+export async function getLanServiceHistory(assetId: string): Promise<ServiceHistoryListResponse> {
+  return request<ServiceHistoryListResponse>(`/monitoring/lan/assets/${assetId}/service-history`);
 }
 
 export async function updateLanAssetCriticality(

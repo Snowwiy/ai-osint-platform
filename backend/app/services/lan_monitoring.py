@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.lan_monitoring import LanAsset, LanAssetTelemetry, LanServiceObservation
+from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.user import User
 from app.schemas.lan_monitoring import (
     LanAgentRegistration,
@@ -42,6 +43,12 @@ from app.schemas.lan_monitoring import (
 from app.schemas.monitoring import MonitoringAlert
 from app.services.audit import record_event
 from app.services.notification import create_admin_notification
+from app.services.monitoring_history import (
+    record_agent_telemetry_changes,
+    record_asset_observation_changes,
+    record_service_observation,
+    reconcile_asset_state_changes,
+)
 
 RFC1918_NETWORKS: tuple[ipaddress.IPv4Network, ...] = tuple(
     ipaddress.IPv4Network(value)
@@ -197,8 +204,15 @@ async def update_lan_asset(
     asset = await db.get(LanAsset, asset_id)
     if asset is None:
         raise LanAssetNotFoundError
+    old_hostname = asset.hostname
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(asset, field, value.strip() if isinstance(value, str) else value)
+    if asset.is_authorized and old_hostname and asset.hostname != old_hostname:
+        await record_asset_observation_changes(
+            db, asset=asset, created=False, old_status=asset.status,
+            old_hostname=old_hostname, old_mac=asset.mac_address,
+            source="asset_update", detected_at=datetime.now(UTC),
+        )
     await record_event(
         db,
         action="lan.asset.updated",
@@ -243,18 +257,24 @@ async def discover_lan(
             raise LanConfigurationError(
                 "An observed asset is outside the selected CIDR."
             )
+        previous_asset = await _asset_by_ip(db, observation.ip_address)
+        old_status = previous_asset.status if previous_asset else None
+        old_hostname = previous_asset.hostname if previous_asset else None
+        old_mac = previous_asset.mac_address if previous_asset else None
         asset, was_created = await _upsert_observation(db, user, observation, now)
+        await record_asset_observation_changes(
+            db, asset=asset, created=was_created, old_status=old_status,
+            old_hostname=old_hostname, old_mac=old_mac,
+            source=observation.source, detected_at=now,
+        )
         created += int(was_created)
         updated += int(not was_created)
         for service in observation.services:
-            db.add(
-                _service_observation(
-                    asset.id, asset.ip_address, service, observation.source, now
-                )
+            await record_service_observation(
+                db, asset=asset, observation=service,
+                source=observation.source, observed_at=now,
             )
             services_created += 1
-        if was_created:
-            await _notify_new_asset(db, user, asset)
 
     limitation = None
     if not observations:
@@ -301,6 +321,9 @@ async def register_agent(
     now = datetime.now(UTC)
     asset = await _asset_by_ip(db, str(address))
     created = asset is None
+    old_status = asset.status if asset else None
+    old_hostname = asset.hostname if asset else None
+    old_mac = asset.mac_address if asset else None
     if asset is None:
         asset = LanAsset(
             ip_address=str(address),
@@ -319,6 +342,11 @@ async def register_agent(
     asset.is_authorized = True
     asset.monitoring_enabled = True
     await db.flush()
+    await record_asset_observation_changes(
+        db, asset=asset, created=created, old_status=old_status,
+        old_hostname=old_hostname, old_mac=old_mac,
+        source="endpoint_agent", detected_at=now,
+    )
     await record_event(
         db,
         action="lan.agent.registered",
@@ -342,6 +370,19 @@ async def ingest_agent_telemetry(
     if asset is None or asset.source != "agent" or not asset.is_authorized:
         raise LanAssetNotFoundError
     received_at = datetime.now(UTC)
+    old_status = asset.status
+    previous = (
+        (
+            await db.execute(
+                select(LanAssetTelemetry)
+                .where(LanAssetTelemetry.lan_asset_id == asset.id)
+                .order_by(LanAssetTelemetry.collected_at.desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
     telemetry = LanAssetTelemetry(
         lan_asset_id=asset.id,
         cpu_percent=body.cpu_percent,
@@ -358,6 +399,13 @@ async def ingest_agent_telemetry(
     asset.status = "online"
     asset.last_seen = body.collected_at
     asset.last_checked_at = received_at
+    if old_status == "offline":
+        await record_asset_observation_changes(
+            db, asset=asset, created=False, old_status=old_status,
+            old_hostname=asset.hostname, old_mac=asset.mac_address,
+            source="endpoint_agent", detected_at=body.collected_at,
+        )
+    await record_agent_telemetry_changes(db, asset, previous, telemetry)
     await record_event(
         db,
         action="lan.agent.telemetry_ingested",
@@ -470,10 +518,9 @@ async def check_asset_services(
     )
     now = datetime.now(UTC)
     for service in observations:
-        db.add(
-            _service_observation(
-                asset.id, asset.ip_address, service, "tcp_connect", now
-            )
+        await record_service_observation(
+            db, asset=asset, observation=service,
+            source="tcp_connect", observed_at=now,
         )
     asset.last_checked_at = now
     await record_event(
@@ -585,6 +632,7 @@ def _classify_service(port: int, banner: bytes) -> LanServiceInput:
 async def get_lan_alerts(db: AsyncSession) -> list[MonitoringAlert]:
     if not settings.LAN_MONITORING_ENABLED:
         return []
+    await reconcile_asset_state_changes(db)
     assets = await list_lan_assets(db)
     alerts: list[MonitoringAlert] = []
     for asset in assets.items:
@@ -601,6 +649,39 @@ async def get_lan_alerts(db: AsyncSession) -> list[MonitoringAlert]:
                     action_url="/monitoring",
                 )
             )
+    recent_changes = list(
+        (
+            await db.execute(
+                select(MonitoringChangeEvent).where(
+                    MonitoringChangeEvent.acknowledged_at.is_(None),
+                    MonitoringChangeEvent.detected_at
+                    >= datetime.now(UTC) - timedelta(hours=24),
+                    MonitoringChangeEvent.event_type.in_(
+                        ("port_closed", "service_changed", "baseline_finding_opened")
+                    ),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    alerts.extend(
+        MonitoringAlert(
+            key=f"lan:{item.asset_id}:change:{item.id}",
+            severity="critical" if item.severity == "critical" else "warning",
+            title=item.title,
+            message=item.description,
+            category=(
+                "baseline"
+                if item.event_type == "baseline_finding_opened"
+                else "lan_change"
+            ),
+            source=item.source,
+            observed_at=item.detected_at,
+            action_url="/monitoring",
+        )
+        for item in recent_changes
+    )
     return alerts[:100]
 
 
@@ -999,22 +1080,6 @@ def _merge_observations(
     for item in second:
         merged.setdefault(item.ip_address, item)
     return list(merged.values())
-
-
-async def _notify_new_asset(db: AsyncSession, user: User, asset: LanAsset) -> None:
-    await create_admin_notification(
-        db,
-        notification_type="monitoring_alert",
-        severity="warning",
-        title="New LAN asset observed",
-        message=f"A new private LAN asset at {asset.ip_address} requires authorization review.",
-        entity_type="lan_asset",
-        actor_user_id=user.id,
-        entity_id=asset.id,
-        action_url="/monitoring",
-        metadata={"rule": "lan_new_asset"},
-        dedupe_key_prefix=f"lan:new:{asset.id}",
-    )
 
 
 async def _notify_discovery_limitation(db: AsyncSession, user: User) -> None:
