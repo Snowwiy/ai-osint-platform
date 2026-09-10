@@ -30,7 +30,7 @@ or production-certified.
 - mypy: passed across 193 backend source files
 - pytest: 221 passed
 - `pip check`: passed
-- Alembic: one linear head, `0029_phase5y_lan`, with no schema drift
+- Alembic: one linear head, `0030_phase5z_base`, with no schema drift
 - `/health` and `/health/ready`: `status: ok`
 - `/api/v1/release`: `5.0.0-rc2`
 - Frontend TypeScript/Vite production build: passed

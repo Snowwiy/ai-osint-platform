@@ -42,7 +42,7 @@ At the Phase 5W validation gate:
 
 - `/health` and `/health/ready`: `status: ok`
 - `/api/v1/release`: `5.0.0-rc2`
-- Alembic: one current head, `0029_phase5y_lan`, with no schema drift
+- Alembic: one current head, `0030_phase5z_base`, with no schema drift
 - pytest: 221 passed, including new config and logging safety regression tests
 - ruff, strict mypy, and `pip check`: passed
 - frontend ESLint and TypeScript/Vite 6.4.3 production build: passed

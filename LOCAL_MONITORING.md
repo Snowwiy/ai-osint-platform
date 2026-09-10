@@ -112,3 +112,11 @@ uses explicitly configured private ranges, and does not weaken the server
 monitoring path. See [LAN_MONITORING.md](LAN_MONITORING.md) for safe enablement,
 agent-token handling, Docker limitations, polling, discovery rate limits, and
 non-intrusive risk indicators.
+
+## Defensive vulnerability baseline
+
+The **Vulnerability Baseline** tab evaluates already stored LAN observations,
+endpoint telemetry, authorization state, and analyst-reviewed high/critical
+findings. It supports remediation ownership, due dates, and status transitions
+without performing network discovery or exploit validation. See
+[VULNERABILITY_BASELINE.md](VULNERABILITY_BASELINE.md).

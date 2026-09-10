@@ -89,7 +89,7 @@ curl.exe http://localhost:8000/api/v1/release
 ```
 
 The expected release is `5.0.0-rc2`, with migration head
-`0029_phase5y_lan` and `status: ok` for health and readiness.
+`0030_phase5z_base` and `status: ok` for health and readiness.
 
 ## Generate Demo Reports
 

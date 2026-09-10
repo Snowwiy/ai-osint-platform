@@ -16,7 +16,7 @@ check blocks the current release-freeze commit and push.
 - [ ] `curl http://localhost:8000/health` returns `status: ok`.
 - [ ] `curl http://localhost:8000/health/ready` returns `status: ok`.
 - [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc2` and
-      `0029_phase5y_lan` without secrets.
+      `0030_phase5z_base` without secrets.
 - [ ] From `frontend/`, `npm run build` passes.
 - [ ] `docker compose ps` shows required local services running; backend and
       PostgreSQL are healthy.
@@ -110,6 +110,13 @@ check blocks the current release-freeze commit and push.
       latency, and notes without a React crash.
 - [ ] LAN alerts deduplicate, and port/resource/version results are labeled risk
       indicators rather than confirmed vulnerabilities.
+- [ ] Vulnerability Baseline evaluates stored observations only and does not
+      initiate discovery, service probing, credential checks, or exploit tests.
+- [ ] Admin and analyst roles can set asset criticality/business context and
+      track baseline status, remediation owner, and due date.
+- [ ] Risky service, stale agent, unauthorized asset, sustained pressure,
+      missing-owner, and overdue-remediation indicators appear without alert
+      duplication or secret metadata.
 
 ## UI And Portfolio Review
 

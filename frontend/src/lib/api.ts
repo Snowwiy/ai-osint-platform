@@ -81,6 +81,11 @@ import type {
   LanAsset,
   LanAssetListResponse,
   LanDiscoveryResponse,
+  VulnerabilityBaselineFinding,
+  VulnerabilityBaselineListResponse,
+  VulnerabilityBaselineOverview,
+  VulnerabilityBaselineRunResponse,
+  VulnerabilityBaselineStatus,
   LanServiceListResponse,
   LanTelemetryListResponse,
   InvestigationEscalation,
@@ -1111,6 +1116,38 @@ export async function listLanTelemetry(assetId: string): Promise<LanTelemetryLis
 
 export async function listLanServices(assetId: string): Promise<LanServiceListResponse> {
   return request<LanServiceListResponse>(`/monitoring/lan/assets/${assetId}/services`);
+}
+
+export async function updateLanAssetCriticality(
+  assetId: string,
+  body: Pick<LanAsset, "criticality"> & Partial<Pick<LanAsset, "owner" | "business_function" | "environment" | "notes">>,
+): Promise<LanAsset> {
+  return request<LanAsset>(`/monitoring/lan/assets/${assetId}/criticality`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function listVulnerabilityBaseline(): Promise<VulnerabilityBaselineListResponse> {
+  return request<VulnerabilityBaselineListResponse>("/monitoring/vulnerabilities");
+}
+
+export async function getVulnerabilityBaselineOverview(): Promise<VulnerabilityBaselineOverview> {
+  return request<VulnerabilityBaselineOverview>("/monitoring/vulnerabilities/overview");
+}
+
+export async function runVulnerabilityBaseline(): Promise<VulnerabilityBaselineRunResponse> {
+  return request<VulnerabilityBaselineRunResponse>("/monitoring/vulnerabilities/run-baseline", { method: "POST" });
+}
+
+export async function updateVulnerabilityBaselineFinding(
+  findingId: string,
+  body: Partial<{ status: VulnerabilityBaselineStatus; remediation_owner: string | null; remediation_due_date: string | null }>,
+): Promise<VulnerabilityBaselineFinding> {
+  return request<VulnerabilityBaselineFinding>(`/monitoring/vulnerabilities/${findingId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function getOperationsEnvironment(): Promise<EnvironmentValidationResponse> {

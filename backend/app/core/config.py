@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     LAN_SERVICE_CHECK_PORTS: str = "22,80,443,3389"
     LAN_AGENT_TOKEN: str = Field(default="", exclude=True)
     LAN_AGENT_MAX_STALE_MINUTES: int = 10
+    VULNERABILITY_BASELINE_ENABLED: bool = True
+    VULNERABILITY_HIGH_RESOURCE_PERCENT: int = 90
+    VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES: int = 3
+    VULNERABILITY_STALE_ASSET_HOURS: int = 24
     PUBLIC_REGISTRATION_ENABLED: bool = False
     REGISTRATION_REQUIRES_APPROVAL: bool = True
     REGISTRATION_INVITE_CODE: str = Field(default="", exclude=True)
@@ -158,6 +162,12 @@ class Settings(BaseSettings):
             errors.append("LAN_DISCOVERY_INTERVAL_SECONDS must be at least 60.")
         if self.LAN_AGENT_MAX_STALE_MINUTES < 2:
             errors.append("LAN_AGENT_MAX_STALE_MINUTES must be at least 2.")
+        if not 50 <= self.VULNERABILITY_HIGH_RESOURCE_PERCENT <= 100:
+            errors.append("VULNERABILITY_HIGH_RESOURCE_PERCENT must be between 50 and 100.")
+        if not 2 <= self.VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES <= 10:
+            errors.append("VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES must be between 2 and 10.")
+        if self.VULNERABILITY_STALE_ASSET_HOURS < 1:
+            errors.append("VULNERABILITY_STALE_ASSET_HOURS must be at least 1.")
         try:
             networks = [
                 ipaddress.ip_network(value.strip(), strict=False)

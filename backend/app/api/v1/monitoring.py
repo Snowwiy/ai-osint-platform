@@ -19,11 +19,19 @@ from app.schemas.lan_monitoring import (
     LanAgentTelemetryResponse,
     LanAssetListResponse,
     LanAssetResponse,
+    LanAssetCriticalityUpdate,
     LanAssetUpdate,
     LanDiscoveryRequest,
     LanDiscoveryResponse,
     LanServiceListResponse,
     LanTelemetryListResponse,
+)
+from app.schemas.vulnerability_baseline import (
+    VulnerabilityBaselineFindingResponse,
+    VulnerabilityBaselineListResponse,
+    VulnerabilityBaselineOverviewResponse,
+    VulnerabilityBaselineRunResponse,
+    VulnerabilityBaselineUpdate,
 )
 from app.schemas.monitoring import (
     AgentTelemetryIngest,
@@ -56,6 +64,15 @@ from app.services.lan_monitoring import (
     notify_discovery_failure,
     register_agent,
     update_lan_asset,
+)
+from app.services.vulnerability_baseline import (
+    VulnerabilityBaselineDisabledError,
+    VulnerabilityBaselineFindingNotFoundError,
+    get_baseline_overview,
+    list_baseline_findings,
+    run_vulnerability_baseline,
+    update_asset_criticality,
+    update_baseline_finding,
 )
 
 logger = logging.getLogger(__name__)
@@ -200,6 +217,16 @@ async def lan_asset_update_endpoint(
     return await _safe_lan_call(update_lan_asset, db, current_user, asset_id, body)
 
 
+@router.patch("/lan/assets/{asset_id}/criticality", response_model=LanAssetResponse)
+async def lan_asset_criticality_endpoint(
+    asset_id: uuid.UUID,
+    body: LanAssetCriticalityUpdate,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> LanAssetResponse:
+    return await _safe_lan_call(update_asset_criticality, db, current_user, asset_id, body)
+
+
 @router.get("/lan/assets/{asset_id}/telemetry", response_model=LanTelemetryListResponse)
 async def lan_asset_telemetry_endpoint(
     asset_id: uuid.UUID,
@@ -246,6 +273,47 @@ async def lan_agent_telemetry_ingest_endpoint(
     return await _safe_lan_call(ingest_lan_agent_telemetry, db, body)
 
 
+@router.get("/vulnerabilities", response_model=VulnerabilityBaselineListResponse)
+async def vulnerability_baseline_list_endpoint(
+    finding_status: str | None = Query(default=None, alias="status", pattern="^(open|acknowledged|in_progress|resolved|false_positive)$"),
+    severity: str | None = Query(default=None, pattern="^(info|low|medium|high|critical)$"),
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> VulnerabilityBaselineListResponse:
+    return await _safe_baseline_call(
+        list_baseline_findings, db, current_user,
+        status=finding_status, severity=severity, limit=limit, offset=offset,
+    )
+
+
+@router.get("/vulnerabilities/overview", response_model=VulnerabilityBaselineOverviewResponse)
+async def vulnerability_baseline_overview_endpoint(
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> VulnerabilityBaselineOverviewResponse:
+    return await _safe_baseline_call(get_baseline_overview, db, current_user)
+
+
+@router.post("/vulnerabilities/run-baseline", response_model=VulnerabilityBaselineRunResponse)
+async def vulnerability_baseline_run_endpoint(
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> VulnerabilityBaselineRunResponse:
+    return await _safe_baseline_call(run_vulnerability_baseline, db, current_user)
+
+
+@router.patch("/vulnerabilities/{finding_id}", response_model=VulnerabilityBaselineFindingResponse)
+async def vulnerability_baseline_update_endpoint(
+    finding_id: uuid.UUID,
+    body: VulnerabilityBaselineUpdate,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> VulnerabilityBaselineFindingResponse:
+    return await _safe_baseline_call(update_baseline_finding, db, current_user, finding_id, body)
+
+
 def _monitoring_unavailable() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -273,4 +341,22 @@ async def _safe_lan_call(
         raise
     except Exception as exc:
         logger.exception("monitoring.lan operation failed")
+        raise _monitoring_unavailable() from exc
+
+
+async def _safe_baseline_call(
+    function: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any
+) -> Any:
+    try:
+        return await function(*args, **kwargs)
+    except VulnerabilityBaselineDisabledError as exc:
+        raise HTTPException(status_code=409, detail="Vulnerability baseline monitoring is disabled.") from exc
+    except VulnerabilityBaselineFindingNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Vulnerability baseline finding not found.") from exc
+    except LanAssetNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="LAN asset not found.") from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("monitoring.vulnerability_baseline operation failed")
         raise _monitoring_unavailable() from exc

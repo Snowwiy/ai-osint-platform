@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 LanAssetStatus = Literal["online", "offline", "unknown"]
 LanAssetSource = Literal["static", "arp", "ping", "router", "agent"]
 LanRiskSeverity = Literal["info", "warning", "critical"]
+AssetCriticality = Literal["low", "medium", "high", "critical"]
 _MAC_PATTERN = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
 
@@ -69,6 +70,14 @@ class LanAssetUpdate(BaseModel):
         if not self.model_fields_set:
             raise ValueError("at least one asset field is required")
         return self
+
+
+class LanAssetCriticalityUpdate(BaseModel):
+    criticality: AssetCriticality
+    owner: str | None = Field(default=None, max_length=255)
+    business_function: str | None = Field(default=None, max_length=255)
+    environment: str | None = Field(default=None, max_length=80)
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class LanAgentRegistration(BaseModel):
@@ -157,6 +166,10 @@ class LanAssetResponse(BaseModel):
     notes: str | None
     is_authorized: bool
     monitoring_enabled: bool
+    criticality: AssetCriticality
+    owner: str | None
+    business_function: str | None
+    environment: str | None
     agent_connected: bool
     response_latency_ms: float | None = None
     risk_indicators: list[LanRiskIndicator]

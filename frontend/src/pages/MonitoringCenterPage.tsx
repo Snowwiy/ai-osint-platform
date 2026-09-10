@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
 import { LanMonitoringPanel } from "../components/LanMonitoringPanel";
+import { VulnerabilityBaselinePanel } from "../components/VulnerabilityBaselinePanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getMonitoringOverview } from "../lib/api";
 import {
@@ -17,7 +18,7 @@ import {
 import type { MonitoringStatus } from "../types";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
-type MonitoringTab = "server" | "services" | "lan" | "agents" | "alerts";
+type MonitoringTab = "server" | "services" | "lan" | "agents" | "baseline" | "alerts";
 
 export function MonitoringCenterPage(): JSX.Element {
   const [pollSeconds, setPollSeconds] = useState(30);
@@ -73,9 +74,9 @@ export function MonitoringCenterPage(): JSX.Element {
       />
 
       <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
-        {(["server", "services", "lan", "agents", "alerts"] as MonitoringTab[]).map((item) => (
+        {(["server", "services", "lan", "agents", "baseline", "alerts"] as MonitoringTab[]).map((item) => (
           <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
-            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item}
+            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "baseline" ? "Vulnerability Baseline" : item}
           </button>
         ))}
       </nav>
@@ -187,6 +188,7 @@ export function MonitoringCenterPage(): JSX.Element {
       ) : null}
       {tab === "lan" ? <LanMonitoringPanel /> : null}
       {tab === "agents" ? <LanMonitoringPanel agentsOnly /> : null}
+      {tab === "baseline" ? <VulnerabilityBaselinePanel /> : null}
     </>
   );
 }

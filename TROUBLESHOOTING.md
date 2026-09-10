@@ -187,7 +187,7 @@ control is a substitute for rotation after confirmed exposure.
 
 - Apply migrations with `docker compose exec backend alembic upgrade head` if
   quality or LAN monitoring data is unavailable. The current head is
-  `0029_phase5y_lan`.
+  `0030_phase5z_base`.
 - A scan is bounded and local. If it fails, inspect backend logs and database
   health; investigation and reporting workflows remain usable.
 - A recurring resolved issue reopens when the same condition is detected.

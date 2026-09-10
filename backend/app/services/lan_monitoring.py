@@ -7,6 +7,7 @@ import shutil
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +22,7 @@ from app.schemas.lan_monitoring import (
     LanAgentTelemetryIngest,
     LanAgentTelemetryResponse,
     LanAssetListResponse,
+    AssetCriticality,
     LanAssetResponse,
     LanAssetStatus,
     LanAssetUpdate,
@@ -420,6 +422,10 @@ def _asset_response(
         notes=asset.notes,
         is_authorized=asset.is_authorized,
         monitoring_enabled=asset.monitoring_enabled,
+        criticality=cast(AssetCriticality, asset.criticality),
+        owner=asset.owner,
+        business_function=asset.business_function,
+        environment=asset.environment,
         agent_connected=connected,
         response_latency_ms=asset.response_latency_ms,
         risk_indicators=_risk_indicators(asset, telemetry, services, status, connected),

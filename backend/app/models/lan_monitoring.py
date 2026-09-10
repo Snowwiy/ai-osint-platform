@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -17,7 +17,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP
+from sqlalchemy.dialects.postgresql import DATE, JSONB, TIMESTAMP
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +29,10 @@ class LanAsset(Base, TimestampMixin):
     __table_args__ = (
         CheckConstraint("status IN ('online', 'offline', 'unknown')", name="ck_lan_assets_status"),
         CheckConstraint("confidence BETWEEN 0 AND 100", name="ck_lan_assets_confidence"),
+        CheckConstraint(
+            "criticality IN ('low', 'medium', 'high', 'critical')",
+            name="ck_lan_assets_criticality",
+        ),
         UniqueConstraint("ip_address", name="uq_lan_assets_ip"),
         Index("idx_lan_assets_status", "status"),
         Index("idx_lan_assets_last_seen", "last_seen"),
@@ -54,6 +58,12 @@ class LanAsset(Base, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_authorized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     monitoring_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    criticality: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="medium", server_default="medium"
+    )
+    owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    business_function: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
@@ -97,3 +107,56 @@ class LanServiceObservation(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open", server_default="open")
     observed_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     source: Mapped[str] = mapped_column(String(40), nullable=False)
+
+
+class VulnerabilityBaselineFinding(Base, TimestampMixin):
+    __tablename__ = "vulnerability_baseline_findings"
+    __table_args__ = (
+        CheckConstraint(
+            "severity IN ('info', 'low', 'medium', 'high', 'critical')",
+            name="ck_vulnerability_baseline_severity",
+        ),
+        CheckConstraint(
+            "confidence IN ('low', 'medium', 'high')",
+            name="ck_vulnerability_baseline_confidence",
+        ),
+        CheckConstraint(
+            "status IN ('open', 'acknowledged', 'in_progress', 'resolved', 'false_positive')",
+            name="ck_vulnerability_baseline_status",
+        ),
+        UniqueConstraint("dedupe_key", name="uq_vulnerability_baseline_dedupe"),
+        Index("idx_vulnerability_baseline_asset", "lan_asset_id"),
+        Index("idx_vulnerability_baseline_investigation", "investigation_id"),
+        Index("idx_vulnerability_baseline_severity", "severity"),
+        Index("idx_vulnerability_baseline_status", "status"),
+        Index("idx_vulnerability_baseline_due", "remediation_due_date"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    lan_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("lan_assets.id", ondelete="CASCADE"), nullable=True
+    )
+    investigation_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("investigations.id", ondelete="SET NULL"), nullable=True
+    )
+    rule_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    confidence: Mapped[str] = mapped_column(String(20), nullable=False, default="medium", server_default="medium")
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="open", server_default="open")
+    source: Mapped[str] = mapped_column(String(80), nullable=False, default="local_baseline", server_default="local_baseline")
+    evidence_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    recommendation: Mapped[str] = mapped_column(Text, nullable=False)
+    remediation_owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    remediation_due_date: Mapped[date | None] = mapped_column(DATE, nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    last_seen: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    event_metadata: Mapped[dict[str, Any]] = mapped_column(
+        "metadata", JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )

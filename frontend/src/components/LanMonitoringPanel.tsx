@@ -9,6 +9,7 @@ import {
   listLanServices,
   listLanTelemetry,
   updateLanAsset,
+  updateLanAssetCriticality,
 } from "../lib/api";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import { useAuth } from "../lib/useAuth";
@@ -23,6 +24,9 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cidr, setCidr] = useState("");
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [assetOwner, setAssetOwner] = useState("");
+  const [businessFunction, setBusinessFunction] = useState("");
+  const [assetEnvironment, setAssetEnvironment] = useState("");
   const listing = useQuery({
     queryKey: ["lan-assets"],
     queryFn: listLanAssets,
@@ -51,6 +55,12 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     queryFn: () => listLanServices(selectedId ?? ""),
     enabled: isAdmin && Boolean(selectedId),
   });
+  const selected = detail.data ?? assets.find((asset) => asset.id === selectedId);
+  useEffect(() => {
+    setAssetOwner(safeString(selected?.owner));
+    setBusinessFunction(safeString(selected?.business_function));
+    setAssetEnvironment(safeString(selected?.environment));
+  }, [selected?.id, selected?.owner, selected?.business_function, selected?.environment]);
   const discovery = useMutation({
     mutationFn: () => discoverLan(cidr || undefined),
     onSuccess: async (result) => {
@@ -69,6 +79,21 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     },
     onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Asset update failed." }),
   });
+  const updateCriticality = useMutation({
+    mutationFn: ({ asset, criticality }: { asset: LanAsset; criticality: LanAsset["criticality"] }) =>
+      updateLanAssetCriticality(asset.id, {
+        criticality,
+        owner: assetOwner.trim() || null,
+        business_function: businessFunction.trim() || null,
+        environment: assetEnvironment.trim() || null,
+      }),
+    onSuccess: async (asset) => {
+      setToast({ kind: "success", message: "Asset criticality and business context updated." });
+      queryClient.setQueryData(["lan-asset", asset.id], asset);
+      await queryClient.invalidateQueries({ queryKey: ["lan-assets"] });
+    },
+    onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Criticality update failed." }),
+  });
 
   if (!isAdmin) {
     return <EmptyBlock title="Administrator access required" message="LAN addresses, endpoint telemetry, and authorization controls are restricted to platform administrators." />;
@@ -76,7 +101,6 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   if (listing.isLoading) return <LoadingBlock label="Loading authorized LAN inventory" />;
   if (listing.error) return <ErrorBlock message={listing.error} onRetry={() => void listing.refetch()} />;
   const config = listing.data;
-  const selected = detail.data ?? assets.find((asset) => asset.id === selectedId);
 
   return (
     <div className="space-y-4">
@@ -122,11 +146,12 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
       ) : (
         <div className="overflow-x-auto rounded-lg border border-raven-border">
           <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">Asset</th><th className="p-3">Address</th><th className="p-3">Status</th><th className="p-3">Last seen</th><th className="p-3">Authorization</th><th className="p-3">Agent</th><th className="p-3">Attention</th></tr></thead>
+            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">Asset</th><th className="p-3">Address</th><th className="p-3">Criticality</th><th className="p-3">Status</th><th className="p-3">Last seen</th><th className="p-3">Authorization</th><th className="p-3">Agent</th><th className="p-3">Attention</th></tr></thead>
             <tbody>{assets.map((asset) => (
               <tr key={asset.id} className="border-t border-raven-border align-top hover:bg-raven-panelSoft/60">
                 <td className="p-3"><button type="button" className="text-left font-medium text-raven-cyan hover:underline" onClick={() => setSelectedId(asset.id)}>{safeString(asset.hostname, safeString(asset.asset_type, "Unknown asset"))}</button><p className="text-xs text-raven-muted">{safeString(asset.vendor, safeString(asset.source, "unknown"))}</p></td>
                 <td className="p-3 font-mono text-xs">{safeString(asset.ip_address, "unknown")}<br /><span className="text-raven-muted">{safeString(asset.mac_address, "MAC unavailable")}</span></td>
+                <td className="p-3 capitalize">{safeString(asset.criticality, "medium")}</td>
                 <td className="p-3 capitalize">{safeString(asset.status, "unknown")}</td>
                 <td className="p-3 text-raven-muted">{safeDate(asset.last_seen)?.toLocaleString() ?? "Never"}</td>
                 <td className="p-3">{asset.is_authorized ? "Authorized" : "Review required"}<br /><span className="text-xs text-raven-muted">Monitoring {asset.monitoring_enabled ? "on" : "off"}</span></td>
@@ -146,6 +171,18 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
             <Metric label="Memory" value={percent(safeArray(telemetry.data?.items)[0]?.memory_percent)} />
             <Metric label="Disk" value={percent(safeArray(telemetry.data?.items)[0]?.disk_percent)} />
             <Metric label="Latency" value={selected.response_latency_ms == null ? "Unavailable" : `${selected.response_latency_ms.toFixed(1)} ms`} />
+          </div>
+          <div className="mt-4 flex flex-wrap items-end gap-2 rounded-md border border-raven-border p-3">
+            <label className="text-xs text-raven-muted">Criticality<select defaultValue={safeString(selected.criticality, "medium")} id={`criticality-${selected.id}`} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label>
+            <label className="text-xs text-raven-muted">Owner<input value={assetOwner} onChange={(event) => setAssetOwner(event.target.value)} maxLength={255} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text" /></label>
+            <label className="text-xs text-raven-muted">Business function<input value={businessFunction} onChange={(event) => setBusinessFunction(event.target.value)} maxLength={255} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text" /></label>
+            <label className="text-xs text-raven-muted">Environment<input value={assetEnvironment} onChange={(event) => setAssetEnvironment(event.target.value)} maxLength={80} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text" /></label>
+            <button type="button" disabled={updateCriticality.isPending} onClick={() => {
+              const element = document.getElementById(`criticality-${selected.id}`) as HTMLSelectElement | null;
+              const value = element?.value;
+              const criticality: LanAsset["criticality"] = value === "low" || value === "high" || value === "critical" ? value : "medium";
+              updateCriticality.mutate({ asset: selected, criticality });
+            }} className="rounded-md border border-raven-border px-3 py-2 text-sm disabled:opacity-50">Save context</button>
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>

@@ -108,5 +108,12 @@ vulnerabilities. No exploit checks, brute force, password testing, payload
 testing, stealth scans, CVE validation, remediation, or external notification
 delivery occurs.
 
+The optional [defensive vulnerability baseline](VULNERABILITY_BASELINE.md)
+uses stored LAN observations and telemetry to create analyst-reviewed
+remediation priorities. Running it does not initiate discovery, probe services,
+or convert port observations into confirmed vulnerability claims. Admins and
+analysts may assign asset criticality and business context; LAN discovery and
+raw inventory controls remain administrator-restricted.
+
 The validated runtime remains local Docker Compose. Hosting, deployment, DNS,
 and Supabase migration remain deferred.

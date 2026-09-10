@@ -23,6 +23,9 @@
   search providers, crawl the web, or perform internet-wide discovery.
 - LAN monitoring is disabled by default, limited to explicitly configured
   private RFC1918 IPv4 ranges, and is not an internet or vulnerability scanner.
+- The vulnerability baseline is deterministic and uses stored observations; it
+  does not identify service versions, query CVE feeds, scan for flaws, validate
+  exploits, or prove compromise. Its risk indicators require analyst review.
 
 ## Authentication And User Governance
 
@@ -162,6 +165,8 @@ language, classification markings, and branding require administrator review.
 - Monitoring alerts are deterministic snapshots with daily per-user
   deduplication in the internal Activity Inbox. They do not send email, SMS,
   push messages, webhooks, or run automated remediation.
+- Asset criticality and remediation ownership are operator-maintained context;
+  the platform does not automatically know business impact or complete fixes.
 - Worker readiness verifies broker reachability, not full job throughput.
 - Retention policies mark archive eligibility; they do not automatically
   destroy records.

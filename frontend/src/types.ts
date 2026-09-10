@@ -3213,6 +3213,10 @@ export interface LanAsset {
   notes: string | null;
   is_authorized: boolean;
   monitoring_enabled: boolean;
+  criticality: "low" | "medium" | "high" | "critical";
+  owner: string | null;
+  business_function: string | null;
+  environment: string | null;
   agent_connected: boolean;
   response_latency_ms: number | null;
   risk_indicators: LanRiskIndicator[];
@@ -3281,5 +3285,68 @@ export interface LanDiscoveryResponse {
   assets_updated: number;
   service_observations_created: number;
   limitation: string | null;
+  message: string;
+}
+
+export type VulnerabilityBaselineStatus = "open" | "acknowledged" | "in_progress" | "resolved" | "false_positive";
+
+export interface VulnerabilityBaselineFinding {
+  id: string;
+  lan_asset_id: string | null;
+  investigation_id: string | null;
+  rule_key: string;
+  title: string;
+  description: string;
+  severity: Severity;
+  confidence: "low" | "medium" | "high";
+  status: VulnerabilityBaselineStatus;
+  source: string;
+  evidence_summary: string;
+  recommendation: string;
+  remediation_owner: string | null;
+  remediation_due_date: string | null;
+  first_seen: string;
+  last_seen: string;
+  resolved_at: string | null;
+  metadata: Record<string, unknown>;
+  asset_ip: string | null;
+  asset_hostname: string | null;
+  asset_criticality: string | null;
+  overdue: boolean;
+  missing_owner: boolean;
+}
+
+export interface VulnerabilityBaselineListResponse {
+  generated_at: string;
+  total: number;
+  items: VulnerabilityBaselineFinding[];
+}
+
+export interface VulnerabilityBaselineOverview {
+  generated_at: string;
+  enabled: boolean;
+  total: number;
+  open: number;
+  acknowledged: number;
+  in_progress: number;
+  resolved: number;
+  false_positive: number;
+  by_severity: Record<Severity, number>;
+  affected_assets: number;
+  stale_agents: number;
+  risky_services: number;
+  overdue_remediation: number;
+  missing_remediation_owner: number;
+}
+
+export interface VulnerabilityBaselineRunResponse {
+  generated_at: string;
+  evaluated_assets: number;
+  evaluated_investigations: number;
+  detected: number;
+  created: number;
+  refreshed: number;
+  auto_resolved: number;
+  notifications_created: number;
   message: string;
 }

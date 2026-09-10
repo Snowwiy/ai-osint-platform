@@ -65,6 +65,19 @@ Preserve backend enforcement:
 
 Frontend visibility is convenience only. Backend checks are the security boundary.
 
+## Vulnerability Baseline Safety
+
+- Baseline runs evaluate stored observations only and never open network
+  connections, test credentials, deliver payloads, or validate exploits.
+- LAN assets must remain explicitly authorized and private RFC1918 by default.
+- Risk results are advisory indicators requiring analyst review, not proof of a
+  vulnerability or compromise.
+- Baseline and asset-context endpoints require authenticated admin or analyst
+  roles. Raw credentials, tokens, service responses, and secret-like metadata
+  are rejected or filtered.
+- High/critical alerts and remediation gaps use stable deduplication keys to
+  prevent polling or repeated runs from creating notification spam.
+
 ## User Administration
 
 - Public registration must remain disabled by default unless an operator has

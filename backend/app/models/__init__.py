@@ -32,7 +32,12 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
-from app.models.lan_monitoring import LanAsset, LanAssetTelemetry, LanServiceObservation
+from app.models.lan_monitoring import (
+    LanAsset,
+    LanAssetTelemetry,
+    LanServiceObservation,
+    VulnerabilityBaselineFinding,
+)
 from app.models.notification import Notification
 from app.models.playbook import (
     DefensivePlaybook,
@@ -103,6 +108,7 @@ __all__ = [
     "LanAsset",
     "LanAssetTelemetry",
     "LanServiceObservation",
+    "VulnerabilityBaselineFinding",
     "Notification",
     "ReconEntity",
     "ReconRelationship",

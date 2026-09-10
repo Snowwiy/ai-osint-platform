@@ -50,6 +50,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Local Monitoring Center with service telemetry, RBAC-aware investigation
   watch, disabled-by-default authorized LAN inventory, endpoint telemetry,
   deduplicated internal alerts, and an optional manual host agent
+- Deterministic vulnerability baseline with asset criticality, non-intrusive
+  risk indicators, remediation ownership, due dates, and status tracking
 - Responsive route-level loading, friendly retry states, guarded internal links,
   and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
@@ -62,6 +64,10 @@ malware handling, autonomous agents, internet-wide crawling, or offensive
 tradecraft. Optional LAN monitoring is limited to explicitly authorized private
 ranges and separately enabled ICMP/TCP connectivity observations. Demo data is
 synthetic and uses reserved identifiers.
+
+The vulnerability baseline evaluates stored local observations only. It does
+not perform vulnerability scanning or exploit validation. See
+[VULNERABILITY_BASELINE.md](VULNERABILITY_BASELINE.md).
 
 ## Architecture Overview
 
