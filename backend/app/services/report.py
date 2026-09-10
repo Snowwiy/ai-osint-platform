@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from html import escape as escape_html
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlparse
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
@@ -19,6 +21,10 @@ from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
     EngagementScopeItem,
+)
+from app.models.endpoint_posture import (
+    EndpointRemediationRecommendation,
+    EndpointSecurityPosture,
 )
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
@@ -32,6 +38,7 @@ from app.models.investigation_note import InvestigationNote
 from app.models.investigation_tag import InvestigationTag, InvestigationTagLink
 from app.models.investigation_task import InvestigationTask
 from app.models.investigation_workflow_event import InvestigationWorkflowEvent
+from app.models.lan_monitoring import LanAsset
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -42,6 +49,7 @@ from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
 from app.models.threat_finding import ThreatFinding
+from app.models.target import Target
 from app.models.user import User
 from app.schemas.ioc import (
     InvestigationPrioritizationResponse,
@@ -1295,6 +1303,9 @@ async def _build_context(
         if findings
         else 0
     )
+    endpoint_posture, endpoint_recommendations = await _report_endpoint_posture(
+        db, investigation.id
+    )
     return ReportContext(
         investigation=investigation,
         engagement=engagement,
@@ -1319,12 +1330,16 @@ async def _build_context(
         threat_findings=threat_findings,
         knowledge_citations=knowledge_citations,
         framework_mappings=mappings,
-        recommendations=_recommendations(findings, knowledge_citations),
+        recommendations=(
+            _recommendations(findings, knowledge_citations)
+            + endpoint_recommendations
+        ),
         defensive_posture=(
             f"{detection_coverage.category.title()} detection visibility "
             f"({detection_coverage.coverage_percent}/100), with "
             f"{detection_coverage.mapped_findings} of "
-            f"{detection_coverage.total_findings} findings mapped."
+            f"{detection_coverage.total_findings} findings mapped. "
+            f"{endpoint_posture}"
         ),
         detection_recommendations=_dedupe_text(
             [
@@ -2026,6 +2041,83 @@ def _recommendations(
             "Use mapped defensive frameworks to track mitigation ownership."
         )
     return recommendations
+
+
+async def _report_endpoint_posture(
+    db: AsyncSession, investigation_id: uuid.UUID
+) -> tuple[str, list[str]]:
+    targets = list(
+        (
+            await db.execute(
+                select(Target).where(Target.investigation_id == investigation_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    values: set[str] = set()
+    for target in targets:
+        value = target.target_value.strip().casefold()
+        if target.target_type == "url":
+            value = (urlparse(value).hostname or "").casefold()
+        if value:
+            values.add(value)
+    if not values:
+        return (
+            "No endpoint posture assessment is linked to an exact investigation target.",
+            [],
+        )
+    rows = list(
+        (
+            await db.execute(
+                select(EndpointSecurityPosture, LanAsset)
+                .join(LanAsset, LanAsset.id == EndpointSecurityPosture.lan_asset_id)
+                .where(
+                    (func.lower(LanAsset.ip_address).in_(values))
+                    | (func.lower(LanAsset.hostname).in_(values))
+                )
+            )
+        ).all()
+    )
+    if not rows:
+        return (
+            "No endpoint posture assessment is linked to an exact investigation target.",
+            [],
+        )
+    asset_ids = [posture.lan_asset_id for posture, _asset in rows]
+    recommendations = list(
+        (
+            await db.execute(
+                select(EndpointRemediationRecommendation)
+                .where(
+                    EndpointRemediationRecommendation.lan_asset_id.in_(asset_ids),
+                    EndpointRemediationRecommendation.status.in_(
+                        ("open", "acknowledged")
+                    ),
+                )
+                .order_by(EndpointRemediationRecommendation.created_at.desc())
+                .limit(10)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    status_counts = Counter(posture.posture_status for posture, _asset in rows)
+    unauthorized = sum(not asset.is_authorized for _posture, asset in rows)
+    top_risks = ", ".join(item.title for item in recommendations[:3]) or "none"
+    summary = (
+        f"Endpoint posture (advisory): {len(rows)} matched asset(s); "
+        f"{status_counts['needs_review']} need review, {status_counts['at_risk']} "
+        f"at risk, {status_counts['critical']} critical, and {unauthorized} "
+        f"unauthorized. Top risk indicators: {top_risks}. No exploit validation "
+        "was performed."
+    )
+    actions = [
+        f"Endpoint posture: {item.recommended_action} "
+        f"({item.severity} advisory risk indicator)."
+        for item in recommendations[:5]
+    ]
+    return summary, actions
 
 
 def _metadata(context: ReportContext) -> dict[str, Any]:

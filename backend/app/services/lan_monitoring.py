@@ -82,7 +82,7 @@ SERVICE_GUESSES = {
     8000: "http",
     9000: "http",
 }
-CURRENT_AGENT_VERSION = "1.0.0"
+CURRENT_AGENT_VERSION = "1.1.0"
 
 
 class LanMonitoringDisabledError(Exception):
@@ -493,7 +493,18 @@ async def ingest_agent_telemetry(
         os_version=_clean(body.os_version),
         agent_version=body.agent_version,
         collected_at=body.collected_at,
-        event_metadata=body.metadata,
+        event_metadata={
+            **body.metadata,
+            "os_build": body.os_build,
+            "disk_free_gb": body.disk_free_gb,
+            "firewall_status": body.firewall_status,
+            "antivirus_status": body.antivirus_status,
+            "patch_status": body.patch_status,
+            "latest_patch_date": body.latest_patch_date,
+            "recent_hotfix_count": body.recent_hotfix_count,
+            "pending_reboot": body.pending_reboot,
+            "listening_tcp_ports": body.listening_tcp_ports,
+        },
     )
     db.add(telemetry)
     asset.status = "online"
@@ -1354,6 +1365,10 @@ def _metric_count(body: LanAgentTelemetryIngest) -> int:
             body.memory_percent,
             body.disk_percent,
             body.uptime_seconds,
+            body.firewall_status,
+            body.antivirus_status,
+            body.patch_status,
+            body.pending_reboot,
         )
     )
 

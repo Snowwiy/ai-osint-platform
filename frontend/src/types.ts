@@ -3328,6 +3328,81 @@ export interface LanTelemetryListResponse {
   items: LanTelemetryItem[];
 }
 
+export type EndpointPostureStatus = "healthy" | "needs_review" | "at_risk" | "critical" | "unknown";
+export type EndpointRecommendationStatus = "open" | "acknowledged" | "resolved";
+
+export interface EndpointSecurityPosture {
+  id: string;
+  lan_asset_id: string;
+  asset_ip: string;
+  asset_hostname: string | null;
+  asset_authorized: boolean;
+  asset_criticality: string;
+  posture_score: number;
+  posture_status: EndpointPostureStatus;
+  firewall_status: string | null;
+  antivirus_status: string | null;
+  patch_status: string | null;
+  pending_reboot: boolean | null;
+  os_name: string | null;
+  os_version: string | null;
+  disk_health: string | null;
+  agent_freshness: string | null;
+  risky_services_count: number;
+  recommendation_count: number;
+  assessed_at: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface EndpointPostureOverview {
+  generated_at: string;
+  total_assets: number;
+  assessed_assets: number;
+  healthy: number;
+  needs_review: number;
+  at_risk: number;
+  critical: number;
+  unknown: number;
+  firewall_covered: number;
+  antivirus_covered: number;
+  patch_covered: number;
+  unauthorized_assets: number;
+  open_recommendations: number;
+  isolation_recommendations: number;
+  top_actions: string[];
+  items: EndpointSecurityPosture[];
+  advisory: string;
+}
+
+export interface EndpointRecommendation {
+  id: string;
+  lan_asset_id: string;
+  affected_asset: string;
+  asset_hostname: string | null;
+  title: string;
+  severity: Severity;
+  reason: string;
+  recommended_action: string;
+  manual_steps: string[];
+  isolation_recommended: boolean;
+  evidence_source: string;
+  confidence: "low" | "medium" | "high";
+  status: EndpointRecommendationStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  acknowledged_at: string | null;
+  resolved_at: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface EndpointRecommendationListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: EndpointRecommendation[];
+}
+
 export interface LanServiceObservation {
   id: string;
   lan_asset_id: string;

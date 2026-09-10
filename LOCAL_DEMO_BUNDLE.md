@@ -89,7 +89,7 @@ curl.exe http://localhost:8000/api/v1/release
 ```
 
 The expected release is `5.0.0-rc3`, with migration head
-`0035_phase5ae_agents` and `status: ok` for health and readiness.
+`0036_phase5ai_posture` and `status: ok` for health and readiness.
 
 ## Generate Demo Reports
 

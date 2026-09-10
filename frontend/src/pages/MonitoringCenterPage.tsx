@@ -11,6 +11,7 @@ import { MonitoringChangeTimelinePanel } from "../components/MonitoringChangeTim
 import { MonitoringTriagePanel } from "../components/MonitoringTriagePanel";
 import { AgentManagementPanel } from "../components/AgentManagementPanel";
 import { MonitoringActivationPanel } from "../components/MonitoringActivationPanel";
+import { EndpointSecurityPosturePanel } from "../components/EndpointSecurityPosturePanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getMonitoringOverview } from "../lib/api";
 import {
@@ -23,7 +24,7 @@ import {
 import type { MonitoringStatus } from "../types";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
-type MonitoringTab = "server" | "services" | "activation" | "lan" | "agents" | "baseline" | "changes" | "alerts" | "policies" | "maintenance";
+type MonitoringTab = "server" | "services" | "activation" | "lan" | "agents" | "posture" | "baseline" | "changes" | "alerts" | "policies" | "maintenance";
 
 export function MonitoringCenterPage(): JSX.Element {
   const [pollSeconds, setPollSeconds] = useState(30);
@@ -77,9 +78,9 @@ export function MonitoringCenterPage(): JSX.Element {
       />
 
       <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
-        {(["server", "services", "activation", "lan", "agents", "baseline", "changes", "policies", "maintenance", "alerts"] as MonitoringTab[]).map((item) => (
+        {(["server", "services", "activation", "lan", "agents", "posture", "baseline", "changes", "policies", "maintenance", "alerts"] as MonitoringTab[]).map((item) => (
           <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
-            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "baseline" ? "Vulnerability Baseline" : item === "changes" ? "Change Timeline" : item === "maintenance" ? "Maintenance Windows" : item}
+            {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "posture" ? "Security Posture" : item === "baseline" ? "Vulnerability Baseline" : item === "changes" ? "Change Timeline" : item === "maintenance" ? "Maintenance Windows" : item}
           </button>
         ))}
       </nav>
@@ -174,6 +175,7 @@ export function MonitoringCenterPage(): JSX.Element {
       {tab === "lan" ? <LanMonitoringPanel /> : null}
       {tab === "activation" ? <MonitoringActivationPanel /> : null}
       {tab === "agents" ? <AgentManagementPanel /> : null}
+      {tab === "posture" ? <EndpointSecurityPosturePanel /> : null}
       {tab === "baseline" ? <VulnerabilityBaselinePanel /> : null}
       {tab === "changes" ? <MonitoringChangeTimelinePanel /> : null}
       {tab === "policies" ? <MonitoringPolicyPanel /> : null}

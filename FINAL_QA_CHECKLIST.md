@@ -27,7 +27,7 @@ check blocks the current release-freeze commit and push.
 - [ ] `curl http://localhost:8000/health` returns `status: ok`.
 - [ ] `curl http://localhost:8000/health/ready` returns `status: ok`.
 - [ ] `curl http://localhost:8000/api/v1/release` returns `5.0.0-rc3` and
-      `0035_phase5ae_agents` without secrets.
+      `0036_phase5ai_posture` without secrets.
 - [ ] From `frontend/`, `npm run build` passes.
 - [ ] `docker compose ps` shows required local services running; backend and
       PostgreSQL are healthy.
@@ -271,3 +271,24 @@ check blocks the current release-freeze commit and push.
       only, and baseline results remain advisory rather than exploit validation.
 - [ ] Desktop packaging, Electron, Tauri, installers, hosting, deployment, DNS,
       and Supabase migration remain deferred.
+
+## Phase 5AI endpoint security posture
+
+- [ ] Posture assessment persists a bounded score/status from stored authorized
+      LAN and agent evidence without initiating a scan or remote command.
+- [ ] Agentless assets show only LAN/service/authorization visibility; missing
+      firewall, antivirus, and patch data remains unknown rather than invented.
+- [ ] Windows/Linux helpers collect only safe normalized posture fields and
+      listening port numbers with no files, credentials, history, or keystrokes.
+- [ ] Unauthorized asset, stale agent, disabled protection, patch awareness,
+      pending reboot, resource pressure, risky service, baseline governance, and
+      expected-service recommendations deduplicate correctly.
+- [ ] Acknowledge/resolve transitions enforce RBAC and clean 404/409/422 errors.
+- [ ] Manual isolation guidance never contacts a router or changes a network,
+      host firewall, VLAN, or endpoint configuration.
+- [ ] High/critical alerts respect policies, cooldowns, suppressions,
+      maintenance windows, dedupe, and existing triage.
+- [ ] Reports include only exactly matched assessed target assets, advisory
+      wording, top manual actions, and no-exploit-validation language.
+- [ ] Migration current/head is `0036_phase5ai_posture`; exports and frontend
+      build remain stable.

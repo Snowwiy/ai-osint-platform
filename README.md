@@ -58,6 +58,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
   deduplicated internal alerts, and an optional manual host agent
 - Deterministic vulnerability baseline with asset criticality, non-intrusive
   risk indicators, remediation ownership, due dates, and status tracking
+- Endpoint Security Posture with agent-aware firewall, antivirus, patch, reboot,
+  resource, coverage, and service risk indicators plus manual remediation guidance
 - Responsive route-level loading, friendly retry states, guarded internal links,
   and defensive formatting for partial API responses
 - Release candidate metadata endpoint and synthetic defensive demo dataset tooling
@@ -421,3 +423,23 @@ See [FINAL_LOCAL_ACCEPTANCE.md](FINAL_LOCAL_ACCEPTANCE.md) for the manual
 acceptance flow and [RELEASE_NOTES_RC3.md](RELEASE_NOTES_RC3.md) for the release
 summary. Desktop packaging, installers, hosting, deployment, DNS, and Supabase
 migration remain explicitly deferred.
+
+## Phase 5AI endpoint security posture
+
+Monitoring now includes an administrator-restricted **Security Posture** tab.
+Explicit assessments correlate stored authorized LAN observations with optional
+agent telemetry, calculate an advisory posture score, and create deduplicated
+manual recommendations for protection gaps, patch awareness, stale coverage,
+resource pressure, risky services, and service-baseline differences.
+
+Windows and Linux helpers collect only normalized local system status and port
+numbers when safely available. They do not collect files, passwords, browser
+history, private documents, keystrokes, or credentials and provide no remote
+shell or command channel. Block/isolation guidance is a manual checklist only;
+the platform never connects to or changes a router. See
+[ENDPOINT_SECURITY_POSTURE.md](ENDPOINT_SECURITY_POSTURE.md).
+
+Matching assessed assets can contribute an optional advisory posture summary to
+investigation reports without exposing unrelated LAN inventory. This phase adds
+no desktop packaging, hosting, deployment, DNS, Supabase migration, public
+scanning, exploitation, brute force, credential testing, or router automation.

@@ -49,6 +49,17 @@ Production-style operation should use:
 - Install Python dependencies from the existing backend manifests and require
   `python -m pip check` to pass. Avoid opportunistic major upgrades during the
   RC3 freeze.
+
+## Endpoint posture safeguards
+
+- Posture assessment is administrator-restricted and reads stored local evidence.
+- Agent fields are normalized and bounded; tokens, passwords, credentials, raw
+  command output, files, browser history, and keystrokes are excluded.
+- Linux checks do not use `sudo`, refresh repositories, or install packages.
+- Isolation and router/firewall changes are guidance only and require authorized
+  manual change control; no router credential or automation path exists.
+- High/critical recommendations reuse policy cooldown, dedupe, suppression,
+  maintenance-window, and triage controls.
 - Install frontend dependencies from `package-lock.json`. Phase 5V refreshed
   safe in-range transitive packages and retained React Router 6 to avoid an
   unreviewed breaking migration.

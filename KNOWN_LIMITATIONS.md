@@ -237,3 +237,16 @@ RC3 freezes the local web application without adding a module or migration.
 Authorized service observations remain TCP-connect only, and all monitoring and
 baseline risk indicators remain advisory rather than exploit validation. The
 release makes no desktop-package, hosted-service, or production-deployment claim.
+
+## Endpoint posture limitations
+
+- Patch status is coarse awareness from locally available timestamps/hotfixes;
+  it does not prove complete applicability or compliance.
+- Firewall and antivirus status depend on safe, non-privileged platform APIs and
+  may be unknown or unavailable, especially on Linux.
+- Listening port numbers are local observations and do not prove service identity,
+  exploitability, exposure beyond the host, or compromise.
+- Scores and remediation items are deterministic advisory risk indicators that
+  require owner validation and normal change control.
+- Block and isolation steps are manual guidance. No router connection,
+  credential use, policy change, VLAN action, or automatic block is implemented.

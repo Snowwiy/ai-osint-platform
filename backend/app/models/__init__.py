@@ -15,6 +15,7 @@ from app.models.engagement import (
     Engagement,
     EngagementScopeItem,
 )
+from app.models.endpoint_posture import EndpointRemediationRecommendation, EndpointSecurityPosture
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -89,6 +90,8 @@ __all__ = [
     "AuthorizationEvidence",
     "Engagement",
     "EngagementScopeItem",
+    "EndpointRemediationRecommendation",
+    "EndpointSecurityPosture",
     "Finding",
     "FindingEvidence",
     "FindingTag",

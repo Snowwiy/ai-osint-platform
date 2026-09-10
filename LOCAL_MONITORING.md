@@ -70,6 +70,13 @@ keys, access tokens, authorization headers, passwords, or password hashes.
 
 ## Optional Windows host agent
 
+Phase 5AI adds best-effort endpoint posture fields to the manually run agent:
+OS build, disk free space, normalized firewall and Defender/antivirus state,
+recent hotfix awareness, pending reboot, and local listening TCP port numbers.
+Unavailable fields remain unknown. No raw command output, file contents,
+credentials, browser history, keystrokes, persistence, or remote-command channel
+is collected or installed. See `ENDPOINT_SECURITY_POSTURE.md`.
+
 Container metrics do not represent the full Windows host. An administrator may
 run the optional local agent from the repository root:
 

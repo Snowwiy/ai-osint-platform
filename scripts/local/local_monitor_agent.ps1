@@ -13,7 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
-$AgentVersion = "1.0.0"
+$AgentVersion = "1.1.0"
 
 function Test-PrivateHost([string]$HostValue) {
     if ($HostValue -in @("localhost", "127.0.0.1", "::1")) { return $true }
@@ -76,6 +76,33 @@ function Get-LocalTelemetry {
     $uptimeSeconds = if ($bootTime) {
         [Math]::Max(0, [int64]((Get-Date) - $bootTime).TotalSeconds)
     } else { $null }
+    $firewallStatus = "unavailable"
+    try {
+        $profiles = @(Get-NetFirewallProfile -ErrorAction Stop)
+        if ($profiles.Count) {
+            $firewallStatus = if (@($profiles | Where-Object { -not $_.Enabled }).Count) { "disabled" } else { "enabled" }
+        }
+    } catch { $firewallStatus = "unavailable" }
+    $antivirusStatus = "unavailable"
+    try {
+        $defender = Get-MpComputerStatus -ErrorAction Stop
+        $antivirusStatus = if ($defender.AntivirusEnabled -and $defender.RealTimeProtectionEnabled) { "enabled" } else { "disabled" }
+    } catch { $antivirusStatus = "unavailable" }
+    $hotfixes = @()
+    try { $hotfixes = @(Get-HotFix -ErrorAction Stop | Where-Object InstalledOn | Sort-Object InstalledOn -Descending) } catch { $hotfixes = @() }
+    $latestPatch = if ($hotfixes.Count) { $hotfixes[0].InstalledOn } else { $null }
+    $patchStatus = if (-not $latestPatch) { "unknown" } elseif ($latestPatch -lt (Get-Date).AddDays(-45)) { "stale" } else { "current" }
+    $pendingFileRename = Get-ItemProperty `
+        -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" `
+        -Name PendingFileRenameOperations `
+        -ErrorAction SilentlyContinue
+    $pendingReboot = (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") -or
+        ($null -ne $pendingFileRename)
+    $listeningPorts = @()
+    try {
+        $listeningPorts = @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
+            Select-Object -ExpandProperty LocalPort -Unique | Sort-Object | Select-Object -First 64)
+    } catch { $listeningPorts = @() }
     return @{
         collected_at = (Get-Date).ToUniversalTime().ToString("o")
         cpu_percent = $cpuPercent
@@ -85,7 +112,16 @@ function Get-LocalTelemetry {
         uptime_seconds = $uptimeSeconds
         os_name = $operatingSystem.Caption
         os_version = $operatingSystem.Version
+        os_build = $operatingSystem.BuildNumber
         agent_version = $AgentVersion
+        disk_free_gb = if ($drive) { [Math]::Round([double]$drive.FreeSpace / 1GB, 2) } else { $null }
+        firewall_status = $firewallStatus
+        antivirus_status = $antivirusStatus
+        patch_status = $patchStatus
+        latest_patch_date = if ($latestPatch) { $latestPatch.ToString("yyyy-MM-dd") } else { $null }
+        recent_hotfix_count = @($hotfixes | Where-Object { $_.InstalledOn -ge (Get-Date).AddDays(-90) }).Count
+        pending_reboot = $pendingReboot
+        listening_tcp_ports = $listeningPorts
     }
 }
 
@@ -117,7 +153,7 @@ try {
             os_name = $os.Caption
             os_version = $os.Version
             agent_version = $AgentVersion
-            capabilities = @("basic_telemetry", "os_basics")
+            capabilities = @("basic_telemetry", "os_basics", "security_posture", "patch_awareness", "listening_ports")
         } | ConvertTo-Json -Compress
         $registered = Invoke-RestMethod -Method Post `
             -Uri ($BackendUrl.TrimEnd("/") + "/api/v1/monitoring/agent/register") `
@@ -147,7 +183,16 @@ try {
                     uptime_seconds = $sample.uptime_seconds
                     os_name = $sample.os_name
                     os_version = $sample.os_version
+                    os_build = $sample.os_build
                     agent_version = $sample.agent_version
+                    disk_free_gb = $sample.disk_free_gb
+                    firewall_status = $sample.firewall_status
+                    antivirus_status = $sample.antivirus_status
+                    patch_status = $sample.patch_status
+                    latest_patch_date = $sample.latest_patch_date
+                    recent_hotfix_count = $sample.recent_hotfix_count
+                    pending_reboot = $sample.pending_reboot
+                    listening_tcp_ports = $sample.listening_tcp_ports
                     metadata = @{ collection_mode = "manual" }
                 } | ConvertTo-Json -Compress
             } else {

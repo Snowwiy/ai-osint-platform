@@ -60,6 +60,12 @@ observations or the endpoint agent when container discovery is unavailable.
 
 ## Endpoint agent
 
+Endpoint posture adds normalized, best-effort security status to enrolled agent
+telemetry. Agentless assets retain LAN presence, authorization, and stored
+service visibility only. Patch state is awareness—not proof of full patch
+compliance—and firewall/antivirus state must be confirmed manually when unknown.
+Isolation guidance never connects to a router or applies a block automatically.
+
 Generate a strong random local shared token, place it only in the backend's
 untracked `.env` as `LAN_AGENT_TOKEN`, enable LAN monitoring, and restart the
 backend. Never commit or paste the token into documentation, command history,

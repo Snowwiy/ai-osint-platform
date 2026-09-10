@@ -424,8 +424,10 @@ async def get_monitoring_alerts(
     alerts = _build_alerts(service_data, system_data, asset_data, policies)
     if user.role == "admin":
         from app.services.lan_monitoring import get_lan_alerts
+        from app.services.endpoint_posture import posture_alerts
 
         alerts.extend(await get_lan_alerts(db))
+        alerts.extend(await posture_alerts(db))
     alerts.extend(await _overdue_remediation_alerts(db, user))
     alerts.extend(await _recon_provider_alerts(db, user))
     tuned_alerts = [_apply_policy(alert, policies) for alert in alerts]
@@ -751,6 +753,14 @@ def _policy_key_for_alert(alert: MonitoringAlert) -> str:
         return "disk_threshold"
     if "agent_stale" in key:
         return "stale_agent"
+    if key.startswith("posture:"):
+        if "unauthorized_asset" in key:
+            return "unauthorized_asset"
+        if "stale_agent" in key or "critical_without_agent" in key:
+            return "stale_agent"
+        if "risky_service" in key or "nonstandard_ssh" in key:
+            return "risky_service"
+        return "high_critical_finding"
     if ":offline" in key:
         return "offline_asset"
     if ":change:" in key and alert.category == "baseline":

@@ -159,6 +159,8 @@ async def test_agent_token_registration_and_telemetry(
     assert accepted.status_code == 202
     assert telemetry.status_code == 200
     assert telemetry.json()["items"][0]["cpu_percent"] == 12.5
+    assert telemetry.json()["items"][0]["metadata"]["firewall_status"] == "enabled"
+    assert telemetry.json()["items"][0]["metadata"]["listening_tcp_ports"] == [22, 443]
     assert detail.json()["agent_connected"] is True
 
 
@@ -390,7 +392,14 @@ def _registration_payload() -> dict[str, object]:
         "hostname": "agent-endpoint",
         "os_name": "Windows",
         "os_version": "11",
-        "agent_version": "1.0.0",
+        "agent_version": "1.1.0",
+        "capabilities": [
+            "basic_telemetry",
+            "os_basics",
+            "security_posture",
+            "patch_awareness",
+            "listening_ports",
+        ],
     }
 
 
@@ -404,6 +413,15 @@ def _telemetry_payload(asset_id: str) -> dict[str, object]:
         "uptime_seconds": 3600,
         "os_name": "Windows",
         "os_version": "11",
-        "agent_version": "1.0.0",
+        "agent_version": "1.1.0",
+        "os_build": "26100",
+        "disk_free_gb": 120.5,
+        "firewall_status": "enabled",
+        "antivirus_status": "enabled",
+        "patch_status": "current",
+        "latest_patch_date": "2026-09-01",
+        "recent_hotfix_count": 4,
+        "pending_reboot": False,
+        "listening_tcp_ports": [443, 22, 443],
         "metadata": {"collection_mode": "local"},
     }

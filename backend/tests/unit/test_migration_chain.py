@@ -16,7 +16,7 @@ def test_migration_chain_is_linear_single_head_and_storage_safe() -> None:
         revision for revision in revisions if revision.down_revision is None
     ]
 
-    assert script.get_heads() == ["0035_phase5ae_agents"]
+    assert script.get_heads() == ["0036_phase5ai_posture"]
     assert len(base_revisions) == 1
     assert all(
         revision.down_revision is None or isinstance(revision.down_revision, str)

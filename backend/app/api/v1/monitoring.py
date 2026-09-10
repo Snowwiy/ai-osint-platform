@@ -46,6 +46,16 @@ from app.schemas.agent_management import (
     ServiceBaselineResponse,
     ServiceBaselineUpdate,
 )
+from app.schemas.endpoint_posture import (
+    EndpointPostureOverviewResponse,
+    EndpointRecommendationAction,
+    EndpointRecommendationListResponse,
+    EndpointRecommendationResponse,
+    EndpointRecommendationUpdate,
+    EndpointSecurityPostureResponse,
+    RecommendationSeverity,
+    RecommendationStatus,
+)
 from app.schemas.vulnerability_baseline import (
     VulnerabilityBaselineFindingResponse,
     VulnerabilityBaselineListResponse,
@@ -129,6 +139,18 @@ from app.services.agent_management import (
     update_group,
     validate_agent_credential,
 )
+from app.services.endpoint_posture import (
+    EndpointPostureNotFoundError,
+    EndpointRecommendationConflictError,
+    EndpointRecommendationNotFoundError,
+    acknowledge_recommendation,
+    assess_asset_posture,
+    get_asset_posture,
+    get_posture_overview,
+    list_recommendations,
+    resolve_recommendation,
+    update_recommendation,
+)
 from app.services.monitoring_history import (
     ChangeAcknowledgement,
     MonitoringChangeAlreadyAcknowledgedError,
@@ -195,6 +217,106 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+@router.get("/posture/overview", response_model=EndpointPostureOverviewResponse)
+async def endpoint_posture_overview(
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointPostureOverviewResponse:
+    return await _safe_posture_call(get_posture_overview, db, current_user)
+
+
+@router.get(
+    "/lan/assets/{asset_id}/posture",
+    response_model=EndpointSecurityPostureResponse,
+)
+async def endpoint_asset_posture(
+    asset_id: uuid.UUID,
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointSecurityPostureResponse:
+    return await _safe_posture_call(get_asset_posture, db, asset_id)
+
+
+@router.post(
+    "/lan/assets/{asset_id}/posture/assess",
+    response_model=EndpointSecurityPostureResponse,
+)
+async def endpoint_asset_posture_assess(
+    asset_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointSecurityPostureResponse:
+    return await _safe_posture_call(assess_asset_posture, db, current_user, asset_id)
+
+
+@router.get("/recommendations", response_model=EndpointRecommendationListResponse)
+async def endpoint_recommendations(
+    recommendation_status: RecommendationStatus | None = Query(
+        default=None, alias="status"
+    ),
+    severity: RecommendationSeverity | None = None,
+    asset_id: uuid.UUID | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointRecommendationListResponse:
+    return await _safe_posture_call(
+        list_recommendations,
+        db,
+        status=recommendation_status,
+        severity=severity,
+        asset_id=asset_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.patch(
+    "/recommendations/{recommendation_id}",
+    response_model=EndpointRecommendationResponse,
+)
+async def endpoint_recommendation_update(
+    recommendation_id: uuid.UUID,
+    body: EndpointRecommendationUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointRecommendationResponse:
+    return await _safe_posture_call(
+        update_recommendation, db, current_user, recommendation_id, body
+    )
+
+
+@router.post(
+    "/recommendations/{recommendation_id}/acknowledge",
+    response_model=EndpointRecommendationResponse,
+)
+async def endpoint_recommendation_acknowledge(
+    recommendation_id: uuid.UUID,
+    body: EndpointRecommendationAction,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointRecommendationResponse:
+    return await _safe_posture_call(
+        acknowledge_recommendation, db, current_user, recommendation_id, body
+    )
+
+
+@router.post(
+    "/recommendations/{recommendation_id}/resolve",
+    response_model=EndpointRecommendationResponse,
+)
+async def endpoint_recommendation_resolve(
+    recommendation_id: uuid.UUID,
+    body: EndpointRecommendationAction,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointRecommendationResponse:
+    return await _safe_posture_call(
+        resolve_recommendation, db, current_user, recommendation_id, body
+    )
 
 
 @router.get("/activation", response_model=MonitoringActivationStatus)
@@ -958,9 +1080,7 @@ def _monitoring_unavailable() -> HTTPException:
     )
 
 
-async def _monitoring_target(
-    db: AsyncSession, user: User, target_id: uuid.UUID
-) -> Any:
+async def _monitoring_target(db: AsyncSession, user: User, target_id: uuid.UUID) -> Any:
     try:
         return await get_target(db, user, target_id)
     except (TargetNotFoundError, InvestigationNotFoundError) as exc:
@@ -1112,4 +1232,29 @@ async def _safe_agent_management_call(
         raise
     except Exception as exc:
         logger.exception("monitoring.agent_management operation failed")
+        raise _monitoring_unavailable() from exc
+
+
+async def _safe_posture_call(
+    function: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any
+) -> Any:
+    try:
+        return await function(*args, **kwargs)
+    except EndpointPostureNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Endpoint posture or LAN asset not found."
+        ) from exc
+    except EndpointRecommendationNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Endpoint recommendation not found."
+        ) from exc
+    except EndpointRecommendationConflictError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="The endpoint recommendation is already in that lifecycle state.",
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("monitoring.endpoint_posture operation failed")
         raise _monitoring_unavailable() from exc

@@ -14,10 +14,10 @@ import socket
 import time
 import urllib.error
 import urllib.request
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
-AGENT_VERSION = "1.0.0"
+AGENT_VERSION = "1.1.0"
 
 
 def private_ip(backend_host: str, explicit: str | None) -> str:
@@ -53,15 +53,54 @@ def telemetry() -> dict[str, object | None]:
             uptime = int(float(handle.read().split()[0]))
     except (OSError, ValueError, IndexError):
         uptime = None
+    os_release: dict[str, str] = {}
+    try:
+        with open("/etc/os-release", encoding="utf-8") as handle:
+            for line in handle:
+                if "=" not in line:
+                    continue
+                key, value = line.rstrip().split("=", 1)
+                if key in {"PRETTY_NAME", "VERSION_ID"}:
+                    os_release[key] = value.strip('"')[:100]
+    except OSError:
+        pass
+    listening_ports: set[int] = set()
+    for path in ("/proc/net/tcp", "/proc/net/tcp6"):
+        try:
+            with open(path, encoding="ascii") as handle:
+                for line in list(handle)[1:]:
+                    fields = line.split()
+                    if len(fields) > 3 and fields[3] == "0A":
+                        listening_ports.add(int(fields[1].split(":")[1], 16))
+        except (OSError, ValueError, IndexError):
+            continue
+    patch_date: str | None = None
+    patch_status = "unknown"
+    patch_stamp = "/var/lib/apt/periodic/update-success-stamp"
+    try:
+        modified = datetime.fromtimestamp(os.path.getmtime(patch_stamp), UTC)
+        patch_date = modified.date().isoformat()
+        patch_status = "stale" if datetime.now(UTC) - modified > timedelta(days=45) else "current"
+    except OSError:
+        pass
     return {
         "collected_at": datetime.now(UTC).isoformat(),
         "cpu_percent": round(min(100, load / cores * 100), 1),
         "memory_percent": memory_percent(),
         "disk_percent": round((disk.used / disk.total) * 100, 1) if disk.total else None,
         "uptime_seconds": uptime,
-        "os_name": platform.system(),
-        "os_version": platform.release(),
+        "os_name": os_release.get("PRETTY_NAME", platform.system()),
+        "os_version": os_release.get("VERSION_ID", platform.release()),
+        "os_build": platform.release(),
         "agent_version": AGENT_VERSION,
+        "disk_free_gb": round(disk.free / (1024**3), 2),
+        "firewall_status": "unknown",
+        "antivirus_status": "unavailable",
+        "patch_status": patch_status,
+        "latest_patch_date": patch_date,
+        "recent_hotfix_count": None,
+        "pending_reboot": os.path.exists("/var/run/reboot-required"),
+        "listening_tcp_ports": sorted(listening_ports)[:64],
         "metadata": {"collection_mode": "manual"},
     }
 
@@ -103,7 +142,8 @@ def main() -> int:
         registered = post(f"{base}/api/v1/monitoring/agent/register", token, {
             "ip_address": address, "hostname": socket.gethostname(), "asset_type": "endpoint",
             "os_name": platform.system(), "os_version": platform.release(),
-            "agent_version": AGENT_VERSION, "capabilities": ["basic_telemetry", "os_basics"],
+            "agent_version": AGENT_VERSION,
+            "capabilities": ["basic_telemetry", "os_basics", "security_posture", "patch_awareness", "listening_ports"],
         })
         asset_id = str(registered["asset_id"])
         print("Agent enrolled. Sending basic telemetry; press Ctrl+C to stop.")

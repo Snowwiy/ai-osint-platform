@@ -106,7 +106,13 @@ class LanAgentRegistration(BaseModel):
     @field_validator("capabilities")
     @classmethod
     def validate_capabilities(cls, value: list[str]) -> list[str]:
-        allowed = {"basic_telemetry", "os_basics"}
+        allowed = {
+            "basic_telemetry",
+            "os_basics",
+            "security_posture",
+            "patch_awareness",
+            "listening_ports",
+        }
         if not value or any(item not in allowed for item in value):
             raise ValueError("unsupported endpoint capability")
         return sorted(set(value))
@@ -122,7 +128,27 @@ class LanAgentTelemetryIngest(BaseModel):
     os_name: str | None = Field(default=None, max_length=100)
     os_version: str | None = Field(default=None, max_length=100)
     agent_version: str = Field(min_length=1, max_length=40)
+    os_build: str | None = Field(default=None, max_length=100)
+    disk_free_gb: float | None = Field(default=None, ge=0, le=10_000_000)
+    firewall_status: Literal["enabled", "disabled", "unknown", "unavailable"] | None = (
+        None
+    )
+    antivirus_status: (
+        Literal["enabled", "disabled", "unknown", "unavailable"] | None
+    ) = None
+    patch_status: Literal["current", "stale", "unknown", "unavailable"] | None = None
+    latest_patch_date: str | None = Field(default=None, max_length=32)
+    recent_hotfix_count: int | None = Field(default=None, ge=0, le=100_000)
+    pending_reboot: bool | None = None
+    listening_tcp_ports: list[int] = Field(default_factory=list, max_length=64)
     metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+    @field_validator("listening_tcp_ports")
+    @classmethod
+    def safe_listening_ports(cls, value: list[int]) -> list[int]:
+        if any(port < 1 or port > 65535 for port in value):
+            raise ValueError("listening TCP ports must be between 1 and 65535")
+        return sorted(set(value))
 
     @field_validator("collected_at")
     @classmethod

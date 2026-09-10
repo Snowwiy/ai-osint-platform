@@ -155,6 +155,11 @@ import type {
   AssetGroup,
   EnrollmentToken,
   ServiceBaseline,
+  EndpointPostureOverview,
+  EndpointRecommendation,
+  EndpointRecommendationListResponse,
+  EndpointRecommendationStatus,
+  EndpointSecurityPosture,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -1201,6 +1206,44 @@ export async function discoverLan(cidr?: string): Promise<LanDiscoveryResponse> 
 
 export async function listLanTelemetry(assetId: string): Promise<LanTelemetryListResponse> {
   return request<LanTelemetryListResponse>(`/monitoring/lan/assets/${assetId}/telemetry`);
+}
+
+export async function getEndpointPostureOverview(): Promise<EndpointPostureOverview> {
+  return request<EndpointPostureOverview>("/monitoring/posture/overview");
+}
+
+export async function getEndpointPosture(assetId: string): Promise<EndpointSecurityPosture> {
+  return request<EndpointSecurityPosture>(`/monitoring/lan/assets/${assetId}/posture`);
+}
+
+export async function assessEndpointPosture(assetId: string): Promise<EndpointSecurityPosture> {
+  return request<EndpointSecurityPosture>(`/monitoring/lan/assets/${assetId}/posture/assess`, { method: "POST" });
+}
+
+export async function listEndpointRecommendations(filters: {
+  status?: EndpointRecommendationStatus;
+  severity?: string;
+  asset_id?: string;
+} = {}): Promise<EndpointRecommendationListResponse> {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+  const query = params.toString();
+  return request<EndpointRecommendationListResponse>(`/monitoring/recommendations${query ? `?${query}` : ""}`);
+}
+
+export async function updateEndpointRecommendation(
+  id: string,
+  body: { severity?: string; notes?: string | null },
+): Promise<EndpointRecommendation> {
+  return request<EndpointRecommendation>(`/monitoring/recommendations/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+export async function acknowledgeEndpointRecommendation(id: string, notes?: string): Promise<EndpointRecommendation> {
+  return request<EndpointRecommendation>(`/monitoring/recommendations/${id}/acknowledge`, { method: "POST", body: JSON.stringify({ notes: notes || null }) });
+}
+
+export async function resolveEndpointRecommendation(id: string, notes?: string): Promise<EndpointRecommendation> {
+  return request<EndpointRecommendation>(`/monitoring/recommendations/${id}/resolve`, { method: "POST", body: JSON.stringify({ notes: notes || null }) });
 }
 
 export async function listLanServices(assetId: string): Promise<LanServiceListResponse> {
