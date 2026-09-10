@@ -94,11 +94,22 @@ class LanAgentRegistration(BaseModel):
     os_name: str | None = Field(default=None, max_length=100)
     os_version: str | None = Field(default=None, max_length=100)
     agent_version: str = Field(min_length=1, max_length=40)
+    capabilities: list[str] = Field(
+        default_factory=lambda: ["basic_telemetry"], max_length=16
+    )
 
     @field_validator("mac_address")
     @classmethod
     def validate_mac(cls, value: str | None) -> str | None:
         return LanDiscoveryObservation.validate_mac(value)
+
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, value: list[str]) -> list[str]:
+        allowed = {"basic_telemetry", "os_basics"}
+        if not value or any(item not in allowed for item in value):
+            raise ValueError("unsupported endpoint capability")
+        return sorted(set(value))
 
 
 class LanAgentTelemetryIngest(BaseModel):
@@ -181,6 +192,8 @@ class LanAssetResponse(BaseModel):
     risk_indicators: list[LanRiskIndicator]
     created_at: datetime
     updated_at: datetime
+    enrolled_at: datetime | None = None
+    capabilities: list[str] = Field(default_factory=list)
 
 
 class LanAssetListResponse(BaseModel):

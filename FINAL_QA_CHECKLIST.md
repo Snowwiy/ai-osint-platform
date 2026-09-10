@@ -210,3 +210,20 @@ check blocks the current release-freeze commit and push.
       closes on outside click or Escape without clipping at small dimensions.
 - [ ] Alerts show useful loading, empty, retry, action, and disabled states with
       no raw endpoint errors, crash screen, or horizontal overflow.
+
+## Phase 5AE enrollment, groups, and coverage
+
+- [ ] Enrollment plaintext appears only in the create/rotate response and is
+      absent from lists, database plaintext, logs, telemetry, and commands.
+- [ ] Invalid, expired, revoked, exhausted, and CIDR-mismatched credentials are
+      rejected; token management is admin-only.
+- [ ] Agent registration and heartbeats retain OS/version/freshness,
+      enrollment label, capabilities, authorization, monitoring, and context.
+- [ ] Group CRUD, membership, filtering, coverage, and risk summaries work with
+      clean RBAC and empty/error states.
+- [ ] Asset/group service baselines identify missing expected and unexpected
+      open ports from stored observations without initiating a connection.
+- [ ] Windows and Linux helpers collect basic CPU/RAM/disk/uptime/OS data only,
+      prompt securely, stop with Ctrl+C, and configure no persistence.
+- [ ] Overlay, tabs, health, LAN inventory, triage dedupe, and narrow layouts
+      retain prior regression coverage.

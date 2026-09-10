@@ -381,3 +381,16 @@ The Activity Inbox is now a viewport overlay with bounded scrolling,
 responsive placement, outside-click dismissal, and Escape handling. This phase
 adds no public scanning, exploitation, brute force, credential testing,
 hosting, deployment, DNS, or Supabase changes. Version remains `5.0.0-rc2`.
+
+## Phase 5AE endpoint coverage
+
+The Endpoint Agents view now provides hashed, one-time-reveal enrollment
+credentials; agent inventory and freshness; simple asset groups; group coverage
+summaries; and expected/allowed service baselines. Manual Windows PowerShell
+and Linux Python helpers collect only basic resource, uptime, and OS telemetry.
+There is no remote shell, command execution, persistence, or autostart.
+
+Baseline results are defensive risk indicators derived from stored authorized
+observations. Phase 5AE adds no public scanning, exploitation, brute force,
+credential testing, hosting, deployment, DNS, or Supabase changes. Version
+remains `5.0.0-rc2`.

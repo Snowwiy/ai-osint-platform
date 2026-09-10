@@ -755,11 +755,16 @@ def _policy_key_for_alert(alert: MonitoringAlert) -> str:
         return "offline_asset"
     if ":change:" in key and alert.category == "baseline":
         return "high_critical_finding"
-    if "risky_service" in key or "ssh_nonstandard" in key or ":change:" in key:
+    if (
+        key.startswith("service-baseline:")
+        or "risky_service" in key
+        or "ssh_nonstandard" in key
+        or ":change:" in key
+    ):
         return "risky_service"
     if ":unauthorized" in key:
         return "unauthorized_asset"
-    if ":coverage" in key or ":unmanaged" in key:
+    if key.startswith("coverage:") or ":coverage" in key or ":unmanaged" in key:
         return "weak_coverage"
     if key == "assets:unresolved-high-risk":
         return "high_critical_finding"

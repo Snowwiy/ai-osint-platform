@@ -117,6 +117,7 @@ try {
             os_name = $os.Caption
             os_version = $os.Version
             agent_version = $AgentVersion
+            capabilities = @("basic_telemetry", "os_basics")
         } | ConvertTo-Json -Compress
         $registered = Invoke-RestMethod -Method Post `
             -Uri ($BackendUrl.TrimEnd("/") + "/api/v1/monitoring/agent/register") `

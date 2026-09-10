@@ -148,6 +148,11 @@ import type {
   MaintenanceWindow,
   MaintenanceWindowListResponse,
   AlertSuppressionResponse,
+  AgentInventoryItem,
+  AgentInventoryResponse,
+  AssetGroup,
+  EnrollmentToken,
+  ServiceBaseline,
   OperationsStatusResponse,
   PlaybookRun,
   PlaybookRunStatus,
@@ -1098,6 +1103,20 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
 }
+
+export async function listAgentTokens(): Promise<{ total: number; items: EnrollmentToken[] }> { return request("/monitoring/agent-tokens"); }
+export async function createAgentToken(body: { name: string; description?: string; allowed_cidr?: string; max_enrollments?: number; expires_at: string }): Promise<EnrollmentToken> { return request("/monitoring/agent-tokens", { method: "POST", body: JSON.stringify(body) }); }
+export async function revokeAgentToken(id: string): Promise<EnrollmentToken> { return request(`/monitoring/agent-tokens/${id}/revoke`, { method: "POST" }); }
+export async function rotateAgentToken(id: string): Promise<EnrollmentToken> { return request(`/monitoring/agent-tokens/${id}/rotate`, { method: "POST" }); }
+export async function listEndpointAgents(): Promise<AgentInventoryResponse> { return request("/monitoring/agents"); }
+export async function updateEndpointAgent(id: string, body: Partial<Pick<AgentInventoryItem, "monitoring_enabled" | "is_authorized" | "owner" | "notes" | "criticality">>): Promise<AgentInventoryItem> { return request(`/monitoring/agents/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+export async function listAssetGroups(): Promise<{ total: number; items: AssetGroup[] }> { return request("/monitoring/asset-groups"); }
+export async function createAssetGroup(body: { name: string; description?: string; asset_ids: string[] }): Promise<AssetGroup> { return request("/monitoring/asset-groups", { method: "POST", body: JSON.stringify(body) }); }
+export async function updateAssetGroup(id: string, body: Partial<Pick<AssetGroup, "name" | "description" | "asset_ids">>): Promise<AssetGroup> { return request(`/monitoring/asset-groups/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
+export async function deleteAssetGroup(id: string): Promise<void> { return request(`/monitoring/asset-groups/${id}`, { method: "DELETE" }); }
+export async function listServiceBaselines(): Promise<{ total: number; items: ServiceBaseline[] }> { return request("/monitoring/service-baselines"); }
+export async function createServiceBaseline(body: { name: string; asset_id?: string; group_id?: string; expected_ports: number[]; allowed_ports: number[] }): Promise<ServiceBaseline> { return request("/monitoring/service-baselines", { method: "POST", body: JSON.stringify(body) }); }
+export async function deleteServiceBaseline(id: string): Promise<void> { return request(`/monitoring/service-baselines/${id}`, { method: "DELETE" }); }
 
 export async function listMonitoringTriage(filters: {
   status?: MonitoringTriageStatus;

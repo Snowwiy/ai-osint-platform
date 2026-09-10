@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import secrets
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -12,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_role
 from app.models.user import User
-from app.core.config import settings
 from app.schemas.lan_monitoring import (
     LanAgentRegistration,
     LanAgentRegistrationResponse,
@@ -28,6 +26,23 @@ from app.schemas.lan_monitoring import (
     LanServiceCheckResponse,
     LanServiceListResponse,
     LanTelemetryListResponse,
+)
+from app.schemas.agent_management import (
+    AgentInventoryItem,
+    AgentInventoryResponse,
+    AgentUpdate,
+    AssetGroupCreate,
+    AssetGroupListResponse,
+    AssetGroupResponse,
+    AssetGroupUpdate,
+    EnrollmentTokenCreate,
+    EnrollmentTokenCreated,
+    EnrollmentTokenListResponse,
+    EnrollmentTokenResponse,
+    ServiceBaselineCreate,
+    ServiceBaselineListResponse,
+    ServiceBaselineResponse,
+    ServiceBaselineUpdate,
 )
 from app.schemas.vulnerability_baseline import (
     VulnerabilityBaselineFindingResponse,
@@ -90,6 +105,27 @@ from app.services.monitoring_policy import (
     update_policy,
     update_window,
     window_response,
+)
+from app.services.agent_management import (
+    AgentCredentialError,
+    AgentManagementConflictError,
+    AgentManagementNotFoundError,
+    create_baseline,
+    create_enrollment_token,
+    create_group,
+    delete_baseline,
+    delete_group,
+    get_agent,
+    list_agents,
+    list_baselines,
+    list_enrollment_tokens,
+    list_groups,
+    revoke_enrollment_token,
+    rotate_enrollment_token,
+    update_agent,
+    update_baseline,
+    update_group,
+    validate_agent_credential,
 )
 from app.services.monitoring_history import (
     ChangeAcknowledgement,
@@ -215,7 +251,9 @@ async def monitoring_triage_false_positive_endpoint(
     current_user: User = Depends(require_role("admin", "analyst")),
     db: AsyncSession = Depends(get_db),
 ) -> MonitoringTriageItem:
-    return await _safe_triage_call(false_positive_triage, db, current_user, alert_id, body)
+    return await _safe_triage_call(
+        false_positive_triage, db, current_user, alert_id, body
+    )
 
 
 @router.post("/triage/{alert_id}/mute", response_model=MonitoringTriageItem)
@@ -242,14 +280,25 @@ async def monitoring_changes_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> MonitoringChangeListResponse:
     if date_from and date_to:
-        normalized_from = date_from if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+        normalized_from = (
+            date_from if date_from.tzinfo else date_from.replace(tzinfo=UTC)
+        )
         normalized_to = date_to if date_to.tzinfo else date_to.replace(tzinfo=UTC)
         if normalized_from > normalized_to:
-            raise HTTPException(status_code=422, detail="date_from must be before date_to")
+            raise HTTPException(
+                status_code=422, detail="date_from must be before date_to"
+            )
     return await _safe_history_call(
-        list_changes, db, limit=limit, offset=offset, asset_id=asset_id,
-        event_type=event_type, severity=severity, acknowledgement=acknowledgement,
-        date_from=date_from, date_to=date_to,
+        list_changes,
+        db,
+        limit=limit,
+        offset=offset,
+        asset_id=asset_id,
+        event_type=event_type,
+        severity=severity,
+        acknowledgement=acknowledgement,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 
@@ -415,20 +464,166 @@ async def monitoring_alert_unsuppress_endpoint(
         ) from exc
 
 
-def _require_lan_agent_token(
-    provided: str | None = Header(default=None, alias="X-LAN-Agent-Token"),
+@router.get("/agent-tokens", response_model=EnrollmentTokenListResponse)
+async def agent_tokens_endpoint(
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentTokenListResponse:
+    return await _safe_agent_management_call(list_enrollment_tokens, db)
+
+
+@router.post(
+    "/agent-tokens",
+    response_model=EnrollmentTokenCreated,
+    status_code=status.HTTP_201_CREATED,
+)
+async def agent_token_create_endpoint(
+    body: EnrollmentTokenCreate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentTokenCreated:
+    return await _safe_agent_management_call(
+        create_enrollment_token, db, current_user, body
+    )
+
+
+@router.post("/agent-tokens/{token_id}/revoke", response_model=EnrollmentTokenResponse)
+async def agent_token_revoke_endpoint(
+    token_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentTokenResponse:
+    return await _safe_agent_management_call(
+        revoke_enrollment_token, db, current_user, token_id
+    )
+
+
+@router.post("/agent-tokens/{token_id}/rotate", response_model=EnrollmentTokenCreated)
+async def agent_token_rotate_endpoint(
+    token_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> EnrollmentTokenCreated:
+    return await _safe_agent_management_call(
+        rotate_enrollment_token, db, current_user, token_id
+    )
+
+
+@router.get("/agents", response_model=AgentInventoryResponse)
+async def agents_endpoint(
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AgentInventoryResponse:
+    return await _safe_agent_management_call(list_agents, db)
+
+
+@router.get("/agents/{agent_id}", response_model=AgentInventoryItem)
+async def agent_endpoint(
+    agent_id: uuid.UUID,
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AgentInventoryItem:
+    return await _safe_agent_management_call(get_agent, db, agent_id)
+
+
+@router.patch("/agents/{agent_id}", response_model=AgentInventoryItem)
+async def agent_update_endpoint(
+    agent_id: uuid.UUID,
+    body: AgentUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AgentInventoryItem:
+    return await _safe_agent_management_call(
+        update_agent, db, current_user, agent_id, body
+    )
+
+
+@router.get("/asset-groups", response_model=AssetGroupListResponse)
+async def asset_groups_endpoint(
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AssetGroupListResponse:
+    return await _safe_agent_management_call(list_groups, db)
+
+
+@router.post(
+    "/asset-groups",
+    response_model=AssetGroupResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def asset_group_create_endpoint(
+    body: AssetGroupCreate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AssetGroupResponse:
+    return await _safe_agent_management_call(create_group, db, current_user, body)
+
+
+@router.patch("/asset-groups/{group_id}", response_model=AssetGroupResponse)
+async def asset_group_update_endpoint(
+    group_id: uuid.UUID,
+    body: AssetGroupUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> AssetGroupResponse:
+    return await _safe_agent_management_call(
+        update_group, db, current_user, group_id, body
+    )
+
+
+@router.delete("/asset-groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def asset_group_delete_endpoint(
+    group_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
 ) -> None:
-    configured = settings.LAN_AGENT_TOKEN
-    if not settings.LAN_MONITORING_ENABLED or not configured:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LAN endpoint telemetry is disabled.",
-        )
-    if provided is None or not secrets.compare_digest(provided, configured):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid endpoint agent token.",
-        )
+    await _safe_agent_management_call(delete_group, db, current_user, group_id)
+
+
+@router.get("/service-baselines", response_model=ServiceBaselineListResponse)
+async def service_baselines_endpoint(
+    _current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceBaselineListResponse:
+    return await _safe_agent_management_call(list_baselines, db)
+
+
+@router.post(
+    "/service-baselines",
+    response_model=ServiceBaselineResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def service_baseline_create_endpoint(
+    body: ServiceBaselineCreate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceBaselineResponse:
+    return await _safe_agent_management_call(create_baseline, db, current_user, body)
+
+
+@router.patch(
+    "/service-baselines/{baseline_id}", response_model=ServiceBaselineResponse
+)
+async def service_baseline_update_endpoint(
+    baseline_id: uuid.UUID,
+    body: ServiceBaselineUpdate,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> ServiceBaselineResponse:
+    return await _safe_agent_management_call(
+        update_baseline, db, current_user, baseline_id, body
+    )
+
+
+@router.delete(
+    "/service-baselines/{baseline_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def service_baseline_delete_endpoint(
+    baseline_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    await _safe_agent_management_call(delete_baseline, db, current_user, baseline_id)
 
 
 @router.get("/overview", response_model=MonitoringOverviewResponse)
@@ -637,10 +832,11 @@ async def monitoring_open_ports_endpoint(
 )
 async def lan_agent_register_endpoint(
     body: LanAgentRegistration,
-    _agent_token: None = Depends(_require_lan_agent_token),
+    agent_token: str | None = Header(default=None, alias="X-LAN-Agent-Token"),
     db: AsyncSession = Depends(get_db),
 ) -> LanAgentRegistrationResponse:
-    return await _safe_lan_call(register_agent, db, body)
+    credential = await _safe_agent_credential(db, agent_token, body.ip_address)
+    return await _safe_lan_call(register_agent, db, body, credential)
 
 
 @router.post(
@@ -650,9 +846,10 @@ async def lan_agent_register_endpoint(
 )
 async def lan_agent_telemetry_ingest_endpoint(
     body: LanAgentTelemetryIngest,
-    _agent_token: None = Depends(_require_lan_agent_token),
+    agent_token: str | None = Header(default=None, alias="X-LAN-Agent-Token"),
     db: AsyncSession = Depends(get_db),
 ) -> LanAgentTelemetryResponse:
+    await _safe_agent_credential(db, agent_token, asset_id=body.asset_id)
     return await _safe_lan_call(ingest_lan_agent_telemetry, db, body)
 
 
@@ -801,17 +998,71 @@ async def _safe_triage_call(
     try:
         return await function(*args, **kwargs)
     except MonitoringTriageNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Monitoring alert not found.") from exc
+        raise HTTPException(
+            status_code=404, detail="Monitoring alert not found."
+        ) from exc
     except MonitoringTriageOwnerNotFoundError as exc:
-        raise HTTPException(status_code=422, detail="The selected owner is not active.") from exc
+        raise HTTPException(
+            status_code=422, detail="The selected owner is not active."
+        ) from exc
     except MonitoringTriageValidationError as exc:
-        raise HTTPException(status_code=422, detail="That triage transition requires more information.") from exc
+        raise HTTPException(
+            status_code=422, detail="That triage transition requires more information."
+        ) from exc
     except MonitoringTriageConflictError as exc:
-        raise HTTPException(status_code=409, detail="The alert is already in that lifecycle state.") from exc
+        raise HTTPException(
+            status_code=409, detail="The alert is already in that lifecycle state."
+        ) from exc
     except PermissionError as exc:
-        raise HTTPException(status_code=403, detail="You are not allowed to perform that triage action.") from exc
+        raise HTTPException(
+            status_code=403, detail="You are not allowed to perform that triage action."
+        ) from exc
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("monitoring.triage operation failed")
+        raise _monitoring_unavailable() from exc
+
+
+async def _safe_agent_credential(
+    db: AsyncSession,
+    provided: str | None,
+    ip_address: str | None = None,
+    asset_id: uuid.UUID | None = None,
+) -> Any:
+    try:
+        return await validate_agent_credential(db, provided, ip_address, asset_id)
+    except AgentCredentialError as exc:
+        if exc.reason == "disabled":
+            raise HTTPException(
+                status_code=503, detail="LAN endpoint telemetry is disabled."
+            ) from exc
+        raise HTTPException(
+            status_code=401, detail="Invalid or inactive endpoint agent token."
+        ) from exc
+
+
+async def _safe_agent_management_call(
+    function: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any
+) -> Any:
+    try:
+        return await function(*args, **kwargs)
+    except AgentManagementNotFoundError as exc:
+        raise HTTPException(
+            status_code=404, detail="Monitoring management resource not found."
+        ) from exc
+    except AgentManagementConflictError as exc:
+        if str(exc) in {"expiration", "cidr", "secret"}:
+            raise HTTPException(
+                status_code=422,
+                detail="The submitted monitoring configuration is invalid.",
+            ) from exc
+        raise HTTPException(
+            status_code=409,
+            detail="The monitoring management change conflicts with current state.",
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("monitoring.agent_management operation failed")
         raise _monitoring_unavailable() from exc

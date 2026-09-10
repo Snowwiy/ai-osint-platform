@@ -3258,6 +3258,8 @@ export interface LanAsset {
   notes: string | null;
   is_authorized: boolean;
   monitoring_enabled: boolean;
+  enrolled_at: string | null;
+  capabilities: string[];
   criticality: "low" | "medium" | "high" | "critical";
   owner: string | null;
   business_function: string | null;
@@ -3268,6 +3270,27 @@ export interface LanAsset {
   created_at: string;
   updated_at: string;
 }
+
+export interface EnrollmentToken {
+  id: string; name: string; description: string | null; token_hint: string;
+  allowed_cidr: string | null; max_enrollments: number | null; enrollment_count: number;
+  expires_at: string; created_by: string | null; created_at: string; revoked_at: string | null;
+  status: "active" | "expired" | "revoked" | "exhausted"; token?: string;
+}
+export interface AgentInventoryItem extends LanAsset {
+  os_name: string | null; os_version: string | null; agent_version: string | null;
+  telemetry_fresh: boolean; enrollment_token_label: string | null;
+  group_ids: string[]; group_names: string[];
+}
+export interface GroupCoverage { group_id: string; group_name: string; total_assets: number; monitored_by_agent: number; stale_agents: number; risk_indicators: number; }
+export interface AgentInventoryResponse {
+  total: number;
+  coverage: { total_lan_assets: number; monitored_by_agent: number; missing_agent: number; stale_agents: number; unauthorized_assets: number; critical_assets_without_telemetry: number; groups: GroupCoverage[] };
+  items: AgentInventoryItem[];
+}
+export interface AssetGroup { id: string; name: string; description: string | null; asset_ids: string[]; total_assets: number; monitored_by_agent: number; stale_agents: number; risk_indicators: number; created_by: string | null; created_at: string; updated_at: string; }
+export interface ServiceBaselineIndicator { asset_id: string; port: number; indicator_type: "missing_expected_service" | "unexpected_open_service"; severity: "warning" | "critical"; detail: string; }
+export interface ServiceBaseline { id: string; name: string; description: string | null; asset_id: string | null; group_id: string | null; expected_ports: number[]; allowed_ports: number[]; indicators: ServiceBaselineIndicator[]; created_by: string | null; created_at: string; updated_at: string; }
 
 export interface LanAssetListResponse {
   generated_at: string;

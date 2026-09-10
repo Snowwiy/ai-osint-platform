@@ -9,6 +9,7 @@ import { VulnerabilityBaselinePanel } from "../components/VulnerabilityBaselineP
 import { MonitoringPolicyPanel } from "../components/MonitoringPolicyPanel";
 import { MonitoringChangeTimelinePanel } from "../components/MonitoringChangeTimelinePanel";
 import { MonitoringTriagePanel } from "../components/MonitoringTriagePanel";
+import { AgentManagementPanel } from "../components/AgentManagementPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getMonitoringOverview } from "../lib/api";
 import {
@@ -170,7 +171,7 @@ export function MonitoringCenterPage(): JSX.Element {
         </div>
       ) : null}
       {tab === "lan" ? <LanMonitoringPanel /> : null}
-      {tab === "agents" ? <LanMonitoringPanel agentsOnly /> : null}
+      {tab === "agents" ? <AgentManagementPanel /> : null}
       {tab === "baseline" ? <VulnerabilityBaselinePanel /> : null}
       {tab === "changes" ? <MonitoringChangeTimelinePanel /> : null}
       {tab === "policies" ? <MonitoringPolicyPanel /> : null}

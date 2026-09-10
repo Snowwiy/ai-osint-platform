@@ -347,3 +347,16 @@ External and protocol-relative action URLs are intentionally rejected.
 
 Triage adds no network checks or offensive behavior. Hosting, deployment, DNS,
 and Supabase remain unchanged.
+
+## Phase 5AE endpoint enrollment
+
+- If registration returns 401, verify the credential is current, unrevoked,
+  unexpired, below its enrollment limit, and permits the endpoint's private IP.
+- If an agent is stale, confirm the backend is healthy and manually restart the
+  helper. Agents are intentionally not installed as services or autostart jobs.
+- A rotated token invalidates the prior value. Existing agents must receive the
+  new value through the secure prompt before their next manual run.
+- Empty group coverage means no members are assigned. Baseline indicators need
+  existing authorized service observations; baseline creation does not scan.
+- Replace `BACKEND_HOST` with localhost or an approved private IP. Stop either
+  helper with `Ctrl+C`; never paste tokens into command arguments or logs.

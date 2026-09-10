@@ -1,4 +1,5 @@
 from app.models.ai_analysis import AiAnalysis
+from app.models.agent_management import AgentEnrollmentToken, AssetGroup, AssetGroupMembership, ExpectedServiceBaseline
 from app.models.admin_settings import AdminSettings
 from app.models.audit_log import AuditLog
 from app.models.base import Base
@@ -73,6 +74,10 @@ from app.models.user import User
 
 __all__ = [
     "AiAnalysis",
+    "AgentEnrollmentToken",
+    "AssetGroup",
+    "AssetGroupMembership",
+    "ExpectedServiceBaseline",
     "AdminSettings",
     "AuditLog",
     "Base",

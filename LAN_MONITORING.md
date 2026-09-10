@@ -166,3 +166,16 @@ notification identifies an asset, its triage card carries only the asset ID and
 sanitized context. Assignment, mute, resolution, and false-positive decisions
 do not initiate discovery or service checks and do not delete notification or
 LAN history.
+
+## Phase 5AE groups and coverage
+
+Asset groups provide lightweight labels such as Workstations, Servers,
+Network Devices, Critical Assets, and Lab Devices. The coverage dashboard shows
+installed agents, stale heartbeats, missing agents, unauthorized assets,
+critical telemetry gaps, and per-group coverage/risk counts.
+
+Expected-service baselines apply to one asset or group. Expected ports not
+observed open and observed open ports outside the allowed set are risk
+indicators only. Existing non-standard SSH, database, Redis, SMB, RDP, and
+authorization indicators remain based solely on stored observations; creating
+a baseline never opens a socket or runs a scan.

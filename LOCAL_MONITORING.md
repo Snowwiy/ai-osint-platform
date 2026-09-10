@@ -169,3 +169,18 @@ Mute uses the existing alert-suppression lifecycle. Maintenance suppression is
 shown separately and collection continues during every suppression. Critical
 alerts can be muted only by an administrator. Recovered conditions are retired
 automatically. Notes must never contain credentials, tokens, keys, or secrets.
+
+## Phase 5AE endpoint enrollment and coverage
+
+Admins create short-lived enrollment credentials in **Monitoring → Endpoint
+Agents**. The full credential is revealed once; only its SHA-256 digest and a
+non-sensitive hint are stored. Optional private CIDR and enrollment-count
+limits narrow use. Expired, revoked, exhausted, invalid, or out-of-range
+credentials are rejected. Rotation revokes the previous credential.
+
+Windows agents run manually with
+`./scripts/local/local_monitor_agent.ps1 -Mode LanEndpoint -BackendUrl http://BACKEND_HOST:8000 -IntervalSeconds 30`.
+Linux hosts may run
+`python scripts/local/local_monitor_agent.py --backend-url http://BACKEND_HOST:8000 --interval-seconds 30`.
+Both prompt securely for the token and stop with `Ctrl+C`; neither installs
+autostart or collects files, passwords, browser history, or remote commands.

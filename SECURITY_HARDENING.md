@@ -274,3 +274,15 @@ Before release:
   as optional visibility gaps, not required dependency failures.
 - No Phase 5AB setting authorizes internet-wide scanning, hosting, deployment,
   DNS work, or Supabase changes.
+
+## Phase 5AE enrollment safeguards
+
+- Create short-lived, private-CIDR-limited, enrollment-count-limited tokens.
+- Store only SHA-256 token digests and show plaintext once at creation/rotation.
+- Paste enrollment tokens only into the agent's secure prompt; never put them
+  in command arguments, logs, screenshots, notes, telemetry, or source control.
+- Revoke unused credentials and review expired/revoked-use alerts.
+- Agent capabilities are allowlisted to basic resource and OS telemetry. There
+  is no file collection, persistence, autostart, remote shell, or command API.
+- Groups and baselines do not authorize public scanning, exploitation, brute
+  force, hosting, deployment, DNS, or Supabase work.

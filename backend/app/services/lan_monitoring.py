@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.audit_log import AuditLog
+from app.models.agent_management import AgentEnrollmentToken
 from app.models.lan_monitoring import LanAsset, LanAssetTelemetry, LanServiceObservation
 from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.user import User
@@ -209,9 +210,14 @@ async def update_lan_asset(
         setattr(asset, field, value.strip() if isinstance(value, str) else value)
     if asset.is_authorized and old_hostname and asset.hostname != old_hostname:
         await record_asset_observation_changes(
-            db, asset=asset, created=False, old_status=asset.status,
-            old_hostname=old_hostname, old_mac=asset.mac_address,
-            source="asset_update", detected_at=datetime.now(UTC),
+            db,
+            asset=asset,
+            created=False,
+            old_status=asset.status,
+            old_hostname=old_hostname,
+            old_mac=asset.mac_address,
+            source="asset_update",
+            detected_at=datetime.now(UTC),
         )
     await record_event(
         db,
@@ -263,16 +269,24 @@ async def discover_lan(
         old_mac = previous_asset.mac_address if previous_asset else None
         asset, was_created = await _upsert_observation(db, user, observation, now)
         await record_asset_observation_changes(
-            db, asset=asset, created=was_created, old_status=old_status,
-            old_hostname=old_hostname, old_mac=old_mac,
-            source=observation.source, detected_at=now,
+            db,
+            asset=asset,
+            created=was_created,
+            old_status=old_status,
+            old_hostname=old_hostname,
+            old_mac=old_mac,
+            source=observation.source,
+            detected_at=now,
         )
         created += int(was_created)
         updated += int(not was_created)
         for service in observation.services:
             await record_service_observation(
-                db, asset=asset, observation=service,
-                source=observation.source, observed_at=now,
+                db,
+                asset=asset,
+                observation=service,
+                source=observation.source,
+                observed_at=now,
             )
             services_created += 1
 
@@ -314,13 +328,16 @@ async def discover_lan(
 
 
 async def register_agent(
-    db: AsyncSession, body: LanAgentRegistration
+    db: AsyncSession,
+    body: LanAgentRegistration,
+    credential: AgentEnrollmentToken | None = None,
 ) -> LanAgentRegistrationResponse:
     _ensure_enabled()
     address = validate_allowed_ip(body.ip_address)
     now = datetime.now(UTC)
     asset = await _asset_by_ip(db, str(address))
     created = asset is None
+    new_enrollment = asset is None or asset.source != "agent"
     old_status = asset.status if asset else None
     old_hostname = asset.hostname if asset else None
     old_mac = asset.mac_address if asset else None
@@ -341,11 +358,23 @@ async def register_agent(
     asset.last_checked_at = now
     asset.is_authorized = True
     asset.monitoring_enabled = True
+    asset.enrolled_at = asset.enrolled_at or now
+    asset.enrollment_token_id = (
+        credential.id if credential else asset.enrollment_token_id
+    )
+    asset.capabilities = body.capabilities
+    if new_enrollment and credential is not None:
+        credential.enrollment_count += 1
     await db.flush()
     await record_asset_observation_changes(
-        db, asset=asset, created=created, old_status=old_status,
-        old_hostname=old_hostname, old_mac=old_mac,
-        source="endpoint_agent", detected_at=now,
+        db,
+        asset=asset,
+        created=created,
+        old_status=old_status,
+        old_hostname=old_hostname,
+        old_mac=old_mac,
+        source="endpoint_agent",
+        detected_at=now,
     )
     await record_event(
         db,
@@ -354,6 +383,19 @@ async def register_agent(
         resource_id=asset.id,
         metadata={"created": created, "agent_version": body.agent_version},
     )
+    if new_enrollment:
+        await create_admin_notification(
+            db,
+            notification_type="monitoring_alert",
+            severity="success",
+            title="Endpoint agent enrolled",
+            message=f"An endpoint agent enrolled for authorized asset {asset.ip_address}.",
+            entity_type="lan_asset",
+            entity_id=asset.id,
+            action_url="/monitoring",
+            metadata={"rule": "agent_enrolled"},
+            dedupe_key_prefix=f"agent-enrolled:{asset.id}",
+        )
     return LanAgentRegistrationResponse(
         accepted=True,
         asset_id=asset.id,
@@ -401,9 +443,14 @@ async def ingest_agent_telemetry(
     asset.last_checked_at = received_at
     if old_status == "offline":
         await record_asset_observation_changes(
-            db, asset=asset, created=False, old_status=old_status,
-            old_hostname=asset.hostname, old_mac=asset.mac_address,
-            source="endpoint_agent", detected_at=body.collected_at,
+            db,
+            asset=asset,
+            created=False,
+            old_status=old_status,
+            old_hostname=asset.hostname,
+            old_mac=asset.mac_address,
+            source="endpoint_agent",
+            detected_at=body.collected_at,
         )
     await record_agent_telemetry_changes(db, asset, previous, telemetry)
     await record_event(
@@ -519,8 +566,11 @@ async def check_asset_services(
     now = datetime.now(UTC)
     for service in observations:
         await record_service_observation(
-            db, asset=asset, observation=service,
-            source="tcp_connect", observed_at=now,
+            db,
+            asset=asset,
+            observation=service,
+            source="tcp_connect",
+            observed_at=now,
         )
     asset.last_checked_at = now
     await record_event(
@@ -682,6 +732,9 @@ async def get_lan_alerts(db: AsyncSession) -> list[MonitoringAlert]:
         )
         for item in recent_changes
     )
+    from app.services.agent_management import baseline_alerts
+
+    alerts.extend(await baseline_alerts(db))
     return alerts[:100]
 
 
@@ -729,6 +782,8 @@ def _asset_response(
         owner=asset.owner,
         business_function=asset.business_function,
         environment=asset.environment,
+        enrolled_at=asset.enrolled_at,
+        capabilities=asset.capabilities,
         agent_connected=connected,
         response_latency_ms=asset.response_latency_ms,
         risk_indicators=_risk_indicators(asset, telemetry, services, status, connected),
