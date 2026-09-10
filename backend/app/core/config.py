@@ -74,7 +74,12 @@ class Settings(BaseSettings):
     LAN_DISCOVERY_INTERVAL_SECONDS: int = 300
     LAN_DISCOVERY_PING_ENABLED: bool = False
     LAN_SERVICE_CHECK_ENABLED: bool = False
-    LAN_SERVICE_CHECK_PORTS: str = "22,80,443,3389"
+    LAN_SERVICE_CHECK_PORTS: str = "22,80,443,445,3389,8080,8443"
+    LAN_SERVICE_CHECK_TIMEOUT_SECONDS: float = 2.0
+    LAN_SERVICE_CHECK_MAX_HOSTS: int = 256
+    LAN_SERVICE_CHECK_MAX_PORTS: int = 32
+    LAN_REJECT_PUBLIC_CIDRS: bool = True
+    LAN_SSH_BANNER_DETECTION_ENABLED: bool = True
     LAN_AGENT_TOKEN: str = Field(default="", exclude=True)
     LAN_AGENT_MAX_STALE_MINUTES: int = 10
     VULNERABILITY_BASELINE_ENABLED: bool = True
@@ -162,10 +167,22 @@ class Settings(BaseSettings):
             errors.append("LAN_DISCOVERY_INTERVAL_SECONDS must be at least 60.")
         if self.LAN_AGENT_MAX_STALE_MINUTES < 2:
             errors.append("LAN_AGENT_MAX_STALE_MINUTES must be at least 2.")
+        if not 0.2 <= self.LAN_SERVICE_CHECK_TIMEOUT_SECONDS <= 5:
+            errors.append(
+                "LAN_SERVICE_CHECK_TIMEOUT_SECONDS must be between 0.2 and 5."
+            )
+        if not 1 <= self.LAN_SERVICE_CHECK_MAX_HOSTS <= 256:
+            errors.append("LAN_SERVICE_CHECK_MAX_HOSTS must be between 1 and 256.")
+        if not 1 <= self.LAN_SERVICE_CHECK_MAX_PORTS <= 32:
+            errors.append("LAN_SERVICE_CHECK_MAX_PORTS must be between 1 and 32.")
         if not 50 <= self.VULNERABILITY_HIGH_RESOURCE_PERCENT <= 100:
-            errors.append("VULNERABILITY_HIGH_RESOURCE_PERCENT must be between 50 and 100.")
+            errors.append(
+                "VULNERABILITY_HIGH_RESOURCE_PERCENT must be between 50 and 100."
+            )
         if not 2 <= self.VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES <= 10:
-            errors.append("VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES must be between 2 and 10.")
+            errors.append(
+                "VULNERABILITY_RESOURCE_SUSTAINED_SAMPLES must be between 2 and 10."
+            )
         if self.VULNERABILITY_STALE_ASSET_HOURS < 1:
             errors.append("VULNERABILITY_STALE_ASSET_HOURS must be at least 1.")
         try:
@@ -180,7 +197,9 @@ class Settings(BaseSettings):
                 ipaddress.IPv4Network("192.168.0.0/16"),
             )
             if not networks:
-                errors.append("LAN_ALLOWED_CIDRS must contain at least one private CIDR.")
+                errors.append(
+                    "LAN_ALLOWED_CIDRS must contain at least one private CIDR."
+                )
             elif any(
                 network.version != 4
                 or not any(network.subnet_of(private) for private in private_networks)
@@ -197,8 +216,10 @@ class Settings(BaseSettings):
             ]
             if any(port < 1 or port > 65535 for port in ports):
                 raise ValueError
-            if len(ports) > 32:
-                errors.append("LAN_SERVICE_CHECK_PORTS is limited to 32 ports.")
+            if len(ports) > self.LAN_SERVICE_CHECK_MAX_PORTS:
+                errors.append(
+                    "LAN_SERVICE_CHECK_PORTS exceeds LAN_SERVICE_CHECK_MAX_PORTS."
+                )
         except ValueError:
             errors.append("LAN_SERVICE_CHECK_PORTS must contain valid TCP ports.")
         if self.is_production:

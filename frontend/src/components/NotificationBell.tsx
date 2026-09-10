@@ -59,7 +59,7 @@ export function NotificationBell(): JSX.Element {
       </button>
 
       {open ? (
-        <div className="fixed inset-x-4 top-20 z-30 max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(22rem,calc(100vw-2rem))] lg:bottom-full lg:mb-2 lg:mt-0">
+        <div className="fixed inset-x-3 top-16 z-30 max-h-[calc(100vh-5rem)] overflow-hidden rounded-lg border border-raven-border bg-raven-panel shadow-glow sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[min(22rem,calc(100vw-1.5rem))]">
           <div className="flex items-center justify-between gap-3 border-b border-raven-border px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-raven-text">Activity Inbox</p>
@@ -76,7 +76,7 @@ export function NotificationBell(): JSX.Element {
             </button>
           </div>
 
-          <div className="themed-scrollbar max-h-[min(24rem,calc(100vh-13rem))] overflow-y-auto p-3">
+          <div className="themed-scrollbar max-h-[min(18rem,calc(100vh-12rem))] overscroll-contain overflow-y-auto p-3">
             {notifications.isLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-raven-muted">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -141,6 +141,7 @@ function NotificationPreview({
           <p className="mt-1 break-words text-xs leading-5 text-raven-muted">
             {safeString(item.message, "A workflow item needs attention.")}
           </p>
+          <p className="mt-2 text-[11px] text-raven-muted">{label(item.notification_type)} · {new Date(item.created_at).toLocaleString()}</p>
         </div>
         <button
           type="button"

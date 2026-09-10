@@ -427,8 +427,10 @@ async def get_monitoring_alerts(
 
         alerts.extend(await get_lan_alerts(db))
     alerts.extend(await _overdue_remediation_alerts(db, user))
+    alerts.extend(await _recon_provider_alerts(db, user))
     tuned_alerts = [_apply_policy(alert, policies) for alert in alerts]
     alerts = [alert for alert in tuned_alerts if alert is not None]
+    await _retire_recovered_alerts(db, user, {alert.key for alert in alerts})
     created = existing = 0
     now = datetime.now(UTC)
     active_windows = list(
@@ -503,6 +505,7 @@ async def get_monitoring_alerts(
                     "category": alert.category,
                     "count": alert.count,
                     "cooldown_minutes": cooldown,
+                    "managed_by_overview": True,
                 },
                 dedupe_key=f"monitoring:{dedupe}:{bucket}:{user.id}",
             )
@@ -750,7 +753,7 @@ def _policy_key_for_alert(alert: MonitoringAlert) -> str:
         return "stale_agent"
     if ":offline" in key:
         return "offline_asset"
-    if "risky_service" in key:
+    if "risky_service" in key or "ssh_nonstandard" in key:
         return "risky_service"
     if ":unauthorized" in key:
         return "unauthorized_asset"
@@ -760,6 +763,8 @@ def _policy_key_for_alert(alert: MonitoringAlert) -> str:
         return "high_critical_finding"
     if key == "remediation:overdue":
         return "overdue_remediation"
+    if key == "recon:provider-repeated-failure":
+        return "recon_provider_failure"
     return key
 
 
@@ -829,6 +834,41 @@ async def _overdue_remediation_alerts(
             category="remediation",
             action_url="/monitoring",
             count=count,
+        )
+    ]
+
+
+async def _recon_provider_alerts(db: AsyncSession, user: User) -> list[MonitoringAlert]:
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
+    filters = [AuditLog.action == "recon.executed", AuditLog.created_at >= cutoff]
+    if user.role != "admin":
+        accessible = await _accessible_investigations(db, user)
+        filters.append(AuditLog.investigation_id.in_([item.id for item in accessible]))
+    rows = list((await db.execute(select(AuditLog).where(*filters))).scalars().all())
+    failures: list[tuple[str, str]] = []
+    for row in rows:
+        metadata = row.event_metadata if isinstance(row.event_metadata, dict) else {}
+        for item in metadata.get("provider_failures", []):
+            if isinstance(item, dict) and item.get("code") in {
+                "provider_timeout",
+                "provider_http_error",
+                "provider_parse_error",
+            }:
+                failures.append(
+                    (str(item.get("source", "provider")), str(item["code"]))
+                )
+    if len(failures) < 2:
+        return []
+    providers = ", ".join(sorted({source for source, _ in failures}))
+    return [
+        MonitoringAlert(
+            key="recon:provider-repeated-failure",
+            severity="warning",
+            title="Repeated passive recon provider failures",
+            message=f"{len(failures)} sanitized provider failures were recorded in 24 hours ({providers}). Valid stored entities were preserved.",
+            category="recon",
+            source="recon",
+            action_url="/investigations",
         )
     ]
 
@@ -1050,13 +1090,43 @@ def _overall_monitoring_status(
     services: MonitoringServicesResponse,
     alerts: MonitoringAlertsResponse,
 ) -> MonitoringStatus:
-    if services.status == "unavailable" or any(
-        item.severity == "critical" for item in alerts.items
-    ):
+    del alerts
+    if services.status == "unavailable":
         return "unavailable"
-    if services.status == "degraded" or alerts.total:
+    if services.status == "degraded":
         return "degraded"
     return "healthy"
+
+
+async def _retire_recovered_alerts(
+    db: AsyncSession, user: User, active_keys: set[str]
+) -> None:
+    now = datetime.now(UTC)
+    rows = list(
+        (
+            await db.execute(
+                select(Notification).where(
+                    Notification.user_id == user.id,
+                    Notification.notification_type == "monitoring_alert",
+                    Notification.status == "unread",
+                    Notification.event_metadata["managed_by_overview"].astext == "true",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for notification in rows:
+        metadata = (
+            notification.event_metadata
+            if isinstance(notification.event_metadata, dict)
+            else {}
+        )
+        if metadata.get("rule") in active_keys:
+            continue
+        notification.status = "dismissed"
+        notification.dismissed_at = now
+        notification.event_metadata = {**metadata, "recovered_at": now.isoformat()}
 
 
 def _reset_agent_telemetry_for_tests() -> None:

@@ -71,3 +71,22 @@ async def test_rdap_falls_back_to_whois_for_domain(
     assert result.source == "whois"
     assert result.registrar == "Fallback Registrar"
     assert result.organizations == ["Fallback Org"]
+
+
+async def test_rdap_json_decode_error_is_sanitized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="not-json")
+
+    async def no_whois(_domain: str):
+        return None
+
+    monkeypatch.setattr(rdap_service, "_lookup_whois_domain", no_whois)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await rdap_service.collect_rdap_intelligence(
+            "example.com", target_type="domain", client=client
+        )
+
+    assert result.source == "none"
+    assert result.errors[0].message == "provider_parse_error"

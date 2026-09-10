@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from app.schemas.recon import IPResult, ReconError
+from app.services.recon.provider_errors import provider_error_code
 
 _RDAP_BASE_URL = "https://rdap.org"
 _TIMEOUT_SECONDS = 8.0
@@ -117,6 +118,4 @@ def _string_or_none(value: Any) -> str | None:
 
 
 def _safe_error(exc: Exception) -> str:
-    if isinstance(exc, httpx.TimeoutException):
-        return "IP RDAP request timed out"
-    return exc.__class__.__name__
+    return provider_error_code(exc)

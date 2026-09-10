@@ -16,9 +16,7 @@ class MonitoringServiceStatus(BaseModel):
     label: str
     status: MonitoringStatus
     detail: str
-    metadata: dict[str, str | int | float | bool | None] = Field(
-        default_factory=dict
-    )
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
 
 
 class MonitoringServicesResponse(BaseModel):
@@ -130,6 +128,8 @@ class MonitoringAlert(BaseModel):
     title: str
     message: str
     category: str
+    source: str = "local_monitoring"
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     action_url: str
     investigation_id: uuid.UUID | None = None
     count: int = Field(default=1, ge=1)

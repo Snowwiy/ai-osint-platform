@@ -315,3 +315,18 @@ External and protocol-relative action URLs are intentionally rejected.
 - Quality warnings should be template-specific and non-blocking.
 - Download handlers should only show an error when the response is not OK or the
   backend returns a JSON error.
+
+## Monitoring and authorized discovery
+
+- If health and readiness are OK but host metrics are absent, expect **Platform
+  healthy** and **Optional host telemetry unavailable**. The displayed metrics
+  belong to the backend container until the optional local agent reports.
+- If LAN discovery returns no neighbors in Docker, this is a container network
+  visibility limitation. Supply approved static/router observations or run the
+  optional local endpoint agent; do not enable privileged Docker access.
+- **Run TCP service check** stays disabled until LAN monitoring and
+  `LAN_SERVICE_CHECK_ENABLED` are enabled and the asset is both authorized and
+  monitored. A 409 may also mean the per-asset cooldown is active.
+- Recon warnings use `provider_timeout`, `provider_http_error`, and
+  `provider_parse_error`. Retry is safe; provider failures do not delete valid
+  entities already stored, and raw endpoint errors are not shown.

@@ -3139,6 +3139,8 @@ export interface MonitoringAlert {
   title: string;
   message: string;
   category: string;
+  source: string;
+  observed_at: string;
   action_url: string;
   investigation_id: string | null;
   count: number;
@@ -3284,12 +3286,26 @@ export interface LanTelemetryListResponse {
 export interface LanServiceObservation {
   id: string;
   lan_asset_id: string;
+  ip_address: string;
   port: number;
   protocol: string;
   service_name: string | null;
+  service_label: string | null;
+  confidence: number;
+  banner_hint: string | null;
+  non_standard_ssh: boolean;
   status: string;
   observed_at: string;
   source: string;
+}
+
+export interface LanServiceCheckResponse {
+  asset_id: string;
+  ip_address: string;
+  ports_checked: number;
+  observations_created: number;
+  open_ports: number;
+  message: string;
 }
 
 export interface LanServiceListResponse {

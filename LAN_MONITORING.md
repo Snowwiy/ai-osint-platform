@@ -123,3 +123,24 @@ raw inventory controls remain administrator-restricted.
 
 The validated runtime remains local Docker Compose. Hosting, deployment, DNS,
 and Supabase migration remain deferred.
+
+## Phase 5AB authorized TCP service checks
+
+Manual service checks are disabled until an administrator sets
+`LAN_SERVICE_CHECK_ENABLED=true`. They run TCP connect checks only against
+authorized, monitoring-enabled assets inside `LAN_ALLOWED_CIDRS`. Public CIDRs
+are rejected by default, the configured host/port limits and two-second timeout
+bound each run, and the discovery interval supplies the per-asset cooldown.
+
+Configure `LAN_SERVICE_CHECK_PORTS` with only the ports approved for the local
+assessment. Each result records open, closed, filtered, or timeout status plus a
+bounded service guess and confidence. When enabled, a minimal banner read can
+recognize the `SSH-` protocol marker on port 22 or an approved non-standard
+port. Raw banners are not stored, and the check never authenticates, tests
+credentials, sends commands, brute forces, exploits, or uses stealth behavior.
+
+Docker may not see the host ARP/neighbor table. This is reported as **Host LAN
+discovery limited inside Docker**, not as a platform failure. Use the optional
+local endpoint agent or sanitized static/router observations when host network
+visibility is required. Collection continues independently of alert
+suppression and maintenance windows.

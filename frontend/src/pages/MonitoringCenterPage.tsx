@@ -82,7 +82,7 @@ export function MonitoringCenterPage(): JSX.Element {
       />
 
       <nav className="tab-scrollbar mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Monitoring sections">
-        {(["server", "services", "lan", "agents", "baseline", "alerts", "policies", "maintenance"] as MonitoringTab[]).map((item) => (
+        {(["server", "services", "lan", "agents", "baseline", "policies", "maintenance", "alerts"] as MonitoringTab[]).map((item) => (
           <button key={item} type="button" onClick={() => setTab(item)} className={`whitespace-nowrap rounded-md border px-3 py-2 text-sm capitalize ${tab === item ? "border-raven-cyan bg-raven-panelSoft text-raven-text" : "border-raven-border text-raven-muted"}`}>
             {item === "lan" ? "LAN Assets" : item === "agents" ? "Endpoint Agents" : item === "baseline" ? "Vulnerability Baseline" : item === "maintenance" ? "Maintenance Windows" : item}
           </button>
@@ -102,6 +102,7 @@ export function MonitoringCenterPage(): JSX.Element {
               <div className="min-w-0">
                 <p className="font-semibold">Local platform {statusLabel(data.status)}</p>
                 <p className="text-sm text-raven-muted">Release {safeString(data.release_version, "unknown")} · read-only polling every {pollSeconds}s</p>
+                {system?.source === "container" ? <p className="mt-1 text-xs text-raven-muted">{data.status === "healthy" ? "Platform healthy · optional host telemetry unavailable; showing backend container metrics." : "Optional host telemetry unavailable; required dependency status is shown above."}</p> : <p className="mt-1 text-xs text-emerald-200">Optional host-agent telemetry available.</p>}
               </div>
             </div>
             <StatusPill status={data.status} />
@@ -127,14 +128,14 @@ export function MonitoringCenterPage(): JSX.Element {
           {tab === "server" ? <section>
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <h2 className="text-lg font-semibold">System metrics</h2>
-              <p className="text-xs text-raven-muted">{safeString(system?.metric_scope, "local scope")} · {safeString(system?.source, "unavailable").replace(/_/g, " ")}</p>
+              <p className="text-xs text-raven-muted">{system?.source === "local_agent" ? "Host-agent metrics" : "Container metrics"} · {safeString(system?.metric_scope, "local scope")}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <Metric label="CPU" value={percentage(system?.cpu_percent)} />
               <Metric label="Memory" value={percentage(system?.memory_percent)} />
               <Metric label="Disk" value={percentage(system?.disk_percent)} />
               <Metric label="Processes" value={metricValue(system?.process_count)} />
-              <Metric label="Uptime" value={duration(system?.uptime_seconds)} />
+              <Metric label={system?.source === "local_agent" ? "Host uptime" : "Container uptime"} value={duration(system?.uptime_seconds)} />
             </div>
             <p className="mt-2 text-xs text-raven-muted">{safeString(system?.detail, "System metrics are unavailable.")} Last sample: {safeDate(system?.collected_at)?.toLocaleString() ?? "not available"}</p>
           </section> : null}
@@ -179,7 +180,7 @@ export function MonitoringCenterPage(): JSX.Element {
               <h2 className="mb-3 text-lg font-semibold">Alerts ({safeNumber(data.alerts?.total)})</h2>
               {alerts.length ? <div className="space-y-2">{alerts.map((alert) => (
                 <div key={safeString(alert.key, alert.title)} className="min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-                  <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="font-medium hover:text-raven-cyan">{safeString(alert.title, "Monitoring alert")}</Link>{alert.suppressed ? <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-100">{alert.suppressed_due_to_maintenance ? "Suppressed · maintenance" : "Suppressed"}</span> : null}</div><p className="mt-1 break-words text-sm text-raven-muted">{safeString(alert.message, "Review local telemetry.")}</p>{alert.suppression_reason ? <p className="mt-1 break-words text-xs text-raven-muted">{alert.suppression_reason}</p> : null}{alert.id ? <button type="button" onClick={() => suppression.mutate({ id: alert.id ?? "", suppressed: alert.suppressed })} disabled={suppression.isPending} className="mt-2 rounded-md border border-raven-border px-2 py-1 text-xs disabled:opacity-50">{alert.suppressed ? "Unsuppress" : "Suppress"}</button> : <p className="mt-2 text-xs text-raven-muted">Notification limited by cooldown or daily cap.</p>}</div></div>
+                  <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-200" aria-hidden="true" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="font-medium hover:text-raven-cyan">{safeString(alert.title, "Monitoring alert")}</Link><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(alert.severity, "info")}</span>{alert.suppressed ? <span className="rounded-full border border-violet-400/30 bg-violet-500/10 px-2 py-0.5 text-xs text-violet-100">{alert.suppressed_due_to_maintenance ? "Suppressed · maintenance" : "Suppressed"}</span> : null}</div><p className="mt-1 break-words text-sm text-raven-muted">{safeString(alert.message, "Review local telemetry.")}</p><p className="mt-1 text-xs text-raven-muted">Source {safeString(alert.source, alert.category)} · {safeDate(alert.observed_at)?.toLocaleString() ?? "time unavailable"}</p>{alert.suppression_reason ? <p className="mt-1 break-words text-xs text-raven-muted">{alert.suppression_reason}</p> : null}<div className="mt-2 flex flex-wrap gap-2"><Link to={safeInternalRoute(alert.action_url, "/monitoring")} className="rounded-md border border-raven-border px-2 py-1 text-xs text-raven-cyan">Open action</Link>{alert.id ? <button type="button" onClick={() => suppression.mutate({ id: alert.id ?? "", suppressed: alert.suppressed })} disabled={suppression.isPending} title={suppression.isPending ? "An alert action is already in progress." : undefined} className="rounded-md border border-raven-border px-2 py-1 text-xs disabled:opacity-50">{alert.suppressed ? "Unsuppress" : "Suppress"}</button> : <span className="text-xs text-raven-muted">Notification limited by cooldown or daily cap.</span>}</div></div></div>
                 </div>
               ))}</div> : <EmptyBlock title="No active alerts" message="Local services and accessible assets have no derived warning conditions." />}
             </div>

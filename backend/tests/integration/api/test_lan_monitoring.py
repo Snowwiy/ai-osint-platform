@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from app.core.config import settings
 from app.models.audit_log import AuditLog
-from app.models.lan_monitoring import LanAsset
+from app.models.lan_monitoring import LanAsset, LanServiceObservation
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.monitoring import (
@@ -17,6 +17,7 @@ from app.schemas.monitoring import (
 )
 from app.services.lan_monitoring import (
     LanConfigurationError,
+    _classify_service,
     validate_allowed_cidr,
 )
 from app.services.local_monitoring import get_monitoring_alerts
@@ -247,7 +248,9 @@ async def test_docker_fallback_and_risky_service_indicator(
     assert "Docker" in empty.json()["limitation"]
 
     # Clear the persisted rate-limit event to run a deterministic supplied observation.
-    await db.execute(delete(AuditLog).where(AuditLog.action == "lan.discovery.executed"))
+    await db.execute(
+        delete(AuditLog).where(AuditLog.action == "lan.discovery.executed")
+    )
     await db.commit()
     monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
     observed = await client.post(
@@ -267,6 +270,112 @@ async def test_docker_fallback_and_risky_service_indicator(
     listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
     indicators = listing.json()["items"][0]["risk_indicators"]
     assert any(item["key"] == "risky_service_3389" for item in indicators)
+
+
+async def test_manual_service_check_is_disabled_by_default_and_admin_only(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    analyst_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_lan(monkeypatch)
+    asset = LanAsset(
+        ip_address="192.168.0.71",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.commit()
+
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", False)
+    disabled = await client.post(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/service-check",
+        headers=admin_headers,
+    )
+    forbidden = await client.post(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/service-check",
+        headers=analyst_headers,
+    )
+
+    assert disabled.status_code == 409
+    assert forbidden.status_code == 403
+    assert "secret" not in json.dumps(disabled.json()).lower()
+
+
+async def test_manual_service_check_records_safe_ssh_observations(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import lan_monitoring
+
+    _enable_lan(monkeypatch)
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_PORTS", "22,2222")
+    asset = LanAsset(
+        ip_address="192.168.0.72",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.commit()
+
+    async def fake_observation(_ip_address: str, port: int):
+        banner = b"SSH-2.0-test secret=must-not-leak" if port == 2222 else b""
+        return _classify_service(port, banner)
+
+    monkeypatch.setattr(lan_monitoring, "_tcp_service_observation", fake_observation)
+    checked = await client.post(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/service-check",
+        headers=admin_headers,
+    )
+    services = await client.get(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/services",
+        headers=admin_headers,
+    )
+    observations = list(
+        (
+            await db.execute(
+                select(LanServiceObservation).where(
+                    LanServiceObservation.lan_asset_id == asset.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    assert checked.status_code == 200
+    assert checked.json()["ports_checked"] == 2
+    assert services.status_code == 200
+    assert {item["service_name"] for item in services.json()["items"]} == {"ssh"}
+    nonstandard = next(
+        item for item in services.json()["items"] if item["port"] == 2222
+    )
+    assert nonstandard["non_standard_ssh"] is True
+    assert nonstandard["service_label"] == "possible SSH service"
+    assert nonstandard["banner_hint"] == "SSH protocol banner detected"
+    assert "must-not-leak" not in json.dumps(services.json())
+    assert len(observations) == 2
+
+
+def test_ssh_classification_standard_and_nonstandard_ports() -> None:
+    standard = _classify_service(22, b"")
+    nonstandard = _classify_service(2022, b"SSH-2.0-OpenSSH_9.0 token=unsafe")
+
+    assert standard.service_name == "ssh"
+    assert standard.non_standard_ssh is False
+    assert nonstandard.service_name == "ssh"
+    assert nonstandard.non_standard_ssh is True
+    assert nonstandard.confidence >= 90
+    assert nonstandard.banner_hint == "SSH protocol banner detected"
+    assert "token" not in nonstandard.banner_hint
 
 
 def _enable_lan(monkeypatch: pytest.MonkeyPatch) -> None:

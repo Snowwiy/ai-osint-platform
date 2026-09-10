@@ -259,3 +259,18 @@ Before release:
 8. Confirm report downloads.
 9. Confirm feature flags and export controls.
 10. Confirm demo mode remains disabled in production-style environments.
+
+## Phase 5AB discovery safeguards
+
+- Keep `LAN_SERVICE_CHECK_ENABLED=false` unless the administrator has approved
+  the private ranges, assets, and configured ports.
+- Keep `LAN_REJECT_PUBLIC_CIDRS=true`; service checks accept only authorized,
+  monitoring-enabled RFC1918 assets in `LAN_ALLOWED_CIDRS`.
+- Retain the low timeout, maximum host/port bounds, and per-asset cooldown.
+- SSH classification may read only a short protocol banner. Never retain raw
+  banners, authenticate, test credentials, execute commands, brute force,
+  exploit, or perform intrusive validation.
+- Treat Docker neighbor-table limitations and missing endpoint-agent telemetry
+  as optional visibility gaps, not required dependency failures.
+- No Phase 5AB setting authorizes internet-wide scanning, hosting, deployment,
+  DNS work, or Supabase changes.

@@ -28,7 +28,11 @@ class LanServiceInput(BaseModel):
     port: int = Field(ge=1, le=65535)
     protocol: Literal["tcp", "udp"] = "tcp"
     service_name: str | None = Field(default=None, max_length=100)
-    status: Literal["open", "closed", "unknown"] = "open"
+    status: Literal["open", "closed", "filtered", "timeout", "unknown"] = "open"
+    service_label: str | None = Field(default=None, max_length=160)
+    confidence: int = Field(default=40, ge=0, le=100)
+    banner_hint: str | None = Field(default=None, max_length=160)
+    non_standard_ssh: bool = False
 
 
 class LanDiscoveryObservation(BaseModel):
@@ -54,7 +58,9 @@ class LanDiscoveryObservation(BaseModel):
 
 class LanDiscoveryRequest(BaseModel):
     cidr: str | None = Field(default=None, max_length=43)
-    observations: list[LanDiscoveryObservation] = Field(default_factory=list, max_length=512)
+    observations: list[LanDiscoveryObservation] = Field(
+        default_factory=list, max_length=512
+    )
 
 
 class LanAssetUpdate(BaseModel):
@@ -216,9 +222,14 @@ class LanTelemetryListResponse(BaseModel):
 class LanServiceResponse(BaseModel):
     id: uuid.UUID
     lan_asset_id: uuid.UUID
+    ip_address: str
     port: int
     protocol: str
     service_name: str | None
+    service_label: str | None
+    confidence: int = Field(ge=0, le=100)
+    banner_hint: str | None
+    non_standard_ssh: bool
     status: str
     observed_at: datetime
     source: str
@@ -227,6 +238,20 @@ class LanServiceResponse(BaseModel):
 class LanServiceListResponse(BaseModel):
     total: int
     service_checks_enabled: bool
+    items: list[LanServiceResponse]
+
+
+class LanServiceCheckResponse(BaseModel):
+    asset_id: uuid.UUID
+    ip_address: str
+    ports_checked: int
+    observations_created: int
+    open_ports: int
+    message: str
+
+
+class LanOpenPortsResponse(BaseModel):
+    total: int
     items: list[LanServiceResponse]
 
 

@@ -162,3 +162,23 @@ check blocks the current release-freeze commit and push.
       moving it blindly; otherwise create it only on the validated package commit.
 - [ ] Push `v5.0.0-rc2` only after the release-package commit reaches
       `origin/dev`, then verify the local and remote tag targets match.
+
+## Phase 5AB monitoring reliability
+
+- [ ] Healthy required dependencies remain **Platform healthy** when optional
+      host telemetry is unavailable; container and host-agent metrics are
+      labeled accurately.
+- [ ] Recovered overview alerts retire, refresh clears stale banners, and alert
+      dedupe/cooldowns/maintenance suppression prevent refresh spam.
+- [ ] Recon timeout, HTTP, and JSON parse failures are grouped by provider;
+      valid stored entities survive partial failures and retry remains enabled.
+- [ ] LAN service checks are disabled by default, admin-operated, TCP-connect
+      only, rate-limited, private/allowlisted, and bounded by configured ports,
+      host limits, and timeout.
+- [ ] Port 22 and approved non-standard SSH banners receive clear service and
+      confidence labels without storing raw or sensitive banner content.
+- [ ] Monitoring tabs, cards, notification dropdown, empty states, tooltips,
+      buttons, and alert actions fit small widths without clipping or raw errors.
+- [ ] No public scanning, authentication, brute force, command execution,
+      exploitation, intrusive testing, hosting, deployment, DNS, or Supabase
+      change is present.

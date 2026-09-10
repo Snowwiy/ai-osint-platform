@@ -32,7 +32,9 @@ from app.schemas.lan_monitoring import (
     LanRiskIndicator,
     LanRiskSeverity,
     LanServiceInput,
+    LanServiceCheckResponse,
     LanServiceListResponse,
+    LanOpenPortsResponse,
     LanServiceResponse,
     LanTelemetryListResponse,
     LanTelemetryResponse,
@@ -50,6 +52,23 @@ RISKY_PORTS = {
     445: "SMB",
     3389: "Remote Desktop",
     5900: "VNC",
+    5432: "PostgreSQL",
+    6379: "Redis",
+}
+SERVICE_GUESSES = {
+    22: "ssh",
+    80: "http",
+    443: "https",
+    445: "smb",
+    3389: "rdp",
+    5432: "postgresql",
+    6379: "redis",
+    8080: "http",
+    8443: "https",
+    3000: "http",
+    5000: "http",
+    8000: "http",
+    9000: "http",
 }
 CURRENT_AGENT_VERSION = "1.0.0"
 
@@ -70,14 +89,22 @@ class LanDiscoveryRateLimitedError(Exception):
     pass
 
 
+class LanServiceCheckDisabledError(Exception):
+    pass
+
+
 def configured_networks() -> list[ipaddress.IPv4Network]:
     networks: list[ipaddress.IPv4Network] = []
     for value in settings.LAN_ALLOWED_CIDRS.split(","):
         if not value.strip():
             continue
         network = ipaddress.ip_network(value.strip(), strict=False)
-        if not isinstance(network, ipaddress.IPv4Network) or not _is_rfc1918_network(network):
-            raise LanConfigurationError("Only private RFC1918 IPv4 networks are allowed.")
+        if not isinstance(network, ipaddress.IPv4Network) or not _is_rfc1918_network(
+            network
+        ):
+            raise LanConfigurationError(
+                "Only private RFC1918 IPv4 networks are allowed."
+            )
         networks.append(network)
     if not networks:
         raise LanConfigurationError("No authorized LAN CIDR is configured.")
@@ -89,10 +116,16 @@ def validate_allowed_cidr(value: str) -> ipaddress.IPv4Network:
         network = ipaddress.ip_network(value, strict=False)
     except ValueError as exc:
         raise LanConfigurationError("The selected LAN CIDR is invalid.") from exc
-    if not isinstance(network, ipaddress.IPv4Network) or not _is_rfc1918_network(network):
-        raise LanConfigurationError("The selected CIDR must be private RFC1918 IPv4 space.")
-    if network.num_addresses > 256:
-        raise LanConfigurationError("Discovery ranges are limited to /24 or smaller.")
+    if not isinstance(network, ipaddress.IPv4Network) or not _is_rfc1918_network(
+        network
+    ):
+        raise LanConfigurationError(
+            "The selected CIDR must be private RFC1918 IPv4 space."
+        )
+    if network.num_addresses > settings.LAN_SERVICE_CHECK_MAX_HOSTS:
+        raise LanConfigurationError(
+            "The selected discovery range exceeds LAN_SERVICE_CHECK_MAX_HOSTS."
+        )
     if not any(network.subnet_of(allowed) for allowed in configured_networks()):
         raise LanConfigurationError("The selected CIDR is outside LAN_ALLOWED_CIDRS.")
     return network
@@ -106,18 +139,27 @@ def validate_allowed_ip(value: str) -> ipaddress.IPv4Address:
     if not isinstance(address, ipaddress.IPv4Address) or not any(
         address in network for network in RFC1918_NETWORKS
     ):
-        raise LanConfigurationError("LAN assets must use private RFC1918 IPv4 addresses.")
+        raise LanConfigurationError(
+            "LAN assets must use private RFC1918 IPv4 addresses."
+        )
     if not any(address in network for network in configured_networks()):
         raise LanConfigurationError("The LAN asset IP is outside LAN_ALLOWED_CIDRS.")
     return address
 
 
 async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
-    assets = list((await db.execute(select(LanAsset).order_by(LanAsset.ip_address))).scalars().all())
+    assets = list(
+        (await db.execute(select(LanAsset).order_by(LanAsset.ip_address)))
+        .scalars()
+        .all()
+    )
     telemetry = await _latest_telemetry(db)
     services = await _latest_services(db)
     now = datetime.now(UTC)
-    items = [_asset_response(item, telemetry.get(item.id), services.get(item.id, []), now) for item in assets]
+    items = [
+        _asset_response(item, telemetry.get(item.id), services.get(item.id, []), now)
+        for item in assets
+    ]
     return LanAssetListResponse(
         generated_at=now,
         enabled=settings.LAN_MONITORING_ENABLED,
@@ -144,7 +186,9 @@ async def get_lan_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAssetRespon
         raise LanAssetNotFoundError
     telemetry = await _latest_telemetry(db, asset_id)
     services = await _latest_services(db, asset_id)
-    return _asset_response(asset, telemetry.get(asset.id), services.get(asset.id, []), datetime.now(UTC))
+    return _asset_response(
+        asset, telemetry.get(asset.id), services.get(asset.id, []), datetime.now(UTC)
+    )
 
 
 async def update_lan_asset(
@@ -183,20 +227,31 @@ async def discover_lan(
             )
         if settings.LAN_SERVICE_CHECK_ENABLED and observations:
             await _observe_configured_services(observations)
-    if any(item.services for item in observations) and not settings.LAN_SERVICE_CHECK_ENABLED:
-        raise LanConfigurationError("Service observations require LAN_SERVICE_CHECK_ENABLED=true.")
+    if (
+        any(item.services for item in observations)
+        and not settings.LAN_SERVICE_CHECK_ENABLED
+    ):
+        raise LanConfigurationError(
+            "Service observations require LAN_SERVICE_CHECK_ENABLED=true."
+        )
 
     created = updated = services_created = 0
     now = datetime.now(UTC)
     for observation in observations:
         address = validate_allowed_ip(observation.ip_address)
         if address not in network:
-            raise LanConfigurationError("An observed asset is outside the selected CIDR.")
+            raise LanConfigurationError(
+                "An observed asset is outside the selected CIDR."
+            )
         asset, was_created = await _upsert_observation(db, user, observation, now)
         created += int(was_created)
         updated += int(not was_created)
         for service in observation.services:
-            db.add(_service_observation(asset.id, service, observation.source, now))
+            db.add(
+                _service_observation(
+                    asset.id, asset.ip_address, service, observation.source, now
+                )
+            )
             services_created += 1
         if was_created:
             await _notify_new_asset(db, user, asset)
@@ -308,7 +363,10 @@ async def ingest_agent_telemetry(
         action="lan.agent.telemetry_ingested",
         resource_type="lan_asset",
         resource_id=asset.id,
-        metadata={"agent_version": body.agent_version, "metric_count": _metric_count(body)},
+        metadata={
+            "agent_version": body.agent_version,
+            "metric_count": _metric_count(body),
+        },
     )
     await db.flush()
     return LanAgentTelemetryResponse(
@@ -331,7 +389,9 @@ async def list_asset_telemetry(
                 .order_by(LanAssetTelemetry.collected_at.desc())
                 .limit(limit)
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     return LanTelemetryListResponse(
         total=len(rows),
@@ -351,12 +411,174 @@ async def list_asset_services(
                 .order_by(LanServiceObservation.observed_at.desc())
                 .limit(limit)
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     return LanServiceListResponse(
         total=len(rows),
         service_checks_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
         items=[_service_response(item) for item in rows],
+    )
+
+
+async def list_open_ports(db: AsyncSession, limit: int = 500) -> LanOpenPortsResponse:
+    rows = list(
+        (
+            await db.execute(
+                select(LanServiceObservation)
+                .where(LanServiceObservation.status == "open")
+                .order_by(LanServiceObservation.observed_at.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return LanOpenPortsResponse(
+        total=len(rows), items=[_service_response(item) for item in rows]
+    )
+
+
+async def check_asset_services(
+    db: AsyncSession, user: User, asset_id: uuid.UUID
+) -> LanServiceCheckResponse:
+    _ensure_enabled()
+    if not settings.LAN_SERVICE_CHECK_ENABLED:
+        raise LanServiceCheckDisabledError
+    asset = await _require_asset(db, asset_id)
+    validate_allowed_ip(asset.ip_address)
+    if not asset.is_authorized or not asset.monitoring_enabled:
+        raise LanConfigurationError(
+            "Service checks require an authorized asset with monitoring enabled."
+        )
+    last = (
+        await db.execute(
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.action == "lan.service_check.executed",
+                AuditLog.resource_id == asset.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if last and datetime.now(UTC) - last < timedelta(
+        seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS
+    ):
+        raise LanDiscoveryRateLimitedError
+    ports = configured_service_ports()
+    observations = await asyncio.gather(
+        *(_tcp_service_observation(asset.ip_address, port) for port in ports)
+    )
+    now = datetime.now(UTC)
+    for service in observations:
+        db.add(
+            _service_observation(
+                asset.id, asset.ip_address, service, "tcp_connect", now
+            )
+        )
+    asset.last_checked_at = now
+    await record_event(
+        db,
+        action="lan.service_check.executed",
+        actor_id=user.id,
+        resource_type="lan_asset",
+        resource_id=asset.id,
+        metadata={
+            "ports_checked": len(ports),
+            "open_ports": sum(item.status == "open" for item in observations),
+            "tcp_connect_only": True,
+        },
+    )
+    await db.flush()
+    return LanServiceCheckResponse(
+        asset_id=asset.id,
+        ip_address=asset.ip_address,
+        ports_checked=len(ports),
+        observations_created=len(observations),
+        open_ports=sum(item.status == "open" for item in observations),
+        message="Authorized TCP connect service check completed without authentication or exploit activity.",
+    )
+
+
+def configured_service_ports() -> list[int]:
+    ports = sorted(
+        {
+            int(value.strip())
+            for value in settings.LAN_SERVICE_CHECK_PORTS.split(",")
+            if value.strip()
+        }
+    )
+    if (
+        not ports
+        or len(ports) > settings.LAN_SERVICE_CHECK_MAX_PORTS
+        or any(port < 1 or port > 65535 for port in ports)
+    ):
+        raise LanConfigurationError(
+            "Configured service ports must contain 1-32 valid TCP ports."
+        )
+    return ports
+
+
+async def _tcp_service_observation(ip_address: str, port: int) -> LanServiceInput:
+    writer: asyncio.StreamWriter | None = None
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(ip_address, port),
+            timeout=settings.LAN_SERVICE_CHECK_TIMEOUT_SECONDS,
+        )
+        banner = b""
+        if settings.LAN_SSH_BANNER_DETECTION_ENABLED:
+            try:
+                banner = await asyncio.wait_for(
+                    reader.read(96),
+                    timeout=min(0.3, settings.LAN_SERVICE_CHECK_TIMEOUT_SECONDS),
+                )
+            except (TimeoutError, OSError):
+                pass
+        return _classify_service(port, banner)
+    except TimeoutError:
+        return LanServiceInput(
+            port=port,
+            status="timeout",
+            service_name=SERVICE_GUESSES.get(port),
+            confidence=20,
+        )
+    except ConnectionRefusedError:
+        return LanServiceInput(
+            port=port,
+            status="closed",
+            service_name=SERVICE_GUESSES.get(port),
+            confidence=80,
+        )
+    except OSError:
+        return LanServiceInput(
+            port=port,
+            status="filtered",
+            service_name=SERVICE_GUESSES.get(port),
+            confidence=20,
+        )
+    finally:
+        if writer is not None:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
+
+
+def _classify_service(port: int, banner: bytes) -> LanServiceInput:
+    ssh = banner.lstrip().upper().startswith(b"SSH-")
+    service = "ssh" if ssh else SERVICE_GUESSES.get(port)
+    label = "possible SSH service" if ssh or port == 22 else service
+    confidence = 95 if ssh else 75 if service else 50
+    hint = "SSH protocol banner detected" if ssh else None
+    return LanServiceInput(
+        port=port,
+        status="open",
+        service_name=service,
+        service_label=label,
+        confidence=confidence,
+        banner_hint=hint,
+        non_standard_ssh=ssh and port != 22,
     )
 
 
@@ -443,24 +665,108 @@ def _risk_indicators(
 ) -> list[LanRiskIndicator]:
     indicators: list[LanRiskIndicator] = []
     if not asset.is_authorized:
-        indicators.append(_indicator("unauthorized", "critical", "Unauthorized asset", "The asset has not been approved by an administrator."))
+        indicators.append(
+            _indicator(
+                "unauthorized",
+                "critical",
+                "Unauthorized asset",
+                "The asset has not been approved by an administrator.",
+            )
+        )
     if status == "offline" and asset.monitoring_enabled:
-        indicators.append(_indicator("offline", "warning", "Asset offline", "No recent authorized observation is available."))
+        indicators.append(
+            _indicator(
+                "offline",
+                "critical" if asset.criticality == "critical" else "warning",
+                "Asset offline",
+                "No recent authorized observation is available.",
+            )
+        )
     if asset.source == "agent" and not connected:
-        indicators.append(_indicator("agent_stale", "warning", "Agent not reporting", "Endpoint telemetry is missing or stale."))
+        indicators.append(
+            _indicator(
+                "agent_stale",
+                "warning",
+                "Agent not reporting",
+                "Endpoint telemetry is missing or stale.",
+            )
+        )
     if asset.source != "agent" and asset.monitoring_enabled:
-        indicators.append(_indicator("unmanaged", "info", "Unmanaged asset", "No endpoint agent is registered for this asset."))
-    if telemetry and telemetry.agent_version and telemetry.agent_version != CURRENT_AGENT_VERSION:
-        indicators.append(_indicator("agent_version", "warning", "Agent version review", "The reporting agent version differs from the current local script."))
+        indicators.append(
+            _indicator(
+                "unmanaged",
+                "info",
+                "Unmanaged asset",
+                "No endpoint agent is registered for this asset.",
+            )
+        )
+    if (
+        telemetry
+        and telemetry.agent_version
+        and telemetry.agent_version != CURRENT_AGENT_VERSION
+    ):
+        indicators.append(
+            _indicator(
+                "agent_version",
+                "warning",
+                "Agent version review",
+                "The reporting agent version differs from the current local script.",
+            )
+        )
     if telemetry:
-        for key, label, value in (("cpu", "CPU pressure", telemetry.cpu_percent), ("memory", "Memory pressure", telemetry.memory_percent), ("disk", "Disk pressure", telemetry.disk_percent)):
+        for key, label, value in (
+            ("cpu", "CPU pressure", telemetry.cpu_percent),
+            ("memory", "Memory pressure", telemetry.memory_percent),
+            ("disk", "Disk pressure", telemetry.disk_percent),
+        ):
             if value is not None and value >= 85:
-                indicators.append(_indicator(f"high_{key}", "critical" if value >= 95 else "warning", label, f"Latest reported utilization is {value:.1f}%."))
+                indicators.append(
+                    _indicator(
+                        f"high_{key}",
+                        "critical" if value >= 95 else "warning",
+                        label,
+                        f"Latest reported utilization is {value:.1f}%.",
+                    )
+                )
     for service in services:
-        if service.status == "open" and service.port in RISKY_PORTS:
-            indicators.append(_indicator(f"risky_service_{service.port}", "warning", "Risky exposed service", f"{RISKY_PORTS[service.port]} on {service.protocol}/{service.port} was observed. This is a risk indicator, not a confirmed vulnerability."))
+        if service.status != "open":
+            continue
+        if service.non_standard_ssh:
+            indicators.append(
+                _indicator(
+                    f"ssh_nonstandard_{service.port}",
+                    "warning",
+                    "SSH on non-standard port",
+                    f"A minimal SSH protocol banner was observed on TCP/{service.port}; no authentication was attempted.",
+                )
+            )
+        if service.port in RISKY_PORTS:
+            indicators.append(
+                _indicator(
+                    f"risky_service_{service.port}",
+                    "warning",
+                    f"{RISKY_PORTS[service.port]} observed",
+                    f"{RISKY_PORTS[service.port]} on TCP/{service.port} was observed. This is a risk indicator, not a confirmed vulnerability.",
+                )
+            )
+        if not asset.is_authorized:
+            indicators.append(
+                _indicator(
+                    f"unauthorized_open_{service.port}",
+                    "critical",
+                    "Open service on unauthorized asset",
+                    f"TCP/{service.port} is open on an asset awaiting authorization review.",
+                )
+            )
     if asset.monitoring_enabled and asset.last_seen is None:
-        indicators.append(_indicator("coverage", "warning", "Weak monitoring coverage", "The asset has never produced a successful observation."))
+        indicators.append(
+            _indicator(
+                "coverage",
+                "warning",
+                "Weak monitoring coverage",
+                "The asset has never produced a successful observation.",
+            )
+        )
     return indicators
 
 
@@ -494,13 +800,22 @@ async def _upsert_observation(
 
 
 def _service_observation(
-    asset_id: uuid.UUID, service: LanServiceInput, source: str, now: datetime
+    asset_id: uuid.UUID,
+    ip_address: str,
+    service: LanServiceInput,
+    source: str,
+    now: datetime,
 ) -> LanServiceObservation:
     return LanServiceObservation(
         lan_asset_id=asset_id,
+        ip_address=ip_address,
         port=service.port,
         protocol=service.protocol,
         service_name=_clean(service.service_name),
+        service_label=_clean(service.service_label),
+        confidence=service.confidence,
+        banner_hint=_clean(service.banner_hint),
+        non_standard_ssh=service.non_standard_ssh,
         status=service.status,
         observed_at=now,
         source=source,
@@ -510,7 +825,9 @@ def _service_observation(
 async def _latest_telemetry(
     db: AsyncSession, asset_id: uuid.UUID | None = None
 ) -> dict[uuid.UUID, LanAssetTelemetry]:
-    statement = select(LanAssetTelemetry).order_by(LanAssetTelemetry.collected_at.desc())
+    statement = select(LanAssetTelemetry).order_by(
+        LanAssetTelemetry.collected_at.desc()
+    )
     if asset_id:
         statement = statement.where(LanAssetTelemetry.lan_asset_id == asset_id)
     rows = list((await db.execute(statement)).scalars().all())
@@ -523,7 +840,9 @@ async def _latest_telemetry(
 async def _latest_services(
     db: AsyncSession, asset_id: uuid.UUID | None = None
 ) -> dict[uuid.UUID, list[LanServiceObservation]]:
-    statement = select(LanServiceObservation).order_by(LanServiceObservation.observed_at.desc())
+    statement = select(LanServiceObservation).order_by(
+        LanServiceObservation.observed_at.desc()
+    )
     if asset_id:
         statement = statement.where(LanServiceObservation.lan_asset_id == asset_id)
     rows = list((await db.execute(statement)).scalars().all())
@@ -557,12 +876,15 @@ def _agent_connected(
     return bool(
         asset.source == "agent"
         and telemetry
-        and now - telemetry.collected_at <= timedelta(minutes=settings.LAN_AGENT_MAX_STALE_MINUTES)
+        and now - telemetry.collected_at
+        <= timedelta(minutes=settings.LAN_AGENT_MAX_STALE_MINUTES)
     )
 
 
 async def _asset_by_ip(db: AsyncSession, ip_address: str) -> LanAsset | None:
-    return (await db.execute(select(LanAsset).where(LanAsset.ip_address == ip_address))).scalar_one_or_none()
+    return (
+        await db.execute(select(LanAsset).where(LanAsset.ip_address == ip_address))
+    ).scalar_one_or_none()
 
 
 async def _require_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAsset:
@@ -575,14 +897,20 @@ async def _require_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAsset:
 async def _enforce_discovery_interval(db: AsyncSession) -> None:
     last = (
         await db.execute(
-            select(func.max(AuditLog.created_at)).where(AuditLog.action == "lan.discovery.executed")
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.action == "lan.discovery.executed"
+            )
         )
     ).scalar_one_or_none()
-    if last and datetime.now(UTC) - last < timedelta(seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS):
+    if last and datetime.now(UTC) - last < timedelta(
+        seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS
+    ):
         raise LanDiscoveryRateLimitedError
 
 
-def _read_container_arp(network: ipaddress.IPv4Network) -> list[LanDiscoveryObservation]:
+def _read_container_arp(
+    network: ipaddress.IPv4Network,
+) -> list[LanDiscoveryObservation]:
     path = Path("/proc/net/arp")
     try:
         lines = path.read_text(encoding="utf-8").splitlines()[1:]
@@ -646,27 +974,18 @@ async def _ping_network(
 async def _observe_configured_services(
     observations: list[LanDiscoveryObservation],
 ) -> None:
-    ports = [
-        int(value.strip())
-        for value in settings.LAN_SERVICE_CHECK_PORTS.split(",")
-        if value.strip()
-    ][:32]
+    ports = configured_service_ports()
     semaphore = asyncio.Semaphore(16)
 
     async def check(observation: LanDiscoveryObservation, port: int) -> None:
         async with semaphore:
             try:
-                reader, writer = await asyncio.wait_for(
-                    asyncio.open_connection(observation.ip_address, port), timeout=0.5
-                )
-                del reader
-                writer.close()
-                await writer.wait_closed()
-                observation.services.append(
-                    LanServiceInput(port=port, protocol="tcp", status="open")
-                )
+                result = await _tcp_service_observation(observation.ip_address, port)
+                observation.services.append(result)
             except (OSError, TimeoutError):
-                return
+                observation.services.append(
+                    LanServiceInput(port=port, status="unknown")
+                )
 
     await asyncio.gather(
         *(check(observation, port) for observation in observations for port in ports)
@@ -734,9 +1053,14 @@ def _service_response(item: LanServiceObservation) -> LanServiceResponse:
     return LanServiceResponse(
         id=item.id,
         lan_asset_id=item.lan_asset_id,
+        ip_address=item.ip_address,
         port=item.port,
         protocol=item.protocol,
         service_name=item.service_name,
+        service_label=item.service_label,
+        confidence=item.confidence,
+        banner_hint=item.banner_hint,
+        non_standard_ssh=item.non_standard_ssh,
         status=item.status,
         observed_at=item.observed_at,
         source=item.source,

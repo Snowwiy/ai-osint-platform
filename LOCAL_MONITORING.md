@@ -110,6 +110,24 @@ No email, SMS, browser push, webhook, or third-party notification is sent.
 The validated mode remains local Docker Compose. Hosting, deployment, DNS, and
 Supabase migration are deferred.
 
+## Phase 5AB status and alert recovery
+
+Platform health now reflects required dependency checks from `/health` and
+`/health/ready`. Missing optional host-agent telemetry leaves the platform
+healthy and labels the displayed system values as backend container metrics.
+When the local agent is absent, unavailable host uptime is informational.
+
+Overview-managed notifications are dismissed when their condition recovers;
+active alerts continue to use policy dedupe keys, maximum counts, cooldowns,
+explicit suppression, and maintenance-window suppression. Provider warnings
+identify the provider and a sanitized timeout, HTTP, or parse failure code.
+Valid recon entities remain available as the last successful result when a
+later retry has warnings.
+
+Authorized LAN service observations are shown separately from required service
+health. They are risk indicators, not proof of exploitation or confirmed
+vulnerabilities. See [LAN_MONITORING.md](LAN_MONITORING.md).
+
 ## Optional authorized LAN monitoring
 
 The **LAN Assets** and **Endpoint Agents** tabs are admin-only because they show

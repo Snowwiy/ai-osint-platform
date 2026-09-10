@@ -13,12 +13,15 @@ from app.models.report import Report
 from app.models.target import Target
 from app.models.user import User
 from app.schemas.monitoring import (
+    MonitoringAlertsResponse,
     MonitoringAssetsResponse,
     MonitoringServicesResponse,
     MonitoringServiceStatus,
     MonitoringSystemResponse,
 )
 from app.services.local_monitoring import (
+    _overall_monitoring_status,
+    _retire_recovered_alerts,
     _reset_agent_telemetry_for_tests,
     get_monitoring_alerts,
 )
@@ -45,12 +48,8 @@ async def test_monitoring_overview_and_services_are_safe(
     test_investigation: Investigation,
 ) -> None:
     _reset_agent_telemetry_for_tests()
-    services = await client.get(
-        "/api/v1/monitoring/services", headers=analyst_headers
-    )
-    overview = await client.get(
-        "/api/v1/monitoring/overview", headers=analyst_headers
-    )
+    services = await client.get("/api/v1/monitoring/services", headers=analyst_headers)
+    overview = await client.get("/api/v1/monitoring/overview", headers=analyst_headers)
 
     assert services.status_code == 200
     assert {item["key"] for item in services.json()["items"]} >= {
@@ -81,6 +80,48 @@ async def test_monitoring_overview_and_services_are_safe(
         settings.APP_SECRET_KEY.lower(),
     ):
         assert forbidden not in serialized
+
+
+def test_optional_container_telemetry_does_not_degrade_platform() -> None:
+    services = MonitoringServicesResponse(
+        generated_at=datetime.now(UTC), status="healthy", items=[]
+    )
+    alerts = MonitoringAlertsResponse(
+        generated_at=datetime.now(UTC),
+        total=1,
+        notifications_created=0,
+        notifications_existing=1,
+        items=[],
+    )
+
+    assert _overall_monitoring_status(services, alerts) == "healthy"
+
+
+async def test_recovered_overview_notification_is_retired(
+    db: AsyncSession,
+    analyst_user: User,
+) -> None:
+    notification = Notification(
+        user_id=analyst_user.id,
+        entity_type="local_monitoring",
+        notification_type="monitoring_alert",
+        severity="warning",
+        title="Recovered synthetic condition",
+        message="Synthetic alert for deterministic recovery testing.",
+        status="unread",
+        event_metadata={
+            "rule": "service:database:degraded",
+            "managed_by_overview": True,
+        },
+    )
+    db.add(notification)
+    await db.flush()
+
+    await _retire_recovered_alerts(db, analyst_user, active_keys=set())
+
+    assert notification.status == "dismissed"
+    assert notification.dismissed_at is not None
+    assert "recovered_at" in notification.event_metadata
 
 
 async def test_asset_watch_respects_rbac_and_summarizes_risk(
@@ -131,9 +172,7 @@ async def test_asset_watch_respects_rbac_and_summarizes_risk(
     db.add_all([stale_target, critical, hidden_investigation])
     await db.commit()
 
-    analyst = await client.get(
-        "/api/v1/monitoring/assets", headers=analyst_headers
-    )
+    analyst = await client.get("/api/v1/monitoring/assets", headers=analyst_headers)
     admin = await client.get("/api/v1/monitoring/assets", headers=admin_headers)
 
     assert analyst.status_code == 200
@@ -296,9 +335,7 @@ async def test_asset_watch_counts_repeated_local_failures(
     db.add_all([*reports, *audits])
     await db.commit()
 
-    response = await client.get(
-        "/api/v1/monitoring/assets", headers=analyst_headers
-    )
+    response = await client.get("/api/v1/monitoring/assets", headers=analyst_headers)
 
     assert response.status_code == 200
     assert response.json()["repeated_report_failures"] == 2

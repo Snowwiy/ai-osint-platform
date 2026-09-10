@@ -26,7 +26,11 @@ from app.schemas.recon import (
     ReconRequest,
     ReconResponse,
 )
-from app.services.investigation import MUTATION_ROLES, ensure_investigation_permission, get_investigation
+from app.services.investigation import (
+    MUTATION_ROLES,
+    ensure_investigation_permission,
+    get_investigation,
+)
 from app.services.ioc_intelligence import sync_recon_entity_ioc
 from app.services.recon.certificate_service import collect_certificate_intelligence
 from app.services.recon.dns_service import collect_dns_intelligence
@@ -34,6 +38,7 @@ from app.services.recon.http_service import inspect_http_metadata
 from app.services.recon.ip_service import collect_ip_intelligence
 from app.services.recon.normalization import normalize_recon_entities
 from app.services.recon.rdap_service import collect_rdap_intelligence
+from app.services.recon.provider_errors import provider_error_code
 from app.services.target import TargetValidationError, validate_target_value
 
 TargetType = Literal["domain", "ip", "url"]
@@ -61,6 +66,8 @@ async def run_recon_for_request(
     graph = normalize_recon_entities(response)
     response.entities = graph.entities
     response.relationships = graph.relationships
+    if response.entities and response.errors:
+        response.status = "partial"
     await _persist_recon_result(db, user, body, response)
     return response
 
@@ -145,7 +152,7 @@ async def _step[T](
     try:
         return await awaitable
     except Exception as exc:
-        errors.append(ReconError(source=source, message=exc.__class__.__name__))
+        errors.append(ReconError(source=source, message=provider_error_code(exc)))
         return None
 
 
@@ -196,10 +203,8 @@ def _status_from_results(
     | HTTPResult
     | None,
 ) -> Literal["completed", "partial", "failed"]:
-    successes = sum(
-        component is not None and not component.errors for component in components
-    )
-    if successes == 0 and errors:
+    usable = sum(component is not None for component in components)
+    if usable == 0 and errors:
         return "failed"
     return "partial" if errors else "completed"
 

@@ -8,6 +8,7 @@ from typing import Any, Literal
 import httpx
 
 from app.schemas.recon import RDAPResult, ReconError
+from app.services.recon.provider_errors import provider_error_code
 
 _RDAP_BASE_URL = "https://rdap.org"
 _TIMEOUT_SECONDS = 8.0
@@ -82,8 +83,7 @@ async def _fetch_rdap_payload(
     client: httpx.AsyncClient,
 ) -> dict[str, Any] | None:
     response = await client.get(f"{_RDAP_BASE_URL}/{target_type}/{value}")
-    if response.status_code >= 400:
-        return None
+    response.raise_for_status()
     data = response.json()
     return data if isinstance(data, dict) else None
 
@@ -256,6 +256,4 @@ def _normalize_space(value: str) -> str:
 
 
 def _safe_error(exc: Exception) -> str:
-    if isinstance(exc, httpx.TimeoutException):
-        return "RDAP request timed out"
-    return exc.__class__.__name__
+    return provider_error_code(exc)

@@ -8,6 +8,7 @@ import {
   listLanAssets,
   listLanServices,
   listLanTelemetry,
+  runLanServiceCheck,
   updateLanAsset,
   updateLanAssetCriticality,
 } from "../lib/api";
@@ -94,6 +95,14 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     },
     onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Criticality update failed." }),
   });
+  const serviceCheck = useMutation({
+    mutationFn: (assetId: string) => runLanServiceCheck(assetId),
+    onSuccess: async (result) => {
+      setToast({ kind: "success", message: `${result.message} ${result.open_ports} open port(s) observed.` });
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["lan-services", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-assets"] })]);
+    },
+    onError: () => setToast({ kind: "error", message: "The authorized service check could not run. Review enablement, authorization, and rate limits." }),
+  });
 
   if (!isAdmin) {
     return <EmptyBlock title="Administrator access required" message="LAN addresses, endpoint telemetry, and authorization controls are restricted to platform administrators." />;
@@ -121,7 +130,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
               <option value="">Configured default range</option>
               {safeArray(config?.allowed_cidrs).map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
-            <button type="button" onClick={() => discovery.mutate()} disabled={!config?.enabled || discovery.isPending} className="inline-flex items-center gap-2 rounded-md bg-raven-violet px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={() => discovery.mutate()} disabled={!config?.enabled || discovery.isPending} title={!config?.enabled ? "Enable LAN_MONITORING_ENABLED as an administrator before discovery." : discovery.isPending ? "Authorized discovery is already running." : "Process authorized private-range observations."} className="inline-flex items-center gap-2 rounded-md bg-raven-violet px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
               <RadioTower className="h-4 w-4" aria-hidden="true" />
               {discovery.isPending ? "Checking observations" : "Run safe discovery"}
             </button>
@@ -130,6 +139,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
             </button>
           </div>
         ) : null}
+        {!agentsOnly && !config?.enabled ? <p className="mt-2 text-xs text-amber-100">Run safe discovery is disabled because LAN monitoring is off. An administrator must enable it in local configuration.</p> : null}
         <p className="mt-3 text-xs text-raven-muted">Private ranges: {safeArray(config?.allowed_cidrs).join(", ") || "none"} · interval {safeNumber(config?.discovery_interval_seconds, 300)}s · ping {config?.ping_enabled ? "enabled" : "disabled"} · service observations {config?.service_check_enabled ? "enabled" : "disabled"}</p>
       </section>
 
@@ -142,7 +152,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
       </section>
 
       {!assets.length ? (
-        <EmptyBlock title={agentsOnly ? "No endpoint agents" : "No LAN assets"} message={agentsOnly ? "Run the optional PowerShell agent manually after configuring a shared token." : "Enable LAN monitoring and supply an authorized private range or router/static observations. Docker may not expose the host ARP table."} />
+        <EmptyBlock title={agentsOnly ? "No endpoint agents are reporting" : "No authorized LAN observations yet"} message={agentsOnly ? "No optional host telemetry has registered. Platform health is unaffected; install and manually run the local agent only on an approved host." : "Docker cannot always read host neighbors. Enable LAN monitoring, then provide an authorized private range through router/static observations or the optional local agent."} nextStep={agentsOnly ? "Use the documented agent registration flow; no credentials or commands are collected." : "Host LAN discovery may be limited inside Docker; this is not a platform failure."} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-raven-border">
           <table className="w-full min-w-[900px] text-left text-sm">
@@ -165,7 +175,8 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
 
       {selected ? (
         <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Endpoint detail · {safeString(selected.hostname, selected.ip_address)}</h2><p className="mt-1 font-mono text-xs text-raven-muted">{selected.ip_address} · {safeString(selected.mac_address, "MAC unavailable")}</p></div><div className="flex gap-2"><button type="button" onClick={() => update.mutate({ asset: selected, changes: { is_authorized: !selected.is_authorized } })} className="rounded-md border border-raven-border px-3 py-2 text-xs"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />{selected.is_authorized ? "Revoke authorization" : "Authorize asset"}</button><button type="button" onClick={() => update.mutate({ asset: selected, changes: { monitoring_enabled: !selected.monitoring_enabled } })} className="rounded-md border border-raven-border px-3 py-2 text-xs">Monitoring {selected.monitoring_enabled ? "on" : "off"}</button></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Endpoint detail · {safeString(selected.hostname, selected.ip_address)}</h2><p className="mt-1 font-mono text-xs text-raven-muted">{selected.ip_address} · {safeString(selected.mac_address, "MAC unavailable")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => update.mutate({ asset: selected, changes: { is_authorized: !selected.is_authorized } })} className="rounded-md border border-raven-border px-3 py-2 text-xs"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />{selected.is_authorized ? "Revoke authorization" : "Authorize asset"}</button><button type="button" onClick={() => update.mutate({ asset: selected, changes: { monitoring_enabled: !selected.monitoring_enabled } })} className="rounded-md border border-raven-border px-3 py-2 text-xs">Monitoring {selected.monitoring_enabled ? "on" : "off"}</button><button type="button" onClick={() => serviceCheck.mutate(selected.id)} disabled={!config?.service_check_enabled || !selected.is_authorized || !selected.monitoring_enabled || serviceCheck.isPending} title={serviceCheckReason(config?.service_check_enabled, selected)} className="rounded-md border border-raven-border px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">{serviceCheck.isPending ? "Checking configured ports" : "Run TCP service check"}</button></div></div>
+          {!config?.service_check_enabled || !selected.is_authorized || !selected.monitoring_enabled ? <p className="mt-2 text-xs text-amber-100">{serviceCheckReason(config?.service_check_enabled, selected)}</p> : <p className="mt-2 text-xs text-raven-muted">Checks configured TCP ports only with a low timeout. No authentication, commands, brute force, or exploit payloads.</p>}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label="CPU" value={percent(safeArray(telemetry.data?.items)[0]?.cpu_percent)} />
             <Metric label="Memory" value={percent(safeArray(telemetry.data?.items)[0]?.memory_percent)} />
@@ -186,7 +197,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>
-            <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="rounded-md border border-raven-border p-3 text-sm">{safeString(item.protocol, "tcp")}/{safeNumber(item.port)} · {safeString(item.service_name, "unidentified service")} · {safeString(item.status, "unknown")}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Service checks are disabled by default.</p>}</div>
+            <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · observed {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Risk indicator only; review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
           </div>
           <p className="mt-4 text-xs text-raven-muted">Notes: {safeString(selected.notes, "No notes.")} · telemetry samples: {safeNumber(telemetry.data?.total)} · OS: {safeString(safeArray(telemetry.data?.items)[0]?.os_name, "unavailable")} {safeString(safeArray(telemetry.data?.items)[0]?.os_version)}</p>
         </section>
@@ -201,4 +212,11 @@ function Metric({ label, value }: { label: string; value: string | number }): JS
 
 function percent(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)}%` : "Unavailable";
+}
+
+function serviceCheckReason(enabled: boolean | undefined, asset: LanAsset): string {
+  if (!enabled) return "Disabled because LAN_SERVICE_CHECK_ENABLED is false.";
+  if (!asset.is_authorized) return "Authorize this private LAN asset before checking services.";
+  if (!asset.monitoring_enabled) return "Enable monitoring for this asset before checking services.";
+  return "Run a rate-limited TCP connect check against configured ports only.";
 }

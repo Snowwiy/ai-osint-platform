@@ -65,7 +65,9 @@ async def recon_url(
     db: AsyncSession = Depends(get_db),
 ) -> ReconResponse:
     try:
-        response = await run_recon_for_request(db, current_user, body, target_type="url")
+        response = await run_recon_for_request(
+            db, current_user, body, target_type="url"
+        )
     except InvestigationNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Investigation not found") from exc
     except ForbiddenError as exc:
@@ -99,5 +101,9 @@ async def _record_recon_audit(
             "status": response.status,
             "entity_count": len(response.entities),
             "relationship_count": len(response.relationships),
+            "provider_failures": [
+                {"source": item.source, "code": item.message}
+                for item in response.errors[:20]
+            ],
         },
     )

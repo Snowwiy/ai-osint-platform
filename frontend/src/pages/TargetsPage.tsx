@@ -100,7 +100,8 @@ export function TargetsPage(): JSX.Element {
         ...current,
         [target.id]: {
           status: "failed",
-          error: error instanceof Error ? error.message : "Recon failed",
+          response: current[target.id]?.response,
+          error: "The latest passive recon attempt could not complete. Retry when the provider is available.",
         },
       }));
     },
@@ -311,7 +312,8 @@ export function TargetsPage(): JSX.Element {
                       <button
                         type="button"
                         onClick={() => reconMutation.mutate(target)}
-                        disabled={isRunning}
+                        disabled={reconMutation.isPending}
+                        title={reconMutation.isPending && !isRunning ? "Another passive recon run is already in progress." : isRunning ? "This authorized recon run is in progress." : "Run passive provider checks for this authorized target."}
                         className="inline-flex items-center justify-center gap-2 rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text hover:border-raven-violet disabled:opacity-60"
                       >
                         <PlayCircle className="h-4 w-4" aria-hidden="true" />
@@ -343,7 +345,7 @@ export function TargetsPage(): JSX.Element {
 }
 
 function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
-  if (result.error) {
+  if (result.error && !result.response) {
     return (
       <div className="rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-sm text-rose-100">
         {result.error}
@@ -364,6 +366,7 @@ function ReconResultPanel({ result }: { result: ReconState }): JSX.Element {
 
   return (
     <div className="rounded-md border border-raven-border bg-raven-panelSoft p-3">
+      {result.error ? <div className="mb-3 rounded-md border border-amber-300/30 bg-amber-400/10 p-3 text-sm text-amber-100">{result.error} Showing the last successful stored result below.</div> : null}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <StatusPill status={status} />
         <span className="text-raven-muted">
@@ -554,6 +557,10 @@ function providerLabel(source: string): string {
 
 function friendlyErrorMessage(error: ReconError): string {
   const raw = error.message || "Provider did not return data.";
+  if (raw === "provider_timeout") return "Provider timed out; retry is safe and stored results were preserved.";
+  if (raw === "provider_http_error") return "Provider returned an HTTP or connectivity error.";
+  if (raw === "provider_parse_error") return "Provider returned an unreadable response.";
+  if (raw === "provider_error") return "Provider failed without exposing internal details.";
   if (raw.includes("timed out") || raw.toLowerCase().includes("timeout")) {
     return "Request timed out.";
   }

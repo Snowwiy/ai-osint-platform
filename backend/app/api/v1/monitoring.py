@@ -23,6 +23,8 @@ from app.schemas.lan_monitoring import (
     LanAssetUpdate,
     LanDiscoveryRequest,
     LanDiscoveryResponse,
+    LanOpenPortsResponse,
+    LanServiceCheckResponse,
     LanServiceListResponse,
     LanTelemetryListResponse,
 )
@@ -83,12 +85,15 @@ from app.services.lan_monitoring import (
     LanConfigurationError,
     LanDiscoveryRateLimitedError,
     LanMonitoringDisabledError,
+    LanServiceCheckDisabledError,
+    check_asset_services,
     discover_lan,
     get_lan_asset,
     ingest_agent_telemetry as ingest_lan_agent_telemetry,
     list_asset_services,
     list_asset_telemetry,
     list_lan_assets,
+    list_open_ports,
     notify_discovery_failure,
     register_agent,
     update_lan_asset,
@@ -420,6 +425,26 @@ async def lan_asset_services_endpoint(
 
 
 @router.post(
+    "/lan/assets/{asset_id}/service-check", response_model=LanServiceCheckResponse
+)
+async def lan_asset_service_check_endpoint(
+    asset_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> LanServiceCheckResponse:
+    return await _safe_lan_call(check_asset_services, db, current_user, asset_id)
+
+
+@router.get("/services/open-ports", response_model=LanOpenPortsResponse)
+async def monitoring_open_ports_endpoint(
+    limit: int = Query(default=500, ge=1, le=500),
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> LanOpenPortsResponse:
+    return await _safe_lan_call(list_open_ports, db, limit)
+
+
+@router.post(
     "/agent/register",
     response_model=LanAgentRegistrationResponse,
     status_code=status.HTTP_202_ACCEPTED,
@@ -518,6 +543,11 @@ async def _safe_lan_call(function: Callable[..., Awaitable[Any]], *args: Any) ->
     except LanMonitoringDisabledError as exc:
         raise HTTPException(
             status_code=409, detail="LAN monitoring is disabled."
+        ) from exc
+    except LanServiceCheckDisabledError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Authorized service checks are disabled by configuration.",
         ) from exc
     except LanConfigurationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -337,3 +337,20 @@ portfolio and local demo build. Final manual QA, local operations, backup/restor
 and security hygiene are complete. The `v5.0.0-rc2` tag identifies the validated
 local package; hosting, DNS, and Supabase production database work remain
 deferred to a separately authorized phase.
+
+## Phase 5AB monitoring reliability
+
+Monitoring now distinguishes required platform dependency health from optional
+host-agent telemetry, retires recovered local alerts, and presents provider
+timeouts/HTTP/parse failures as clean warnings while retaining valid recon
+entities. The Monitoring Center includes bounded open-port observations,
+service confidence, and standard/non-standard SSH indicators.
+
+Authorized port discovery remains off by default. When explicitly enabled by
+an administrator, it performs rate-limited TCP connects only to configured
+ports on approved private LAN assets. It never authenticates, tests
+credentials, brute forces, sends exploit payloads, or scans public networks.
+Docker LAN limitations are informational and can be supplemented with the
+optional endpoint agent or static/router observations. This phase changes no
+hosting, deployment, DNS, or Supabase configuration and keeps version
+`5.0.0-rc2`.

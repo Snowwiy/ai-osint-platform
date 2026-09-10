@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from app.schemas.recon import CertificateRecord, CertificateResult, ReconError
+from app.services.recon.provider_errors import provider_error_code
 
 _CRT_SH_BASE_URL = "https://crt.sh"
 _TIMEOUT_SECONDS = 10.0
@@ -86,6 +87,4 @@ def _string_or_none(value: Any) -> str | None:
 
 
 def _safe_error(exc: Exception) -> str:
-    if isinstance(exc, httpx.TimeoutException):
-        return "crt.sh request timed out"
-    return exc.__class__.__name__
+    return provider_error_code(exc)

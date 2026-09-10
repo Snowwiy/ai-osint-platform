@@ -13,6 +13,7 @@ from app.schemas.recon import (
     SecurityHeaders,
     TLSCertificateSummary,
 )
+from app.services.recon.provider_errors import provider_error_code
 
 _TIMEOUT_SECONDS = 8.0
 _MAX_REDIRECTS = 5
@@ -170,6 +171,4 @@ def _string_or_none(value: Any) -> str | None:
 
 
 def _safe_error(exc: Exception) -> str:
-    if isinstance(exc, httpx.TimeoutException):
-        return "HTTP request timed out"
-    return exc.__class__.__name__
+    return provider_error_code(exc)

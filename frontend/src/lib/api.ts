@@ -87,6 +87,7 @@ import type {
   VulnerabilityBaselineRunResponse,
   VulnerabilityBaselineStatus,
   LanServiceListResponse,
+  LanServiceCheckResponse,
   LanTelemetryListResponse,
   InvestigationEscalation,
   InvestigationHandoff,
@@ -1140,6 +1141,10 @@ export async function listLanTelemetry(assetId: string): Promise<LanTelemetryLis
 
 export async function listLanServices(assetId: string): Promise<LanServiceListResponse> {
   return request<LanServiceListResponse>(`/monitoring/lan/assets/${assetId}/services`);
+}
+
+export async function runLanServiceCheck(assetId: string): Promise<LanServiceCheckResponse> {
+  return request<LanServiceCheckResponse>(`/monitoring/lan/assets/${assetId}/service-check`, { method: "POST" });
 }
 
 export async function updateLanAssetCriticality(
