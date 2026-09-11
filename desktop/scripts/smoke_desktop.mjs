@@ -3,7 +3,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc4";
+const VERSION = "5.0.0-rc5";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const PORTABLE_EXE = "RavenTech OSINT Desktop.exe";
 const INSTALLER_EXE = `RavenTech-OSINT-Desktop-${VERSION}-unsigned-setup.exe`;
@@ -20,7 +20,7 @@ const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "ut
 const app = await readFile(resolve(desktop, "ui", "app.js"), "utf8");
 const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
 
-if (packageJson.version !== VERSION || config.version !== VERSION) throw new Error("Desktop version must remain 5.0.0-rc4.");
+if (packageJson.version !== VERSION || config.version !== VERSION) throw new Error("Desktop version must remain 5.0.0-rc5.");
 if (config.productName !== "RavenTech OSINT Desktop" || config.identifier !== "com.raventech.osint") {
   throw new Error("Desktop product metadata changed unexpectedly.");
 }

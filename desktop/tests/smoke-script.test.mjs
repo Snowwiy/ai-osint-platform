@@ -14,7 +14,7 @@ const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
 test("desktop smoke command and polished branding are registered", () => {
   assert.equal(packageJson.scripts.smoke, "node scripts/smoke_desktop.mjs");
   assert.equal(config.productName, "RavenTech OSINT Desktop");
-  assert.equal(config.version, "5.0.0-rc4");
+  assert.equal(config.version, "5.0.0-rc5");
   assert.equal(config.app.windows[0].title, "RavenTech OSINT Desktop — Local Workspace");
 });
 
@@ -22,7 +22,7 @@ test("smoke checker covers artifacts, local URLs, permissions, and updater state
   for (const token of [
     "portable-manifest.json", "installer-manifest.json", "file allowlist",
     "http://localhost:5173", "http://localhost:8000", "capability.permissions",
-    "createUpdaterArtifacts", "safeProjectPathBinding", "validate_repository_root", "trusted_script_bytes", "5.0.0-rc4", "--require-artifacts"
+    "createUpdaterArtifacts", "safeProjectPathBinding", "validate_repository_root", "trusted_script_bytes", "5.0.0-rc5", "--require-artifacts"
   ]) assert.ok(smoke.includes(token), `missing smoke check: ${token}`);
   assert.match(smoke, /tauri-plugin-\(shell\|fs\|updater\)/);
   assert.match(smoke, /checksum mismatch/);

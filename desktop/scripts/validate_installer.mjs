@@ -3,7 +3,7 @@ import { access, readFile, readdir, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc4";
+const VERSION = "5.0.0-rc5";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const INSTALLER_NAME = `RavenTech-OSINT-Desktop-${VERSION}-unsigned-setup.exe`;
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -20,7 +20,7 @@ const cargo = await readFile(resolve(desktop, "src-tauri", "Cargo.toml"), "utf8"
 const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
 
 if (packageJson.version !== VERSION || base.version !== VERSION) {
-  throw new Error("npm and Tauri versions must remain 5.0.0-rc4.");
+  throw new Error("npm and Tauri versions must remain 5.0.0-rc5.");
 }
 if (packageJson.devDependencies?.["@tauri-apps/cli"] !== "2.11.4") {
   throw new Error("The installer workflow requires the exactly pinned Tauri CLI 2.11.4.");
@@ -120,7 +120,7 @@ if (executable[0] !== 0x4d || executable[1] !== 0x5a) {
 }
 const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.json"), "utf8"));
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
-  throw new Error("Installer manifest does not describe the expected unsigned RC4 local build.");
+  throw new Error("Installer manifest does not describe the expected unsigned RC5 local build.");
 }
 const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
 if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {

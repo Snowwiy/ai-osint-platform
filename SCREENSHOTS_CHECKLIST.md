@@ -43,7 +43,7 @@ where useful, one narrow responsive view.
 - [ ] **Audit and governance:** audit event metadata plus settings/feature flags
       demonstrating defensive controls.
 - [ ] **Health and release endpoints:** `/health`, `/health/ready`, and
-      `/api/v1/release` showing `5.0.0-rc4` and `0036_phase5ai_posture` without
+      `/api/v1/release` showing `5.0.0-rc5` and `0036_phase5ai_posture` without
       secrets.
 
 ## Quality Gate For Every Capture

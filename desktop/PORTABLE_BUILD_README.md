@@ -1,4 +1,4 @@
-# RavenTech OSINT Desktop 5.0.0-rc4 — Windows Portable Build
+# RavenTech OSINT Desktop 5.0.0-rc5 — Windows Portable Build
 
 This folder is a local-test portable build. A separate Phase 5AO unsigned local
 installer workflow exists, but this portable folder has no installer, signing,
@@ -30,7 +30,7 @@ for every action, and Vite/Docker direct commands remain copy-only.
 ## Run the portable application
 
 Double-click `RavenTech OSINT Desktop.exe` after the local services are running.
-The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc4`, the window title
+The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc5`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
 documented build-only placeholder pending final brand approval.
 The shell checks only these local endpoints:

@@ -20,7 +20,7 @@ or Redis and it is not a public release.
 
 Phase 5AP polishes the local distribution identity and adds an artifact-aware
 smoke check. The window title is **RavenTech OSINT Desktop — Local Workspace**;
-the product, portable folder, and installer names remain aligned to RC4. The
+the product, portable folder, and installer names remain aligned to the current candidate. The
 existing generated icon is still a build-only placeholder.
 
 Phase 5AQ adds a controlled local launcher for the five existing platform
@@ -170,7 +170,7 @@ It never runs an installer or contacts a package registry.
 Output:
 
 ```text
-desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/
+desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/
 ```
 
 `dist-portable/` is intentionally Git-ignored. For separate steps, use
@@ -193,7 +193,7 @@ The build uses only the NSIS target, passes `--no-sign`, skips WebView2 download
 or embedding, and collects a strict four-file package under:
 
 ```text
-desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/
+desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/
 ```
 
 The ignored folder contains the unsigned setup executable, README, license, and

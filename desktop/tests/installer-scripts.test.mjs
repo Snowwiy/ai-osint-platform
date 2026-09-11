@@ -9,12 +9,12 @@ const build = await readFile(resolve(desktop, "scripts", "build_installer.mjs"),
 const validate = await readFile(resolve(desktop, "scripts", "validate_installer.mjs"), "utf8");
 const config = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.installer.conf.json"), "utf8"));
 
-test("installer scripts and RC4 NSIS metadata are present", () => {
+test("installer scripts and RC5 NSIS metadata are present", () => {
   assert.ok(build.length > 0 && validate.length > 0);
   assert.equal(config.bundle.active, true);
   assert.deepEqual(config.bundle.targets, ["nsis"]);
   assert.equal(config.bundle.publisher, "RavenTech Local Test (Unsigned)");
-  assert.match(validate, /5\.0\.0-rc4/);
+  assert.match(validate, /5\.0\.0-rc5/);
 });
 
 test("installer configuration is unsigned, local, and carries no payload sidecars", () => {
@@ -46,4 +46,6 @@ test("installer build uses the pinned CLI without network or signing commands", 
   assert.match(build, /controlledLocalLauncher:\s*true/);
   assert.match(build, /safeProjectPathBinding:\s*true/);
   assert.match(build, /arbitraryCommandExecution:\s*false/);
+  assert.match(build, /expectedBundle.*RavenTech OSINT Desktop_\$\{VERSION\}_x64-setup\.exe/);
+  assert.doesNotMatch(build, /Expected exactly one NSIS installer/);
 });

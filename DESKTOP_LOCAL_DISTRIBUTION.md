@@ -1,7 +1,7 @@
 # RavenTech OSINT Desktop — Local Distribution
 
 Phase 5AP defines the local Windows test bundle for RavenTech OSINT Desktop
-`5.0.0-rc4`. It is an unpublished, unsigned QA workflow—not a public release.
+`5.0.0-rc5`. It is an unpublished, unsigned QA workflow—not a public release.
 
 Phase 5AQ adds optional runtime orchestration for five fixed repository scripts.
 It does not add service autostart or arbitrary shell access.
@@ -15,8 +15,8 @@ copies pinned into the desktop build. Invalid or missing paths remain copy-only.
 
 ## Local artifacts
 
-- Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`
-- Installer folder: `desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/`
+- Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/`
+- Installer folder: `desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/`
 - Portable checksums: `portable-manifest.json` inside the portable folder
 - Installer checksums: `installer-manifest.json` inside the installer folder
 
@@ -76,7 +76,7 @@ use `/health`, `/health/ready`, and `/api/v1/release`.
 
 For portable testing, launch `RavenTech OSINT Desktop.exe` from the portable
 folder. For installer testing, verify the installer-manifest checksum, then run
-`RavenTech-OSINT-Desktop-5.0.0-rc4-unsigned-setup.exe` and launch the Start-menu
+`RavenTech-OSINT-Desktop-5.0.0-rc5-unsigned-setup.exe` and launch the Start-menu
 entry **RavenTech OSINT Desktop**.
 
 The unsigned installer may trigger Windows SmartScreen. This warning is expected

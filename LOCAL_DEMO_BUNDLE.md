@@ -1,6 +1,6 @@
 # RavenTech OSINT Local Demo Bundle
 
-Release candidate: `5.0.0-rc4`
+Release candidate: `5.0.0-rc5`
 
 Supported mode: local Docker Compose with a local Vite frontend
 
@@ -90,7 +90,7 @@ curl.exe http://localhost:8000/health/ready
 curl.exe http://localhost:8000/api/v1/release
 ```
 
-The expected release is `5.0.0-rc4`, with migration head
+The expected release is `5.0.0-rc5`, with migration head
 `0036_phase5ai_posture` and `status: ok` for health and readiness.
 
 ## Generate Demo Reports
@@ -142,7 +142,7 @@ Use `FINAL_QA_CHECKLIST.md` for the full acceptance gate and
 - [ ] Confirm `.env`, `backups/`, `reports_output/`, `frontend/dist/`, caches,
   and `frontend/node_modules/` are absent from Git.
 - [ ] Confirm the working tree is clean and synchronized with `origin/dev`.
-- [ ] Confirm `v5.0.0-rc4` points to the validated release-package commit.
+- [ ] Confirm `v5.0.0-rc5` points to the validated desktop-local candidate commit.
 
 ## Known Local Limitations
 

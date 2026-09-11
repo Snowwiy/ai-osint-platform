@@ -16,7 +16,7 @@ const FRONTEND_LOOPBACK: &str = "127.0.0.1:5173";
 const MAX_RESPONSE_BYTES: usize = 65_536;
 const MAX_COMMAND_OUTPUT_BYTES: usize = 16_384;
 const MAX_PROJECT_PATH_CHARS: usize = 1024;
-const EXPECTED_RELEASE: &str = "5.0.0-rc4";
+const EXPECTED_RELEASE: &str = "5.0.0-rc5";
 const PROJECT_PATH_FILE: &str = "project-path.json";
 const REQUIRED_SCRIPTS: [&str; 5] = [
     "start_platform.ps1",

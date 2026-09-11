@@ -12,7 +12,7 @@ RegisteredUserRole = Literal["viewer", "analyst"]
 
 class Settings(BaseSettings):
     APP_NAME: str = "RavenTech OSINT"
-    APP_VERSION: str = "5.0.0-rc4"
+    APP_VERSION: str = "5.0.0-rc5"
     APP_MODE: str = "local"
     DESKTOP_MODE_ENABLED: bool = False
     LOCAL_FRONTEND_URL: str = "http://localhost:5173"

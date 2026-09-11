@@ -24,6 +24,10 @@ adds a manually entered, canonicalized project-path preference so installed
 builds can resolve those same scripts. Invalid or incomplete paths are rejected;
 the fallback remains copy-only.
 
+Phase 5AS freezes these local workflows as `5.0.0-rc5` after portable,
+unsigned-installer, launcher, binding, localization, Docker, and regression QA.
+Generated candidates remain ignored and unpublished.
+
 - select and approve final icons and loading treatment; replace the placeholder
   only in a separately reviewed branding/package phase
 - review and update the pinned Tauri CLI only through a separately approved

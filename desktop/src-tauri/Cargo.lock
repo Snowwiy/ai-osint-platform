@@ -2389,7 +2389,7 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "raventech-osint-desktop"
-version = "5.0.0-rc4"
+version = "5.0.0-rc5"
 dependencies = [
  "serde",
  "serde_json",

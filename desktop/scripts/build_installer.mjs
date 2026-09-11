@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { access, copyFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { dirname, extname, resolve } from "node:path";
+import { access, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const VERSION = "5.0.0-rc4";
+const VERSION = "5.0.0-rc5";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const INSTALLER_NAME = `RavenTech-OSINT-Desktop-${VERSION}-unsigned-setup.exe`;
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -14,6 +14,7 @@ const installerRoot = resolve(desktop, "dist-installer");
 const output = resolve(installerRoot, PRODUCT_DIRECTORY);
 const tauriCli = resolve(desktop, "node_modules", "@tauri-apps", "cli", "tauri.js");
 const bundleDirectory = resolve(desktop, "src-tauri", "target", "release", "bundle", "nsis");
+const expectedBundle = resolve(bundleDirectory, `RavenTech OSINT Desktop_${VERSION}_x64-setup.exe`);
 const nsisCompiler = resolve(process.env.LOCALAPPDATA ?? "", "tauri", "NSIS", "makensis.exe");
 
 if (process.platform !== "win32") throw new Error("Installer builds are Windows-only.");
@@ -75,16 +76,11 @@ run(process.execPath, [
   "--", "--locked", "--offline",
 ], desktop);
 
-const candidates = (await readdir(bundleDirectory, { withFileTypes: true }))
-  .filter((entry) => entry.isFile() && extname(entry.name).toLowerCase() === ".exe")
-  .map((entry) => resolve(bundleDirectory, entry.name));
-if (candidates.length !== 1) {
-  throw new Error(`Expected exactly one NSIS installer, found ${candidates.length}.`);
-}
+await access(expectedBundle);
 
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-await copyFile(candidates[0], resolve(output, INSTALLER_NAME));
+await copyFile(expectedBundle, resolve(output, INSTALLER_NAME));
 await copyFile(resolve(desktop, "INSTALLER_BUILD_README.md"), resolve(output, "README.md"));
 await copyFile(resolve(repository, "LICENSE"), resolve(output, "LICENSE"));
 

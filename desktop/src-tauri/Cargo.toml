@@ -1,6 +1,6 @@
 [package]
 name = "raventech-osint-desktop"
-version = "5.0.0-rc4"
+version = "5.0.0-rc5"
 description = "Portable local status shell for RavenTech OSINT"
 authors = ["RavenTech"]
 edition = "2021"

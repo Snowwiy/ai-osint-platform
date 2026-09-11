@@ -16,7 +16,7 @@ clean-machine QA, final branding, and release approval are complete.
 - [ ] Run `npm ci --offline` in `desktop/` with the pinned lockfile available.
 - [ ] Run `npm run installer:build` and keep output under ignored `dist-installer/`.
 - [ ] Run `npm run installer:validate -- --require-artifact`.
-- [ ] Confirm the filename and RC4 metadata describe an unsigned local-test build.
+- [ ] Confirm the filename and RC5 metadata describe an unsigned local-test build.
 - [ ] Confirm current-user install, Start-menu launch, and Settings-app uninstall.
 - [ ] Confirm Windows SmartScreen identifies the installer as unsigned/untrusted.
 - [ ] Confirm the installed shell launches to **RavenTech OSINT Desktop — Local Workspace**.
@@ -44,7 +44,7 @@ clean-machine QA, final branding, and release approval are complete.
 
 - [ ] Start the existing Docker/local workflow before launching the desktop shell.
 - [ ] Verify `http://localhost:8000/health` and `/health/ready` are readable.
-- [ ] Verify `/api/v1/release` reports `5.0.0-rc4`.
+- [ ] Verify `/api/v1/release` reports `5.0.0-rc5`.
 - [ ] Test frontend embed at `http://localhost:5173` and offline help fallback.
 - [ ] Export one benign report and confirm existing browser behavior is unchanged.
 - [ ] Switch desktop help and web UI between English and Spanish.

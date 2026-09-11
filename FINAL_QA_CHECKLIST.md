@@ -11,7 +11,28 @@
 - [ ] Monitoring Center states avoid raw API errors, crash screens, and horizontal overflow.
 - [ ] No secrets, active scanning, hosting, deployment, DNS, or Supabase changes exist.
 
-Version: `5.0.0-rc4`
+Version: `5.0.0-rc5`
+
+## Phase 5AS — desktop E2E QA and RC5 freeze
+
+- [ ] Version is `5.0.0-rc5` across backend defaults, `.env.example`, desktop
+      package/lock/Cargo/Tauri metadata, UI expectation, validators, and manifests.
+- [ ] Browser/local Docker architecture remains unchanged and monitoring, recon,
+      reports, localization, and backend regression suites pass without real scanning.
+- [ ] Portable RC5 builds, validates, launches from its output directory, reports
+      local service state, uses a saved project path, and retains copy-only fallback.
+- [ ] Unsigned NSIS RC5 builds, validates, installs current-user, launches outside
+      repo ancestry, and uninstalls without unexpected install-directory or shortcut residue.
+- [ ] Only the five build-pinned scripts can execute; there is no dynamic command,
+      argument, `.env` output, database reset, destructive action, or remote command.
+- [ ] English/Spanish setup and status labels, confirmation behavior, fixed local
+      URLs, health/readiness/release detection, and embedded-frontend contract pass.
+- [ ] Portable and installer outputs contain only their four allowlisted files,
+      checksums match, forbidden data is absent, and generated artifacts stay ignored.
+- [ ] `RELEASE_NOTES_RC5.md` and `DESKTOP_LOCAL_ACCEPTANCE.md` describe the local,
+      unsigned, unpublished candidate and its remaining prerequisites.
+- [ ] Commit and push `dev` only after all gates pass, then create and push
+      `v5.0.0-rc5`; do not create a public GitHub release.
 
 ## Phase 5AR — first-run setup and project-path reliability
 
@@ -24,7 +45,7 @@ Version: `5.0.0-rc4`
 - [ ] Resolution order is saved path, current-directory ancestry,
       development-executable ancestry, then copy-only fallback.
 - [ ] Status shows repository, scripts, Docker, backend, frontend, ports
-      8000/5173, RC4 release match, migrations, local URLs, and next action.
+      8000/5173, RC5 release match, migrations, local URLs, and next action.
 - [ ] Setup guidance works in English and Spanish without horizontal overflow,
       raw stack traces, `.env` values, or secret output.
 - [ ] No shell/filesystem plugin, arbitrary script/arguments, folder browser,
@@ -56,7 +77,7 @@ Version: `5.0.0-rc4`
 
 ## Phase 5AP — installer QA, branding, and local distribution
 
-- [ ] Product name, identifier, RC4 version, portable folder, installer name,
+- [ ] Product name, identifier, RC5 version, portable folder, installer name,
       README names, and **Local Workspace** window title are consistent.
 - [ ] English and Spanish installer labels remain configured; the build-only
       placeholder icon is documented and not treated as final branding.
@@ -81,7 +102,7 @@ Version: `5.0.0-rc4`
 
 - [ ] Default/portable `bundle.active` remains false; the isolated installer
       override enables only NSIS and creates no updater artifacts.
-- [ ] App metadata remains `RavenTech OSINT Desktop`, `5.0.0-rc4`, identifier
+- [ ] App metadata remains `RavenTech OSINT Desktop`, `5.0.0-rc5`, identifier
       `com.raventech.osint`, and an explicitly unsigned local-test publisher.
 - [ ] Installer mode is current-user, downgrades are blocked, and English and
       Spanish installer languages are configured.
@@ -90,7 +111,7 @@ Version: `5.0.0-rc4`
 - [ ] `npm run installer:build` invokes the pinned Tauri CLI with `--no-sign`
       and collects output only under ignored `desktop/dist-installer/`.
 - [ ] `npm run installer:validate -- --require-artifact` verifies the PE file,
-      RC4 metadata, strict file allowlist, disabled boundaries, and SHA-256 hashes.
+      RC5 metadata, strict file allowlist, disabled boundaries, and SHA-256 hashes.
 - [ ] Installer output contains only unsigned setup EXE, README, LICENSE, and
       manifest—no `.env`, credentials, certificates, databases, backups,
       reports, logs, backend, Docker runtime, or sidecars.
@@ -105,15 +126,15 @@ Version: `5.0.0-rc4`
 
 ## Phase 5AN — Windows portable desktop build preparation
 
-- [ ] Desktop metadata reports `RavenTech OSINT Desktop` and `5.0.0-rc4` with
+- [ ] Desktop metadata reports `RavenTech OSINT Desktop` and `5.0.0-rc5` with
       the local prototype window title and build-only placeholder icon.
 - [ ] `npm run portable:build` validates desktop source and the existing
       frontend, then runs Cargo with `--release --locked --offline`.
 - [ ] Output exists only under ignored
-      `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`.
+      `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/`.
 - [ ] The portable folder contains only `RavenTech OSINT Desktop.exe`,
       `README.md`, `LICENSE`, and `portable-manifest.json`.
-- [ ] `npm run portable:validate` confirms PE signature, RC4 metadata, file
+- [ ] `npm run portable:validate` confirms PE signature, RC5 metadata, file
       allowlist, disabled boundaries, and SHA-256 checksums.
 - [ ] No `.env`, credential, certificate, database, backup, report, client data,
       backend service, PostgreSQL, Redis, or Docker runtime is packaged.
@@ -122,7 +143,7 @@ Version: `5.0.0-rc4`
 - [ ] Tauri default `bundle.active` remains false; the portable workflow invokes
       no MSI, NSIS, signing, updater, release publishing, or service autostart.
 - [ ] Browser/local Docker mode, backend validation, frontend localization,
-      RC4 release metadata, and migration head remain unchanged.
+      RC5 release metadata, and migration head remain unchanged.
 - [ ] No hosting, deployment, DNS, Supabase migration, router automation,
       remote command execution, scanning, or offensive functionality is added.
 
@@ -142,7 +163,7 @@ Version: `5.0.0-rc4`
       allows only `http://localhost:5173` as a frame source.
 - [ ] Cargo check and the static desktop UI build pass without producing an
       installer, release package, or published artifact.
-- [ ] Browser mode, frontend build, backend tests, RC4 release metadata, and
+- [ ] Browser mode, frontend build, backend tests, RC5 release metadata, and
       migration head `0036_phase5ai_posture` remain unchanged.
 - [ ] No hosting, deployment, DNS, Supabase, router automation, remote command
       execution, shell/filesystem plugin, scanning, or offensive work is added.

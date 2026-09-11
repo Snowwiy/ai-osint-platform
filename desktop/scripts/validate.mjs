@@ -39,7 +39,7 @@ const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 
-if (config.version !== "5.0.0-rc4") throw new Error("Desktop version must match RC4.");
+if (config.version !== "5.0.0-rc5") throw new Error("Desktop version must match RC5.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
 if (config.app.windows.some((window) => window.title !== "RavenTech OSINT Desktop — Local Workspace")) {
   throw new Error("Unexpected desktop local-workspace window title.");

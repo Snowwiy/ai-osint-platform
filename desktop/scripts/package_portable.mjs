@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc4";
+const VERSION = "5.0.0-rc5";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const EXECUTABLE = "RavenTech OSINT Desktop.exe";
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");

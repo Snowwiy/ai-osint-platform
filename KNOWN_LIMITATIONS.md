@@ -1,6 +1,6 @@
 # RavenTech OSINT Known Limitations
 
-The completed validated mode for `5.0.0-rc4` is the local web application using
+The completed validated mode for `5.0.0-rc5` is the local web application using
 Docker Compose services and a local Vite frontend. Portable and unsigned
 installer workflows are local-test aids; signed production packaging, hosting,
 deployment, DNS, and Supabase migration are deferred.
@@ -49,7 +49,7 @@ the separately managed Vite frontend.
 
 ## Product Boundaries
 
-- RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,
+- RC5 provides English and Spanish UI/report labels. Uncommon dynamic provider,
   evidence, or analyst-authored prose can remain in English; missing localized
   copy falls back to English and never exposes raw translation keys.
 
@@ -208,9 +208,10 @@ language, classification markings, and branding require administrator review.
   local HTTP probes. They intentionally do not remove volumes, reset databases,
   or expose environment values. The in-app Operator Console is read-only;
   command buttons copy text for a human operator and do not execute host actions.
-- The optional Tauri prototype can open the local frontend and check fixed
-  backend endpoints, but desktop packaging and installers are not part of the
-  validated RC4 mode. Browser mode remains the recovery path.
+- The optional Tauri shell can open the local frontend and check fixed backend
+  endpoints. Its portable executable and unsigned installer are validated only
+  as local-test candidates; they are not signed or publicly distributed.
+  Browser mode remains the recovery path.
 - The local frontend runs inside a constrained frame. Popups and top-level
   navigation are disabled; workflows that later require either behavior must
   receive a separate security and UX review.
