@@ -113,11 +113,16 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins_list(self) -> list[str]:
-        return [
+        origins = [
             origin.strip()
             for origin in self.APP_ALLOWED_ORIGINS.split(",")
             if origin.strip()
         ]
+        if self.APP_MODE == "local":
+            for origin in ("http://tauri.localhost", "tauri://localhost"):
+                if origin not in origins:
+                    origins.append(origin)
+        return origins
 
     @property
     def is_production(self) -> bool:

@@ -11,10 +11,10 @@ tool, or a replacement for the browser workflow.
 
 ## Local architecture
 
-The desktop executable uses Tauri and Windows WebView2. It loads its own local
-setup/status UI and, when available, embeds the Vite frontend at
-`http://localhost:5173`. The frontend continues to call the FastAPI backend at
-`http://localhost:8000`.
+The desktop executable uses Tauri and Windows WebView2. Installed and portable
+builds load the existing React production build from bundled Tauri assets. That
+frontend continues to call the FastAPI backend at `http://localhost:8000`.
+Vite at `http://localhost:5173/` is an optional browser/development endpoint.
 
 Docker Compose separately runs FastAPI, PostgreSQL, Redis, and the worker. The
 repository and local configuration remain outside the desktop package. The
@@ -31,7 +31,7 @@ backend and data as desktop mode.
 - Docker Desktop with Docker Compose, started by the operator
 - a local `.env` created and reviewed from `.env.example`; never copy it into a
   distribution package
-- ports `8000` and `5173` available on loopback
+- port `8000` available on loopback; port `5173` only for optional Vite mode
 - Node.js/npm and installed frontend dependencies when running the Vite
   frontend from source
 - an account authorized for the intended RavenTech workflow
@@ -49,8 +49,8 @@ needed to run an already-built portable executable or installer.
    displayed next action.
 5. Start Docker Desktop yourself if it is unavailable or stopped. The desktop
    never installs or starts Docker automatically.
-6. Start the platform and frontend as described below, then use **Check** to
-   refresh status. Open the local app when frontend and backend are ready.
+6. Start the platform as described below, then use **Check** to refresh status.
+   A release build reports **Frontend: Embedded**; open it when the backend is ready.
 
 An accepted project path must resolve to a canonical directory containing the
 expected Compose file, Python project marker, `backend/app`, `frontend/package.json`,
@@ -62,6 +62,10 @@ The saved path is a local preference in the current user's application-config
 directory. It is not added to the repository or distribution package. Path
 resolution tries the saved path first, then matching current-directory ancestry,
 then development executable ancestry, and finally copy-only guidance.
+The launcher supplies that validated canonical root to the fixed script through
+an internal environment value. `start_platform.ps1` validates it again, then
+tries its own script location and current directory; failure produces clean
+copy-only guidance rather than a null-path PowerShell stack trace.
 
 ## Start, check, stop, and restart
 
@@ -87,14 +91,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\restart_plat
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\stop_platform.ps1
 ```
 
-Run the frontend separately:
+For optional browser or desktop-development testing, run Vite separately:
 
 ```powershell
 cd frontend
 npm run dev
 ```
 
-The desktop does not accept command text, script names, or arguments from the
+Installed and portable builds do not require this Vite command. The desktop
+does not accept command text, script names, or arguments from the
 operator. It cannot run database reset, backup, restore, remote, router, or
 scanning commands.
 
@@ -102,7 +107,8 @@ scanning commands.
 
 Use **Check** in the desktop setup/status screen or inspect the fixed local URLs:
 
-- frontend: `http://localhost:5173`
+- frontend: embedded in installed/portable mode
+- development frontend: `http://localhost:5173/` (HTTP 2xx `text/html`)
 - backend: `http://localhost:8000`
 - health: `http://localhost:8000/health`
 - readiness: `http://localhost:8000/health/ready`
@@ -217,10 +223,10 @@ volume. Follow `LOCAL_BACKUP_RESTORE.md` for safeguards and verification.
 - **Readiness degraded or migrations pending:** run the documented local start
   workflow, which applies intended migrations, then check readiness again. Do
   not reset the database.
-- **Frontend unreachable:** from `frontend/`, install already-approved
-  dependencies as needed and run `npm run dev`.
-- **Port 8000 or 5173 unavailable:** stop the unrelated process or reconfigure it
-  outside this workflow. The RC6 desktop candidate uses fixed local defaults.
+- **Frontend unavailable:** a release build should report **Embedded** without
+  Vite. In development only, run `npm run dev` from `frontend/`.
+- **Port 8000 unavailable:** stop the unrelated process or reconfigure it outside
+  this workflow. Port 5173 matters only for optional Vite mode.
 - **Copy failed:** select the displayed command and copy it manually.
 - **SmartScreen warning:** the installer is unsigned. Verify its SHA-256 value
   against the package manifest and follow organizational policy; do not describe
@@ -233,7 +239,8 @@ volume. Follow `LOCAL_BACKUP_RESTORE.md` for safeguards and verification.
 ## Limitations and safety boundary
 
 - RC6 is a private, unsigned local-test candidate, not a public release.
-- Docker services and the Vite frontend remain separately managed prerequisites.
+- Docker/backend services remain separately managed prerequisites; Vite is not
+  required for installed/portable UI rendering.
 - Installed-app and clean-uninstall behavior require real Windows host QA.
 - There is no code signing, auto-update, service autostart, production package,
   hosting, deployment, DNS, or Supabase migration.

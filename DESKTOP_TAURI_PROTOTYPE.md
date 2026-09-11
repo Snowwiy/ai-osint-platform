@@ -35,14 +35,23 @@ directory; `.env` and repository contents are not copied or read for setup.
 Resolution order is saved path, current-directory ancestry, development
 executable ancestry, then copy-only fallback. Docker is detected with safe local
 signals and is never installed or started by the prerequisite check.
+For an approved launch, Rust passes only the already validated canonical root
+through `RAVENTECH_VALIDATED_PROJECT_ROOT`. The start script revalidates fixed
+repository markers before using it and safely falls back through script/current
+locations without applying `Join-Path` to a null root.
 
 Phase 5AT adds an original repository-owned shield/radar icon and an ignored
 private aggregate package containing only the validated portable executable,
 unsigned installer, operator documents, checksums, and provenance manifest.
 
+The Phase 5AX runtime correction builds the unchanged React application into
+`desktop/dist/app/` and packages it as a Tauri asset. Release builds therefore
+use the embedded UI; Vite is retained only as a development fallback.
+
 ## What it does
 
-- opens the unchanged frontend from `http://localhost:5173` inside the shell
+- opens the bundled unchanged React frontend in installed/portable mode
+- accepts `http://localhost:5173/` HTTP 2xx `text/html` as a development frontend
 - checks fixed loopback endpoints for backend health, readiness, and release
 - shows a bilingual English/Spanish help screen when services are unavailable
 - displays copyable start, stop, restart, check, and frontend commands
@@ -53,15 +62,15 @@ unsigned installer, operator documents, checksums, and provenance manifest.
 - returns to the help screen when a later service check fails
 - keeps the status screen open when the operator chooses to inspect it
 
-The desktop UI is isolated in `desktop/`; it does not rewrite or bundle a second
-copy of the React application. The iframe retains the web application's normal
-API behavior, authentication origin, and English/Spanish localization.
+The desktop UI is isolated in `desktop/`; the build reuses (and does not rewrite)
+the existing React application. Its embedded production copy calls the same
+local backend and retains the web application's English/Spanish localization.
 
 ## Prerequisites
 
 - Windows with WebView2 (normally included on supported Windows releases)
 - Docker Desktop with Docker Compose
-- Node.js/npm for the existing frontend
+- Node.js/npm to build the embedded frontend or run browser/development mode
 - Rust and Cargo for the prototype shell
 - local development configuration based on `.env.example`
 
@@ -71,7 +80,8 @@ installed in a separately network-approved setup step.
 
 ## Run
 
-From the repository root, start the backend dependencies and frontend yourself:
+From the repository root, start the backend dependencies yourself. Start Vite
+only when testing browser/development mode:
 
 ```powershell
 ./scripts/local/start_platform.ps1
@@ -90,20 +100,24 @@ npm run tauri:dev
 
 The shell uses these local defaults only:
 
-- frontend: `http://localhost:5173`
+- embedded frontend: packaged Tauri asset `./app/`
+- development frontend: `http://localhost:5173/`
 - backend: `http://localhost:8000`
 - health: `http://localhost:8000/health`
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-`npm run build` in `desktop/` only validates and copies the small shell UI to an
-ignored local `desktop/dist/` directory. It does not create an executable,
-bundle, installer, updater, or signed artifact.
+`npm run build` in `desktop/` type-checks and builds the existing React frontend
+with a fixed local backend URL, then copies the status shell and React output to
+ignored `desktop/dist/`. It does not create an executable or installer itself.
 
-On its first healthy check, the shell embeds the local frontend. If the backend
+Release builds report the frontend as **Embedded** and load the packaged UI.
+Debug builds use Vite only when `/` or `/index.html` returns HTTP 2xx HTML and
+otherwise retain the embedded fallback. If the backend
 cannot be reached, it shows Docker startup guidance. If the backend answers but
 readiness is degraded, it recommends the non-destructive platform check. If
-only the frontend is unavailable, it shows the Vite command. A recovered stack
+requires action, it shows backend/Docker guidance. Vite guidance is never shown
+as a production prerequisite. A recovered stack
 reopens automatically unless the operator deliberately selected **Service
 status**; **Open local workspace** then returns to the application manually.
 
@@ -111,7 +125,7 @@ status**; **Open local workspace** then returns to the application manually.
 
 The Tauri capability file grants no plugin permissions and no remote origins.
 There is no shell or filesystem plugin. Rust performs bounded HTTP GET probes to
-`127.0.0.1:8000` and `127.0.0.1:5173` and exposes five argument-free launcher
+`127.0.0.1:8000` plus the development-only `127.0.0.1:5173` and exposes five argument-free launcher
 actions (aside from Tauri's injected app handle). Each maps internally to one fixed filename, resolves it only under a
 canonical `scripts/local/` directory, runs Windows PowerShell without a profile
 or stdin, caps and sanitizes output, and applies an action-specific timeout.
@@ -119,7 +133,7 @@ or stdin, caps and sanitizes output, and applies an action-specific timeout.
 The embedded frame permits scripts, forms, downloads, modals, same-origin web
 storage, and clipboard writes needed by the existing application. It does not
 permit popups or top-level navigation, and CSP restricts frames to
-`http://localhost:5173`.
+itself and the development-only `http://localhost:5173` frame.
 
 The shell never starts a service automatically. Only an explicit user action can
 run an approved local script, and start/stop/restart require confirmation. It
@@ -129,15 +143,17 @@ or execute remote commands. Copy buttons remain available for every action.
 
 ## Prototype limitations
 
-- Docker, PostgreSQL, Redis, FastAPI, Celery, and Vite remain separate services.
-- The frontend must be running on port 5173 before it can be embedded.
+- Docker, PostgreSQL, Redis, FastAPI, and Celery remain separate services.
+- Vite is optional and used only for browser/development mode; installed and
+  portable builds use embedded frontend assets.
 - The backend must be running on port 8000 for normal application behavior.
 - Installed builds bind a manually entered, validated repository path. Missing,
   moved, incomplete, or altered-script repositories show the copy-only fallback.
 - Phase 5AO provides an unsigned local-test installer workflow, not a signed or
   production installer, updater, hosted service, deployment, DNS change, or
   Supabase migration.
-- The CSP intentionally allows framing only `http://localhost:5173`.
+- The CSP permits self-packaged assets, localhost backend connections, and only
+  the development Vite frame as an external frame.
 - Production packaging and clean-machine validation remain future work.
 
 ## Safe checks
@@ -201,7 +217,8 @@ desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc6/
 
 The ignored folder contains the unsigned setup executable, README, license, and
 SHA-256 manifest. The current-user installer adds only the desktop shell and its
-uninstaller. Docker/local services and Vite must still be started manually.
+uninstaller. Docker/backend services must still be started manually; Vite is
+not required by the installed application.
 Read `desktop/INSTALLER_BUILD_README.md` and complete
 `DESKTOP_DISTRIBUTION_CHECKLIST.md` before local testing. SmartScreen warnings
 are expected; signing and public distribution remain deferred.

@@ -45,6 +45,7 @@ test("installer build uses the pinned CLI without network or signing commands", 
   assert.match(validate, /--require-artifact/);
   assert.match(build, /controlledLocalLauncher:\s*true/);
   assert.match(build, /safeProjectPathBinding:\s*true/);
+  assert.match(build, /embeddedFrontend:\s*true/);
   assert.match(build, /arbitraryCommandExecution:\s*false/);
   assert.match(build, /expectedBundle.*RavenTech OSINT Desktop_\$\{VERSION\}_x64-setup\.exe/);
   assert.doesNotMatch(build, /Expected exactly one NSIS installer/);

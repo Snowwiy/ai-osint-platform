@@ -1,13 +1,14 @@
 # RavenTech OSINT Known Limitations
 
-The completed validated mode for `5.0.0-rc6` is the local web application using
-Docker Compose services and a local Vite frontend. Portable and unsigned
+The completed validated mode for `5.0.0-rc6` includes the local web application
+and private Tauri artifacts. Browser/development mode uses local Vite; portable
+and installed builds embed the same React production assets. Portable and unsigned
 installer workflows are local-test aids; signed production packaging, hosting,
 deployment, DNS, and Supabase migration are deferred.
 
 Phase 5AL includes a Tauri source prototype, not a validated desktop package.
-It depends on the separately running local Docker services and Vite frontend,
-uses fixed ports 8000/5173, and creates no installer, updater, or signed binary.
+It depends on separately running local Docker/backend services. Port 5173 is a
+development fallback only; release artifacts do not require it.
 Its help buttons copy commands only and cannot start or repair services.
 
 Phase 5AM improves local runtime feedback but does not turn the shell into a
@@ -17,8 +18,8 @@ and platform logs for diagnosis, and must run copied commands themselves.
 
 Phase 5AN produces an unsigned Windows portable local-test executable. It is not
 an installer, supported deployment, or self-contained application: WebView2,
-the repository, local configuration, Docker services, and Vite frontend remain
-separate prerequisites. The repository-owned local-candidate icon is not public
+the repository, local configuration, and Docker/backend services remain
+separate prerequisites. The frontend is embedded. The repository-owned local-candidate icon is not public
 brand approval or a signed release identity.
 The generated `dist-portable/` folder is ignored and must not be published as a
 release artifact without a later signing, provenance, and clean-machine review.
@@ -26,7 +27,7 @@ release artifact without a later signing, provenance, and clean-machine review.
 Phase 5AO adds an unsigned NSIS current-user installer workflow. It installs only
 the shell and is expected to trigger Windows SmartScreen warnings. It requires
 WebView2 to be installed separately, does not start services, and remains
-dependent on the repository, Docker stack, configuration, and Vite frontend.
+dependent on the repository, Docker stack, and configuration, but not Vite.
 The ignored `dist-installer/` output is not a trusted or public release. Signing,
 timestamping, auto-update, firewall distribution policy, and full clean-machine
 compatibility testing remain deferred.
@@ -50,8 +51,8 @@ Docker detection may say "not detected" for non-standard installations. Port
 checks identify RavenTech, another listener, or an available/non-listening port,
 but never reconfigure it. A launcher timeout stops waiting and
 requests a status check; external Docker work already accepted by Docker may
-finish independently. The launcher is not a service supervisor and cannot start
-the separately managed Vite frontend.
+finish independently. The launcher is not a service supervisor. Its Vite helper
+is copy-only and is relevant only to browser/development mode.
 
 Phase 5AV supplies operator and private-handoff documentation only. It does not
 turn documentation review into clean-machine certification, provide support or
@@ -64,7 +65,7 @@ Phase 5AW dry-run checks improve reproducibility evidence but do not guarantee
 all clean Windows hosts, Docker Desktop versions, WebView2 policies, endpoint
 security products, or organizational controls. Each receiving environment still
 requires the private operator acceptance checklist. RC6 remains unsigned and
-local-only with a separately managed repository, Docker stack, and frontend.
+local-only with a separately managed repository and Docker/backend stack.
 
 Phase 5AX provides receiving-machine transfer and recovery guidance, not remote
 support or automated repair. Artifact success on the build host does not prove
@@ -237,6 +238,8 @@ language, classification markings, and branding require administrator review.
   endpoints. Its portable executable and unsigned installer are validated only
   as local-test candidates; they are not signed or publicly distributed.
   Browser mode remains the recovery path.
+- Installed and portable artifacts embed frontend assets. Vite/5173 remains an
+  optional development path, not a release runtime dependency.
 - The local frontend runs inside a constrained frame. Popups and top-level
   navigation are disabled; workflows that later require either behavior must
   receive a separate security and UX review.
@@ -298,8 +301,8 @@ retention policy. Public registration must remain governed through explicit
 enablement, invite/approval policy, and administrator review.
 
 The documented local deployment assumes Docker Compose, local environment
-variables, PostgreSQL, Redis, and frontend development commands run from the
-`frontend/` directory.
+variables, PostgreSQL, and Redis. Frontend commands from `frontend/` are needed
+for browser/development mode or rebuilding, not prebuilt desktop runtime.
 
 ## Phase 5AG completion boundary
 

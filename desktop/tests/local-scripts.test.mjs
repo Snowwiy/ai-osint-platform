@@ -40,3 +40,15 @@ test("health helpers safely handle release payloads without a status field", () 
     assert.doesNotMatch(scripts[name], /if \(\$response\.status/);
   }
 });
+
+test("start script resolves a validated repository root without null Join-Path input", () => {
+  const start = scripts["start_platform.ps1"];
+  for (const marker of [
+    "RAVENTECH_VALIDATED_PROJECT_ROOT", "$PSScriptRoot", "$PSCommandPath",
+    "(Get-Location).Path", "Test-RavenTechRepositoryRoot", "Resolve-RavenTechRepositoryRoot",
+    "RavenTech repository root could not be resolved",
+  ]) assert.ok(start.includes(marker), `missing safe root resolution marker: ${marker}`);
+  assert.match(start, /IsNullOrWhiteSpace\(\$PSScriptRoot\)/);
+  assert.doesNotMatch(start, /Join-Path\s+\$PSScriptRoot/);
+  assert.doesNotMatch(start, /ProjectRoot|Read-Host/i);
+});

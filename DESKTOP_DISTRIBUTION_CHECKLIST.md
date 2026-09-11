@@ -59,6 +59,8 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 - [ ] Run `npm run portable:validate` and confirm the four-file allowlist.
 - [ ] Verify SHA-256 values in `portable-manifest.json`.
 - [ ] Confirm the portable executable starts without installing services.
+- [ ] Confirm it loads bundled React assets with Vite stopped and reports
+      **Frontend: Embedded**.
 
 ## Unsigned installer build
 
@@ -86,6 +88,8 @@ until signing, clean-machine QA, brand approval, and release approval are comple
       fixed repository and script-content checks; invalid paths remain copy-only.
 - [ ] Confirm launcher output is capped/redacted and timeouts show a clean state.
 - [ ] Confirm no service autostart, updater, embedded database, or backend is present.
+- [ ] Confirm frontend assets are embedded, API requests remain fixed to the
+      localhost:8000 backend, and no `.env` value enters the desktop bundle.
 - [ ] Run `npm run smoke -- --require-artifacts` and retain the console result
       with the local QA record; do not add binaries to Git.
 
@@ -94,7 +98,8 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 - [ ] Start the existing Docker/local workflow before launching the desktop shell.
 - [ ] Verify `http://localhost:8000/health` and `/health/ready` are readable.
 - [ ] Verify `/api/v1/release` reports `5.0.0-rc6`.
-- [ ] Test frontend embed at `http://localhost:5173` and offline help fallback.
+- [ ] Test the embedded frontend with Vite stopped. Separately, in development
+      mode, verify `http://localhost:5173/` HTTP 2xx HTML is accepted.
 - [ ] Export one benign report and confirm existing browser behavior is unchanged.
 - [ ] Switch desktop help and web UI between English and Spanish.
 - [ ] Confirm the repository-owned local-candidate icon is visible and is not

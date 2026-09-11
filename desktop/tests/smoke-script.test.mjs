@@ -22,7 +22,7 @@ test("smoke checker covers artifacts, local URLs, permissions, and updater state
   for (const token of [
     "portable-manifest.json", "installer-manifest.json", "file allowlist",
     "http://localhost:5173", "http://localhost:8000", "capability.permissions",
-    "createUpdaterArtifacts", "safeProjectPathBinding", "validate_repository_root", "trusted_script_bytes", "5.0.0-rc6", "--require-artifacts"
+    "createUpdaterArtifacts", "embeddedFrontend", "safeProjectPathBinding", "validate_repository_root", "trusted_script_bytes", "5.0.0-rc6", "--require-artifacts"
   ]) assert.ok(smoke.includes(token), `missing smoke check: ${token}`);
   assert.match(smoke, /tauri-plugin-\(shell\|fs\|updater\)/);
   assert.match(smoke, /checksum mismatch/);

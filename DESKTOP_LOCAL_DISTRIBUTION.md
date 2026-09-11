@@ -37,6 +37,10 @@ Windows machine. It keeps the repository and aggregate package as separate
 inputs, distinguishes runtime from rebuild prerequisites, and documents only
 manual, non-destructive recovery.
 
+The corrected RC6 artifact build embeds the existing React production assets.
+Portable and installed runs do not require Vite or port 5173; that URL is only
+for browser/development testing. Backend/Docker services remain required.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`
@@ -54,7 +58,7 @@ code-signing and public brand/release approval remain deferred.
 - Windows 10 or 11 with Microsoft Edge WebView2 Runtime already installed
 - Docker Desktop with Docker Compose
 - RavenTech OSINT repository and local configuration kept outside artifacts
-- Node.js/npm dependencies for the separately running Vite frontend
+- Node.js/npm only for rebuilding or browser/development mode
 - Rust/Cargo and pinned Tauri/NSIS build tools already available locally
 
 No backend, PostgreSQL, Redis, Docker runtime, database, or credentials are
@@ -93,12 +97,11 @@ From the repository root:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
-cd frontend
-npm run dev
 ```
 
-Expected local URLs are `http://localhost:5173` for the frontend and
-`http://localhost:8000` for the backend. Health, readiness, and release checks
+The installed/portable frontend is embedded. Optional Vite browser/development
+mode uses `http://localhost:5173`; the required backend is
+`http://localhost:8000`. Health, readiness, and release checks
 use `/health`, `/health/ready`, and `/api/v1/release`.
 
 ## Install or run
@@ -119,7 +122,8 @@ security policy merely to run the test.
    fixed markers and approved scripts report available.
 3. With services stopped, confirm readable English/Spanish Docker, port, release,
    migration, backend, frontend, and script guidance.
-4. Start Docker services and Vite through the approved workflow; confirm health and readiness become ready.
+4. Start Docker/backend services through the approved workflow; confirm health
+   and readiness become ready. In a release build confirm **Frontend: Embedded**.
 5. Open the embedded frontend and switch the desktop/web UI between English and Spanish.
 6. Export one benign report and confirm existing browser behavior is unchanged.
 7. Run `npm run portable:validate`, `npm run installer:validate -- --require-artifact`,

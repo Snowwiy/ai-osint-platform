@@ -53,6 +53,25 @@ def test_lan_monitoring_defaults_are_non_intrusive() -> None:
     assert "LAN_AGENT_TOKEN" not in local_settings.model_dump()
 
 
+def test_local_desktop_origins_are_exact_and_production_is_unchanged() -> None:
+    local_settings = Settings(_env_file=None, APP_ALLOWED_ORIGINS="http://localhost:5173")
+    production_settings = Settings(
+        _env_file=None,
+        APP_MODE="hosted",
+        APP_ENVIRONMENT="production",
+        APP_SECRET_KEY="unique-production-signing-key-value-123456789",
+        APP_ALLOWED_ORIGINS="https://example.test",
+        FRONTEND_URL="https://example.test",
+    )
+
+    assert local_settings.allowed_origins_list == [
+        "http://localhost:5173",
+        "http://tauri.localhost",
+        "tauri://localhost",
+    ]
+    assert production_settings.allowed_origins_list == ["https://example.test"]
+
+
 def test_public_lan_cidr_is_rejected_at_startup() -> None:
     local_settings = Settings(_env_file=None, LAN_ALLOWED_CIDRS="8.8.8.0/24")
 

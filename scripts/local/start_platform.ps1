@@ -5,8 +5,62 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
-$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
 $frontendUrl = "http://localhost:5173"
+
+function Test-RavenTechRepositoryRoot([string]$Candidate) {
+    if ([string]::IsNullOrWhiteSpace($Candidate)) { return $null }
+    try {
+        $root = (Resolve-Path -LiteralPath $Candidate -ErrorAction Stop).Path
+    } catch {
+        return $null
+    }
+    $requiredFiles = @(
+        "docker-compose.yml",
+        "pyproject.toml",
+        "frontend/package.json",
+        "desktop/package.json",
+        "scripts/local/start_platform.ps1",
+        "scripts/local/stop_platform.ps1",
+        "scripts/local/restart_platform.ps1",
+        "scripts/local/check_platform.ps1",
+        "scripts/local/open_platform.ps1"
+    )
+    foreach ($relative in $requiredFiles) {
+        if (-not (Test-Path -LiteralPath ([IO.Path]::Combine($root, $relative)) -PathType Leaf)) {
+            return $null
+        }
+    }
+    if (-not (Test-Path -LiteralPath ([IO.Path]::Combine($root, "backend/app")) -PathType Container)) {
+        return $null
+    }
+    return $root
+}
+
+function Resolve-RavenTechRepositoryRoot {
+    $candidates = [Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($env:RAVENTECH_VALIDATED_PROJECT_ROOT)) {
+        $candidates.Add($env:RAVENTECH_VALIDATED_PROJECT_ROOT)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+        $candidates.Add([IO.Path]::GetFullPath([IO.Path]::Combine($PSScriptRoot, "../..")))
+    }
+    if (-not [string]::IsNullOrWhiteSpace($PSCommandPath)) {
+        $scriptDirectory = [IO.Path]::GetDirectoryName($PSCommandPath)
+        if (-not [string]::IsNullOrWhiteSpace($scriptDirectory)) {
+            $candidates.Add([IO.Path]::GetFullPath([IO.Path]::Combine($scriptDirectory, "../..")))
+        }
+    }
+    $currentPath = (Get-Location).Path
+    if (-not [string]::IsNullOrWhiteSpace($currentPath)) { $candidates.Add($currentPath) }
+
+    foreach ($candidate in $candidates) {
+        $resolved = Test-RavenTechRepositoryRoot $candidate
+        if ($resolved) { return $resolved }
+    }
+    throw "RavenTech repository root could not be resolved. Validate the desktop project path or run this script from the repository root."
+}
+
+$repositoryRoot = Resolve-RavenTechRepositoryRoot
 
 function Invoke-LocalProbe([string]$Uri, [string]$Label) {
     try {

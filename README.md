@@ -80,6 +80,13 @@ manual recovery. Use
 verify prerequisites, package checksums, repository setup, portable/installed
 behavior, and non-destructive recovery on a second Windows machine.
 
+The Phase 5AX runtime correction packages the existing React production build
+inside Tauri. Portable and installed builds render that embedded UI and do not
+require Vite or port 5173. `http://localhost:5173/` remains an optional browser
+and desktop-development endpoint; its health probe accepts any HTTP 2xx
+`text/html` response. Docker and the backend on `http://localhost:8000` remain
+required.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -195,7 +202,8 @@ npm run dev
 
 `npm run dev` must be run from the `frontend/` directory.
 
-Optional desktop shell prototype, after the backend and frontend are running:
+Optional desktop development shell, after the backend is running (Vite is an
+optional development override):
 
 ```powershell
 cd desktop
@@ -205,8 +213,8 @@ npm run tauri:check
 npm run tauri:dev
 ```
 
-This command runs the source prototype directly through Cargo. It does not
-create an installer or start Docker/frontend automatically.
+This command builds the embedded React assets and runs the source prototype
+through Cargo. It does not create an installer or start Docker automatically.
 
 To build the Windows portable local-test folder after dependencies are already
 available locally:
@@ -219,8 +227,8 @@ npm run portable:build
 The output is
 `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`. Read
 [desktop/PORTABLE_BUILD_README.md](desktop/PORTABLE_BUILD_README.md) before
-running the unsigned executable. Docker services and `npm run dev` from
-`frontend/` must still be started manually.
+running the unsigned executable. Docker/backend services must still be started
+manually; `npm run dev` is needed only for browser or desktop-development mode.
 
 To build the unsigned current-user installer after local dependencies are
 available:

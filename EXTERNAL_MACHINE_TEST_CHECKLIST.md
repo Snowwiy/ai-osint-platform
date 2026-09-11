@@ -63,9 +63,9 @@ Required to run the local platform and desktop shell:
 - Windows 10 or 11 x64 with Microsoft Edge WebView2 Runtime
 - Docker Desktop with Docker Compose, installed and started manually
 - Git for the preferred clone and revision-verification workflow
-- Node.js and npm to install and run the separately managed Vite frontend
+- Node.js and npm only for browser/development mode or rebuilding artifacts
 - access to the RavenTech repository and permission to create a local `.env`
-- loopback ports `8000` and `5173` available
+- loopback port `8000` available; port `5173` only for optional Vite mode
 
 Required only when rebuilding desktop artifacts from source:
 
@@ -74,9 +74,9 @@ Required only when rebuilding desktop artifacts from source:
 - cached Tauri/NSIS build tools for the unsigned installer workflow
 
 Rust, Cargo, Tauri CLI, and NSIS are not required to run the already-built
-portable executable or unsigned installer. Docker, the repository, and the Vite
-frontend are still required in both portable and installed modes because the
-desktop package bundles none of them.
+portable executable or unsigned installer. Docker, the repository, and backend
+remain required. The React frontend is embedded in both portable and installed
+builds; Vite is not a release runtime prerequisite.
 
 ## 4. Verify the transferred package before execution
 
@@ -154,7 +154,8 @@ commands provide receiving-machine evidence. Never use
 ## 7. Create a local login and start the frontend
 
 With reviewed local administrator values in `.env`, create or confirm the
-administrator, then install and run the frontend:
+administrator. The following frontend commands are optional and apply only to
+browser/development testing:
 
 ```powershell
 docker compose exec -T backend python scripts/create_admin.py
@@ -163,7 +164,9 @@ npm ci
 npm run dev
 ```
 
-Keep Vite running and open a second PowerShell window at the repository root.
+If testing browser mode, keep Vite running and open a second PowerShell window
+at the repository root. A portable/installed test should also run with Vite
+stopped and report **Frontend: Embedded**.
 Public registration is disabled by default. If explicitly enabled for the test,
 registration creates only a non-admin account and may require invite/approval.
 Do not transmit or record credentials.

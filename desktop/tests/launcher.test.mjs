@@ -68,6 +68,7 @@ test("launcher output is bounded, sanitized, and timed out safely", () => {
   assert.match(rust, /Duration::from_secs\(150\)/);
   assert.match(rust, /Stdio::null\(\)/);
   assert.match(rust, /-NoProfile/);
+  assert.match(rust, /\.env\("RAVENTECH_VALIDATED_PROJECT_ROOT", &repository\)/);
 });
 
 test("start stop and restart require confirmation while copy fallback remains", () => {

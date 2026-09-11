@@ -205,6 +205,17 @@ control is a substitute for rotation after confirmed exposure.
 
 ## Frontend Build Or Layout Problems
 
+Portable and installed RC6 builds load React from bundled Tauri assets. They do
+not require `npm run dev` or port 5173. If the release status screen does not
+show **Frontend: Embedded**, rebuild the desktop artifacts and validate their
+manifests; do not point release mode at a backend API path on port 5173.
+
+If **Start platform** reports that the repository root cannot be resolved,
+rebind the canonical repository root (not `desktop/` or an artifact directory).
+The script accepts only the internally validated root and fixed repository
+markers; it intentionally falls back to copy-only guidance instead of executing
+an arbitrary path.
+
 - Confirm `frontend/.env` points to the expected API base URL.
 - `VITE_API_BASE_URL` should normally be `http://localhost:8000/api/v1` for
   local development.
@@ -337,9 +348,10 @@ External and protocol-relative action URLs are intentionally rejected.
   `provider_parse_error`. Retry is safe; provider failures do not delete valid
   entities already stored, and raw endpoint errors are not shown.
 
-The RC6 accepted runtime remains local Docker Compose plus the local Vite
-frontend. An optional Tauri shell, portable executable, and unsigned NSIS
-installer exist for private local testing only. They bundle no backend,
+The RC6 accepted browser workflow remains local Docker Compose plus optional
+local Vite. The Tauri portable executable and unsigned NSIS installer embed
+the same React frontend and require only the external local backend at runtime.
+They exist for private local testing only and bundle no backend,
 PostgreSQL, Redis, Docker, `.env`, or operator data. Signing, public release,
 auto-update, hosting, deployment, DNS, and Supabase migration remain deferred.
 ## Phase 5AD alert triage and Activity Inbox

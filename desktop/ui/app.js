@@ -1,5 +1,6 @@
 const FRONTEND_URL = "http://localhost:5173";
 const BACKEND_URL = "http://localhost:8000";
+const EMBEDDED_FRONTEND_URL = "./app/";
 
 const translations = {
   en: {
@@ -12,16 +13,16 @@ const translations = {
     configured: "Configured", discovered: "Discovered", notConfigured: "Not configured", sourceConfigured: "Saved preference", sourceCurrentDirectory: "Current directory", sourceDevelopmentRelative: "Development-relative", sourceCopyOnly: "Copy-only fallback",
     bindProjectPath: "Enter and save the RavenTech repository root.", correctProjectPath: "Correct the saved project path.", restoreScripts: "Restore the five approved local scripts.", checkRuntime: "Check local runtime prerequisites.",
     startDocker: "Start Docker Desktop, then start the platform.", installDocker: "Install Docker Desktop manually; nothing is installed automatically.", backendPortConflict: "Port 8000 is occupied by another service.", frontendPortConflict: "Port 5173 is occupied by another service.",
-    startBackend: "Start the approved local Docker services.", startFrontend: "Start the local Vite frontend.", fixMigrations: "Use the approved platform start/check flow to resolve pending migrations.", releaseMismatchAction: "The backend release does not match 5.0.0-rc6.", runtimeReady: "Local runtime is ready.",
-    backendHealth: "Backend", readiness: "Readiness", release: "Release", frontend: "Frontend", dockerServices: "Docker services", runtimeChecklist: "Runtime checklist", repoStructure: "Repository structure", dockerAvailability: "Docker availability", backendPort: "Port 8000", frontendPort: "Port 5173", releaseMatch: "Expected release", migrationState: "Migrations",
+    startBackend: "Start the approved local Docker services.", startFrontend: "Start the local Vite frontend for development/browser mode.", fixMigrations: "Use the approved platform start/check flow to resolve pending migrations.", releaseMismatchAction: "The backend release does not match 5.0.0-rc6.", runtimeReady: "Local runtime is ready.",
+    backendHealth: "Backend", readiness: "Readiness", release: "Release", frontend: "Frontend", dockerServices: "Docker services", runtimeChecklist: "Runtime checklist", repoStructure: "Repository structure", dockerAvailability: "Docker availability", backendPort: "Port 8000", frontendPort: "Port 5173 (development only)", releaseMatch: "Expected release", migrationState: "Migrations",
     runningDocker: "Running", installedDocker: "Installed, not confirmed running", notDetected: "Not detected", application: "RavenTech responding", occupied: "Occupied by another service", portAvailable: "Available; service not listening", matches: "Matches", mismatch: "Mismatch", pending: "Pending or degraded",
     helpTitle: "Controlled local launcher", helpBody: "Approved actions use five fixed scripts from the validated repository. Copy remains available if runtime execution is unavailable.",
     backendHelpTitle: "Backend is not reachable", backendHelpBody: "Confirm Docker Desktop is running, then use Start platform. PostgreSQL and Redis remain required local services.", readinessHelpTitle: "Backend dependencies are not ready", readinessHelpBody: "A dependency or migration is degraded. Use Check health for a sanitized diagnosis.", frontendHelpTitle: "Frontend is not reachable", frontendHelpBody: "Run the Vite development server from the validated repository. It is not auto-installed or started outside the approved script flow.",
-    endpoints: "Local endpoints", frontendUrl: "Frontend URL", backendUrl: "Backend URL", firewallTitle: "Windows firewall guidance", firewallBody: "RavenTech uses localhost ports 8000 and 5173. Do not approve public-network exposure; review any firewall prompt before continuing.", connected: "Local frontend connected", showStatus: "Service status", openWorkspace: "Open local workspace", checking: "Checking…", reachable: "Reachable", unreachable: "Unreachable", ready: "Ready", degraded: "Degraded", available: "Available", unavailable: "Unavailable", unknown: "Unknown",
+    endpoints: "Local endpoints", frontendUrl: "Frontend source", backendUrl: "Backend URL", firewallTitle: "Windows firewall guidance", firewallBody: "RavenTech uses backend loopback port 8000. Port 5173 is used only for development/browser mode. Do not approve public-network exposure; review any firewall prompt before continuing.", connected: "Frontend workspace", showStatus: "Service status", openWorkspace: "Open local workspace", checking: "Checking…", reachable: "Accessible", unreachable: "Not accessible", ready: "Ready", degraded: "Degraded", embedded: "Embedded", bundledAssets: "Bundled React assets", notRequired: "Not required", available: "Available", unavailable: "Unavailable", unknown: "Unknown",
     start: "Start platform", stop: "Stop platform", restart: "Restart platform", check: "Check health", openFrontend: "Open frontend", frontendCommand: "Run frontend dev", backendCommand: "Run Docker services", copy: "Copy", run: "Run", copied: "Command copied. Nothing was executed.", copyFailed: "Clipboard access is unavailable. Select the visible command text and copy it manually.",
     lastCommand: "Last command", noCommand: "No launcher action has run.", notRun: "Not run", running: "Running approved script…", commandSucceeded: "Approved script completed.", commandFailed: "Approved script failed.", commandUnavailable: "Validated repository script unavailable; use Copy.", commandTimedOut: "Approved script timed out; check status before retrying.",
     confirmTitle: "Confirm local service action", confirmBody: "Run the approved {action} script from the validated project? This changes local service state.", cancel: "Cancel", confirm: "Confirm",
-    readyMessage: "Project, backend, dependencies, and frontend are ready.", setupMessage: "Complete first-run project binding to make installed and portable launches reliable.", backendMessage: "Backend is unreachable. Review Docker and port 8000 below.", readinessMessage: "Backend is reachable, but a required dependency or migration is degraded.", frontendMessage: "Backend is ready. Review port 5173 and start the local frontend.", platformHealthy: "Backend ready", platformDegraded: "Service problem detected; returning to status."
+    readyMessage: "Project, backend, dependencies, and frontend are ready.", setupMessage: "Complete first-run project binding to make installed and portable launches reliable.", backendMessage: "Backend is not accessible. Review Docker and port 8000 below.", readinessMessage: "Backend is accessible, but a required dependency or migration needs action.", frontendMessage: "Backend is ready. Start Vite only for development/browser mode.", platformHealthy: "Backend ready", platformDegraded: "Service problem detected; returning to status."
   },
   es: {
     prototype: "Asistente de configuración local RC6", refresh: "Comprobar de nuevo", eyebrow: "ESTADO DE SERVICIOS LOCALES",
@@ -33,16 +34,16 @@ const translations = {
     configured: "Configurada", discovered: "Detectada", notConfigured: "Sin configurar", sourceConfigured: "Preferencia guardada", sourceCurrentDirectory: "Directorio actual", sourceDevelopmentRelative: "Ruta relativa de desarrollo", sourceCopyOnly: "Alternativa de solo copia",
     bindProjectPath: "Introduce y guarda la raíz del repositorio RavenTech.", correctProjectPath: "Corrige la ruta del proyecto guardada.", restoreScripts: "Restaura los cinco scripts locales aprobados.", checkRuntime: "Comprueba los requisitos del entorno local.",
     startDocker: "Inicia Docker Desktop y después la plataforma.", installDocker: "Instala Docker Desktop manualmente; nada se instala automáticamente.", backendPortConflict: "El puerto 8000 está ocupado por otro servicio.", frontendPortConflict: "El puerto 5173 está ocupado por otro servicio.",
-    startBackend: "Inicia los servicios Docker locales aprobados.", startFrontend: "Inicia el frontend Vite local.", fixMigrations: "Usa el inicio/comprobación aprobado para resolver migraciones pendientes.", releaseMismatchAction: "La versión del backend no coincide con 5.0.0-rc6.", runtimeReady: "El entorno local está listo.",
-    backendHealth: "Backend", readiness: "Disponibilidad", release: "Versión", frontend: "Frontend", dockerServices: "Servicios Docker", runtimeChecklist: "Lista del entorno", repoStructure: "Estructura del repositorio", dockerAvailability: "Disponibilidad de Docker", backendPort: "Puerto 8000", frontendPort: "Puerto 5173", releaseMatch: "Versión esperada", migrationState: "Migraciones",
+    startBackend: "Inicia los servicios Docker locales aprobados.", startFrontend: "Inicia el frontend Vite solo para desarrollo/modo navegador.", fixMigrations: "Usa el inicio/comprobación aprobado para resolver migraciones pendientes.", releaseMismatchAction: "La versión del backend no coincide con 5.0.0-rc6.", runtimeReady: "El entorno local está listo.",
+    backendHealth: "Backend", readiness: "Disponibilidad", release: "Versión", frontend: "Frontend", dockerServices: "Servicios Docker", runtimeChecklist: "Lista del entorno", repoStructure: "Estructura del repositorio", dockerAvailability: "Disponibilidad de Docker", backendPort: "Puerto 8000", frontendPort: "Puerto 5173 (solo desarrollo)", releaseMatch: "Versión esperada", migrationState: "Migraciones",
     runningDocker: "En ejecución", installedDocker: "Instalado, ejecución no confirmada", notDetected: "No detectado", application: "RavenTech responde", occupied: "Ocupado por otro servicio", portAvailable: "Disponible; servicio sin escuchar", matches: "Coincide", mismatch: "No coincide", pending: "Pendientes o degradadas",
     helpTitle: "Iniciador local controlado", helpBody: "Las acciones aprobadas usan cinco scripts fijos del repositorio validado. Copiar sigue disponible si la ejecución no está disponible.",
     backendHelpTitle: "No se puede acceder al backend", backendHelpBody: "Confirma que Docker Desktop esté activo y usa Iniciar plataforma. PostgreSQL y Redis siguen siendo necesarios.", readinessHelpTitle: "Las dependencias del backend no están listas", readinessHelpBody: "Una dependencia o migración está degradada. Usa Comprobar salud para un diagnóstico sanitizado.", frontendHelpTitle: "No se puede acceder al frontend", frontendHelpBody: "Ejecuta el servidor Vite desde el repositorio validado. No se instala ni inicia automáticamente fuera del flujo aprobado.",
-    endpoints: "Endpoints locales", frontendUrl: "URL del frontend", backendUrl: "URL del backend", firewallTitle: "Guía del firewall de Windows", firewallBody: "RavenTech usa los puertos locales 8000 y 5173. No autorices exposición en redes públicas; revisa cualquier aviso del firewall antes de continuar.", connected: "Frontend local conectado", showStatus: "Estado de servicios", openWorkspace: "Abrir espacio local", checking: "Comprobando…", reachable: "Accesible", unreachable: "No accesible", ready: "Listo", degraded: "Degradado", available: "Disponible", unavailable: "No disponible", unknown: "Desconocido",
+    endpoints: "Endpoints locales", frontendUrl: "Origen del frontend", backendUrl: "URL del backend", firewallTitle: "Guía del firewall de Windows", firewallBody: "RavenTech usa el puerto local 8000 para el backend. El puerto 5173 solo se usa en desarrollo/modo navegador. No autorices exposición en redes públicas; revisa cualquier aviso del firewall antes de continuar.", connected: "Espacio del frontend", showStatus: "Estado de servicios", openWorkspace: "Abrir espacio local", checking: "Comprobando…", reachable: "Accesible", unreachable: "No accesible", ready: "Listo", degraded: "Degradado", embedded: "Integrado", bundledAssets: "Recursos React incluidos", notRequired: "No requerido", available: "Disponible", unavailable: "No disponible", unknown: "Desconocido",
     start: "Iniciar plataforma", stop: "Detener plataforma", restart: "Reiniciar plataforma", check: "Comprobar salud", openFrontend: "Abrir frontend", frontendCommand: "Ejecutar frontend dev", backendCommand: "Ejecutar servicios Docker", copy: "Copiar", run: "Ejecutar", copied: "Comando copiado. No se ejecutó nada.", copyFailed: "El portapapeles no está disponible. Selecciona el comando visible y cópialo manualmente.",
     lastCommand: "Último comando", noCommand: "No se ha ejecutado ninguna acción.", notRun: "Sin ejecutar", running: "Ejecutando script aprobado…", commandSucceeded: "El script aprobado terminó correctamente.", commandFailed: "El script aprobado falló.", commandUnavailable: "Script del repositorio validado no disponible; usa Copiar.", commandTimedOut: "El script agotó el tiempo; comprueba el estado antes de reintentar.",
     confirmTitle: "Confirmar acción de servicio local", confirmBody: "¿Ejecutar el script aprobado de {action} desde el proyecto validado? Esto cambia el estado del servicio local.", cancel: "Cancelar", confirm: "Confirmar",
-    readyMessage: "El proyecto, backend, dependencias y frontend están listos.", setupMessage: "Completa la vinculación inicial para que los inicios instalados y portables sean fiables.", backendMessage: "El backend no está accesible. Revisa Docker y el puerto 8000.", readinessMessage: "El backend responde, pero una dependencia o migración está degradada.", frontendMessage: "El backend está listo. Revisa el puerto 5173 e inicia el frontend local.", platformHealthy: "Backend listo", platformDegraded: "Se detectó un problema; regresando al estado."
+    readyMessage: "El proyecto, backend, dependencias y frontend están listos.", setupMessage: "Completa la vinculación inicial para que los inicios instalados y portables sean fiables.", backendMessage: "El backend no está accesible. Revisa Docker y el puerto 8000.", readinessMessage: "El backend responde, pero una dependencia o migración requiere atención.", frontendMessage: "El backend está listo. Inicia Vite solo para desarrollo/modo navegador.", platformHealthy: "Backend listo", platformDegraded: "Se detectó un problema; regresando al estado."
   }
 };
 
@@ -51,14 +52,15 @@ const commands = Object.freeze([
   { label: "stop", text: ".\\scripts\\local\\stop_platform.ps1", invoke: "stop_platform", confirm: true },
   { label: "restart", text: ".\\scripts\\local\\restart_platform.ps1", invoke: "restart_platform", confirm: true },
   { label: "check", text: ".\\scripts\\local\\check_platform.ps1", invoke: "check_platform", confirm: false },
-  { label: "openFrontend", text: ".\\scripts\\local\\open_platform.ps1 -Target frontend", invoke: "open_local_frontend", confirm: false },
-  { label: "frontendCommand", text: "cd frontend; npm run dev" },
+  { label: "openFrontend", text: ".\\scripts\\local\\open_platform.ps1 -Target frontend", invoke: "open_local_frontend", confirm: false, devOnly: true },
+  { label: "frontendCommand", text: "cd frontend; npm run dev", devOnly: true },
   { label: "backendCommand", text: "docker compose up -d postgres redis backend celery-worker" }
 ]);
 
 let language = localStorage.getItem("raventech-desktop-language") === "es" ? "es" : "en";
 let checking = false, platformOpen = false, statusPinned = false, previouslyReady = false, launcherBusy = false;
 let lastCommandKey = null, lastResultKey = "notRun", currentSetup = null;
+let currentFrontendMode = "embedded";
 
 function copy(key) { return translations[language][key] ?? translations.en[key] ?? key; }
 function setState(node, text, good) { node.textContent = text; node.className = good === true ? "ok" : good === false ? "offline" : ""; }
@@ -67,13 +69,13 @@ function renderLanguage() {
   document.documentElement.lang = language;
   document.querySelectorAll("[data-copy]").forEach((node) => { node.textContent = copy(node.dataset.copy); });
   document.querySelector("#language").textContent = language === "en" ? "Español" : "English";
-  document.querySelector("#frontend-url").textContent = FRONTEND_URL; document.querySelector("#backend-url").textContent = BACKEND_URL;
+  renderFrontendSource(); document.querySelector("#backend-url").textContent = BACKEND_URL;
   document.querySelector("#last-command").textContent = lastCommandKey ? copy(lastCommandKey) : copy("noCommand");
   document.querySelector("#command-result").textContent = copy(lastResultKey); renderCommands(); if (currentSetup) renderSetup(currentSetup);
 }
 
 function renderCommands() {
-  document.querySelector("#commands").replaceChildren(...commands.map((command) => {
+  document.querySelector("#commands").replaceChildren(...commands.filter((command) => !command.devOnly || currentFrontendMode === "development").map((command) => {
     const row = document.createElement("div"); row.className = "command";
     const name = document.createElement("label"); name.textContent = copy(command.label);
     const code = document.createElement("code"); code.textContent = command.text;
@@ -84,6 +86,10 @@ function renderCommands() {
     else row.append(document.createElement("span"));
     row.append(copyButton); return row;
   }));
+}
+
+function renderFrontendSource() {
+  document.querySelector("#frontend-url").textContent = currentFrontendMode === "development" ? FRONTEND_URL : copy("bundledAssets");
 }
 
 function renderSetup(setup) {
@@ -104,14 +110,14 @@ function nextRuntimeAction(snapshot) {
   if (!snapshot.backend.reachable) return snapshot.dockerAvailability === "installed" ? "startDocker" : "startBackend";
   if (!snapshot.readiness.healthy || snapshot.migrationStatus !== "ok") return "fixMigrations";
   if (snapshot.releaseMatches === false) return "releaseMismatchAction";
-  if (!snapshot.frontend.reachable && snapshot.frontendPortStatus === "occupied") return "frontendPortConflict";
-  if (!snapshot.frontend.healthy) return "startFrontend";
+  if (snapshot.frontendMode === "development" && !snapshot.frontend.reachable && snapshot.frontendPortStatus === "occupied") return "frontendPortConflict";
+  if (snapshot.frontendMode === "development" && !snapshot.frontend.healthy) return "startFrontend";
   return "runtimeReady";
 }
 
 function renderWizard(snapshot) {
   const projectReady = snapshot.setup.configuredPathValid;
-  const prerequisitesReady = snapshot.setup.scriptsAvailable && snapshot.dockerAvailability !== "notDetected" && snapshot.backendPortStatus !== "occupied" && snapshot.frontendPortStatus !== "occupied";
+  const prerequisitesReady = snapshot.setup.scriptsAvailable && snapshot.dockerAvailability !== "notDetected" && snapshot.backendPortStatus !== "occupied" && (snapshot.frontendMode !== "development" || snapshot.frontendPortStatus !== "occupied");
   const servicesReady = snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   for (const [step, ready] of [["project", projectReady], ["prerequisites", prerequisitesReady], ["services", servicesReady]]) {
     const item = document.querySelector(`#step-${step}`); item.classList.toggle("complete", ready); item.classList.toggle("attention", !ready);
@@ -150,10 +156,10 @@ async function requestLauncherAction(command) {
 }
 
 function paint(id, state, detail = "") {
-  const node = document.querySelector(id); setState(node, copy(state), state === "ready" || state === "reachable" || state === "available");
+  const node = document.querySelector(id); setState(node, copy(state), state === "ready" || state === "reachable" || state === "available" || state === "embedded");
   const detailNode = document.querySelector(id.replace("-status", "-detail")); if (detailNode) detailNode.textContent = detail;
 }
-function showPlatform() { statusPinned = false; platformOpen = true; document.querySelector("#status-view").hidden = true; document.querySelector(".topbar").hidden = true; document.querySelector("#platform-view").hidden = false; const frame = document.querySelector("#platform-frame"); if (frame.src !== `${FRONTEND_URL}/`) frame.src = FRONTEND_URL; }
+function showPlatform() { statusPinned = false; platformOpen = true; document.querySelector("#status-view").hidden = true; document.querySelector(".topbar").hidden = true; document.querySelector("#platform-view").hidden = false; const frame = document.querySelector("#platform-frame"); const target = currentFrontendMode === "development" ? FRONTEND_URL : EMBEDDED_FRONTEND_URL; if (frame.dataset.mode !== currentFrontendMode) { frame.src = target; frame.dataset.mode = currentFrontendMode; } }
 function showStatus(pin = true) { statusPinned = pin; platformOpen = false; document.querySelector("#platform-view").hidden = true; document.querySelector(".topbar").hidden = false; document.querySelector("#status-view").hidden = false; }
 function setGuidance(name) { ["backend", "readiness", "frontend"].forEach((item) => { document.querySelector(`#${item}-guidance`).hidden = item !== name; }); }
 
@@ -161,27 +167,28 @@ function renderChecklist(snapshot) {
   setState(document.querySelector("#check-repository"), copy(snapshot.setup.repositoryFound ? "available" : "unavailable"), snapshot.setup.repositoryFound);
   const dockerKey = snapshot.dockerAvailability === "running" ? "runningDocker" : snapshot.dockerAvailability === "installed" ? "installedDocker" : "notDetected";
   setState(document.querySelector("#check-docker"), copy(dockerKey), snapshot.dockerAvailability === "running" ? true : snapshot.dockerAvailability === "notDetected" ? false : null);
-  for (const [id, status] of [["#check-backend-port", snapshot.backendPortStatus], ["#check-frontend-port", snapshot.frontendPortStatus]]) setState(document.querySelector(id), copy(status === "available" ? "portAvailable" : status), status === "application" ? true : status === "occupied" ? false : null);
+  for (const [id, status] of [["#check-backend-port", snapshot.backendPortStatus], ["#check-frontend-port", snapshot.frontendPortStatus]]) setState(document.querySelector(id), copy(status === "available" ? "portAvailable" : status), status === "application" || status === "notRequired" ? true : status === "occupied" ? false : null);
   setState(document.querySelector("#check-release"), snapshot.releaseMatches == null ? copy("unknown") : copy(snapshot.releaseMatches ? "matches" : "mismatch"), snapshot.releaseMatches);
   setState(document.querySelector("#check-migrations"), snapshot.migrationStatus == null ? copy("unknown") : copy(snapshot.migrationStatus === "ok" ? "ready" : "pending"), snapshot.migrationStatus === "ok" ? true : snapshot.migrationStatus == null ? null : false);
 }
 
 function renderSnapshot(snapshot) {
+  currentFrontendMode = snapshot.frontendMode === "development" ? "development" : "embedded"; renderFrontendSource(); renderCommands();
   renderSetup(snapshot.setup); renderChecklist(snapshot); renderWizard(snapshot); document.querySelector("#next-action").textContent = copy(nextRuntimeAction(snapshot));
   const backendState = !snapshot.backend.reachable ? "unreachable" : snapshot.backend.healthy ? "reachable" : "degraded";
   const readinessState = !snapshot.readiness.reachable ? "unreachable" : snapshot.readiness.healthy ? "ready" : "degraded";
-  const frontendState = !snapshot.frontend.reachable ? "unreachable" : snapshot.frontend.healthy ? "reachable" : "degraded";
+  const frontendState = currentFrontendMode === "embedded" ? "embedded" : !snapshot.frontend.reachable ? "unreachable" : snapshot.frontend.healthy ? "reachable" : "degraded";
   paint("#backend-status", backendState, snapshot.backend.status ?? ""); paint("#ready-status", readinessState, snapshot.readiness.status ?? "");
   setState(document.querySelector("#release-status"), snapshot.releaseVersion ?? copy("unavailable"), snapshot.releaseMatches ?? false);
   document.querySelector("#release-detail").textContent = snapshot.release.httpStatus ? `HTTP ${snapshot.release.httpStatus}` : copy("unknown");
-  paint("#frontend-status", frontendState, snapshot.frontend.httpStatus ? `HTTP ${snapshot.frontend.httpStatus}` : "");
+  paint("#frontend-status", frontendState, currentFrontendMode === "embedded" ? copy("bundledAssets") : snapshot.frontend.httpStatus ? `HTTP ${snapshot.frontend.httpStatus}` : "");
   const dockerState = snapshot.dockerServicesStatus ?? (!snapshot.backend.reachable ? "unknown" : "degraded"); paint("#docker-status", dockerState, snapshot.dockerServicesStatus ? copy(dockerState) : copy("unknown"));
   const allReady = snapshot.setup.configuredPathValid && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   const summary = document.querySelector("#summary"), summaryText = document.querySelector("#summary-text"), openButton = document.querySelector("#open-platform"); openButton.hidden = !allReady;
   if (!snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
   else if (!snapshot.backend.reachable) { summary.className = "summary error"; summaryText.textContent = copy("backendMessage"); setGuidance("backend"); }
   else if (!snapshot.backend.healthy || !snapshot.readiness.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("readinessMessage"); setGuidance("readiness"); }
-  else if (!snapshot.frontend.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("frontendMessage"); setGuidance("frontend"); }
+  else if (currentFrontendMode === "development" && !snapshot.frontend.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("frontendMessage"); setGuidance("frontend"); }
   else { summary.className = "summary success"; summaryText.textContent = copy("readyMessage"); setGuidance(""); }
   document.querySelector("#platform-summary").textContent = snapshot.releaseVersion ? `${copy("platformHealthy")} · ${snapshot.releaseVersion}` : copy("platformHealthy");
   if (allReady && !previouslyReady && !statusPinned) showPlatform(); if (!allReady && platformOpen) { document.querySelector("#message").textContent = copy("platformDegraded"); showStatus(false); } previouslyReady = allReady;
@@ -190,7 +197,7 @@ function renderSnapshot(snapshot) {
 async function refresh() {
   if (checking) return; checking = true; ["#backend-status", "#ready-status", "#release-status", "#frontend-status", "#docker-status"].forEach((id) => paint(id, "checking"));
   try { renderSnapshot(await window.__TAURI__.core.invoke("probe_local_services")); }
-  catch { renderSnapshot({ backend: { reachable: false, healthy: false }, readiness: { reachable: false, healthy: false }, release: { reachable: false, healthy: false }, frontend: { reachable: false, healthy: false }, releaseVersion: null, dockerServicesStatus: null, dockerAvailability: "notDetected", backendPortStatus: "available", frontendPortStatus: "available", releaseMatches: null, migrationStatus: null, setup: { configured: false, configuredPath: null, configuredPathValid: false, repositoryFound: false, repositoryPath: null, resolutionSource: "copyOnly", composeAvailable: false, frontendAvailable: false, backendAvailable: false, scriptsAvailable: false, nextAction: "bindProjectPath" } }); }
+  catch { renderSnapshot({ backend: { reachable: false, healthy: false }, readiness: { reachable: false, healthy: false }, release: { reachable: false, healthy: false }, frontend: { reachable: true, healthy: true, status: "embedded" }, frontendMode: "embedded", releaseVersion: null, dockerServicesStatus: null, dockerAvailability: "notDetected", backendPortStatus: "available", frontendPortStatus: "notRequired", releaseMatches: null, migrationStatus: null, setup: { configured: false, configuredPath: null, configuredPathValid: false, repositoryFound: false, repositoryPath: null, resolutionSource: "copyOnly", composeAvailable: false, frontendAvailable: false, backendAvailable: false, scriptsAvailable: false, nextAction: "bindProjectPath" } }); }
   finally { checking = false; }
 }
 

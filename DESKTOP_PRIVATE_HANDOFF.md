@@ -35,6 +35,8 @@ The combined package contains exactly:
 Portable and installer subpackages contain their own manifest and SHA-256
 metadata. The combined manifest records the source commit, UTC build time,
 unsigned/local-only state, Docker requirement, filenames, and checksums.
+Each executable includes the React production assets. Neither portable nor
+installed use requires Vite or port 5173; the backend remains external.
 
 ## Verify before transfer
 
@@ -62,8 +64,8 @@ binaries to Git.
    user and follow the NSIS prompts.
 5. Launch **RavenTech OSINT Desktop** from the Start menu.
 6. Bind the repository root in the first-run Project stage.
-7. Start Docker/local services and the Vite frontend using the approved flow in
-   `OPERATOR_MANUAL.md`.
+7. Start Docker/backend services using the approved flow in
+   `OPERATOR_MANUAL.md`. Start Vite only for optional browser/development QA.
 
 Windows SmartScreen may warn because the installer is unsigned. Verify the
 checksum and follow organizational policy. This package must not be represented
@@ -82,6 +84,7 @@ service registration occurs.
 4. Start the existing local platform; verify `/health`, `/health/ready`, and
    `/api/v1/release` report a ready RC6 service.
 5. Open the embedded UI, sign in, and switch English/Spanish.
+   Confirm the status reads **Frontend: Embedded** with Vite stopped.
 6. Exercise the approved demo flow, Monitoring Center, endpoint-agent
    instructions, advisory posture, and a benign report export.
 7. Confirm start, stop, and restart require confirmation; verify check output is

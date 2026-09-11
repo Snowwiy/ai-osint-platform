@@ -41,8 +41,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "portable-manifest.js
 if (manifest.version !== VERSION || manifest.executable !== EXECUTABLE) {
   throw new Error("Portable manifest metadata does not match the RC6 build.");
 }
-const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden portable capability is enabled in the manifest.");
 }
 for (const name of [EXECUTABLE, "LICENSE", "README.md"]) {

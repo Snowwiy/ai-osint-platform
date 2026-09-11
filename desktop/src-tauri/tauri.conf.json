@@ -4,7 +4,7 @@
   "version": "5.0.0-rc6",
   "identifier": "com.raventech.osint",
   "build": {
-    "frontendDist": "../ui"
+    "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": true,
@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' customprotocol: asset:; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self'; script-src 'self'; frame-src http://localhost:5173"
+      "csp": "default-src 'self' customprotocol: asset:; connect-src ipc: http://ipc.localhost http://localhost:8000; img-src 'self' asset: http://asset.localhost data:; style-src 'self'; script-src 'self'; frame-src 'self' http://localhost:5173"
     }
   },
   "bundle": {

@@ -12,12 +12,11 @@ and run these commands from the repository root in PowerShell:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
-cd frontend
-npm run dev
 ```
 
-The desktop expects the frontend at `http://localhost:5173` and the backend at
-`http://localhost:8000`. Use the first-run screen to bind the repository root.
+The desktop includes the built React frontend and expects the backend at
+`http://localhost:8000`. `http://localhost:5173` and `npm run dev` are optional
+for browser/development testing only. Use the first-run screen to bind the repository root.
 Start, stop, and restart actions require confirmation and can invoke only the
 five fixed local launcher scripts. If the repository cannot be validated, the
 desktop keeps copy-only guidance.
@@ -25,7 +24,7 @@ desktop keeps copy-only guidance.
 ## Portable app
 
 Run `RavenTech OSINT Desktop.exe` directly. No installation is performed. Keep
-the local Docker services and Vite frontend running while testing.
+the local Docker/backend services running; Vite is not required.
 
 ## Unsigned installer
 
@@ -46,8 +45,8 @@ time, unsigned/local-only status, and explicit runtime boundaries.
 
 ## Limitations and release boundary
 
-- Docker Desktop, PostgreSQL, Redis, the backend, and the Vite frontend remain
-  separately managed local prerequisites.
+- Docker Desktop, PostgreSQL, Redis, and the backend remain separately managed
+  local prerequisites. Vite is optional for browser/development mode.
 - There is no code signing, auto-update, public release, service autostart, or
   bundled database/backend runtime.
 - There are no hosting, deployment, DNS, or Supabase migration changes.

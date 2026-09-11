@@ -42,6 +42,7 @@ struct ServiceSnapshot {
     readiness: ProbeResult,
     release: ProbeResult,
     frontend: ProbeResult,
+    frontend_mode: String,
     release_version: Option<String>,
     docker_services_status: Option<String>,
     docker_availability: String,
@@ -134,7 +135,7 @@ impl LocalAction {
     }
 }
 
-fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String)> {
+fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String, Option<String>)> {
     let address: SocketAddr = address.parse().ok()?;
     let timeout = Duration::from_secs(2);
     let mut stream = TcpStream::connect_timeout(&address, timeout).ok()?;
@@ -142,7 +143,8 @@ fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String)> {
     stream.set_write_timeout(Some(timeout)).ok()?;
 
     let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: localhost:{}\r\nAccept: */*\r\nConnection: close\r\n\r\n",
+        address.port()
     );
     stream.write_all(request.as_bytes()).ok()?;
 
@@ -160,12 +162,17 @@ fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String)> {
         .nth(1)?
         .parse::<u16>()
         .ok()?;
-    Some((status, body.to_owned()))
+    let content_type = headers.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("content-type")
+            .then(|| value.trim().to_ascii_lowercase())
+    });
+    Some((status, body.to_owned(), content_type))
 }
 
 fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
     match fixed_http_get(LOOPBACK, path) {
-        Some((code, body)) => {
+        Some((code, body, _)) => {
             let value = serde_json::from_str::<Value>(&body).ok();
             let status = value
                 .as_ref()
@@ -184,6 +191,46 @@ fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
             )
         }
         None => (ProbeResult::default(), None),
+    }
+}
+
+fn frontend_html_response_is_healthy(code: u16, content_type: Option<&str>) -> bool {
+    (200..300).contains(&code)
+        && content_type.is_some_and(|value| {
+            value
+                .split(';')
+                .next()
+                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("text/html"))
+        })
+}
+
+fn frontend_dev_probe() -> ProbeResult {
+    let mut fallback = ProbeResult::default();
+    for path in ["/", "/index.html"] {
+        let Some((code, _, content_type)) = fixed_http_get(FRONTEND_LOOPBACK, path) else {
+            continue;
+        };
+        let healthy = frontend_html_response_is_healthy(code, content_type.as_deref());
+        let result = ProbeResult {
+            reachable: true,
+            healthy,
+            http_status: Some(code),
+            status: Some(if healthy { "ok" } else { "error" }.to_owned()),
+        };
+        if healthy {
+            return result;
+        }
+        fallback = result;
+    }
+    fallback
+}
+
+fn embedded_frontend_probe() -> ProbeResult {
+    ProbeResult {
+        reachable: true,
+        healthy: true,
+        http_status: None,
+        status: Some("embedded".to_owned()),
     }
 }
 
@@ -222,18 +269,12 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         .and_then(|json| json.get("version"))
         .and_then(Value::as_str)
         .map(str::to_owned);
-    let frontend = match fixed_http_get(FRONTEND_LOOPBACK, "/") {
-        Some((code, _)) => ProbeResult {
-            reachable: true,
-            healthy: (200..400).contains(&code),
-            http_status: Some(code),
-            status: Some(if (200..400).contains(&code) {
-                "ok".to_owned()
-            } else {
-                "error".to_owned()
-            }),
-        },
-        None => ProbeResult::default(),
+    let development_frontend = frontend_dev_probe();
+    let use_development_frontend = cfg!(debug_assertions) && development_frontend.healthy;
+    let (frontend, frontend_mode) = if use_development_frontend {
+        (development_frontend, "development".to_owned())
+    } else {
+        (embedded_frontend_probe(), "embedded".to_owned())
     };
     let docker_services_status = backend_json.as_ref().map(|json| {
         let checks = json.get("checks");
@@ -262,7 +303,11 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
     }
     .to_owned();
     let backend_port_status = port_status(LOOPBACK, backend.reachable);
-    let frontend_port_status = port_status(FRONTEND_LOOPBACK, frontend.reachable);
+    let frontend_port_status = if frontend_mode == "development" {
+        port_status(FRONTEND_LOOPBACK, frontend.reachable)
+    } else {
+        "notRequired".to_owned()
+    };
     let release_matches = release_version
         .as_deref()
         .map(|version| version == EXPECTED_RELEASE);
@@ -273,6 +318,7 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         readiness,
         release,
         frontend,
+        frontend_mode,
         release_version,
         docker_services_status,
         docker_availability,
@@ -520,6 +566,7 @@ fn run_whitelisted(app: &tauri::AppHandle, action: LocalAction) -> LauncherResul
         .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
         .arg(&script)
         .current_dir(&repository)
+        .env("RAVENTECH_VALIDATED_PROJECT_ROOT", &repository)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -748,6 +795,26 @@ mod tests {
     #[test]
     fn invalid_repository_path_is_rejected() {
         assert!(validate_repository_root(Path::new(env!("CARGO_MANIFEST_DIR"))).is_none());
+    }
+
+    #[test]
+    fn frontend_health_accepts_only_successful_html() {
+        assert!(frontend_html_response_is_healthy(200, Some("text/html")));
+        assert!(frontend_html_response_is_healthy(
+            204,
+            Some("text/html; charset=utf-8")
+        ));
+        assert!(!frontend_html_response_is_healthy(200, Some("application/json")));
+        assert!(!frontend_html_response_is_healthy(404, Some("text/html")));
+        assert!(!frontend_html_response_is_healthy(200, None));
+    }
+
+    #[test]
+    fn release_build_uses_embedded_frontend() {
+        if !cfg!(debug_assertions) {
+            assert_eq!(embedded_frontend_probe().status.as_deref(), Some("embedded"));
+            assert!(embedded_frontend_probe().healthy);
+        }
     }
 }
 

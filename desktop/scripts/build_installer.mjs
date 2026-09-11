@@ -106,6 +106,7 @@ const manifest = {
     serviceAutostart: false,
     controlledLocalLauncher: true,
     safeProjectPathBinding: true,
+    embeddedFrontend: true,
     arbitraryCommandExecution: false,
     embeddedBackend: false,
     embeddedDatabase: false,

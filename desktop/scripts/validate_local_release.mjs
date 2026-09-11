@@ -81,7 +81,8 @@ if (manifest.appName !== PRODUCT || manifest.version !== VERSION || manifest.por
 if (!/^\d{4}-\d{2}-\d{2}T/.test(manifest.buildTime) || !/^[0-9a-f]{40}$/.test(manifest.commit)) {
   throw new Error("Local release build time or commit metadata is invalid.");
 }
-if (manifest.signed !== false || manifest.localOnly !== true || manifest.dockerRequired !== true || Object.values(manifest.boundaries).some((value) => value !== false)) {
+const { embeddedFrontend, ...disabledBoundaries } = manifest.boundaries;
+if (manifest.signed !== false || manifest.localOnly !== true || manifest.dockerRequired !== true || embeddedFrontend !== true || Object.values(disabledBoundaries).some((value) => value !== false)) {
   throw new Error("Local-only release security boundaries are invalid.");
 }
 if (JSON.stringify(Object.keys(manifest.files).sort()) !== JSON.stringify(payloadFiles)) {

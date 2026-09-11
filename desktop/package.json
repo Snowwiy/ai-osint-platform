@@ -14,8 +14,8 @@
     "local-release:package": "node scripts/package_local_release.mjs",
     "local-release:validate": "node scripts/validate_local_release.mjs",
     "smoke": "node scripts/smoke_desktop.mjs",
-    "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "tauri:dev": "cargo run --manifest-path src-tauri/Cargo.toml"
+    "tauri:check": "npm run build && cargo check --manifest-path src-tauri/Cargo.toml",
+    "tauri:dev": "npm run build && cargo run --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4"

@@ -47,13 +47,15 @@ const cargo = await readFile(resolve(desktop, "src-tauri/Cargo.toml"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
+const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
+const frontendApp = await readFile(resolve(repository, "frontend/src/App.tsx"), "utf8");
 
 if (config.version !== "5.0.0-rc6") throw new Error("Desktop version must match RC6.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
 if (config.app.windows.some((window) => window.title !== "RavenTech OSINT Desktop — Local Workspace")) {
   throw new Error("Unexpected desktop local-workspace window title.");
 }
-if (config.build.frontendDist !== "../ui") throw new Error("Desktop UI must remain isolated.");
+if (config.build.frontendDist !== "../dist") throw new Error("Desktop bundle must use the generated shell and embedded frontend.");
 if (config.bundle.active !== false) throw new Error("Installer bundling must remain disabled.");
 if (config.app.windows.some((window) => window.devtools !== false)) {
   throw new Error("Desktop runtime devtools must remain disabled.");
@@ -88,11 +90,23 @@ if (!html.includes('lang="en"') || !html.includes("Español")) {
 if (/allow-popups|allow-top-navigation/.test(html)) {
   throw new Error("Embedded frontend navigation is too broad.");
 }
-if (!config.app.security.csp.includes("frame-src http://localhost:5173")) {
-  throw new Error("CSP must constrain the embedded frontend to localhost:5173.");
+if (!config.app.security.csp.includes("frame-src 'self' http://localhost:5173")) {
+  throw new Error("CSP must constrain frames to bundled assets and the development fallback.");
+}
+if (!config.app.security.csp.includes("connect-src ipc: http://ipc.localhost http://localhost:8000")) {
+  throw new Error("CSP must allow only the fixed local backend in addition to Tauri IPC.");
 }
 if (!app.includes("http://localhost:5173") || !app.includes("http://localhost:8000")) {
   throw new Error("Desktop shell must use the documented local URL defaults.");
+}
+for (const marker of ["VITE_ROUTER_BASENAME", '"--base", "./"', '"--outDir", embedded', "VITE_API_BASE_URL", 'resolve(output, "app")']) {
+  if (!build.includes(marker)) throw new Error(`Embedded frontend build marker missing: ${marker}`);
+}
+if (!frontendApp.includes('basename: import.meta.env.VITE_ROUTER_BASENAME || "/"')) {
+  throw new Error("Frontend router must support the embedded /app basename without changing browser mode.");
+}
+for (const marker of ["frontend_dev_probe", "frontend_html_response_is_healthy", '"embedded".to_owned()', '"notRequired".to_owned()']) {
+  if (!rust.includes(marker)) throw new Error(`Desktop frontend mode marker missing: ${marker}`);
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]/i.test(`${app}\n${html}`)) {
   throw new Error("Potential secret field detected in desktop UI source.");

@@ -66,6 +66,9 @@ above make the clean-setup verification visible. Never use
 
 ## 4. Create an administrator and start the frontend
 
+This section starts browser/development mode. A prebuilt portable or installed
+desktop already includes the frontend and can skip the Vite steps.
+
 - [ ] With reviewed `ADMIN_USERNAME`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD` local
       values, create or confirm the local administrator.
 - [ ] Install locked frontend dependencies and start Vite from `frontend/`.
@@ -77,7 +80,7 @@ npm ci
 npm run dev
 ```
 
-Keep the Vite process running and use another PowerShell window for subsequent
+Keep Vite running only while testing browser/development mode and use another PowerShell window for subsequent
 commands. Return to the repository root before running root-relative scripts:
 
 ```powershell
@@ -138,6 +141,8 @@ copy its backup or generated reports into a desktop distribution folder.
       select **Validate and save**.
 - [ ] Confirm Docker, ports, backend, frontend, release, migrations, and all five
       approved scripts report their expected state.
+- [ ] For installed/portable testing, confirm **Frontend: Embedded** even when
+      no Vite process is running.
 
 ```powershell
 Set-Location desktop

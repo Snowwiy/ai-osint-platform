@@ -35,7 +35,7 @@ test("local release workflow has a strict private artifact contract", () => {
   assert.match(build, /SHA256SUMS\.txt/);
   assert.match(validate, /expectedFiles/);
   assert.match(validate, /forbiddenName/);
-  assert.match(validate, /Object\.values\(manifest\.boundaries\)/);
+  assert.match(validate, /embeddedFrontend !== true/);
   assert.ok(gitignore.split(/\r?\n/).includes("desktop/dist-local-release/"));
 });
 

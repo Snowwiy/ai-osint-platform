@@ -122,8 +122,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.j
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
   throw new Error("Installer manifest does not describe the expected unsigned RC6 local build.");
 }
-const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden installer capability is enabled in the manifest.");
 }
 for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {

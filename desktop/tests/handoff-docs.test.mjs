@@ -42,6 +42,8 @@ test("operator manual covers the fixed local workflow", async () => {
   for (const url of ["http://localhost:5173", "http://localhost:8000", "/health/ready", "/api/v1/release"]) {
     assert.ok(manual.includes(url));
   }
+  assert.match(manual, /Frontend: Embedded/);
+  assert.match(manual, /do not require this Vite command/);
 });
 
 test("private handoff declares exact ignored artifact paths and exclusions", async () => {
@@ -54,6 +56,7 @@ test("private handoff declares exact ignored artifact paths and exclusions", asy
   for (const marker of [".env", "credentials", "tokens", "database dumps", "backups", "generated reports", "logs"]) {
     assert.ok(handoff.includes(marker));
   }
+  assert.match(handoff, /Neither portable nor[\s\S]*requires Vite/);
 });
 
 test("fresh setup checklist covers reproducible RC6 operator setup", async () => {

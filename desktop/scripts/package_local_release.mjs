@@ -85,6 +85,7 @@ const manifest = {
     publicRelease: false,
     autoUpdate: false,
     serviceAutostart: false,
+    embeddedFrontend: true,
     bundledBackend: false,
     bundledDatabase: false,
     bundledRedis: false,

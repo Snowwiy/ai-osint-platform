@@ -10,17 +10,18 @@ updater, backend service, database, Docker runtime, or production deployment.
 - Docker Desktop with Docker Compose
 - the RavenTech OSINT repository and local `.env` configuration retained
   separately; never copy `.env` into this portable folder
-- Node.js/npm for the separately running Vite frontend
+- Node.js/npm only when rebuilding or running browser/development mode
 
 ## Start the platform first
 
-From the repository root, run these commands yourself:
+From the repository root, start the Docker/backend services yourself:
 
 ```powershell
 ./scripts/local/start_platform.ps1
-cd frontend
-npm run dev
 ```
+
+The portable executable contains the built React frontend. For optional browser
+or desktop-development testing only, run `npm run dev` from `frontend/`.
 
 The portable application never starts services automatically. When it can
 discover the repository above its executable, it can run only five fixed local
@@ -33,16 +34,17 @@ Double-click `RavenTech OSINT Desktop.exe` after the local services are running.
 The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc6`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
 repository-owned local-candidate asset; public brand approval remains deferred.
-The shell checks only these local endpoints:
+The release shell loads its packaged frontend and checks these local endpoints:
 
-- frontend: `http://localhost:5173`
+- frontend: embedded (development fallback: `http://localhost:5173/`)
 - backend: `http://localhost:8000`
 - health: `http://localhost:8000/health`
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-When the stack is healthy, the existing web application opens inside the
-desktop shell. Browser mode remains available at `http://localhost:5173`.
+When the backend is ready, the existing web application opens from bundled
+assets inside the desktop shell. Browser mode remains optionally available at
+`http://localhost:5173` when Vite is started separately.
 
 On first launch, manually enter the repository root in the setup card. The path
 is stored only after fixed marker and build-pinned five-script validation. Resolution then
@@ -57,7 +59,9 @@ there is no broad folder browser or arbitrary command input.
   `./scripts/local/check_platform.ps1` from the repository root.
 - **Readiness degraded:** inspect `docker compose ps` and backend logs. The
   portable application displays status only and performs no repair.
-- **Frontend unreachable:** run `npm run dev` from `frontend/` and retry.
+- **Frontend unavailable in development:** run `npm run dev` from `frontend/`.
+  In a portable release, **Frontend: Embedded** is expected and port 5173 is
+  not required.
 - **Window does not open:** confirm WebView2 Runtime is installed and that local
   endpoint security policy permits the executable.
 
@@ -69,7 +73,8 @@ the folder between local test locations.
 
 - Windows local testing only; no installer, public release, or support SLA
 - unsigned executable with the repository-owned RavenTech local-candidate icon
-- Docker and the Vite frontend remain separate operator-managed dependencies
+- Docker and the backend remain separate operator-managed dependencies; Vite
+  is optional for browser/development testing
 - no service autostart or automatic command execution
 - no arbitrary command input, shell/filesystem plugin, secret collection,
   remote administration, router

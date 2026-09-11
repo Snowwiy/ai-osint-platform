@@ -38,7 +38,7 @@ The exact installer name is
 
 ## Start the platform before launching
 
-From the repository root, start the required Docker services and local frontend:
+From the repository root, start the required Docker/backend services:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
@@ -46,7 +46,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
 
 Expected URLs:
 
-- frontend: `http://localhost:5173`
+- frontend: embedded in the installed app
+- optional browser/development frontend: `http://localhost:5173/`
 - backend: `http://localhost:8000`
 - health: `http://localhost:8000/health`
 - readiness: `http://localhost:8000/health/ready`
@@ -58,6 +59,9 @@ validation of the compose, backend, frontend, desktop, Python, and five approved
 script markers. It never accepts a script name, command argument, or arbitrary
 PowerShell command. The five script contents must match this desktop build;
 invalid, altered, or missing paths retain copy-only guidance.
+
+The installer contains the production React assets, so `npm run dev` and port
+5173 are not required to display the installed UI.
 
 ## Install, launch, and uninstall
 
@@ -83,7 +87,8 @@ generic command input is enabled.
 - A SmartScreen warning is expected for this unsigned build.
 - Install WebView2 Runtime separately if Windows does not already provide it.
 - Start Docker Desktop and the platform before opening the local application.
-- Ports 5173 and 8000 must be available on loopback.
+- Port 8000 must be available on loopback. Port 5173 is needed only for optional
+  Vite browser/development mode.
 - The first-run checklist reports port conflicts, Docker detection, release
   mismatch, and migration degradation without modifying the machine.
 - There is no signing, auto-update, service autostart, database bundle, hosting,

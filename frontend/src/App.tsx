@@ -178,7 +178,9 @@ const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
-]);
+], {
+  basename: import.meta.env.VITE_ROUTER_BASENAME || "/",
+});
 
 export function App(): JSX.Element {
   return (
