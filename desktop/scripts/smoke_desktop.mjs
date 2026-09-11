@@ -61,6 +61,7 @@ for (const required of ["http://localhost:5173", "http://localhost:8000"]) {
 for (const [artifact, acceptedRules] of [
   ["desktop/dist-portable/", ["desktop/dist-portable/"]],
   ["desktop/dist-installer/", ["desktop/dist-installer/"]],
+  ["desktop/dist-local-release/", ["desktop/dist-local-release/"]],
   ["desktop/src-tauri/target/", ["desktop/src-tauri/target/", "target/"]],
 ]) {
   if (!acceptedRules.some((rule) => gitignore.split(/\r?\n/).includes(rule))) {

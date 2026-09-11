@@ -223,8 +223,21 @@ npm run smoke -- --require-artifacts
 ```
 
 The desktop window is branded **RavenTech OSINT Desktop — Local Workspace**.
-The icon remains a documented build-only placeholder; signing, final branding,
-auto-update, and public release remain deferred.
+Phase 5AT adds an original repository-owned shield/radar icon for the local
+candidate. Signing, public brand approval, auto-update, and public release remain deferred.
+
+After portable and installer artifacts validate, create the ignored private
+aggregate package from `desktop/` with:
+
+```powershell
+npm run local-release:package
+npm run local-release:validate -- --require-artifact
+```
+
+The output is
+`desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc5/` and contains
+only the two binaries, local instructions, known limitations, checksums, and a
+provenance manifest. See [desktop/LOCAL_RELEASE_README.md](desktop/LOCAL_RELEASE_README.md).
 
 The desktop status screen also shows Docker dependency state and the latest
 approved launcher result. Launcher output is capped and sanitized. Direct Vite

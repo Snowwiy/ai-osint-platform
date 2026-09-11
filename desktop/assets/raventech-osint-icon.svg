@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">RavenTech OSINT Desktop icon</title>
+  <desc id="desc">A dark shield with a cyan radar eye and violet signal points.</desc>
+  <defs>
+    <linearGradient id="shield" x1="96" y1="64" x2="416" y2="448" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#182337"/>
+      <stop offset="1" stop-color="#080d18"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="156" y1="176" x2="368" y2="342" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#48e4ff"/>
+      <stop offset="1" stop-color="#8d6bff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#050914"/>
+  <path d="M256 54 414 112v124c0 105-59 181-158 222C157 417 98 341 98 236V112L256 54Z" fill="url(#shield)" stroke="#334764" stroke-width="14"/>
+  <path d="M132 254c34-61 74-92 124-92s90 31 124 92c-34 61-74 92-124 92s-90-31-124-92Z" fill="#0a1222" stroke="url(#signal)" stroke-width="18" stroke-linejoin="round"/>
+  <circle cx="256" cy="254" r="58" fill="none" stroke="#48e4ff" stroke-width="16"/>
+  <circle cx="256" cy="254" r="20" fill="#f3fbff"/>
+  <path d="M256 196v-39M314 254h42M297 213l29-29" fill="none" stroke="#8d6bff" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="256" cy="157" r="10" fill="#8d6bff"/>
+  <circle cx="356" cy="254" r="10" fill="#8d6bff"/>
+  <circle cx="326" cy="184" r="10" fill="#8d6bff"/>
+</svg>

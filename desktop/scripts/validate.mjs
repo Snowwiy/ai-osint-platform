@@ -13,6 +13,7 @@ const required = [
   "tests/portable-scripts.test.mjs",
   "tests/installer-scripts.test.mjs",
   "tests/smoke-script.test.mjs",
+  "tests/local-release.test.mjs",
   "tests/launcher.test.mjs",
   "tests/local-scripts.test.mjs",
   "tests/first-run.test.mjs",
@@ -22,13 +23,20 @@ const required = [
   "scripts/build_installer.mjs",
   "scripts/validate_installer.mjs",
   "scripts/smoke_desktop.mjs",
+  "scripts/package_local_release.mjs",
+  "scripts/validate_local_release.mjs",
   "PORTABLE_BUILD_README.md",
   "INSTALLER_BUILD_README.md",
+  "LOCAL_RELEASE_README.md",
+  "LOCAL_STARTUP_INSTRUCTIONS.md",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/tauri.installer.conf.json",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
+  "assets/raventech-osint-icon.svg",
+  "src-tauri/icons/icon.ico",
+  "src-tauri/icons/icon.png",
 ];
 for (const path of required) await access(resolve(desktop, path));
 

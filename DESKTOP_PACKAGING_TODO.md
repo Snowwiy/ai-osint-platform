@@ -15,9 +15,9 @@ using an isolated Tauri override. Its collected output is also allowlisted and
 ignored. It is not signed, trusted, published, self-contained, or approved for
 production distribution.
 
-Phase 5AP adds consistent RC4 naming, local distribution instructions, and a
-read-only smoke checker for both ignored artifacts. The current build-only icon
-remains a documented placeholder and is not final branding.
+Phase 5AP added consistent RC4 naming, local distribution instructions, and a
+read-only smoke checker for both ignored artifacts. At that phase, the
+build-only icon remained a documented placeholder.
 
 Phase 5AQ adds a fixed Rust launcher for five existing local scripts. Phase 5AR
 adds a manually entered, canonicalized project-path preference so installed
@@ -28,8 +28,13 @@ Phase 5AS freezes these local workflows as `5.0.0-rc5` after portable,
 unsigned-installer, launcher, binding, localization, Docker, and regression QA.
 Generated candidates remain ignored and unpublished.
 
-- select and approve final icons and loading treatment; replace the placeholder
-  only in a separately reviewed branding/package phase
+Phase 5AT replaces the generated placeholder with an original repository-owned
+shield/radar icon and adds an ignored private aggregate package with strict
+checksums and provenance metadata. This is branding polish for local testing,
+not public brand approval, signing, or release publication.
+
+- complete public brand approval and any future loading treatment before a
+  signed release
 - review and update the pinned Tauri CLI only through a separately approved
   dependency-change process
 - decide whether a future production package should serve a built frontend or
@@ -52,4 +57,4 @@ reset, `.env` modification, remote administration, router automation, broad
 filesystem access, or a generic command bridge while completing these items.
 
 No signed installer, public release, auto-update service, hosting, deployment,
-DNS, or Supabase migration is included in Phase 5AR.
+DNS, or Supabase migration is included in Phase 5AT.

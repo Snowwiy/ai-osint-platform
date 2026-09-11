@@ -65,7 +65,8 @@ Run the `-unsigned-setup.exe` file and accept the local-test warning only after
 verifying its checksum. Launch **RavenTech OSINT Desktop** from the Start menu.
 If the services are offline, the shell shows local startup guidance.
 The window title is **RavenTech OSINT Desktop — Local Workspace**. The current
-icon is a build-only placeholder; final icon approval is deferred.
+icon is the repository-owned RavenTech local-candidate asset; public brand
+approval remains deferred.
 
 Uninstall from **Settings > Apps > Installed apps > RavenTech OSINT Desktop**.
 The current-user installer does not install backend services or remove Docker data.

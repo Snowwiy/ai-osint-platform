@@ -13,16 +13,22 @@ approved-script markers exist within the canonical root. No folder browser or
 broad filesystem permission is enabled. Script contents must also match the five
 copies pinned into the desktop build. Invalid or missing paths remain copy-only.
 
+Phase 5AT adds an original RavenTech OSINT shield/radar icon and a private
+aggregate artifact package. The icon SVG is repository-owned and contains no
+downloaded artwork, font, or third-party logo. Public brand approval remains a
+future release-governance step.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/`
 - Installer folder: `desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/`
+- Aggregate folder: `desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc5/`
 - Portable checksums: `portable-manifest.json` inside the portable folder
 - Installer checksums: `installer-manifest.json` inside the installer folder
 
-Both folders are Git-ignored. Never commit or publish their binaries from this
-phase. The build-only icon is a placeholder; final icon and brand approval are
-deferred and do not block local QA.
+All three folders are Git-ignored. Never commit or publish their binaries from
+this phase. The local candidate uses the repository-owned RavenTech icon;
+code-signing and public brand/release approval remain deferred.
 
 ## Prerequisites
 
@@ -56,6 +62,8 @@ npm ci --offline
 npm run portable:build
 npm run installer:build
 npm run smoke -- --require-artifacts
+npm run local-release:package
+npm run local-release:validate -- --require-artifact
 ```
 
 ## Start local services
@@ -106,5 +114,5 @@ Docker services, PostgreSQL data, Redis data, the repository, or local reports.
 
 ## Deferred work
 
-Code signing, timestamping, final icon approval, auto-update, public release,
+Code signing, timestamping, public brand approval, auto-update, public release,
 hosting, deployment, DNS, Supabase migration, and production support remain deferred.

@@ -30,7 +30,7 @@ test("smoke checker covers artifacts, local URLs, permissions, and updater state
 });
 
 test("generated desktop outputs remain ignored", () => {
-  for (const path of ["desktop/dist-portable/", "desktop/dist-installer/"]) {
+  for (const path of ["desktop/dist-portable/", "desktop/dist-installer/", "desktop/dist-local-release/"]) {
     assert.ok(gitignore.includes(path), `missing ignore rule: ${path}`);
   }
   assert.ok(gitignore.split(/\r?\n/).some((rule) => rule === "target/" || rule === "desktop/src-tauri/target/"));

@@ -20,8 +20,7 @@ or Redis and it is not a public release.
 
 Phase 5AP polishes the local distribution identity and adds an artifact-aware
 smoke check. The window title is **RavenTech OSINT Desktop — Local Workspace**;
-the product, portable folder, and installer names remain aligned to the current candidate. The
-existing generated icon is still a build-only placeholder.
+the product, portable folder, and installer names remain aligned to the current candidate.
 
 Phase 5AQ adds a controlled local launcher for the five existing platform
 scripts. Start, stop, and restart require an explicit confirmation. Check and
@@ -36,6 +35,10 @@ directory; `.env` and repository contents are not copied or read for setup.
 Resolution order is saved path, current-directory ancestry, development
 executable ancestry, then copy-only fallback. Docker is detected with safe local
 signals and is never installed or started by the prerequisite check.
+
+Phase 5AT adds an original repository-owned shield/radar icon and an ignored
+private aggregate package containing only the validated portable executable,
+unsigned installer, operator documents, checksums, and provenance manifest.
 
 ## What it does
 

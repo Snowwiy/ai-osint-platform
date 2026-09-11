@@ -6,6 +6,12 @@ This acceptance applies only to the local Windows portable and unsigned NSIS
 installer workflows. It is not approval for public distribution or production
 deployment.
 
+Phase 5AT adds the ignored aggregate package at
+`desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc5/`. It combines
+only the validated portable executable, unsigned installer, local instructions,
+known limitations, checksums, and provenance manifest. The package must pass
+`npm run local-release:validate -- --require-artifact`.
+
 ## Prerequisites
 
 - Windows with WebView2 Runtime
@@ -53,6 +59,8 @@ deployment.
 - desktop validation, Cargo tests/check, PowerShell syntax checks
 - portable and installer builds/validators plus artifact-aware desktop smoke
 - real portable and installed process launch and clean uninstall
+- branded icon source and generated Windows icon assets
+- strict local-release file allowlist, SHA-256 list, build time, and Git commit
 
 If any required gate fails, do not commit, push, or tag. Generated artifacts
 remain Git-ignored and local. No signing, public release, updater, hosting,

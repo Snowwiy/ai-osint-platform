@@ -32,7 +32,7 @@ for every action, and Vite/Docker direct commands remain copy-only.
 Double-click `RavenTech OSINT Desktop.exe` after the local services are running.
 The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc5`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
-documented build-only placeholder pending final brand approval.
+repository-owned local-candidate asset; public brand approval remains deferred.
 The shell checks only these local endpoints:
 
 - frontend: `http://localhost:5173`
@@ -68,7 +68,7 @@ the folder between local test locations.
 ## Limitations and security boundary
 
 - Windows local testing only; no installer, public release, or support SLA
-- unsigned executable with a build-only placeholder icon
+- unsigned executable with the repository-owned RavenTech local-candidate icon
 - Docker and the Vite frontend remain separate operator-managed dependencies
 - no service autostart or automatic command execution
 - no arbitrary command input, shell/filesystem plugin, secret collection,

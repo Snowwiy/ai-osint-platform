@@ -4,7 +4,7 @@
     "targets": ["nsis"],
     "createUpdaterArtifacts": false,
     "publisher": "RavenTech Local Test (Unsigned)",
-    "icon": ["target/prototype.ico"],
+    "icon": ["icons/icon.ico", "icons/icon.png"],
     "resources": [],
     "externalBin": [],
     "windows": {
@@ -13,7 +13,7 @@
       },
       "allowDowngrades": false,
       "nsis": {
-        "installerIcon": "target/prototype.ico",
+        "installerIcon": "icons/icon.ico",
         "installMode": "currentUser",
         "languages": ["English", "Spanish"],
         "displayLanguageSelector": true,

@@ -1,8 +1,22 @@
 # Desktop Distribution Checklist
 
-Phases 5AO–5AQ prepare and validate local, unsigned Windows installer and
-portable testing only. Public release remains deferred until signing,
-clean-machine QA, final branding, and release approval are complete.
+Phases 5AO–5AT prepare and validate local, unsigned Windows installer, portable,
+and private aggregate-package testing only. Public release remains deferred
+until signing, clean-machine QA, brand approval, and release approval are complete.
+
+## Phase 5AT local release package
+
+- [ ] Confirm the product, window, portable executable, installer, and RC5
+      labels consistently use **RavenTech OSINT Desktop**.
+- [ ] Confirm the repository-owned SVG and generated Windows ICO/PNG assets are
+      present and both Tauri bundle configurations use `icons/icon.ico`.
+- [ ] Run `npm run local-release:package` only after portable and installer
+      validation passes.
+- [ ] Run `npm run local-release:validate -- --require-artifact` and confirm the
+      seven-file allowlist, PE headers, checksums, commit, and build-time metadata.
+- [ ] Confirm `desktop/dist-local-release/` is ignored and contains no `.env`,
+      secrets, databases, backups, reports, logs, credentials, tokens, backend,
+      PostgreSQL, Redis, or Docker runtime.
 
 ## Portable build
 
@@ -48,8 +62,8 @@ clean-machine QA, final branding, and release approval are complete.
 - [ ] Test frontend embed at `http://localhost:5173` and offline help fallback.
 - [ ] Export one benign report and confirm existing browser behavior is unchanged.
 - [ ] Switch desktop help and web UI between English and Spanish.
-- [ ] Confirm the build-only placeholder icon is documented and not represented
-      as approved final branding.
+- [ ] Confirm the repository-owned local-candidate icon is visible and is not
+      represented as signed or approved public-release branding.
 - [ ] Test install, upgrade rejection/downgrade protection, and clean uninstall locally.
 - [ ] Review any Windows Firewall prompt: the shell needs loopback access only; do not
       approve public-network exposure for backend or frontend ports.

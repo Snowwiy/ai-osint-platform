@@ -13,6 +13,24 @@
 
 Version: `5.0.0-rc5`
 
+## Phase 5AT — branding and private local release package
+
+- [ ] Product, window, executable, installer, folder, README, and English/Spanish
+      release labels consistently use `RavenTech OSINT Desktop` and RC5.
+- [ ] Original SVG source and generated Windows ICO/PNG assets are committed;
+      Tauri executable and NSIS metadata use the branded icon.
+- [ ] `npm run local-release:package` consumes only already-validated portable
+      and unsigned-installer binaries.
+- [ ] Aggregate output contains exactly seven files: two PE binaries, README,
+      startup instructions, known limitations, checksums, and manifest.
+- [ ] Manifest records app/version, UTC build time, commit, artifact names,
+      SHA-256 values, unsigned/local-only status, and Docker/bundling boundaries.
+- [ ] `npm run local-release:validate -- --require-artifact` passes and the
+      output directory remains Git-ignored.
+- [ ] No version bump, signing, public release, updater, hosting, deployment,
+      DNS, Supabase migration, router automation, arbitrary/remote commands, or
+      offensive functionality is introduced.
+
 ## Phase 5AS — desktop E2E QA and RC5 freeze
 
 - [ ] Version is `5.0.0-rc5` across backend defaults, `.env.example`, desktop
@@ -79,8 +97,9 @@ Version: `5.0.0-rc5`
 
 - [ ] Product name, identifier, RC5 version, portable folder, installer name,
       README names, and **Local Workspace** window title are consistent.
-- [ ] English and Spanish installer labels remain configured; the build-only
-      placeholder icon is documented and not treated as final branding.
+- [ ] English and Spanish installer labels remain configured; the icon history
+      is documented and the Phase 5AT asset is not treated as signed or approved
+      public branding.
 - [ ] Installer and portable builds pass their strict four-file allowlists and
       SHA-256 manifest validation while their output folders remain Git-ignored.
 - [ ] `npm run smoke -- --require-artifacts` passes metadata, local URL,
@@ -127,7 +146,7 @@ Version: `5.0.0-rc5`
 ## Phase 5AN — Windows portable desktop build preparation
 
 - [ ] Desktop metadata reports `RavenTech OSINT Desktop` and `5.0.0-rc5` with
-      the local prototype window title and build-only placeholder icon.
+      the local workspace window title and repository-owned candidate icon.
 - [ ] `npm run portable:build` validates desktop source and the existing
       frontend, then runs Cargo with `--release --locked --offline`.
 - [ ] Output exists only under ignored
