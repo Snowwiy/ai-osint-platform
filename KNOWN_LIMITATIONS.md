@@ -1,8 +1,9 @@
 # RavenTech OSINT Known Limitations
 
 The completed validated mode for `5.0.0-rc4` is the local web application using
-Docker Compose services and a local Vite frontend. Desktop packaging, installers,
-hosting, deployment, DNS, and Supabase migration are deferred.
+Docker Compose services and a local Vite frontend. Portable and unsigned
+installer workflows are local-test aids; signed production packaging, hosting,
+deployment, DNS, and Supabase migration are deferred.
 
 Phase 5AL includes a Tauri source prototype, not a validated desktop package.
 It depends on the separately running local Docker services and Vite frontend,
@@ -20,6 +21,14 @@ the repository, local configuration, Docker services, and Vite frontend remain
 separate prerequisites. The build-only placeholder icon is not final branding.
 The generated `dist-portable/` folder is ignored and must not be published as a
 release artifact without a later signing, provenance, and clean-machine review.
+
+Phase 5AO adds an unsigned NSIS current-user installer workflow. It installs only
+the shell and is expected to trigger Windows SmartScreen warnings. It requires
+WebView2 to be installed separately, does not start services, and remains
+dependent on the repository, Docker stack, configuration, and Vite frontend.
+The ignored `dist-installer/` output is not a trusted or public release. Signing,
+timestamping, auto-update, firewall distribution policy, and full clean-machine
+compatibility testing remain deferred.
 
 ## Product Boundaries
 

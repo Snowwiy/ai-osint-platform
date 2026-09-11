@@ -11,12 +11,17 @@ const required = [
   "ui/app.js",
   "tests/runtime.test.mjs",
   "tests/portable-scripts.test.mjs",
+  "tests/installer-scripts.test.mjs",
   "scripts/build_portable.mjs",
   "scripts/package_portable.mjs",
   "scripts/validate_portable.mjs",
+  "scripts/build_installer.mjs",
+  "scripts/validate_installer.mjs",
   "PORTABLE_BUILD_README.md",
+  "INSTALLER_BUILD_README.md",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
+  "src-tauri/tauri.installer.conf.json",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
 ];
@@ -70,6 +75,7 @@ for (const doc of [
   "README.md",
   "KNOWN_LIMITATIONS.md",
   "FINAL_QA_CHECKLIST.md",
+  "DESKTOP_DISTRIBUTION_CHECKLIST.md",
 ]) await access(resolve(repository, doc));
 
 console.log("Desktop prototype safety checks passed.");

@@ -13,6 +13,11 @@ an unsigned executable plus documentation, license, and checksums. It remains
 dependent on the operator-managed repository, Docker stack, and Vite frontend;
 it does not convert those components into embedded desktop services.
 
+Phase 5AO adds a separate unsigned NSIS installer profile for local Windows
+testing. It installs only the same shell for the current user, preserves the
+portable workflow, and leaves signing, updater design, and public distribution
+behind later release gates.
+
 ## Current approach
 
 1. Keep browser-based local Docker mode as the reference and supported workflow.
@@ -22,11 +27,15 @@ it does not convert those components into embedded desktop services.
    frontend after health succeeds.
 5. Keep all host operations manual through copyable commands and the existing
    local launcher scripts.
-6. Review packaging, signing, and clean-machine behavior in a separate phase.
+6. Test the unsigned installer locally; review signing and production
+   distribution in a separate approved phase.
 
-The current portable workflow uses Cargo `--release --locked --offline` while
-Tauri installer bundling remains disabled. Generated portable folders are local
-artifacts under ignored `desktop/dist-portable/`, not release assets.
+The default and portable configuration keeps Tauri bundling disabled. Phase 5AO
+uses a separate `tauri.installer.conf.json` override that enables only an
+unsigned NSIS current-user target. Generated folders under ignored
+`desktop/dist-portable/` and `desktop/dist-installer/` are local artifacts, not
+release assets. The installer embeds no services, sidecars, resources, secrets,
+or WebView2 bootstrapper.
 
 ## Why Tauri
 
@@ -51,6 +60,7 @@ does not grant popup or top-level navigation, while preserving the scripts,
 forms, downloads, local application storage, and copy behavior needed by the
 existing web workflow.
 
-Desktop packaging, installer signing, auto-update, hosting, deployment, DNS,
-and Supabase migration remain deferred. See `DESKTOP_TAURI_PROTOTYPE.md` for
-prototype operation and `DESKTOP_PACKAGING_TODO.md` for future gates.
+Installer signing, auto-update, public release, hosting, deployment, DNS, and
+Supabase migration remain deferred. See `DESKTOP_TAURI_PROTOTYPE.md` for local
+operation, `DESKTOP_DISTRIBUTION_CHECKLIST.md` for QA, and
+`DESKTOP_PACKAGING_TODO.md` for future gates.

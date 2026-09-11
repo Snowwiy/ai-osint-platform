@@ -1,0 +1,24 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": false,
+    "publisher": "RavenTech Local Test (Unsigned)",
+    "icon": ["target/prototype.ico"],
+    "resources": [],
+    "externalBin": [],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "skip"
+      },
+      "allowDowngrades": false,
+      "nsis": {
+        "installerIcon": "target/prototype.ico",
+        "installMode": "currentUser",
+        "languages": ["English", "Spanish"],
+        "displayLanguageSelector": true,
+        "startMenuFolder": "RavenTech OSINT Desktop (Local Test)"
+      }
+    }
+  }
+}

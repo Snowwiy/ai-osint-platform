@@ -18,7 +18,7 @@ Phase 5AL adds an optional Tauri v2 desktop shell prototype in `desktop/`. It
 wraps the unchanged local Vite frontend, reports fixed localhost health and
 release status, and displays copy-only operator guidance. Browser mode remains
 fully supported. See [DESKTOP_TAURI_PROTOTYPE.md](DESKTOP_TAURI_PROTOTYPE.md).
-There is no installer or production desktop package yet.
+There is no signed or production desktop package yet.
 
 Phase 5AM refines the shell for local operator QA with distinct reachability,
 readiness, and degraded states; English/Spanish recovery guidance; seven
@@ -28,6 +28,11 @@ backend, frontend, Docker, database, hosting, or deployment architecture.
 Phase 5AN adds an unsigned Windows portable local-test workflow. It creates no
 installer and bundles no backend, PostgreSQL, Redis, Docker, `.env`, backups,
 or reports. Generated output is ignored under `desktop/dist-portable/`.
+
+Phase 5AO adds an unsigned NSIS installer workflow for local Windows testing.
+It installs only the desktop shell, keeps the portable build available, and
+bundles no backend, database, Docker runtime, secrets, backups, reports, or
+logs. The ignored installer output is not a public release.
 
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
@@ -170,6 +175,23 @@ The output is
 [desktop/PORTABLE_BUILD_README.md](desktop/PORTABLE_BUILD_README.md) before
 running the unsigned executable. Docker services and `npm run dev` from
 `frontend/` must still be started manually.
+
+To build the unsigned current-user installer after local dependencies are
+available:
+
+```powershell
+cd desktop
+npm ci --offline
+npm run installer:build
+npm run installer:validate -- --require-artifact
+```
+
+Output is collected under
+`desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/`. Read
+[desktop/INSTALLER_BUILD_README.md](desktop/INSTALLER_BUILD_README.md) and use
+[DESKTOP_DISTRIBUTION_CHECKLIST.md](DESKTOP_DISTRIBUTION_CHECKLIST.md) for local
+QA. The installer is unsigned, may trigger SmartScreen, does not start Docker or
+Vite, and must not be published.
 
 For a guided startup and health check:
 

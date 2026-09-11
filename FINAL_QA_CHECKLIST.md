@@ -13,6 +13,32 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AO — unsigned Windows installer preparation
+
+- [ ] Default/portable `bundle.active` remains false; the isolated installer
+      override enables only NSIS and creates no updater artifacts.
+- [ ] App metadata remains `RavenTech OSINT Desktop`, `5.0.0-rc4`, identifier
+      `com.raventech.osint`, and an explicitly unsigned local-test publisher.
+- [ ] Installer mode is current-user, downgrades are blocked, and English and
+      Spanish installer languages are configured.
+- [ ] WebView2 install mode is `skip`; the operator installs the runtime
+      separately and the build performs no runtime download or embedding.
+- [ ] `npm run installer:build` invokes the pinned Tauri CLI with `--no-sign`
+      and collects output only under ignored `desktop/dist-installer/`.
+- [ ] `npm run installer:validate -- --require-artifact` verifies the PE file,
+      RC4 metadata, strict file allowlist, disabled boundaries, and SHA-256 hashes.
+- [ ] Installer output contains only unsigned setup EXE, README, LICENSE, and
+      manifest—no `.env`, credentials, certificates, databases, backups,
+      reports, logs, backend, Docker runtime, or sidecars.
+- [ ] Portable build still validates; browser/local Docker workflows and
+      backend/frontend architecture remain unchanged.
+- [ ] Install, local launch, frontend embed, language switch, benign report
+      export, and uninstall checks pass on an authorized Windows test machine.
+- [ ] SmartScreen warning and loopback-only Windows Firewall guidance are clear.
+- [ ] No signed installer, public release, updater, hosting, deployment, DNS,
+      Supabase migration, router automation, remote command execution, scanning,
+      or offensive functionality is added.
+
 ## Phase 5AN — Windows portable desktop build preparation
 
 - [ ] Desktop metadata reports `RavenTech OSINT Desktop` and `5.0.0-rc4` with
@@ -29,8 +55,8 @@ Version: `5.0.0-rc4`
       backend service, PostgreSQL, Redis, or Docker runtime is packaged.
 - [ ] The copied executable starts and responds on Windows while retaining the
       fixed local health/status and copy-only behavior.
-- [ ] Tauri `bundle.active` remains false; no MSI, NSIS, signing, updater,
-      release publishing, or service-autostart work is performed.
+- [ ] Tauri default `bundle.active` remains false; the portable workflow invokes
+      no MSI, NSIS, signing, updater, release publishing, or service autostart.
 - [ ] Browser/local Docker mode, backend validation, frontend localization,
       RC4 release metadata, and migration head remain unchanged.
 - [ ] No hosting, deployment, DNS, Supabase migration, router automation,

@@ -13,6 +13,11 @@ the same shell as a standalone executable and collects it with instructions,
 the repository license, and a checksum manifest. It is not an installer or a
 public release package.
 
+Phase 5AO adds a separate, pinned Tauri CLI workflow for an unsigned NSIS
+current-user installer. The installer is a local-test wrapper for the same
+shell; it does not bundle or start the backend, frontend, Docker, PostgreSQL,
+or Redis and it is not a public release.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
@@ -100,8 +105,9 @@ the web clipboard API and always require the operator to paste and run the text.
 - Docker, PostgreSQL, Redis, FastAPI, Celery, and Vite remain separate services.
 - The frontend must be running on port 5173 before it can be embedded.
 - The backend must be running on port 8000 for normal application behavior.
-- This phase provides no installer, signing, auto-update, production packaging,
-  hosted service, deployment, DNS change, or Supabase migration.
+- Phase 5AO provides an unsigned local-test installer workflow, not a signed or
+  production installer, updater, hosted service, deployment, DNS change, or
+  Supabase migration.
 - The CSP intentionally allows framing only `http://localhost:5173`.
 - Production packaging and clean-machine validation remain future work.
 
@@ -145,3 +151,28 @@ desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/
 `npm run portable:package` after Cargo compilation and
 `npm run portable:validate` after packaging. See
 `desktop/PORTABLE_BUILD_README.md` for runtime prerequisites and recovery.
+
+## Unsigned local installer
+
+With the pinned desktop dependencies and locked Rust crates available locally,
+run from `desktop/`:
+
+```powershell
+npm ci --offline
+npm run installer:build
+npm run installer:validate -- --require-artifact
+```
+
+The build uses only the NSIS target, passes `--no-sign`, skips WebView2 download
+or embedding, and collects a strict four-file package under:
+
+```text
+desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/
+```
+
+The ignored folder contains the unsigned setup executable, README, license, and
+SHA-256 manifest. The current-user installer adds only the desktop shell and its
+uninstaller. Docker/local services and Vite must still be started manually.
+Read `desktop/INSTALLER_BUILD_README.md` and complete
+`DESKTOP_DISTRIBUTION_CHECKLIST.md` before local testing. SmartScreen warnings
+are expected; signing and public distribution remain deferred.

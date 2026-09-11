@@ -1,6 +1,7 @@
 # RavenTech OSINT Desktop 5.0.0-rc4 — Windows Portable Build
 
-This folder is a local-test portable build. It has no installer, signing,
+This folder is a local-test portable build. A separate Phase 5AO unsigned local
+installer workflow exists, but this portable folder has no installer, signing,
 updater, backend service, database, Docker runtime, or production deployment.
 
 ## Prerequisites
@@ -63,3 +64,7 @@ the folder between local test locations.
 - no shell/filesystem plugin, secret collection, remote administration, router
   automation, scanning, exploitation, hosting, deployment, DNS, or Supabase
   migration
+
+For the separate unsigned current-user installer workflow, read
+`desktop/INSTALLER_BUILD_README.md`. Portable and installer outputs remain
+independent, ignored local artifacts; neither is approved for public release.

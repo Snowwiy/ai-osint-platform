@@ -32,6 +32,7 @@ node_modules/
 target/
 desktop/src-tauri/gen/
 desktop/dist-portable/
+desktop/dist-installer/
 
 # IDE
 .idea/
