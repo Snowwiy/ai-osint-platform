@@ -52,8 +52,10 @@ Expected URLs:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-The desktop shell does not start Docker, services, or PowerShell. Its command
-guidance remains copy-only.
+The desktop shell never starts services automatically. When launched from an
+installed location outside the repository, it cannot discover the approved
+scripts and clearly retains copy-only guidance. It never accepts a repository
+path or arbitrary PowerShell command.
 
 ## Install, launch, and uninstall
 
@@ -65,6 +67,13 @@ icon is a build-only placeholder; final icon approval is deferred.
 
 Uninstall from **Settings > Apps > Installed apps > RavenTech OSINT Desktop**.
 The current-user installer does not install backend services or remove Docker data.
+
+## Controlled launcher behavior
+
+Only five fixed repository scripts are eligible: start, stop, restart, check,
+and open frontend. Start/stop/restart require confirmation. Output is sanitized
+and capped, and every action has a timeout. No shell/filesystem Tauri plugin or
+generic command input is enabled.
 
 ## Troubleshooting and limitations
 

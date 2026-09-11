@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-window",
-  "description": "No plugin permissions. The prototype exposes one fixed loopback health command.",
+  "description": "No plugin permissions. Fixed loopback probes and five parameterless Rust launcher commands only.",
   "windows": ["main"],
   "permissions": []
 }

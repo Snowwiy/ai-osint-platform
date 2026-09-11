@@ -22,9 +22,10 @@ cd frontend
 npm run dev
 ```
 
-The portable application does not start Docker, PowerShell, PostgreSQL, Redis,
-FastAPI, Celery, or Vite. Its command helpers are copy-only; a human operator
-must paste and run each command in a terminal.
+The portable application never starts services automatically. When it can
+discover the repository above its executable, it can run only five fixed local
+scripts; start, stop, and restart require confirmation. Copy remains available
+for every action, and Vite/Docker direct commands remain copy-only.
 
 ## Run the portable application
 
@@ -64,7 +65,8 @@ the folder between local test locations.
 - unsigned executable with a build-only placeholder icon
 - Docker and the Vite frontend remain separate operator-managed dependencies
 - no service autostart or automatic command execution
-- no shell/filesystem plugin, secret collection, remote administration, router
+- no arbitrary command input, shell/filesystem plugin, secret collection,
+  remote administration, router
   automation, scanning, exploitation, hosting, deployment, DNS, or Supabase
   migration
 

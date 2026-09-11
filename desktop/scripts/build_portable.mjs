@@ -27,8 +27,11 @@ console.log("Validating the isolated desktop source...");
 run(process.execPath, [resolve(desktop, "scripts", "validate.mjs")], desktop);
 run(process.execPath, [
   "--test",
+  resolve(desktop, "tests", "launcher.test.mjs"),
+  resolve(desktop, "tests", "local-scripts.test.mjs"),
   resolve(desktop, "tests", "portable-scripts.test.mjs"),
   resolve(desktop, "tests", "runtime.test.mjs"),
+  resolve(desktop, "tests", "smoke-script.test.mjs"),
 ], desktop);
 run(process.execPath, [resolve(desktop, "scripts", "build.mjs")], desktop);
 

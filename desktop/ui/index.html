@@ -24,7 +24,7 @@
       <section class="hero">
         <p class="eyebrow" data-copy="eyebrow">LOCAL SERVICE STATUS</p>
         <h1 data-copy="title">Preparing the local workspace</h1>
-        <p data-copy="intro">This shell checks only fixed localhost services. It never starts Docker or runs host commands.</p>
+        <p data-copy="intro">This shell checks fixed localhost services and can run only five approved repository scripts.</p>
         <div id="summary" class="summary checking" role="status" aria-live="polite">
           <span class="summary-dot"></span>
           <span id="summary-text" data-copy="checking">Checking…</span>
@@ -37,6 +37,7 @@
         <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong><small id="ready-detail"></small></article>
         <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong><small id="release-detail"></small></article>
         <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong><small id="frontend-detail"></small></article>
+        <article><span data-copy="dockerServices">Docker services</span><strong id="docker-status">Checking…</strong><small id="docker-detail"></small></article>
       </section>
 
       <section id="backend-guidance" class="guidance" hidden>
@@ -53,9 +54,16 @@
       </section>
 
       <section class="panel">
-        <h2 data-copy="helpTitle">Start the local services</h2>
-        <p data-copy="helpBody">Run these commands yourself from the repository. The buttons copy text only.</p>
+        <h2 data-copy="helpTitle">Controlled local launcher</h2>
+        <p data-copy="helpBody">Approved actions use fixed repository scripts. Copy remains available when scripts cannot be found.</p>
         <div id="commands"></div>
+      </section>
+
+      <section class="panel command-result" aria-live="polite">
+        <h2 data-copy="lastCommand">Last command</h2>
+        <p id="last-command">No launcher action has run.</p>
+        <strong id="command-result">Not run</strong>
+        <pre id="command-output" hidden></pre>
       </section>
 
       <section class="panel endpoints">
@@ -75,5 +83,16 @@
       </div>
       <iframe id="platform-frame" title="RavenTech OSINT local web application" referrerpolicy="no-referrer" allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-modals"></iframe>
     </section>
+
+    <dialog id="confirm-dialog" aria-labelledby="confirm-title">
+      <form method="dialog">
+        <h2 id="confirm-title" data-copy="confirmTitle">Confirm local service action</h2>
+        <p id="confirm-message"></p>
+        <div class="dialog-actions">
+          <button value="cancel" data-copy="cancel">Cancel</button>
+          <button class="primary" value="confirm" data-copy="confirm">Confirm</button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>

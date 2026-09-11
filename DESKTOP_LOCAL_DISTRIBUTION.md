@@ -3,6 +3,9 @@
 Phase 5AP defines the local Windows test bundle for RavenTech OSINT Desktop
 `5.0.0-rc4`. It is an unpublished, unsigned QA workflow—not a public release.
 
+Phase 5AQ adds optional runtime orchestration for five fixed repository scripts.
+It does not add service autostart or arbitrary shell access.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`
@@ -23,7 +26,19 @@ deferred and do not block local QA.
 - Rust/Cargo and pinned Tauri/NSIS build tools already available locally
 
 No backend, PostgreSQL, Redis, Docker runtime, database, or credentials are
-bundled. There is no service autostart or automatic command execution.
+bundled. There is no service autostart, arbitrary command input, or remote
+command execution.
+
+## Controlled launcher
+
+The desktop can run only `start_platform.ps1`, `stop_platform.ps1`,
+`restart_platform.ps1`, `check_platform.ps1`, and `open_platform.ps1` from the
+canonical repository `scripts/local/` directory. Start, stop, and restart show a
+confirmation dialog. Output is capped, sanitized, and time-bounded.
+
+Portable/dev builds can discover scripts from the repository directory tree.
+An installed build outside that tree cannot be given an arbitrary path: it
+explains that scripts are unavailable and leaves the copy button active.
 
 ## Build
 
@@ -70,6 +85,8 @@ security policy merely to run the test.
 5. Export one benign report and confirm existing browser behavior is unchanged.
 6. Run `npm run portable:validate`, `npm run installer:validate -- --require-artifact`,
    and `npm run smoke -- --require-artifacts`.
+7. Run **Check** and verify the last-command result contains no secret or raw stack trace.
+8. Confirm start/stop/restart cannot run without accepting the confirmation dialog.
 
 ## Uninstall
 

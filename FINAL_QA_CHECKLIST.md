@@ -13,6 +13,27 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AQ — controlled local service launcher
+
+- [ ] Rust exposes only parameterless check/start/stop/restart/open-frontend
+      commands mapped to the five approved `scripts/local/` filenames.
+- [ ] Script discovery uses canonical repository ancestry; no UI command,
+      argument, script filename, or repository path is accepted.
+- [ ] Start, stop, and restart require an explicit confirmation; cancel runs nothing.
+- [ ] Check and open-frontend are explicit user actions, never startup actions.
+- [ ] Missing repository scripts or PowerShell produce a readable copy-only fallback.
+- [ ] Captured output is bounded, control characters and repository paths are
+      sanitized, sensitive-marker lines are removed, and timeouts return cleanly.
+- [ ] Desktop status shows backend, readiness, release, frontend, Docker
+      dependency state, last command, and sanitized command result in English/Spanish.
+- [ ] Local scripts pass PowerShell parsing and retain non-destructive stop,
+      safe start-time migrations, concise errors, and no secret output.
+- [ ] No shell/filesystem Tauri plugin or remote origin is granted.
+- [ ] Portable and installer builds/validators plus desktop smoke checks pass.
+- [ ] No public release, signing, service autostart, hosting, deployment, DNS,
+      Supabase migration, router automation, remote/arbitrary command execution,
+      or offensive functionality is added.
+
 ## Phase 5AP — installer QA, branding, and local distribution
 
 - [ ] Product name, identifier, RC4 version, portable folder, installer name,
@@ -77,7 +98,7 @@ Version: `5.0.0-rc4`
 - [ ] No `.env`, credential, certificate, database, backup, report, client data,
       backend service, PostgreSQL, Redis, or Docker runtime is packaged.
 - [ ] The copied executable starts and responds on Windows while retaining the
-      fixed local health/status and copy-only behavior.
+      fixed local health/status, controlled launcher, and copy-fallback behavior.
 - [ ] Tauri default `bundle.active` remains false; the portable workflow invokes
       no MSI, NSIS, signing, updater, release publishing, or service autostart.
 - [ ] Browser/local Docker mode, backend validation, frontend localization,

@@ -10,6 +10,7 @@ const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = resolve(desktop, "..");
 const output = resolve(desktop, "dist-installer", PRODUCT_DIRECTORY);
 const requireArtifact = process.argv.includes("--require-artifact");
+const configOnly = process.argv.includes("--config-only");
 
 const packageJson = JSON.parse(await readFile(resolve(desktop, "package.json"), "utf8"));
 const base = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.conf.json"), "utf8"));
@@ -60,7 +61,10 @@ if (capability.permissions.length !== 0 || capability.remote !== undefined) {
 if (/tauri-plugin-(shell|fs)|shell:|fs:/i.test(`${cargo}\n${JSON.stringify(capability)}`)) {
   throw new Error("Shell or broad filesystem permissions are not allowed.");
 }
-if (/std::process::Command/.test(rust)) throw new Error("Desktop runtime must not execute host commands.");
+const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
+if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
+  throw new Error("Desktop runtime must use only its fixed Windows PowerShell launcher.");
+}
 
 for (const path of [
   "INSTALLER_BUILD_README.md",
@@ -79,6 +83,11 @@ for (const path of [
   "KNOWN_LIMITATIONS.md",
   "FINAL_QA_CHECKLIST.md",
 ]) await access(resolve(repository, path));
+
+if (configOnly) {
+  console.log("Unsigned installer configuration validation passed.");
+  process.exit(0);
+}
 
 let entries;
 try {
@@ -110,7 +119,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.j
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
   throw new Error("Installer manifest does not describe the expected unsigned RC4 local build.");
 }
-if (Object.values(manifest.boundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden installer capability is enabled in the manifest.");
 }
 for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
@@ -118,7 +128,7 @@ for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
   if (manifest.files[name]?.sha256 !== digest) throw new Error(`Checksum mismatch: ${name}`);
 }
 const readme = await readFile(resolve(output, "README.md"), "utf8");
-for (const required of ["unsigned", "SmartScreen", "Docker Desktop", "http://localhost:5173", "http://localhost:8000", "does not start Docker"]) {
+for (const required of ["unsigned", "SmartScreen", "Docker Desktop", "http://localhost:5173", "http://localhost:8000", "never starts services automatically"]) {
   if (!readme.includes(required)) throw new Error(`Installer README is missing: ${required}`);
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {

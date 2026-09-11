@@ -19,6 +19,10 @@ Phase 5AP adds consistent RC4 naming, local distribution instructions, and a
 read-only smoke checker for both ignored artifacts. The current build-only icon
 remains a documented placeholder and is not final branding.
 
+Phase 5AQ adds a fixed, parameterless Rust launcher for five existing local
+scripts. Installed builds outside the repository intentionally fall back to copy
+guidance instead of accepting a configurable path.
+
 - select and approve final icons and loading treatment; replace the placeholder
   only in a separately reviewed branding/package phase
 - review and update the pinned Tauri CLI only through a separately approved
@@ -38,9 +42,9 @@ remains a documented placeholder and is not final branding.
 - decide future artifact retention, provenance, SBOM, and release-attestation
   policy before any public distribution
 
-Do not add automatic Docker/PowerShell execution, database reset, `.env`
-modification, remote administration, router automation, broad filesystem
-access, or a generic command bridge while completing these items.
+Do not add service autostart, configurable PowerShell/script input, database
+reset, `.env` modification, remote administration, router automation, broad
+filesystem access, or a generic command bridge while completing these items.
 
 No signed installer, public release, auto-update service, hosting, deployment,
-DNS, or Supabase migration is included in Phase 5AP.
+DNS, or Supabase migration is included in Phase 5AQ.

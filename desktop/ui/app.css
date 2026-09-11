@@ -48,7 +48,7 @@ h2 { margin-top: 0; font-size: 1rem; }
 .summary.warning .summary-dot { background: #f0b95c; }
 .summary.error { border-color: #704044; }
 .summary.error .summary-dot { background: #ff8d8d; }
-.status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: 2rem 0; }
+.status-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .8rem; margin: 2rem 0; }
 .status-grid article, .panel { border: 1px solid #1b3544; border-radius: .7rem; background: #0c1b26; }
 .status-grid article { padding: 1rem; }
 .status-grid span { display: block; color: #8299a8; font-size: .78rem; margin-bottom: .45rem; }
@@ -60,11 +60,18 @@ h2 { margin-top: 0; font-size: 1rem; }
 .guidance h2 { margin-bottom: .35rem; color: #e7eef7; }
 .guidance p { margin: 0; line-height: 1.55; }
 .panel { margin-top: 1rem; padding: 1.2rem; }
-.command { display: grid; grid-template-columns: 7rem 1fr auto; align-items: center; gap: .75rem; margin-top: .6rem; }
+.command { display: grid; grid-template-columns: 7rem 1fr auto auto; align-items: center; gap: .75rem; margin-top: .6rem; }
 .command label { color: #afc0cb; font-size: .86rem; }
 code { overflow-wrap: anywhere; color: #c5f4e7; background: #07131b; border-radius: .25rem; padding: .35rem .45rem; }
 .endpoints p { display: grid; grid-template-columns: 8rem 1fr; gap: .8rem; align-items: center; }
 #message { min-height: 1.4rem; color: #65e6c4; }
+.command-result strong.ok { color: #65e6c4; }
+.command-result strong.offline { color: #ff8d8d; }
+.command-result pre { max-height: 13rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: .8rem; border-radius: .35rem; color: #bcd0dc; background: #07131b; }
+dialog { width: min(30rem, calc(100% - 2rem)); border: 1px solid #2d5063; border-radius: .7rem; color: #e7eef7; background: #0c1b26; }
+dialog::backdrop { background: rgb(2 8 12 / .78); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: 1.2rem; }
+.dialog-actions .primary { margin-top: 0; }
 
 #platform-view { height: 100vh; }
 .platform-strip { height: 42px; justify-content: flex-start; color: #a7bbc8; font-size: .82rem; }

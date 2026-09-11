@@ -39,6 +39,11 @@ for portable and installer manifests, checksums, exclusions, local URLs, and
 restricted permissions. See
 [DESKTOP_LOCAL_DISTRIBUTION.md](DESKTOP_LOCAL_DISTRIBUTION.md).
 
+Phase 5AQ adds a controlled desktop launcher for exactly five existing local
+scripts. Start, stop, and restart require confirmation; check and open-frontend
+remain explicit button actions. Installed builds that cannot locate repository
+ancestry use the copy-only fallback. No arbitrary command or path is accepted.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -195,8 +200,8 @@ Output is collected under
 `desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/`. Read
 [desktop/INSTALLER_BUILD_README.md](desktop/INSTALLER_BUILD_README.md) and use
 [DESKTOP_DISTRIBUTION_CHECKLIST.md](DESKTOP_DISTRIBUTION_CHECKLIST.md) for local
-QA. The installer is unsigned, may trigger SmartScreen, does not start Docker or
-Vite, and must not be published.
+QA. The installer is unsigned, may trigger SmartScreen, never starts services
+automatically, and must not be published.
 
 After both local artifacts are built, validate the combined distribution:
 
@@ -208,6 +213,10 @@ npm run smoke -- --require-artifacts
 The desktop window is branded **RavenTech OSINT Desktop — Local Workspace**.
 The icon remains a documented build-only placeholder; signing, final branding,
 auto-update, and public release remain deferred.
+
+The desktop status screen also shows Docker dependency state and the latest
+approved launcher result. Launcher output is capped and sanitized. Direct Vite
+and Docker commands remain copy-only, and no service runs at application startup.
 
 For a guided startup and health check:
 

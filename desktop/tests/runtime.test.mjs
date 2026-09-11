@@ -22,14 +22,18 @@ test("uses fixed local frontend and backend defaults", () => {
   assert.doesNotMatch(`${app}\n${rust}`, /https:\/\//);
 });
 
-test("offers every operator action as inert copy text", () => {
+test("offers copy fallback and only fixed controlled launcher actions", () => {
   for (const command of [
     "start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1",
     "check_platform.ps1", "open_platform.ps1 -Target frontend",
     "cd frontend; npm run dev", "docker compose up -d postgres redis backend celery-worker"
   ]) assert.ok(app.includes(command), `missing copy command: ${command}`);
   assert.doesNotMatch(app, /__TAURI__\.(shell|process)|Command\.create|invoke\(["'](?:shell|execute)/i);
-  assert.doesNotMatch(rust, /std::process|powershell|cmd\.exe/i);
+  for (const invoke of ["start_platform", "stop_platform", "restart_platform", "check_platform", "open_local_frontend"]) {
+    assert.ok(app.includes(`invoke: "${invoke}"`), `missing fixed launcher mapping: ${invoke}`);
+  }
+  assert.match(rust, /Command::new\(&powershell\)/);
+  assert.match(rust, /join\("System32"\)/);
 });
 
 test("keeps Tauri permissions and navigation constrained", () => {

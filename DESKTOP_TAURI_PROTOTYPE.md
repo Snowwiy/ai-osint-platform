@@ -23,6 +23,11 @@ smoke check. The window title is **RavenTech OSINT Desktop — Local Workspace**
 the product, portable folder, and installer names remain aligned to RC4. The
 existing generated icon is still a build-only placeholder.
 
+Phase 5AQ adds a controlled local launcher for the five existing platform
+scripts. Start, stop, and restart require an explicit confirmation. Check and
+open-frontend actions run directly. No command text, arguments, or paths are
+accepted from the UI.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
@@ -30,6 +35,9 @@ existing generated icon is still a build-only placeholder.
 - shows a bilingual English/Spanish help screen when services are unavailable
 - displays copyable start, stop, restart, check, and frontend commands
 - displays copy-only helpers for the browser opener and direct Docker services
+- can invoke only five approved scripts when the repository is discoverable;
+  otherwise it retains the copy-only fallback
+- shows Docker dependency state plus the last launcher action and sanitized result
 - returns to the help screen when a later service check fails
 - keeps the status screen open when the operator chooses to inspect it
 
@@ -90,26 +98,30 @@ status**; **Open local workspace** then returns to the application manually.
 ## Security boundary
 
 The Tauri capability file grants no plugin permissions and no remote origins.
-There is no shell or filesystem plugin. The only invoked Rust command accepts no user input and
-performs bounded HTTP GET probes to `127.0.0.1:8000` and
-`127.0.0.1:5173`. Responses are size-limited and shown as simple status values;
-raw stack traces and response bodies are not exposed.
+There is no shell or filesystem plugin. Rust performs bounded HTTP GET probes to
+`127.0.0.1:8000` and `127.0.0.1:5173` and exposes five parameterless launcher
+commands. Each maps internally to one fixed filename, resolves it only under a
+canonical `scripts/local/` directory, runs Windows PowerShell without a profile
+or stdin, caps and sanitizes output, and applies an action-specific timeout.
 
 The embedded frame permits scripts, forms, downloads, modals, same-origin web
 storage, and clipboard writes needed by the existing application. It does not
 permit popups or top-level navigation, and CSP restricts frames to
 `http://localhost:5173`.
 
-The shell never starts Docker, runs PowerShell, modifies `.env`, resets a
-database, reads secrets or credentials, collects browser history, contacts a
-router, administers another host, or executes remote commands. Copy buttons use
-the web clipboard API and always require the operator to paste and run the text.
+The shell never starts a service automatically. Only an explicit user action can
+run an approved local script, and start/stop/restart require confirmation. It
+cannot edit `.env`, reset a database, accept arbitrary commands, read secrets or
+credentials, collect browser history, contact a router, administer another host,
+or execute remote commands. Copy buttons remain available for every action.
 
 ## Prototype limitations
 
 - Docker, PostgreSQL, Redis, FastAPI, Celery, and Vite remain separate services.
 - The frontend must be running on port 5173 before it can be embedded.
 - The backend must be running on port 8000 for normal application behavior.
+- Installed builds outside the repository cannot discover scripts and therefore
+  show the safe copy-only fallback; portable/dev builds discover repository ancestry.
 - Phase 5AO provides an unsigned local-test installer workflow, not a signed or
   production installer, updater, hosted service, deployment, DNS change, or
   Supabase migration.
@@ -125,9 +137,9 @@ npm run build
 npm run tauri:check
 ```
 
-`npm run check` validates the config, all seven copy-only commands, fixed local
-URLs, bilingual help labels, secret-field absence, disabled bundling, and the
-lack of shell/filesystem or remote-navigation capability.
+`npm run check` validates the fixed five-script allowlist, rejection of dynamic
+command input, confirmation behavior, output sanitization and caps, timeouts,
+copy fallback, local URLs, bilingual labels, and minimal capabilities.
 
 Review `src-tauri/capabilities/default.json`, `src-tauri/tauri.conf.json`, and
 `src-tauri/src/main.rs` before any future permissions or packaging change.

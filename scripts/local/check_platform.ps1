@@ -10,8 +10,9 @@ $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "../.."))
 function Get-LocalResponse([string]$Uri, [string]$Label) {
     try {
         $response = Invoke-RestMethod -Uri $Uri -TimeoutSec 10
-        if ($response.status -and $response.status -ne "ok") {
-            throw "$Label returned status '$($response.status)'."
+        $statusProperty = $response.PSObject.Properties["status"]
+        if ($statusProperty -and $statusProperty.Value -ne "ok") {
+            throw "$Label returned a non-ok status."
         }
         return $response
     } catch {

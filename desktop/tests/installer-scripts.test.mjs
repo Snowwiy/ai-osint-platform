@@ -41,4 +41,8 @@ test("installer build uses the pinned CLI without network or signing commands", 
   assert.doesNotMatch(build, /npm\s+(install|ci)|npx|curl|Invoke-WebRequest|signtool|powershell/i);
   assert.match(validate, /file allowlist/i);
   assert.match(validate, /Forbidden installer filename/);
+  assert.match(build, /--config-only/);
+  assert.match(validate, /--require-artifact/);
+  assert.match(build, /controlledLocalLauncher:\s*true/);
+  assert.match(build, /arbitraryCommandExecution:\s*false/);
 });

@@ -40,7 +40,10 @@ if (capability.permissions.length !== 0 || capability.remote !== undefined) thro
 if (/tauri-plugin-(shell|fs|updater)|shell:|fs:|updater:/i.test(`${cargo}\n${JSON.stringify(capability)}`)) {
   throw new Error("Shell, filesystem, or updater permission detected.");
 }
-if (/std::process::Command/.test(rust)) throw new Error("Desktop runtime command execution detected.");
+const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
+if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
+  throw new Error("Desktop launcher is not constrained to fixed Windows PowerShell execution.");
+}
 for (const url of app.match(/https?:\/\/[^"'`\s]+/g) ?? []) {
   if (!url.startsWith("http://localhost:5173") && !url.startsWith("http://localhost:8000")) {
     throw new Error(`Non-local desktop URL detected: ${url}`);
@@ -81,7 +84,8 @@ async function verifyArtifact({ directory, allowed, manifestName, binaryName, ki
   const binary = await readFile(resolve(directory, binaryName));
   if (binary[0] !== 0x4d || binary[1] !== 0x5a) throw new Error(`${kind} binary is not a Windows PE file.`);
   const manifest = JSON.parse(await readFile(resolve(directory, manifestName), "utf8"));
-  if (manifest.version !== VERSION || Object.values(manifest.boundaries).some((value) => value !== false)) {
+  const { controlledLocalLauncher, ...forbiddenBoundaries } = manifest.boundaries;
+  if (manifest.version !== VERSION || controlledLocalLauncher !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
     throw new Error(`${kind} manifest version or security boundaries are invalid.`);
   }
   if (kind === "installer" && (manifest.signed !== false || manifest.publicRelease !== false)) {

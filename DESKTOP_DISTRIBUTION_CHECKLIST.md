@@ -1,6 +1,6 @@
 # Desktop Distribution Checklist
 
-Phases 5AO–5AP prepare and validate local, unsigned Windows installer and
+Phases 5AO–5AQ prepare and validate local, unsigned Windows installer and
 portable testing only. Public release remains deferred until signing,
 clean-machine QA, final branding, and release approval are complete.
 
@@ -28,7 +28,14 @@ clean-machine QA, final branding, and release approval are complete.
       certificates, database dumps, backups, reports, and local logs.
 - [ ] Independently verify every SHA-256 checksum after transfer.
 - [ ] Confirm Tauri grants no shell/filesystem plugin permissions or remote origins.
-- [ ] Confirm commands displayed by the shell remain copy-only.
+- [ ] Confirm every launcher action retains a copy-only fallback.
+- [ ] Confirm runtime execution is limited to five parameterless commands and
+      canonical `scripts/local/` script filenames.
+- [ ] Confirm start, stop, and restart require explicit confirmation; cancel
+      each dialog once and verify no action runs.
+- [ ] Confirm installed builds without repository ancestry return the copy-only
+      fallback instead of accepting a path or command.
+- [ ] Confirm launcher output is capped/redacted and timeouts show a clean state.
 - [ ] Confirm no service autostart, updater, embedded database, or backend is present.
 - [ ] Run `npm run smoke -- --require-artifacts` and retain the console result
       with the local QA record; do not add binaries to Git.

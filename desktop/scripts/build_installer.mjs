@@ -47,9 +47,10 @@ try {
 console.log("Validating desktop, portable, and installer source contracts...");
 run(process.execPath, [resolve(desktop, "scripts", "validate.mjs")], desktop);
 run(process.execPath, ["--test", ...[
-  "installer-scripts.test.mjs", "portable-scripts.test.mjs", "runtime.test.mjs",
+  "installer-scripts.test.mjs", "launcher.test.mjs", "local-scripts.test.mjs",
+  "portable-scripts.test.mjs", "runtime.test.mjs", "smoke-script.test.mjs",
 ].map((name) => resolve(desktop, "tests", name))], desktop);
-run(process.execPath, [resolve(desktop, "scripts", "validate_installer.mjs")], desktop);
+run(process.execPath, [resolve(desktop, "scripts", "validate_installer.mjs"), "--config-only"], desktop);
 try {
   await access(resolve(desktop, "dist-portable", PRODUCT_DIRECTORY, "portable-manifest.json"));
   run(process.execPath, [resolve(desktop, "scripts", "validate_portable.mjs")], desktop);
@@ -107,7 +108,8 @@ const manifest = {
   boundaries: {
     autoUpdate: false,
     serviceAutostart: false,
-    commandExecution: false,
+    controlledLocalLauncher: true,
+    arbitraryCommandExecution: false,
     embeddedBackend: false,
     embeddedDatabase: false,
     bundledCredentials: false,

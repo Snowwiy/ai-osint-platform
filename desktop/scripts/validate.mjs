@@ -13,6 +13,8 @@ const required = [
   "tests/portable-scripts.test.mjs",
   "tests/installer-scripts.test.mjs",
   "tests/smoke-script.test.mjs",
+  "tests/launcher.test.mjs",
+  "tests/local-scripts.test.mjs",
   "scripts/build_portable.mjs",
   "scripts/package_portable.mjs",
   "scripts/validate_portable.mjs",
@@ -54,8 +56,15 @@ if (config.app.security.dangerousRemoteDomainIpcAccess !== undefined) {
 if (/tauri-plugin-(shell|fs)|shell:|fs:/i.test(`${cargo}\n${JSON.stringify(capability)}`)) {
   throw new Error("Shell or filesystem capability detected.");
 }
-if (!rust.includes("127.0.0.1") || rust.includes("std::process::Command")) {
-  throw new Error("Health bridge must be loopback-only and must not execute commands.");
+if (!rust.includes("127.0.0.1")) {
+  throw new Error("Health bridge must remain loopback-only.");
+}
+const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
+if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")') || !rust.includes('var_os("SystemRoot")')) {
+  throw new Error("Only the fixed Windows PowerShell launcher is allowed.");
+}
+for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+  if (!rust.includes(script)) throw new Error(`Missing approved launcher script: ${script}`);
 }
 if (!html.includes('lang="en"') || !html.includes("Español")) {
   throw new Error("Desktop help screen must retain English/Spanish controls.");

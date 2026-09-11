@@ -36,6 +36,13 @@ still a build-only placeholder. Installer launch checks on one development host
 do not replace clean-machine, Windows-version, endpoint-security, accessibility,
 upgrade, and uninstall matrix testing.
 
+Phase 5AQ can orchestrate only five fixed scripts when repository ancestry is
+discoverable. Installed copies outside the repository cannot be configured with
+a path and fall back to copied guidance. A launcher timeout stops waiting and
+requests a status check; external Docker work already accepted by Docker may
+finish independently. The launcher is not a service supervisor and cannot start
+the separately managed Vite frontend.
+
 ## Product Boundaries
 
 - RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,
