@@ -29,7 +29,7 @@ Common causes:
 Check release metadata:
 
 ```powershell
-curl http://localhost:8000/api/v1/release
+curl.exe -fsS http://localhost:8000/api/v1/release
 ```
 
 The response should show app name, version, release channel, migration version,
@@ -79,7 +79,7 @@ and apply `alembic upgrade head` before changing code.
 
 ## Deferred Hosting Planning
 
-Hosting is not part of the RC3 validation scope. The following references are
+Hosting is not part of the RC6 private/local validation scope. The following references are
 for a future planning phase after final manual QA:
 
 - Use `DEPLOYMENT_PREFLIGHT.md` before pointing the platform at a hosted
@@ -331,9 +331,11 @@ External and protocol-relative action URLs are intentionally rejected.
   `provider_parse_error`. Retry is safe; provider failures do not delete valid
   entities already stored, and raw endpoint errors are not shown.
 
-The RC3 accepted mode is local Docker Compose plus the local Vite frontend.
-Do not troubleshoot it as a desktop package or hosted deployment; Electron,
-Tauri, installers, hosting, DNS, and Supabase migration remain deferred.
+The RC6 accepted runtime remains local Docker Compose plus the local Vite
+frontend. An optional Tauri shell, portable executable, and unsigned NSIS
+installer exist for private local testing only. They bundle no backend,
+PostgreSQL, Redis, Docker, `.env`, or operator data. Signing, public release,
+auto-update, hosting, deployment, DNS, and Supabase migration remain deferred.
 ## Phase 5AD alert triage and Activity Inbox
 
 - If the Activity Inbox is empty, clear triage filters and confirm the alert is

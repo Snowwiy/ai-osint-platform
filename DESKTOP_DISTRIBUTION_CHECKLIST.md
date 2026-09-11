@@ -4,6 +4,19 @@ Phases 5AO–5AT prepare and validate local, unsigned Windows installer, portabl
 and private aggregate-package testing only. Public release remains deferred
 until signing, clean-machine QA, brand approval, and release approval are complete.
 
+## Phase 5AW clean-repository dry run
+
+- [ ] Follow `FRESH_SETUP_CHECKLIST.md` from a clean checkout and confirm every
+      command uses an existing repository script or package entry.
+- [ ] Regenerate portable, unsigned installer, and aggregate RC6 artifacts using
+      the locked/offline desktop workflow; do not commit generated binaries.
+- [ ] Verify manifests, SHA-256 checksums, PE headers, exact allowlists, and the
+      final aggregate source commit.
+- [ ] Confirm `.env`, secrets, tokens, credentials, database dumps, backups,
+      generated reports, logs, and local user data are absent from artifacts.
+- [ ] Confirm `v5.0.0-rc6` remains at its existing freeze commit and create no
+      version bump, new tag, public release, signing, updater, or hosting change.
+
 ## Phase 5AV private handoff gate
 
 - [ ] Review `OPERATOR_MANUAL.md` against the RC6 UI, roles, local scripts,

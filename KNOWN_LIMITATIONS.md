@@ -60,6 +60,12 @@ operator acceptance checklist must be executed on each authorized Windows test
 environment; completed records can contain operational context and therefore
 remain outside Git and distribution artifacts.
 
+Phase 5AW dry-run checks improve reproducibility evidence but do not guarantee
+all clean Windows hosts, Docker Desktop versions, WebView2 policies, endpoint
+security products, or organizational controls. Each receiving environment still
+requires the private operator acceptance checklist. RC6 remains unsigned and
+local-only with a separately managed repository, Docker stack, and frontend.
+
 ## Product Boundaries
 
 - RC6 provides English and Spanish UI/report labels. Uncommon dynamic provider,

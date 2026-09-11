@@ -6,6 +6,8 @@ Signature: unsigned
 
 This handoff accompanies RavenTech OSINT Desktop RC6. It does not authorize a
 public upload, production deployment, signing claim, or hosted environment.
+For a new checkout, complete `FRESH_SETUP_CHECKLIST.md` before this handoff's
+artifact and receiving-host steps.
 
 ## Artifact locations
 

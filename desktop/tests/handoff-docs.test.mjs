@@ -11,6 +11,7 @@ const docs = [
   "OPERATOR_MANUAL.md",
   "DESKTOP_PRIVATE_HANDOFF.md",
   "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
+  "FRESH_SETUP_CHECKLIST.md",
 ];
 
 test("private handoff documents exist and remain RC6-local", async () => {
@@ -51,6 +52,21 @@ test("private handoff declares exact ignored artifact paths and exclusions", asy
   }
   for (const marker of [".env", "credentials", "tokens", "database dumps", "backups", "generated reports", "logs"]) {
     assert.ok(handoff.includes(marker));
+  }
+});
+
+test("fresh setup checklist covers reproducible RC6 operator setup", async () => {
+  const setup = await readFile(resolve(repository, "FRESH_SETUP_CHECKLIST.md"), "utf8");
+  for (const marker of [
+    "git clone", "Copy-Item -LiteralPath .env.example", "docker compose build",
+    "alembic upgrade head", "npm ci", "npm run dev", "/health/ready",
+    "/api/v1/release", "scripts/create_admin.py", "scripts.seed_demo_data",
+    "reset_demo.ps1 -Confirmation RESET-DEMO", "npm run tauri:dev",
+    "npm run portable:build", "npm run installer:build",
+    "npm run local-release:package", "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
+  ]) assert.ok(setup.includes(marker), `Missing fresh-setup marker: ${marker}`);
+  for (const exclusion of [".env", "secret", "token", "credential", "database dump", "backup", "generated report", "log", "local user data"]) {
+    assert.ok(setup.includes(exclusion), `Missing fresh-setup exclusion: ${exclusion}`);
   }
 });
 

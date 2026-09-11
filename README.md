@@ -67,6 +67,13 @@ artifacts with [DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
 record local Windows acceptance with
 [DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
 
+Phase 5AW locks the same RC6 private candidate after a clean-repository and
+artifact-regeneration dry run. A new operator should begin with
+[FRESH_SETUP_CHECKLIST.md](FRESH_SETUP_CHECKLIST.md); it connects clone,
+configuration, Docker, migrations, frontend, authentication, synthetic demo,
+desktop binding, artifact builds, and acceptance without adding a feature,
+version, or tag.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -434,6 +441,8 @@ The final private RC6 operator materials are
 [DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
 [DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
 They describe local use and QA only; they are not public-release approval.
+For a clean checkout, follow [FRESH_SETUP_CHECKLIST.md](FRESH_SETUP_CHECKLIST.md)
+in order before using the operator acceptance checklist.
 
 The reviewed GitHub release copy is in
 [GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no

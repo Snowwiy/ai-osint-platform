@@ -247,3 +247,5 @@ volume. Follow `LOCAL_BACKUP_RESTORE.md` for safeguards and verification.
 For build provenance and private transfer steps, see
 `DESKTOP_PRIVATE_HANDOFF.md`. For acceptance, use
 `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` and `FINAL_QA_CHECKLIST.md`.
+Operators starting from a clean checkout should complete
+`FRESH_SETUP_CHECKLIST.md` first.

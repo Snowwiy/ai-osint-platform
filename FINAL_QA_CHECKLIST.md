@@ -13,6 +13,24 @@
 
 Version: `5.0.0-rc6`
 
+## Phase 5AW — private distribution dry run and RC6 lock
+
+- [ ] `FRESH_SETUP_CHECKLIST.md` covers clean checkout, `.env` creation, Docker,
+      migrations, frontend, health/release, authentication, synthetic demo,
+      desktop binding, all three artifact builds, and operator acceptance.
+- [ ] Every fresh-setup command resolves to a current repository script/package
+      entry and preserves the manual, local-only security boundary.
+- [ ] Portable, unsigned installer, and aggregate RC6 artifacts regenerate and
+      pass manifests, checksums, exact allowlists, and desktop smoke validation.
+- [ ] All artifact roots remain Git-ignored and contain no forbidden or local
+      user data; generated binaries remain untracked.
+- [ ] Launcher allowlist, output sanitization, empty Tauri permissions, fixed
+      localhost URLs, and no-updater boundary remain unchanged.
+- [ ] Backend, frontend/localization, desktop, Cargo, PowerShell, Alembic, and
+      live RC6 health checks pass.
+- [ ] RC6 version and existing tag remain unchanged; no empty/new tag or public
+      release is created.
+
 ## Phase 5AV — final private desktop handoff
 
 - [ ] `OPERATOR_MANUAL.md` covers architecture, prerequisites, setup/path

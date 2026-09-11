@@ -28,6 +28,10 @@ acceptance checklist. These documents do not alter the shell, artifact contents,
 or distribution status. Use `DESKTOP_PRIVATE_HANDOFF.md` for private transfer
 and `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` for the receiving-host record.
 
+Phase 5AW records the complete clean-checkout order in
+`FRESH_SETUP_CHECKLIST.md` and dry-runs regeneration of all three ignored RC6
+artifact sets. RC6 stays at the existing tag and version; no release is published.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`
@@ -60,8 +64,10 @@ canonical repository `scripts/local/` directory. Start, stop, and restart show a
 confirmation dialog. Output is capped, sanitized, and time-bounded.
 
 Portable/dev builds can discover scripts from the repository directory tree.
-An installed build outside that tree cannot be given an arbitrary path: it
-explains that scripts are unavailable and leaves the copy button active.
+An installed build outside that tree uses the manually entered, canonicalized
+project root only after every fixed marker and pinned script-content check
+passes. An unvalidated path cannot select or execute a script; the UI explains
+that launchers are unavailable and leaves the copy button active.
 
 ## Build
 
