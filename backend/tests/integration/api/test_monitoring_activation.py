@@ -33,6 +33,10 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
         "service_check_disabled_reason"
     ]
     assert "LAN_MONITORING_ENABLED=true" in payload["env_lines"]
+    assert "MONITORING_AUTO_REFRESH_ENABLED=true" in payload["env_lines"]
+    assert payload["auto_refresh_enabled"] is True
+    assert payload["lan_auto_discovery_on_start"] is False
+    assert payload["lan_auto_service_check_on_start"] is False
     assert "Docker Desktop" in payload["docker_limitation"]
     assert "not a platform failure" in payload["optional_telemetry_note"]
     serialized = json.dumps(payload).lower()

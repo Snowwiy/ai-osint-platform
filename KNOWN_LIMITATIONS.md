@@ -337,3 +337,13 @@ release makes no desktop-package, hosted-service, or production-deployment claim
   require owner validation and normal change control.
 - Block and isolation steps are manual guidance. No router connection,
   credential use, policy change, VLAN action, or automatic block is implemented.
+
+## Automatic monitoring limits
+
+- Monitoring status loads after authentication and refreshes while a client is
+  open. It is not a background Windows service and stops when all clients close.
+- LAN discovery-on-start and TCP-check-on-start are disabled by default. Enabling
+  either still requires the parent flag and all approved private-CIDR, host,
+  port, timeout, policy, maintenance, cooldown, and dedupe constraints.
+- Missing endpoint telemetry and Docker host-neighbor visibility are optional
+  coverage limitations, not platform-health failures.

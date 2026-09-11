@@ -142,6 +142,7 @@ import type {
   NotificationMarkAllReadResponse,
   NotificationUnreadCountResponse,
   MonitoringOverviewResponse,
+  MonitoringStartupStatus,
   MonitoringTriageItem,
   MonitoringTriageListResponse,
   MonitoringTriageStatus,
@@ -1109,6 +1110,10 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
+}
+
+export async function getMonitoringStartup(): Promise<MonitoringStartupStatus> {
+  return request<MonitoringStartupStatus>("/monitoring/startup");
 }
 
 export async function listAgentTokens(): Promise<{ total: number; items: EnrollmentToken[] }> { return request("/monitoring/agent-tokens"); }

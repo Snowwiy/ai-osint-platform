@@ -258,3 +258,18 @@ Operators starting from a clean checkout should complete
 `FRESH_SETUP_CHECKLIST.md` first.
 Operators receiving artifacts on another Windows machine should also complete
 `EXTERNAL_MACHINE_TEST_CHECKLIST.md` before acceptance.
+
+## Automatic desktop monitoring
+
+After sign-in and backend readiness, the desktop automatically loads the local
+Monitoring Center summary and refreshes it every 30 seconds by default. The UI
+shows the last and next refresh times, health, alerts and triage, agent coverage,
+posture, recommendations, and vulnerability baseline. This is authenticated,
+read-only polling; it does not start Docker, discover LAN hosts, or check ports.
+
+A disabled LAN or TCP-check setting is informational: **Monitoring ready, LAN
+discovery disabled by configuration** means the core platform is healthy. Enable
+active discovery or checks only through the exact local `.env` flags shown in
+**Monitoring → Activation**, then restart the existing Docker services. Installed
+and portable builds use the embedded frontend; `npm run dev` and port 5173 are
+not required.

@@ -69,6 +69,7 @@ from app.schemas.monitoring import (
     MonitoringAlertsResponse,
     MonitoringAssetsResponse,
     MonitoringOverviewResponse,
+    MonitoringStartupStatus,
     MonitoringServicesResponse,
     MonitoringSystemResponse,
 )
@@ -184,6 +185,7 @@ from app.services.local_monitoring import (
     get_system_metrics,
     ingest_agent_telemetry,
 )
+from app.services.monitoring_runtime import get_monitoring_startup_status
 from app.services.lan_monitoring import (
     LanAssetNotFoundError,
     LanConfigurationError,
@@ -772,6 +774,21 @@ async def monitoring_overview_endpoint(
         return await get_monitoring_overview(db, request.app.state.redis, current_user)
     except Exception as exc:
         logger.exception("monitoring.overview failed")
+        raise _monitoring_unavailable() from exc
+
+
+@router.get("/startup", response_model=MonitoringStartupStatus)
+async def monitoring_startup_endpoint(
+    request: Request,
+    current_user: User = Depends(require_role("admin", "analyst")),
+    db: AsyncSession = Depends(get_db),
+) -> MonitoringStartupStatus:
+    try:
+        return await get_monitoring_startup_status(
+            db, request.app.state.redis, current_user
+        )
+    except Exception as exc:
+        logger.exception("monitoring.startup failed")
         raise _monitoring_unavailable() from exc
 
 

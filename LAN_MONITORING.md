@@ -217,3 +217,22 @@ service guess, confidence, and possible/non-standard SSH state.
 LAN, agent, service-observation, SSH, and Docker-limitation UI copy is available
 in English and Spanish. Localization does not expand authorization or alter the
 disabled-by-default, private-range, TCP-connect-only safety controls.
+
+## Desktop monitoring startup controls
+
+The desktop loads monitoring status automatically but does not automatically
+discover neighbors or check ports. These non-secret defaults keep active work
+explicit:
+
+```dotenv
+LAN_AUTO_DISCOVERY_ON_START=false
+LAN_AUTO_SERVICE_CHECK_ON_START=false
+LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=300
+LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=600
+```
+
+Enabling an auto-start flag does not bypass `LAN_MONITORING_ENABLED`,
+`LAN_SERVICE_CHECK_ENABLED`, authorized private CIDRs, configured port/host
+limits, timeouts, monitoring policies, maintenance windows, cooldowns, or
+deduplication. Public ranges, authentication, brute force, credential testing,
+and remote commands remain prohibited.

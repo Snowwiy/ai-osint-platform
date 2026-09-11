@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getMonitoringActivation } from "../lib/api";
 import { safeArray, safeString } from "../lib/safe";
+import { useI18n } from "../lib/i18n";
 import { ErrorBlock, LoadingBlock } from "./StateBlock";
 
 export function MonitoringActivationPanel(): JSX.Element {
+  const { t } = useI18n();
   const activation = useQuery({
     queryKey: ["monitoring-activation"],
     queryFn: getMonitoringActivation,
@@ -20,12 +22,14 @@ export function MonitoringActivationPanel(): JSX.Element {
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="font-semibold">Local monitoring activation</h2><p className="mt-1 text-sm text-raven-muted">Read-only guidance for this local Docker environment. The UI never edits <code>.env</code>.</p></div>
-          <div className="flex flex-wrap gap-2"><State enabled={data.lan_monitoring_enabled} label="LAN monitoring" /><State enabled={data.service_check_enabled} label="TCP service checks" /></div>
+          <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /></div>
         </div>
         <p className="mt-3 text-sm text-raven-muted">Allowed private ranges: {safeArray(data.allowed_cidrs).join(", ") || "none"}</p>
         <p className="mt-1 text-sm text-raven-muted">Configured TCP ports: {safeArray(data.service_ports).join(", ") || "none"}</p>
-        {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} /> : null}
-        {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} /> : null}
+        <p className="mt-1 text-sm text-raven-muted">{t("Auto refresh")}: {data.auto_refresh_seconds}s · {t("LAN discovery")}: {data.lan_auto_discovery_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_discovery_interval_seconds}s) · {t("Service checks")}: {data.lan_auto_service_check_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_service_check_interval_seconds}s)</p>
+        {!data.lan_monitoring_enabled ? <Notice text={t("Monitoring ready, LAN discovery disabled by configuration.")} informational /> : null}
+        {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} informational /> : null}
+        {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} informational /> : null}
         <div className="mt-3 grid gap-2 md:grid-cols-2"><Notice text={data.docker_limitation} /><Notice text={data.optional_telemetry_note} /></div>
       </section>
 
@@ -47,11 +51,12 @@ export function MonitoringActivationPanel(): JSX.Element {
 }
 
 function State({ enabled, label }: { enabled: boolean; label: string }): JSX.Element {
-  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${enabled ? "border-emerald-400/30 text-emerald-200" : "border-amber-300/30 text-amber-100"}`}>{enabled ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}{label}: {enabled ? "enabled" : "disabled"}</span>;
+  const { t } = useI18n();
+  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs ${enabled ? "border-emerald-400/30 text-emerald-200" : "border-cyan-300/30 text-cyan-100"}`}>{enabled ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}{label}: {enabled ? t("enabled") : t("disabled")}</span>;
 }
 
-function Notice({ text }: { text: string }): JSX.Element {
-  return <p className="mt-2 rounded-md border border-amber-300/20 bg-amber-400/5 p-3 text-sm text-amber-100">{text}</p>;
+function Notice({ text, informational = false }: { text: string; informational?: boolean }): JSX.Element {
+  return <p className={`mt-2 rounded-md border p-3 text-sm ${informational ? "border-cyan-300/20 bg-cyan-400/5 text-cyan-100" : "border-amber-300/20 bg-amber-400/5 text-amber-100"}`}>{text}</p>;
 }
 
 function CommandCard({ title, lines, note }: { title: string; lines: string[]; note: string }): JSX.Element {

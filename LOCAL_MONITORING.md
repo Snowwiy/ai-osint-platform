@@ -226,3 +226,28 @@ Remove or disable that rule when LAN-agent access is no longer required.
 Monitoring Center labels, statuses, empty/error states, activation guidance,
 and advisory posture terminology are available in English and Spanish. English
 is the safe fallback for uncommon provider- or evidence-generated prose.
+
+## Desktop automatic startup and refresh
+
+Once the local backend is ready and the operator is authenticated, the client
+loads `GET /api/v1/monitoring/startup`. The response combines server/service
+health, alerts and triage, agent coverage, posture, recommendations,
+vulnerability baseline, effective LAN configuration, and the next refresh time.
+The default 30-second loop only recomputes or reads stored summaries through the
+existing monitoring overview; it does not invoke discovery or TCP-check routes.
+
+```dotenv
+DESKTOP_AUTO_MONITORING_ENABLED=true
+MONITORING_AUTO_REFRESH_ENABLED=true
+MONITORING_AUTO_REFRESH_SECONDS=30
+LAN_AUTO_DISCOVERY_ON_START=false
+LAN_AUTO_SERVICE_CHECK_ON_START=false
+LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=300
+LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=600
+```
+
+The active-operation flags remain false by default. Even when deliberately
+enabled, their parent LAN/service flags, authorized RFC1918 CIDRs, target and port
+limits, timeouts, policies, maintenance windows, cooldowns, and dedupe rules
+still apply. Missing optional agent telemetry or Docker neighbor visibility does
+not degrade platform health.

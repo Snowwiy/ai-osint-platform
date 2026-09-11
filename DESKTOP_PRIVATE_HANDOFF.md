@@ -1,6 +1,13 @@
 # RavenTech OSINT Desktop Private Handoff
 
 Candidate: `5.0.0-rc6`
+
+After an operator signs in and the backend is ready, RC6 automatically loads the
+local Monitoring Center summary and performs a safe read-only refresh every 30
+seconds by default. LAN discovery and TCP checks remain off unless their separate
+local configuration flags and existing authorization boundaries are enabled. A
+disabled optional signal is informational, not a failed platform. Portable and
+installed runs use embedded frontend assets and do not need Vite or port 5173.
 Distribution: private local Windows testing only
 Signature: unsigned
 

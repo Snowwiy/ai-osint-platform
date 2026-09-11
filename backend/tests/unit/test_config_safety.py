@@ -47,10 +47,31 @@ def test_lan_monitoring_defaults_are_non_intrusive() -> None:
     assert local_settings.LOCAL_BACKEND_URL == "http://localhost:8000"
     assert local_settings.LOCAL_OPERATOR_OPEN_BROWSER is True
     assert local_settings.LAN_MONITORING_ENABLED is False
+    assert local_settings.DESKTOP_AUTO_MONITORING_ENABLED is True
+    assert local_settings.MONITORING_AUTO_REFRESH_ENABLED is True
+    assert local_settings.MONITORING_AUTO_REFRESH_SECONDS == 30
+    assert local_settings.LAN_AUTO_DISCOVERY_ON_START is False
+    assert local_settings.LAN_AUTO_SERVICE_CHECK_ON_START is False
+    assert local_settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS == 300
+    assert local_settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS == 600
     assert local_settings.LAN_DISCOVERY_PING_ENABLED is False
     assert local_settings.LAN_SERVICE_CHECK_ENABLED is False
     assert local_settings.LAN_AGENT_TOKEN == ""
     assert "LAN_AGENT_TOKEN" not in local_settings.model_dump()
+
+
+def test_monitoring_automatic_intervals_are_bounded() -> None:
+    invalid = Settings(
+        _env_file=None,
+        MONITORING_AUTO_REFRESH_SECONDS=5,
+        LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=60,
+        LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=120,
+    )
+
+    errors = invalid.startup_errors()
+    assert "MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300." in errors
+    assert "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS must be at least 300." in errors
+    assert "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS must be at least 600." in errors
 
 
 def test_local_desktop_origins_are_exact_and_production_is_unchanged() -> None:

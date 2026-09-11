@@ -335,6 +335,19 @@ External and protocol-relative action URLs are intentionally rejected.
 
 ## Monitoring and authorized discovery
 
+- **Monitoring loaded; LAN discovery disabled by configuration** is a healthy,
+  informational state. Copy the exact non-secret flags from **Monitoring →
+  Activation** only if authorized discovery is desired, then restart the local
+  platform. Never enable public CIDRs.
+- If automatic refresh is inactive, confirm
+  `DESKTOP_AUTO_MONITORING_ENABLED=true`,
+  `MONITORING_AUTO_REFRESH_ENABLED=true`, and a refresh interval from 15 to 300
+  seconds, then recreate the backend containers. The default is 30 seconds.
+- Portable and installed monitoring uses embedded frontend assets. Do not start
+  Vite to repair it; verify backend readiness at `http://localhost:8000` instead.
+- Optional endpoint telemetry and Docker neighbor visibility may be unavailable
+  without making the platform degraded.
+
 - If health and readiness are OK but host metrics are absent, expect **Platform
   healthy** and **Optional host telemetry unavailable**. The displayed metrics
   belong to the backend container until the optional local agent reports.

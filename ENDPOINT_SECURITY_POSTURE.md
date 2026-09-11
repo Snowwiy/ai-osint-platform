@@ -117,3 +117,11 @@ identifiers are not rewritten when display language changes.
 This feature is validated only in the local web application. It adds no desktop
 packaging, Electron, Tauri, installer, hosting, deployment, DNS, Supabase
 migration, public scanning, router automation, or offensive capability.
+
+## Automatic summary refresh
+
+The authenticated desktop startup summary refreshes stored posture,
+recommendation, baseline, coverage, and alert counts. This read-only refresh does
+not contact endpoints, require agent telemetry, authenticate to a device, execute
+commands, or initiate LAN discovery/service checks. Missing agent telemetry is
+an informational coverage limitation rather than a platform failure.

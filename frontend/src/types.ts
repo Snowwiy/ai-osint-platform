@@ -3237,6 +3237,41 @@ export interface MonitoringOverviewResponse {
   recent_errors: MonitoringRecentError[];
 }
 
+export interface MonitoringStartupStatus {
+  generated_at: string;
+  next_refresh_at: string | null;
+  status: "loaded" | "disabled";
+  message: string;
+  platform_status: MonitoringStatus;
+  release_version: string;
+  desktop_auto_monitoring_enabled: boolean;
+  auto_refresh_enabled: boolean;
+  auto_refresh_seconds: number;
+  lan_monitoring_enabled: boolean;
+  service_check_enabled: boolean;
+  lan_auto_discovery_on_start: boolean;
+  lan_auto_service_check_on_start: boolean;
+  lan_auto_discovery_interval_seconds: number;
+  lan_auto_service_check_interval_seconds: number;
+  allowed_cidrs: string[];
+  service_ports: number[];
+  discovery_disabled_reason: string | null;
+  service_check_disabled_reason: string | null;
+  services_total: number;
+  active_alerts: number;
+  alerts_created: number;
+  triage_total: number;
+  agent_total: number | null;
+  agent_covered: number | null;
+  assessed_posture: number | null;
+  open_recommendations: number | null;
+  baseline_total: number;
+  baseline_open: number;
+  optional_telemetry: boolean;
+  docker_limitation: string;
+  safety_notes: string[];
+}
+
 export interface LanRiskIndicator {
   key: string;
   severity: "info" | "warning" | "critical";
@@ -3431,8 +3466,15 @@ export interface LanServiceCheckResponse {
 }
 
 export interface MonitoringActivationStatus {
+  desktop_auto_monitoring_enabled: boolean;
+  auto_refresh_enabled: boolean;
+  auto_refresh_seconds: number;
   lan_monitoring_enabled: boolean;
   service_check_enabled: boolean;
+  lan_auto_discovery_on_start: boolean;
+  lan_auto_service_check_on_start: boolean;
+  lan_auto_discovery_interval_seconds: number;
+  lan_auto_service_check_interval_seconds: number;
   allowed_cidrs: string[];
   service_ports: number[];
   discovery_disabled_reason: string | null;

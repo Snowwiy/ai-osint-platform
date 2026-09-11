@@ -164,3 +164,38 @@ class MonitoringOverviewResponse(BaseModel):
     assets: MonitoringAssetsResponse
     alerts: MonitoringAlertsResponse
     recent_errors: list[MonitoringRecentError]
+
+
+class MonitoringStartupStatus(BaseModel):
+    generated_at: datetime
+    next_refresh_at: datetime | None
+    status: Literal["loaded", "disabled"]
+    message: str
+    platform_status: MonitoringStatus
+    release_version: str
+    desktop_auto_monitoring_enabled: bool
+    auto_refresh_enabled: bool
+    auto_refresh_seconds: int = Field(ge=15, le=300)
+    lan_monitoring_enabled: bool
+    service_check_enabled: bool
+    lan_auto_discovery_on_start: bool
+    lan_auto_service_check_on_start: bool
+    lan_auto_discovery_interval_seconds: int = Field(ge=300)
+    lan_auto_service_check_interval_seconds: int = Field(ge=600)
+    allowed_cidrs: list[str]
+    service_ports: list[int]
+    discovery_disabled_reason: str | None
+    service_check_disabled_reason: str | None
+    services_total: int = Field(ge=0)
+    active_alerts: int = Field(ge=0)
+    alerts_created: int = Field(ge=0)
+    triage_total: int = Field(ge=0)
+    agent_total: int | None = Field(default=None, ge=0)
+    agent_covered: int | None = Field(default=None, ge=0)
+    assessed_posture: int | None = Field(default=None, ge=0)
+    open_recommendations: int | None = Field(default=None, ge=0)
+    baseline_total: int = Field(ge=0)
+    baseline_open: int = Field(ge=0)
+    optional_telemetry: bool = True
+    docker_limitation: str
+    safety_notes: list[str]

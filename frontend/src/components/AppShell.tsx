@@ -29,7 +29,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useParams } from "react-router-dom";
 
-import { getBackendHealth, getFeatureAvailability } from "../lib/api";
+import { getBackendHealth, getFeatureAvailability, getMonitoringStartup } from "../lib/api";
 import { useAuth } from "../lib/useAuth";
 import type { FeatureFlagSettings, HealthResponse } from "../types";
 import { GlobalSearch } from "./GlobalSearch";
@@ -150,6 +150,17 @@ export function AppShell(): JSX.Element {
     retry: 1,
     staleTime: 30_000,
   });
+  const monitoringStartup = useQuery({
+    queryKey: ["monitoring-startup"],
+    queryFn: getMonitoringStartup,
+    refetchInterval: (query) => {
+      const runtime = query.state.data;
+      return runtime?.auto_refresh_enabled
+        ? Math.max(15, runtime.auto_refresh_seconds) * 1000
+        : false;
+    },
+    retry: 1,
+  });
   const featureFlags = features.data?.feature_flags;
   const enabledTopNav = topNav.filter(
     (item) => !item.feature || featureFlags?.[item.feature] !== false,
@@ -240,6 +251,10 @@ export function AppShell(): JSX.Element {
             }
             onRetry={() => void health.refetch()}
           />
+          <div className="mb-3 rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-xs">
+            <p className="font-medium text-raven-text">{t(monitoringStartup.data?.status === "loaded" ? "Monitoring loaded" : "Loading monitoring status")}</p>
+            <p className="mt-1 text-raven-muted">{monitoringStartup.data ? t(monitoringStartup.data.message) : t("Waiting for the authenticated local backend.")}</p>
+          </div>
           <div className="mb-3">
             <LanguageSwitcher />
           </div>

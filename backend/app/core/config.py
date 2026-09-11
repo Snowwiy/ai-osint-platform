@@ -74,10 +74,17 @@ class Settings(BaseSettings):
     REPORT_PRIMARY_COLOR: str = "#7C3AED"
     REPORT_SECONDARY_COLOR: str = "#111827"
     ENABLE_DEMO_MODE: bool = False
+    DESKTOP_AUTO_MONITORING_ENABLED: bool = True
+    MONITORING_AUTO_REFRESH_ENABLED: bool = True
+    MONITORING_AUTO_REFRESH_SECONDS: int = 30
     LAN_MONITORING_ENABLED: bool = False
     LAN_ALLOWED_CIDRS: str = "192.168.0.0/24"
     LAN_DISCOVERY_INTERVAL_SECONDS: int = 300
     LAN_DISCOVERY_PING_ENABLED: bool = False
+    LAN_AUTO_DISCOVERY_ON_START: bool = False
+    LAN_AUTO_SERVICE_CHECK_ON_START: bool = False
+    LAN_AUTO_DISCOVERY_INTERVAL_SECONDS: int = 300
+    LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS: int = 600
     LAN_SERVICE_CHECK_ENABLED: bool = False
     LAN_SERVICE_CHECK_PORTS: str = "22,80,443,445,3389,8080,8443"
     LAN_SERVICE_CHECK_TIMEOUT_SECONDS: float = 2.0
@@ -175,6 +182,18 @@ class Settings(BaseSettings):
             errors.append("MAX_REQUEST_BODY_BYTES is too low for normal API usage.")
         if self.LAN_DISCOVERY_INTERVAL_SECONDS < 60:
             errors.append("LAN_DISCOVERY_INTERVAL_SECONDS must be at least 60.")
+        if not 15 <= self.MONITORING_AUTO_REFRESH_SECONDS <= 300:
+            errors.append(
+                "MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300."
+            )
+        if self.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS < 300:
+            errors.append(
+                "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS must be at least 300."
+            )
+        if self.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS < 600:
+            errors.append(
+                "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS must be at least 600."
+            )
         if self.LAN_AGENT_MAX_STALE_MINUTES < 2:
             errors.append("LAN_AGENT_MAX_STALE_MINUTES must be at least 2.")
         if not 0.2 <= self.LAN_SERVICE_CHECK_TIMEOUT_SECONDS <= 5:

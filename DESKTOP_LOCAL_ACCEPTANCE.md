@@ -2,6 +2,12 @@
 
 Candidate: `5.0.0-rc6`
 
+Acceptance includes signing in with the embedded frontend, observing
+**Monitoring loaded**, confirming last/next refresh times advance, and confirming
+disabled LAN discovery or service checks remain informational. With their default
+`false` values, no active LAN operation may occur. Docker/backend readiness is
+still required; Vite is not required for portable or installed testing.
+
 This acceptance applies only to the local Windows portable and unsigned NSIS
 installer workflows. It is not approval for public distribution or production
 deployment.

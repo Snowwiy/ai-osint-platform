@@ -49,6 +49,8 @@ const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
 const frontendApp = await readFile(resolve(repository, "frontend/src/App.tsx"), "utf8");
+const appShell = await readFile(resolve(repository, "frontend/src/components/AppShell.tsx"), "utf8");
+const backendConfig = await readFile(resolve(repository, "backend/app/core/config.py"), "utf8");
 
 if (config.version !== "5.0.0-rc6") throw new Error("Desktop version must match RC6.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
@@ -104,6 +106,18 @@ for (const marker of ["VITE_ROUTER_BASENAME", '"--base", "./"', '"--outDir", emb
 }
 if (!frontendApp.includes('basename: import.meta.env.VITE_ROUTER_BASENAME || "/"')) {
   throw new Error("Frontend router must support the embedded /app basename without changing browser mode.");
+}
+for (const marker of ['queryKey: ["monitoring-startup"]', "getMonitoringStartup", "auto_refresh_seconds"]) {
+  if (!appShell.includes(marker)) throw new Error(`Desktop monitoring startup marker missing: ${marker}`);
+}
+for (const marker of [
+  "DESKTOP_AUTO_MONITORING_ENABLED: bool = True",
+  "MONITORING_AUTO_REFRESH_ENABLED: bool = True",
+  "MONITORING_AUTO_REFRESH_SECONDS: int = 30",
+  "LAN_AUTO_DISCOVERY_ON_START: bool = False",
+  "LAN_AUTO_SERVICE_CHECK_ON_START: bool = False",
+]) {
+  if (!backendConfig.includes(marker)) throw new Error(`Safe monitoring default missing: ${marker}`);
 }
 for (const marker of ["frontend_dev_probe", "frontend_html_response_is_healthy", '"embedded".to_owned()', '"notRequired".to_owned()']) {
   if (!rust.includes(marker)) throw new Error(`Desktop frontend mode marker missing: ${marker}`);

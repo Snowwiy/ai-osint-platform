@@ -295,8 +295,15 @@ class LanOpenPortsResponse(BaseModel):
 
 
 class MonitoringActivationStatus(BaseModel):
+    desktop_auto_monitoring_enabled: bool
+    auto_refresh_enabled: bool
+    auto_refresh_seconds: int
     lan_monitoring_enabled: bool
     service_check_enabled: bool
+    lan_auto_discovery_on_start: bool
+    lan_auto_service_check_on_start: bool
+    lan_auto_discovery_interval_seconds: int
+    lan_auto_service_check_interval_seconds: int
     allowed_cidrs: list[str]
     service_ports: list[int]
     discovery_disabled_reason: str | None

@@ -87,6 +87,12 @@ and desktop-development endpoint; its health probe accepts any HTTP 2xx
 `text/html` response. Docker and the backend on `http://localhost:8000` remain
 required.
 
+Phase 5AY automatically loads the authenticated local Monitoring Center summary
+after backend readiness and safely refreshes it every 30 seconds by default.
+Optional LAN discovery and TCP service checks remain separately disabled until
+explicitly configured, and their disabled state is informational rather than a
+platform failure.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -273,7 +279,21 @@ provenance manifest. See [desktop/LOCAL_RELEASE_README.md](desktop/LOCAL_RELEASE
 
 The desktop status screen also shows Docker dependency state and the latest
 approved launcher result. Launcher output is capped and sanitized. Direct Vite
-and Docker commands remain copy-only, and no service runs at application startup.
+and Docker commands remain copy-only. After sign-in and backend readiness, the
+embedded UI automatically loads the Monitoring Center summary and refreshes it
+every 30 seconds by default; this read-only polling does not start Docker, LAN
+discovery, TCP checks, or any other host service.
+
+Desktop monitoring startup is controlled by
+`DESKTOP_AUTO_MONITORING_ENABLED=true`,
+`MONITORING_AUTO_REFRESH_ENABLED=true`, and
+`MONITORING_AUTO_REFRESH_SECONDS=30`. Active LAN work remains separately opt-in:
+`LAN_AUTO_DISCOVERY_ON_START=false` and
+`LAN_AUTO_SERVICE_CHECK_ON_START=false` by default, with minimum scheduled
+intervals of 300 and 600 seconds. When LAN monitoring is disabled, the UI reports
+that monitoring is ready and discovery is disabled by configuration; it does not
+degrade platform health. Installed and portable builds use embedded assets and
+do not require Vite/port 5173. Docker and the backend on port 8000 remain required.
 
 For a guided startup and health check:
 

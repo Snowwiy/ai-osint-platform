@@ -1,6 +1,6 @@
 import { RefreshCw, ServerCog } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
@@ -13,7 +13,7 @@ import { AgentManagementPanel } from "../components/AgentManagementPanel";
 import { MonitoringActivationPanel } from "../components/MonitoringActivationPanel";
 import { EndpointSecurityPosturePanel } from "../components/EndpointSecurityPosturePanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
-import { getMonitoringOverview } from "../lib/api";
+import { getMonitoringOverview, getMonitoringStartup } from "../lib/api";
 import {
   safeArray,
   safeDate,
@@ -31,6 +31,22 @@ export function MonitoringCenterPage(): JSX.Element {
   const { t } = useI18n();
   const [pollSeconds, setPollSeconds] = useState(30);
   const [tab, setTab] = useState<MonitoringTab>("server");
+  const startup = useQuery({
+    queryKey: ["monitoring-startup"],
+    queryFn: getMonitoringStartup,
+    refetchInterval: (query) => {
+      const runtime = query.state.data;
+      return runtime?.auto_refresh_enabled
+        ? Math.max(15, runtime.auto_refresh_seconds) * 1000
+        : false;
+    },
+    retry: 1,
+  });
+  useEffect(() => {
+    if (startup.data?.auto_refresh_enabled) {
+      setPollSeconds(startup.data.auto_refresh_seconds);
+    }
+  }, [startup.data?.auto_refresh_enabled, startup.data?.auto_refresh_seconds]);
   const overview = useQuery({
     queryKey: ["monitoring-overview"],
     queryFn: getMonitoringOverview,
@@ -86,6 +102,27 @@ export function MonitoringCenterPage(): JSX.Element {
           </button>
         ))}
       </nav>
+
+      {startup.data ? (
+        <section className="mb-5 min-w-0 rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-emerald-200">{t("Monitoring loaded")}</p>
+              <p className="mt-1 text-sm text-raven-muted">{t(startup.data.message)}</p>
+            </div>
+            <span className="rounded-full border border-emerald-400/30 px-2 py-1 text-xs text-emerald-200">
+              {startup.data.auto_refresh_enabled ? t("Auto refresh active") : t("Auto refresh disabled")}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 xl:grid-cols-4">
+            <p>{t("Last refresh")}: {safeDate(startup.data.generated_at)?.toLocaleString() ?? t("Unavailable")}</p>
+            <p>{t("Next scheduled refresh")}: {safeDate(startup.data.next_refresh_at)?.toLocaleString() ?? t("Disabled")}</p>
+            <p>{t("LAN discovery")}: {startup.data.lan_auto_discovery_on_start ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
+            <p>{t("Service checks")}: {startup.data.lan_auto_service_check_on_start ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
+          </div>
+          <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")}</p>
+        </section>
+      ) : null}
 
       {overviewVisible && overview.isLoading ? <LoadingBlock label="Loading local telemetry" /> : null}
       {overviewVisible && overview.error ? (

@@ -1,6 +1,13 @@
 # RavenTech OSINT Desktop — Local Distribution
 
 The current local Windows test bundle is RavenTech OSINT Desktop `5.0.0-rc6`.
+
+On authenticated startup the embedded client loads a read-only monitoring
+summary from the local backend and refreshes it on the configured safe interval.
+This is dashboard polling, not service autostart or network discovery. LAN
+discovery-on-start and service-check-on-start are disabled by default and remain
+subject to the existing private-CIDR, target, port, timeout, policy, maintenance,
+cooldown, and deduplication controls.
 It is an unpublished, unsigned QA workflow—not a public release.
 
 Phase 5AQ adds optional runtime orchestration for five fixed repository scripts.

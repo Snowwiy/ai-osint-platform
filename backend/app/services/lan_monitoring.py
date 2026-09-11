@@ -105,8 +105,21 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
     allowed_cidrs = [str(item) for item in configured_networks()]
     ports = configured_service_ports()
     return MonitoringActivationStatus(
+        desktop_auto_monitoring_enabled=settings.DESKTOP_AUTO_MONITORING_ENABLED,
+        auto_refresh_enabled=settings.MONITORING_AUTO_REFRESH_ENABLED,
+        auto_refresh_seconds=settings.MONITORING_AUTO_REFRESH_SECONDS,
         lan_monitoring_enabled=settings.LAN_MONITORING_ENABLED,
         service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
+        lan_auto_discovery_on_start=(
+            settings.LAN_MONITORING_ENABLED and settings.LAN_AUTO_DISCOVERY_ON_START
+        ),
+        lan_auto_service_check_on_start=(
+            settings.LAN_MONITORING_ENABLED
+            and settings.LAN_SERVICE_CHECK_ENABLED
+            and settings.LAN_AUTO_SERVICE_CHECK_ON_START
+        ),
+        lan_auto_discovery_interval_seconds=settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS,
+        lan_auto_service_check_interval_seconds=settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS,
         allowed_cidrs=allowed_cidrs,
         service_ports=ports,
         discovery_disabled_reason=(
@@ -120,7 +133,14 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             else "TCP service checks are disabled because LAN_SERVICE_CHECK_ENABLED is false."
         ),
         env_lines=[
+            "DESKTOP_AUTO_MONITORING_ENABLED=true",
+            "MONITORING_AUTO_REFRESH_ENABLED=true",
+            "MONITORING_AUTO_REFRESH_SECONDS=30",
             "LAN_MONITORING_ENABLED=true",
+            "LAN_AUTO_DISCOVERY_ON_START=false",
+            "LAN_AUTO_SERVICE_CHECK_ON_START=false",
+            "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=300",
+            "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=600",
             "LAN_SERVICE_CHECK_ENABLED=true",
             f"LAN_ALLOWED_CIDRS={','.join(allowed_cidrs)}",
             f"LAN_SERVICE_CHECK_PORTS={','.join(str(port) for port in ports)}",
