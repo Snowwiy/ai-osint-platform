@@ -65,6 +65,9 @@ const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((matc
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
   throw new Error("Desktop runtime must use only its fixed Windows PowerShell launcher.");
 }
+for (const marker of ["validate_repository_root", "PROJECT_PATH_FILE", "frontend/package.json", "backend/app", "REQUIRED_SCRIPTS", "trusted_script_bytes", "include_bytes!"]) {
+  if (!rust.includes(marker)) throw new Error(`Missing safe first-run binding marker: ${marker}`);
+}
 
 for (const path of [
   "INSTALLER_BUILD_README.md",
@@ -119,8 +122,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.j
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
   throw new Error("Installer manifest does not describe the expected unsigned RC4 local build.");
 }
-const { controlledLocalLauncher, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden installer capability is enabled in the manifest.");
 }
 for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
@@ -128,7 +131,7 @@ for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
   if (manifest.files[name]?.sha256 !== digest) throw new Error(`Checksum mismatch: ${name}`);
 }
 const readme = await readFile(resolve(output, "README.md"), "utf8");
-for (const required of ["unsigned", "SmartScreen", "Docker Desktop", "http://localhost:5173", "http://localhost:8000", "never starts services automatically"]) {
+for (const required of ["unsigned", "SmartScreen", "Docker Desktop", "http://localhost:5173", "http://localhost:8000", "never starts services automatically", "repository root"]) {
   if (!readme.includes(required)) throw new Error(`Installer README is missing: ${required}`);
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {

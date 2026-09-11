@@ -44,6 +44,12 @@ const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((matc
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
   throw new Error("Desktop launcher is not constrained to fixed Windows PowerShell execution.");
 }
+for (const marker of ["validate_repository_root", "PROJECT_PATH_FILE", "REQUIRED_SCRIPTS", "trusted_script_bytes", "include_bytes!"]) {
+  if (!rust.includes(marker)) throw new Error(`Missing safe project-path validation marker: ${marker}`);
+}
+if (!app.includes('invoke("bind_project_path", { projectPath: input.value })') || /showOpenDialog|readDir|readTextFile/.test(app)) {
+  throw new Error("First-run project binding must remain manual and narrowly validated.");
+}
 for (const url of app.match(/https?:\/\/[^"'`\s]+/g) ?? []) {
   if (!url.startsWith("http://localhost:5173") && !url.startsWith("http://localhost:8000")) {
     throw new Error(`Non-local desktop URL detected: ${url}`);
@@ -84,8 +90,8 @@ async function verifyArtifact({ directory, allowed, manifestName, binaryName, ki
   const binary = await readFile(resolve(directory, binaryName));
   if (binary[0] !== 0x4d || binary[1] !== 0x5a) throw new Error(`${kind} binary is not a Windows PE file.`);
   const manifest = JSON.parse(await readFile(resolve(directory, manifestName), "utf8"));
-  const { controlledLocalLauncher, ...forbiddenBoundaries } = manifest.boundaries;
-  if (manifest.version !== VERSION || controlledLocalLauncher !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+  const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
+  if (manifest.version !== VERSION || controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
     throw new Error(`${kind} manifest version or security boundaries are invalid.`);
   }
   if (kind === "installer" && (manifest.signed !== false || manifest.publicRelease !== false)) {

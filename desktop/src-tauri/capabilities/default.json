@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-window",
-  "description": "No plugin permissions. Fixed loopback probes and five parameterless Rust launcher commands only.",
+  "description": "No plugin permissions. Fixed loopback probes, validated manual project-path binding, and five argument-free Rust launcher actions only.",
   "windows": ["main"],
   "permissions": []
 }

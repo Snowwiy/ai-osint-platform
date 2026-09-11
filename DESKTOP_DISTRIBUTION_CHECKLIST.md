@@ -29,12 +29,12 @@ clean-machine QA, final branding, and release approval are complete.
 - [ ] Independently verify every SHA-256 checksum after transfer.
 - [ ] Confirm Tauri grants no shell/filesystem plugin permissions or remote origins.
 - [ ] Confirm every launcher action retains a copy-only fallback.
-- [ ] Confirm runtime execution is limited to five parameterless commands and
-      canonical `scripts/local/` script filenames.
+- [ ] Confirm runtime execution is limited to five argument-free launcher actions
+      and canonical, build-pinned `scripts/local/` script filenames.
 - [ ] Confirm start, stop, and restart require explicit confirmation; cancel
       each dialog once and verify no action runs.
-- [ ] Confirm installed builds without repository ancestry return the copy-only
-      fallback instead of accepting a path or command.
+- [ ] Confirm installed builds accept only a manually entered path that passes all
+      fixed repository and script-content checks; invalid paths remain copy-only.
 - [ ] Confirm launcher output is capped/redacted and timeouts show a clean state.
 - [ ] Confirm no service autostart, updater, embedded database, or backend is present.
 - [ ] Run `npm run smoke -- --require-artifacts` and retain the console result

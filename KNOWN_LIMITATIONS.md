@@ -36,9 +36,13 @@ still a build-only placeholder. Installer launch checks on one development host
 do not replace clean-machine, Windows-version, endpoint-security, accessibility,
 upgrade, and uninstall matrix testing.
 
-Phase 5AQ can orchestrate only five fixed scripts when repository ancestry is
-discoverable. Installed copies outside the repository cannot be configured with
-a path and fall back to copied guidance. A launcher timeout stops waiting and
+Phase 5AQ can orchestrate only five fixed scripts. Phase 5AR can store one
+validated per-user project-path preference, but it does not search the whole
+computer or provide a folder browser. A moved, deleted, or incomplete repository
+must be rebound manually; otherwise the launcher falls back to copied guidance.
+Docker detection may say "not detected" for non-standard installations. Port
+checks identify RavenTech, another listener, or an available/non-listening port,
+but never reconfigure it. A launcher timeout stops waiting and
 requests a status check; external Docker work already accepted by Docker may
 finish independently. The launcher is not a service supervisor and cannot start
 the separately managed Vite frontend.

@@ -24,21 +24,41 @@ test("Rust launcher allowlist contains exactly the five approved scripts", () =>
     assert.ok(!rust.includes(rejected), `unsafe script entered allowlist: ${rejected}`);
   }
   assert.deepEqual([...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]), ["&powershell"]);
-  assert.match(rust, /canonical_script\.parent\(\) == Some\(canonical_scripts\.as_path\(\)\)/);
-  assert.match(rust, /canonical_scripts\.starts_with\(&canonical_root\)/);
+  assert.match(rust, /script\.parent\(\) == Some\(scripts\.as_path\(\)\)/);
+  assert.match(rust, /scripts\.starts_with\(&root\)/);
   for (const marker of ["docker-compose.yml", "pyproject.toml", 'join("System32")', 'var_os("SystemRoot")']) {
     assert.ok(rust.includes(marker), `missing trusted launcher root marker: ${marker}`);
   }
 });
 
-test("Tauri exposes parameterless fixed commands and no arbitrary command payload", () => {
+test("Tauri exposes fixed launcher commands with only an internal app handle", () => {
   for (const command of commands) {
-    assert.match(rust, new RegExp(`async fn ${command}\\(\\) -> LauncherResult`));
+    assert.match(rust, new RegExp(`async fn ${command}\\(app: tauri::AppHandle\\) -> LauncherResult`));
     assert.ok(app.includes(`invoke: "${command}"`), `UI mapping missing ${command}`);
   }
-  assert.doesNotMatch(rust, /command:\s*String|script:\s*String|args:\s*Vec|path:\s*String/);
+  assert.doesNotMatch(rust, /command:\s*String|script:\s*String|args:\s*Vec/);
+  assert.doesNotMatch(rust, /fn (?:check|start|stop|restart|open)_\w+\([^)]*(?:String|PathBuf|Vec)/);
   assert.doesNotMatch(app, /prompt\(|contenteditable|name=["']command/i);
   assert.deepEqual(capability.permissions, []);
+});
+
+test("project binding validates fixed repository markers without adding filesystem permissions", () => {
+  for (const marker of [
+    "docker-compose.yml", "pyproject.toml", "desktop/package.json",
+    "frontend/package.json", "backend/app", "REQUIRED_SCRIPTS",
+    "validate_repository_root", "PROJECT_PATH_FILE", "trusted_script_bytes", "include_bytes!"
+  ]) assert.ok(rust.includes(marker), `missing binding marker: ${marker}`);
+  assert.match(rust, /async fn bind_project_path\([\s\S]*project_path: String/);
+  assert.match(app, /invoke\("bind_project_path", \{ projectPath: input\.value \}\)/);
+  assert.deepEqual(capability.permissions, []);
+});
+
+test("launcher resolution order is configured, current directory, then development-relative", () => {
+  const configured = rust.indexOf('return Some((root, "configured"))');
+  const current = rust.indexOf('return Some((root, "currentDirectory"))');
+  const development = rust.indexOf('return Some((root, "developmentRelative"))');
+  assert.ok(configured > 0 && configured < current && current < development);
+  assert.ok(rust.includes('unwrap_or("copyOnly")'));
 });
 
 test("launcher output is bounded, sanitized, and timed out safely", () => {

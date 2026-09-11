@@ -6,7 +6,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; background: #071018; }
+html, body { margin: 0; min-height: 100%; max-width: 100%; overflow-x: hidden; background: #071018; }
 body { min-height: 100vh; }
 button { font: inherit; }
 
@@ -60,6 +60,22 @@ h2 { margin-top: 0; font-size: 1rem; }
 .guidance h2 { margin-bottom: .35rem; color: #e7eef7; }
 .guidance p { margin: 0; line-height: 1.55; }
 .panel { margin-top: 1rem; padding: 1.2rem; }
+.panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.panel-heading .eyebrow { margin: 0 0 .4rem; }
+.setup-panel strong.ok, .runtime-checklist strong.ok { color: #65e6c4; }
+.setup-panel strong.offline, .runtime-checklist strong.offline { color: #ff8d8d; }
+.path-entry { display: grid; grid-template-columns: minmax(12rem, 1fr) auto auto; gap: .65rem; margin-top: .5rem; }
+.path-entry input { min-width: 0; border: 1px solid #2d5063; border-radius: .45rem; padding: .6rem .7rem; color: #d9e8f2; background: #07131b; }
+.path-entry input:focus { border-color: #65e6c4; outline: none; }
+.path-entry .primary { margin-top: 0; }
+.project-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0 0; }
+.project-details div { min-width: 0; padding: .7rem; border-radius: .4rem; background: #07131b; }
+.project-details dt { color: #78909f; font-size: .75rem; }
+.project-details dd { margin: .3rem 0 0; overflow-wrap: anywhere; color: #c5d5df; }
+#setup-message { min-height: 1.2rem; margin-bottom: 0; color: #65e6c4; }
+.runtime-checklist ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem 1.2rem; margin: 0; padding: 0; list-style: none; }
+.runtime-checklist li { display: flex; justify-content: space-between; gap: .75rem; min-width: 0; padding: .55rem 0; border-bottom: 1px solid #18303d; }
+.runtime-checklist span { color: #91a7b5; }
 .command { display: grid; grid-template-columns: 7rem 1fr auto auto; align-items: center; gap: .75rem; margin-top: .6rem; }
 .command label { color: #afc0cb; font-size: .86rem; }
 code { overflow-wrap: anywhere; color: #c5f4e7; background: #07131b; border-radius: .25rem; padding: .35rem .45rem; }
@@ -84,5 +100,7 @@ dialog::backdrop { background: rgb(2 8 12 / .78); }
   #status-view { padding: 2rem 0; }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
   .command { grid-template-columns: 1fr; }
+  .path-entry, .project-details, .runtime-checklist ul { grid-template-columns: 1fr; }
+  .panel-heading { flex-direction: column; }
   .topbar span { display: none; }
 }

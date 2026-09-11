@@ -44,6 +44,12 @@ The shell checks only these local endpoints:
 When the stack is healthy, the existing web application opens inside the
 desktop shell. Browser mode remains available at `http://localhost:5173`.
 
+On first launch, manually enter the repository root in the setup card. The path
+is stored only after fixed marker and build-pinned five-script validation. Resolution then
+prefers that saved path, followed by matching current-directory ancestry and
+development executable ancestry. Missing or invalid paths retain copy-only mode;
+there is no broad folder browser or arbitrary command input.
+
 ## Troubleshooting
 
 - **Backend unreachable:** confirm Docker Desktop is running, then use

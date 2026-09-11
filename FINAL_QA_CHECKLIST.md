@@ -13,12 +13,32 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AR — first-run setup and project-path reliability
+
+- [ ] Manual path input accepts the RavenTech root only when compose, Python,
+      desktop, frontend, backend, and all five approved script markers validate.
+- [ ] Altered content under an approved script filename is rejected using the
+      scripts pinned into the desktop build.
+- [ ] Invalid, missing, moved, and incomplete paths are rejected or produce a
+      copy-only fallback without raw filesystem errors.
+- [ ] Resolution order is saved path, current-directory ancestry,
+      development-executable ancestry, then copy-only fallback.
+- [ ] Status shows repository, scripts, Docker, backend, frontend, ports
+      8000/5173, RC4 release match, migrations, local URLs, and next action.
+- [ ] Setup guidance works in English and Spanish without horizontal overflow,
+      raw stack traces, `.env` values, or secret output.
+- [ ] No shell/filesystem plugin, arbitrary script/arguments, folder browser,
+      remote command, auto-install, system-setting change, or service autostart exists.
+- [ ] Portable, installer, artifact smoke, Rust, frontend, and backend gates pass.
+
 ## Phase 5AQ — controlled local service launcher
 
-- [ ] Rust exposes only parameterless check/start/stop/restart/open-frontend
-      commands mapped to the five approved `scripts/local/` filenames.
-- [ ] Script discovery uses canonical repository ancestry; no UI command,
-      argument, script filename, or repository path is accepted.
+- [ ] Rust exposes only argument-free check/start/stop/restart/open-frontend
+      actions mapped to the five approved `scripts/local/` filenames; the injected
+      app handle is not user input.
+- [ ] Script resolution uses the validated saved path and canonical local ancestry;
+      no UI command, argument, or script filename is accepted. The separate setup
+      path is data-only and must pass the fixed repository validator.
 - [ ] Start, stop, and restart require an explicit confirmation; cancel runs nothing.
 - [ ] Check and open-frontend are explicit user actions, never startup actions.
 - [ ] Missing repository scripts or PowerShell produce a readable copy-only fallback.

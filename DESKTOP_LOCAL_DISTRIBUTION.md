@@ -6,6 +6,13 @@ Phase 5AP defines the local Windows test bundle for RavenTech OSINT Desktop
 Phase 5AQ adds optional runtime orchestration for five fixed repository scripts.
 It does not add service autostart or arbitrary shell access.
 
+Phase 5AR adds first-run path binding for installed and portable launches. Enter
+the repository root manually and choose **Validate and save**. The path is
+accepted only when the compose, backend, frontend, desktop, Python, and all five
+approved-script markers exist within the canonical root. No folder browser or
+broad filesystem permission is enabled. Script contents must also match the five
+copies pinned into the desktop build. Invalid or missing paths remain copy-only.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`
@@ -79,14 +86,17 @@ security policy merely to run the test.
 ## Smoke test
 
 1. Confirm the local status screen opens and identifies frontend/backend state.
-2. With services stopped, confirm readable English/Spanish startup guidance.
-3. Start Docker services and Vite manually; confirm health and readiness become ready.
-4. Open the embedded frontend and switch the desktop/web UI between English and Spanish.
-5. Export one benign report and confirm existing browser behavior is unchanged.
-6. Run `npm run portable:validate`, `npm run installer:validate -- --require-artifact`,
+2. Reject a non-repository path, then bind the valid project root and confirm all
+   fixed markers and approved scripts report available.
+3. With services stopped, confirm readable English/Spanish Docker, port, release,
+   migration, backend, frontend, and script guidance.
+4. Start Docker services and Vite through the approved workflow; confirm health and readiness become ready.
+5. Open the embedded frontend and switch the desktop/web UI between English and Spanish.
+6. Export one benign report and confirm existing browser behavior is unchanged.
+7. Run `npm run portable:validate`, `npm run installer:validate -- --require-artifact`,
    and `npm run smoke -- --require-artifacts`.
-7. Run **Check** and verify the last-command result contains no secret or raw stack trace.
-8. Confirm start/stop/restart cannot run without accepting the confirmation dialog.
+8. Run **Check** and verify the last-command result contains no secret or raw stack trace.
+9. Confirm start/stop/restart cannot run without accepting the confirmation dialog.
 
 ## Uninstall
 

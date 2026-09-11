@@ -19,9 +19,10 @@ Phase 5AP adds consistent RC4 naming, local distribution instructions, and a
 read-only smoke checker for both ignored artifacts. The current build-only icon
 remains a documented placeholder and is not final branding.
 
-Phase 5AQ adds a fixed, parameterless Rust launcher for five existing local
-scripts. Installed builds outside the repository intentionally fall back to copy
-guidance instead of accepting a configurable path.
+Phase 5AQ adds a fixed Rust launcher for five existing local scripts. Phase 5AR
+adds a manually entered, canonicalized project-path preference so installed
+builds can resolve those same scripts. Invalid or incomplete paths are rejected;
+the fallback remains copy-only.
 
 - select and approve final icons and loading treatment; replace the placeholder
   only in a separately reviewed branding/package phase
@@ -29,7 +30,7 @@ guidance instead of accepting a configurable path.
   dependency-change process
 - decide whether a future production package should serve a built frontend or
   retain the Phase 5AN separately started local frontend
-- define explicit Docker Desktop dependency detection and operator support flow
+- verify Phase 5AR safe Docker detection against standard and non-standard clean-machine installations
 - validate WebView2 availability and supported Windows versions
 - complete a clean-machine install, launch, upgrade, and uninstall test matrix
 - define local app data paths without moving PostgreSQL or Redis into the shell
@@ -47,4 +48,4 @@ reset, `.env` modification, remote administration, router automation, broad
 filesystem access, or a generic command bridge while completing these items.
 
 No signed installer, public release, auto-update service, hosting, deployment,
-DNS, or Supabase migration is included in Phase 5AQ.
+DNS, or Supabase migration is included in Phase 5AR.

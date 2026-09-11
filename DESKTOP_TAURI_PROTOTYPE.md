@@ -28,6 +28,15 @@ scripts. Start, stop, and restart require an explicit confirmation. Check and
 open-frontend actions run directly. No command text, arguments, or paths are
 accepted from the UI.
 
+Phase 5AR adds first-run project binding without expanding Tauri capabilities.
+The path is typed manually and accepted only after canonical validation of the
+compose file, Python/desktop/frontend markers, `backend/app/`, and every approved
+launcher script with its build-pinned contents. Only the canonical path is stored in the per-user app-config
+directory; `.env` and repository contents are not copied or read for setup.
+Resolution order is saved path, current-directory ancestry, development
+executable ancestry, then copy-only fallback. Docker is detected with safe local
+signals and is never installed or started by the prerequisite check.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
@@ -99,8 +108,8 @@ status**; **Open local workspace** then returns to the application manually.
 
 The Tauri capability file grants no plugin permissions and no remote origins.
 There is no shell or filesystem plugin. Rust performs bounded HTTP GET probes to
-`127.0.0.1:8000` and `127.0.0.1:5173` and exposes five parameterless launcher
-commands. Each maps internally to one fixed filename, resolves it only under a
+`127.0.0.1:8000` and `127.0.0.1:5173` and exposes five argument-free launcher
+actions (aside from Tauri's injected app handle). Each maps internally to one fixed filename, resolves it only under a
 canonical `scripts/local/` directory, runs Windows PowerShell without a profile
 or stdin, caps and sanitizes output, and applies an action-specific timeout.
 
@@ -120,8 +129,8 @@ or execute remote commands. Copy buttons remain available for every action.
 - Docker, PostgreSQL, Redis, FastAPI, Celery, and Vite remain separate services.
 - The frontend must be running on port 5173 before it can be embedded.
 - The backend must be running on port 8000 for normal application behavior.
-- Installed builds outside the repository cannot discover scripts and therefore
-  show the safe copy-only fallback; portable/dev builds discover repository ancestry.
+- Installed builds bind a manually entered, validated repository path. Missing,
+  moved, incomplete, or altered-script repositories show the copy-only fallback.
 - Phase 5AO provides an unsigned local-test installer workflow, not a signed or
   production installer, updater, hosted service, deployment, DNS change, or
   Supabase migration.

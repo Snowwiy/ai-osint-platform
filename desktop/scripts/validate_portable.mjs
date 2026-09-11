@@ -41,8 +41,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "portable-manifest.js
 if (manifest.version !== VERSION || manifest.executable !== EXECUTABLE) {
   throw new Error("Portable manifest metadata does not match the RC4 build.");
 }
-const { controlledLocalLauncher, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden portable capability is enabled in the manifest.");
 }
 for (const name of [EXECUTABLE, "LICENSE", "README.md"]) {
@@ -53,7 +53,7 @@ for (const name of [EXECUTABLE, "LICENSE", "README.md"]) {
 const readme = await readFile(resolve(output, "README.md"), "utf8");
 for (const required of [
   "http://localhost:5173", "http://localhost:8000", "Docker Desktop",
-  "no installer", "never starts services automatically", "copy-only"
+  "no installer", "never starts services automatically", "copy-only", "repository root"
 ]) if (!readme.includes(required)) throw new Error(`Portable README is missing: ${required}`);
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {
   throw new Error("Potential secret assignment detected in portable README.");

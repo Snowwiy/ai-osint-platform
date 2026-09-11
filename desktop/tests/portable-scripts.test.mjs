@@ -35,5 +35,6 @@ test("portable collection uses a strict allowlist without sensitive data", () =>
   assert.match(validation, /Forbidden portable filename/);
   assert.match(validation, /Checksum mismatch/);
   assert.match(packaging, /controlledLocalLauncher:\s*true/);
+  assert.match(packaging, /safeProjectPathBinding:\s*true/);
   assert.match(packaging, /arbitraryCommandExecution:\s*false/);
 });

@@ -32,12 +32,50 @@
         <button id="open-platform" class="primary" type="button" data-copy="openWorkspace" hidden>Open local workspace</button>
       </section>
 
+      <section id="setup-panel" class="panel setup-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow" data-copy="setupEyebrow">FIRST-RUN SETUP</p>
+            <h2 data-copy="setupTitle">Bind the local RavenTech project</h2>
+          </div>
+          <strong id="project-status" data-copy="checking">Checking…</strong>
+        </div>
+        <p data-copy="setupBody">Enter the repository root manually. The desktop validates fixed markers and stores only the validated path.</p>
+        <form id="project-form">
+          <label for="project-path" data-copy="projectPath">Project path</label>
+          <div class="path-entry">
+            <input id="project-path" name="projectPath" type="text" maxlength="1024" autocomplete="off" spellcheck="false" placeholder="C:\path\to\OSINT" />
+            <button class="primary" type="submit" data-copy="validateSave">Validate and save</button>
+            <button id="clear-project-path" type="button" data-copy="clearPath">Clear saved path</button>
+          </div>
+        </form>
+        <dl class="project-details">
+          <div><dt data-copy="resolvedPath">Resolved project</dt><dd id="resolved-project">—</dd></div>
+          <div><dt data-copy="resolutionSource">Resolution source</dt><dd id="resolution-source">—</dd></div>
+          <div><dt data-copy="scriptAvailability">Approved scripts</dt><dd id="scripts-status">—</dd></div>
+          <div><dt data-copy="nextAction">Next required action</dt><dd id="next-action">—</dd></div>
+        </dl>
+        <p id="setup-message" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="status-grid" aria-live="polite">
         <article><span data-copy="backendHealth">Backend health</span><strong id="backend-status">Checking…</strong><small id="backend-detail"></small></article>
         <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong><small id="ready-detail"></small></article>
         <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong><small id="release-detail"></small></article>
         <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong><small id="frontend-detail"></small></article>
         <article><span data-copy="dockerServices">Docker services</span><strong id="docker-status">Checking…</strong><small id="docker-detail"></small></article>
+      </section>
+
+      <section class="panel runtime-checklist">
+        <h2 data-copy="runtimeChecklist">Runtime checklist</h2>
+        <ul>
+          <li><span data-copy="repoStructure">Repository structure</span><strong id="check-repository">—</strong></li>
+          <li><span data-copy="dockerAvailability">Docker availability</span><strong id="check-docker">—</strong></li>
+          <li><span data-copy="backendPort">Port 8000</span><strong id="check-backend-port">—</strong></li>
+          <li><span data-copy="frontendPort">Port 5173</span><strong id="check-frontend-port">—</strong></li>
+          <li><span data-copy="releaseMatch">Expected release</span><strong id="check-release">—</strong></li>
+          <li><span data-copy="migrationState">Migrations</span><strong id="check-migrations">—</strong></li>
+        </ul>
       </section>
 
       <section id="backend-guidance" class="guidance" hidden>

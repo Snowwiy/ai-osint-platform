@@ -15,6 +15,7 @@ const required = [
   "tests/smoke-script.test.mjs",
   "tests/launcher.test.mjs",
   "tests/local-scripts.test.mjs",
+  "tests/first-run.test.mjs",
   "scripts/build_portable.mjs",
   "scripts/package_portable.mjs",
   "scripts/validate_portable.mjs",
@@ -58,6 +59,12 @@ if (/tauri-plugin-(shell|fs)|shell:|fs:/i.test(`${cargo}\n${JSON.stringify(capab
 }
 if (!rust.includes("127.0.0.1")) {
   throw new Error("Health bridge must remain loopback-only.");
+}
+for (const marker of ["validate_repository_root", "PROJECT_PATH_FILE", "frontend/package.json", "backend/app", "REQUIRED_SCRIPTS", "trusted_script_bytes", "include_bytes!"]) {
+  if (!rust.includes(marker)) throw new Error(`Missing safe project binding marker: ${marker}`);
+}
+if (!app.includes('invoke("bind_project_path", { projectPath: input.value })') || /showOpenDialog|readDir|readTextFile/.test(app)) {
+  throw new Error("Project binding must use manual input and fixed Rust validation without broad browsing.");
 }
 const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")') || !rust.includes('var_os("SystemRoot")')) {

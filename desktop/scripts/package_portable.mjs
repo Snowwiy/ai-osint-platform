@@ -46,6 +46,7 @@ const manifest = {
     signing: false,
     serviceAutostart: false,
     controlledLocalLauncher: true,
+    safeProjectPathBinding: true,
     arbitraryCommandExecution: false,
     embeddedBackend: false,
     embeddedDatabase: false,

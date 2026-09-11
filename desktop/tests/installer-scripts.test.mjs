@@ -44,5 +44,6 @@ test("installer build uses the pinned CLI without network or signing commands", 
   assert.match(build, /--config-only/);
   assert.match(validate, /--require-artifact/);
   assert.match(build, /controlledLocalLauncher:\s*true/);
+  assert.match(build, /safeProjectPathBinding:\s*true/);
   assert.match(build, /arbitraryCommandExecution:\s*false/);
 });

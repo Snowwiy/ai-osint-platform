@@ -42,7 +42,19 @@ restricted permissions. See
 Phase 5AQ adds a controlled desktop launcher for exactly five existing local
 scripts. Start, stop, and restart require confirmation; check and open-frontend
 remain explicit button actions. Installed builds that cannot locate repository
-ancestry use the copy-only fallback. No arbitrary command or path is accepted.
+ancestry use the copy-only fallback. No arbitrary command, script path, or
+command argument is accepted.
+
+Phase 5AR adds a lightweight first-run screen and safe project-path binding. The
+operator manually enters the repository root; Rust canonicalizes it and requires
+the compose, Python, desktop, frontend, backend, and all five approved-script
+markers plus exact build-pinned script contents before storing the path in the
+current user's app-config directory.
+Resolution uses the saved path first, then matching current-directory ancestry,
+then development executable ancestry, and finally copy-only fallback. No folder
+browser, filesystem plugin, arbitrary command argument, `.env` read, or automatic
+install was added. The bilingual checklist reports Docker detection, ports
+8000/5173, backend/frontend health, RC4 release match, and migrations.
 
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.

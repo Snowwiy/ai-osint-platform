@@ -52,10 +52,12 @@ Expected URLs:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-The desktop shell never starts services automatically. When launched from an
-installed location outside the repository, it cannot discover the approved
-scripts and clearly retains copy-only guidance. It never accepts a repository
-path or arbitrary PowerShell command.
+The desktop shell never starts services automatically. On first launch, enter
+the local repository root manually. The shell saves it only after canonical
+validation of the compose, backend, frontend, desktop, Python, and five approved
+script markers. It never accepts a script name, command argument, or arbitrary
+PowerShell command. The five script contents must match this desktop build;
+invalid, altered, or missing paths retain copy-only guidance.
 
 ## Install, launch, and uninstall
 
@@ -81,6 +83,8 @@ generic command input is enabled.
 - Install WebView2 Runtime separately if Windows does not already provide it.
 - Start Docker Desktop and the platform before opening the local application.
 - Ports 5173 and 8000 must be available on loopback.
+- The first-run checklist reports port conflicts, Docker detection, release
+  mismatch, and migration degradation without modifying the machine.
 - There is no signing, auto-update, service autostart, database bundle, hosting,
   deployment, DNS, Supabase migration, or public support channel in this phase.
 - Signing and production distribution remain deferred.
