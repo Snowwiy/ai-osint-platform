@@ -20,6 +20,11 @@ release status, and displays copy-only operator guidance. Browser mode remains
 fully supported. See [DESKTOP_TAURI_PROTOTYPE.md](DESKTOP_TAURI_PROTOTYPE.md).
 There is no installer or production desktop package yet.
 
+Phase 5AM refines the shell for local operator QA with distinct reachability,
+readiness, and degraded states; English/Spanish recovery guidance; seven
+copy-only commands; and constrained local-frame navigation. It changes no
+backend, frontend, Docker, database, hosting, or deployment architecture.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -140,6 +145,7 @@ Optional desktop shell prototype, after the backend and frontend are running:
 ```powershell
 cd desktop
 npm run check
+npm run build
 npm run tauri:check
 npm run tauri:dev
 ```

@@ -32,6 +32,8 @@ button {
   cursor: pointer;
 }
 button:hover, button:focus-visible { border-color: #65e6c4; outline: none; }
+.primary { margin-top: 1rem; color: #071018; background: #65e6c4; border-color: #65e6c4; font-weight: 700; }
+.primary:hover, .primary:focus-visible { background: #8af0d5; }
 
 #status-view { width: min(1040px, calc(100% - 2rem)); margin: 0 auto; padding: 4rem 0; }
 .hero { max-width: 720px; margin-bottom: 2rem; }
@@ -39,6 +41,13 @@ button:hover, button:focus-visible { border-color: #65e6c4; outline: none; }
 h1 { margin: .35rem 0 .8rem; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; }
 h2 { margin-top: 0; font-size: 1rem; }
 .hero p:last-child, .panel > p { color: #9db0bd; line-height: 1.6; }
+.summary { display: flex; align-items: center; gap: .65rem; margin-top: 1.25rem; padding: .8rem 1rem; border: 1px solid #294453; border-radius: .55rem; color: #b9cad4; background: #0c1b26; }
+.summary-dot { flex: 0 0 auto; width: .6rem; height: .6rem; border-radius: 50%; background: #f0b95c; }
+.summary.success { border-color: #276553; }
+.summary.success .summary-dot { background: #65e6c4; box-shadow: 0 0 10px #65e6c4; }
+.summary.warning .summary-dot { background: #f0b95c; }
+.summary.error { border-color: #704044; }
+.summary.error .summary-dot { background: #ff8d8d; }
 .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin: 2rem 0; }
 .status-grid article, .panel { border: 1px solid #1b3544; border-radius: .7rem; background: #0c1b26; }
 .status-grid article { padding: 1rem; }
@@ -46,6 +55,10 @@ h2 { margin-top: 0; font-size: 1rem; }
 .status-grid strong { color: #f0b95c; }
 .status-grid strong.ok { color: #65e6c4; }
 .status-grid strong.offline { color: #ff8d8d; }
+.status-grid small { display: block; min-height: 1.2em; margin-top: .35rem; color: #78909f; font-size: .72rem; overflow-wrap: anywhere; }
+.guidance { margin: 1rem 0; padding: 1rem 1.2rem; border-left: 3px solid #f0b95c; border-radius: .35rem; color: #aebfca; background: #111e27; }
+.guidance h2 { margin-bottom: .35rem; color: #e7eef7; }
+.guidance p { margin: 0; line-height: 1.55; }
 .panel { margin-top: 1rem; padding: 1.2rem; }
 .command { display: grid; grid-template-columns: 7rem 1fr auto; align-items: center; gap: .75rem; margin-top: .6rem; }
 .command label { color: #afc0cb; font-size: .86rem; }
@@ -56,6 +69,7 @@ code { overflow-wrap: anywhere; color: #c5f4e7; background: #07131b; border-radi
 #platform-view { height: 100vh; }
 .platform-strip { height: 42px; justify-content: flex-start; color: #a7bbc8; font-size: .82rem; }
 .platform-strip button { margin-left: auto; padding: .35rem .65rem; }
+.platform-strip #platform-summary { color: #78909f; }
 .dot { width: .55rem; height: .55rem; border-radius: 50%; background: #65e6c4; box-shadow: 0 0 12px #65e6c4; }
 #platform-frame { display: block; width: 100%; height: calc(100vh - 42px); border: 0; background: #071018; }
 

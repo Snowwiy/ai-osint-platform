@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "node scripts/validate.mjs",
+    "check": "node scripts/validate.mjs && node --test tests/*.test.mjs",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri:dev": "cargo run --manifest-path src-tauri/Cargo.toml"
   }

@@ -1,8 +1,9 @@
 # Desktop Packaging TODO
 
-The Phase 5AL Tauri shell is a source prototype only. Its local status screen,
-fixed health bridge, and existing-frontend wrapper are complete; every item
-below remains deferred to a separately reviewed packaging phase.
+The Phase 5AL Tauri shell, with Phase 5AM local runtime polish, is a source
+prototype only. Its local status screen, fixed health bridge, constrained
+existing-frontend wrapper, and safety checks are complete; every item below
+remains deferred to a separately reviewed packaging phase.
 
 - select final icons, product metadata, and loading treatment
 - install and pin an approved Tauri CLI toolchain with a reproducible lockfile
@@ -16,6 +17,8 @@ below remains deferred to a separately reviewed packaging phase.
 - test backup/restore and failure recovery on a clean Windows machine
 - assess opt-in, signed update checks in a later security review
 - repeat CSP, capability, secret, and dependency audits before packaging
+- perform signed installer validation only after this source prototype passes
+  operator QA on a clean Windows test machine
 
 Do not add automatic Docker/PowerShell execution, database reset, `.env`
 modification, remote administration, router automation, broad filesystem

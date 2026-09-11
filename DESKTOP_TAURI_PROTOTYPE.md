@@ -4,13 +4,19 @@ Phase 5AL adds a source-level Tauri v2 shell around the existing local web
 platform. It is a prototype, not an installer or a production package. Browser
 mode remains supported and is still the reference workflow.
 
+Phase 5AM polishes that prototype for local runtime QA. It separates network
+reachability from healthy/readiness state, gives service-specific recovery
+guidance, constrains embedded navigation, and adds automated safety checks.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
 - checks fixed loopback endpoints for backend health, readiness, and release
 - shows a bilingual English/Spanish help screen when services are unavailable
 - displays copyable start, stop, restart, check, and frontend commands
+- displays copy-only helpers for the browser opener and direct Docker services
 - returns to the help screen when a later service check fails
+- keeps the status screen open when the operator chooses to inspect it
 
 The desktop UI is isolated in `desktop/`; it does not rewrite or bundle a second
 copy of the React application. The iframe retains the web application's normal
@@ -59,13 +65,25 @@ The shell uses these local defaults only:
 ignored local `desktop/dist/` directory. It does not create an executable,
 bundle, installer, updater, or signed artifact.
 
+On its first healthy check, the shell embeds the local frontend. If the backend
+cannot be reached, it shows Docker startup guidance. If the backend answers but
+readiness is degraded, it recommends the non-destructive platform check. If
+only the frontend is unavailable, it shows the Vite command. A recovered stack
+reopens automatically unless the operator deliberately selected **Service
+status**; **Open local workspace** then returns to the application manually.
+
 ## Security boundary
 
-The Tauri capability file grants no plugin permissions. There is no shell or
-filesystem plugin. The only invoked Rust command accepts no user input and
+The Tauri capability file grants no plugin permissions and no remote origins.
+There is no shell or filesystem plugin. The only invoked Rust command accepts no user input and
 performs bounded HTTP GET probes to `127.0.0.1:8000` and
 `127.0.0.1:5173`. Responses are size-limited and shown as simple status values;
 raw stack traces and response bodies are not exposed.
+
+The embedded frame permits scripts, forms, downloads, modals, same-origin web
+storage, and clipboard writes needed by the existing application. It does not
+permit popups or top-level navigation, and CSP restricts frames to
+`http://localhost:5173`.
 
 The shell never starts Docker, runs PowerShell, modifies `.env`, resets a
 database, reads secrets or credentials, collects browser history, contacts a
@@ -90,6 +108,10 @@ npm run check
 npm run build
 npm run tauri:check
 ```
+
+`npm run check` validates the config, all seven copy-only commands, fixed local
+URLs, bilingual help labels, secret-field absence, disabled bundling, and the
+lack of shell/filesystem or remote-navigation capability.
 
 Review `src-tauri/capabilities/default.json`, `src-tauri/tauri.conf.json`, and
 `src-tauri/src/main.rs` before any future permissions or packaging change.

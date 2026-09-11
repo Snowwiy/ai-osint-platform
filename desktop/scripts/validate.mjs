@@ -9,6 +9,7 @@ const required = [
   "ui/index.html",
   "ui/app.css",
   "ui/app.js",
+  "tests/runtime.test.mjs",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
@@ -21,10 +22,19 @@ const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri/capabil
 const cargo = await readFile(resolve(desktop, "src-tauri/Cargo.toml"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
+const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 
 if (config.version !== "5.0.0-rc4") throw new Error("Desktop version must match RC4.");
 if (config.build.frontendDist !== "../ui") throw new Error("Desktop UI must remain isolated.");
+if (config.bundle.active !== false) throw new Error("Installer bundling must remain disabled.");
+if (config.app.windows.some((window) => window.devtools !== false)) {
+  throw new Error("Desktop runtime devtools must remain disabled.");
+}
 if (capability.permissions.length !== 0) throw new Error("Prototype capability must grant no plugin permissions.");
+if (capability.remote !== undefined) throw new Error("Remote capability origins are not allowed.");
+if (config.app.security.dangerousRemoteDomainIpcAccess !== undefined) {
+  throw new Error("Dangerous remote-domain IPC access must not be configured.");
+}
 if (/tauri-plugin-(shell|fs)|shell:|fs:/i.test(`${cargo}\n${JSON.stringify(capability)}`)) {
   throw new Error("Shell or filesystem capability detected.");
 }
@@ -33,6 +43,18 @@ if (!rust.includes("127.0.0.1") || rust.includes("std::process::Command")) {
 }
 if (!html.includes('lang="en"') || !html.includes("Español")) {
   throw new Error("Desktop help screen must retain English/Spanish controls.");
+}
+if (/allow-popups|allow-top-navigation/.test(html)) {
+  throw new Error("Embedded frontend navigation is too broad.");
+}
+if (!config.app.security.csp.includes("frame-src http://localhost:5173")) {
+  throw new Error("CSP must constrain the embedded frontend to localhost:5173.");
+}
+if (!app.includes("http://localhost:5173") || !app.includes("http://localhost:8000")) {
+  throw new Error("Desktop shell must use the documented local URL defaults.");
+}
+if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]/i.test(`${app}\n${html}`)) {
+  throw new Error("Potential secret field detected in desktop UI source.");
 }
 
 for (const doc of [

@@ -13,6 +13,27 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AM — desktop runtime QA and local build preparation
+
+- [ ] Backend, readiness, release, and frontend cards distinguish reachable,
+      unreachable, ready, and degraded states without raw response bodies.
+- [ ] Backend-unreachable, dependency-degraded, and frontend-unreachable states
+      show distinct English/Spanish operator guidance.
+- [ ] A healthy first check opens the existing local frontend; service failure
+      returns to status; manual status inspection is not overridden by polling.
+- [ ] The shell provides copy-only start, stop, restart, health check, browser
+      open, frontend dev, and Docker service commands.
+- [ ] `npm run check` passes fixed-URL, bilingual-label, copy-command, secret,
+      capability, navigation, and disabled-bundling checks.
+- [ ] The embedded frame has no popup or top-navigation permission and CSP
+      allows only `http://localhost:5173` as a frame source.
+- [ ] Cargo check and the static desktop UI build pass without producing an
+      installer, release package, or published artifact.
+- [ ] Browser mode, frontend build, backend tests, RC4 release metadata, and
+      migration head `0036_phase5ai_posture` remain unchanged.
+- [ ] No hosting, deployment, DNS, Supabase, router automation, remote command
+      execution, shell/filesystem plugin, scanning, or offensive work is added.
+
 ## Phase 5AL — Tauri desktop shell prototype
 
 - [ ] `desktop/` remains isolated from the existing React/Vite frontend.

@@ -9,6 +9,11 @@ It depends on the separately running local Docker services and Vite frontend,
 uses fixed ports 8000/5173, and creates no installer, updater, or signed binary.
 Its help buttons copy commands only and cannot start or repair services.
 
+Phase 5AM improves local runtime feedback but does not turn the shell into a
+service supervisor. It can distinguish unreachable, degraded, and ready states
+only from its fixed HTTP probes. Operators must still use Docker/Vite terminals
+and platform logs for diagnosis, and must run copied commands themselves.
+
 ## Product Boundaries
 
 - RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,
@@ -173,6 +178,9 @@ language, classification markings, and branding require administrator review.
 - The optional Tauri prototype can open the local frontend and check fixed
   backend endpoints, but desktop packaging and installers are not part of the
   validated RC4 mode. Browser mode remains the recovery path.
+- The local frontend runs inside a constrained frame. Popups and top-level
+  navigation are disabled; workflows that later require either behavior must
+  receive a separate security and UX review.
 
 - Platform health is degraded only when required dependencies fail. Missing
   optional host-agent telemetry and Docker neighbor visibility are labeled as

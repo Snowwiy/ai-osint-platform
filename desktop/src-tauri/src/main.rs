@@ -13,7 +13,9 @@ const MAX_RESPONSE_BYTES: usize = 65_536;
 #[derive(Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProbeResult {
-    available: bool,
+    reachable: bool,
+    healthy: bool,
+    http_status: Option<u16>,
     status: Option<String>,
 }
 
@@ -67,7 +69,10 @@ fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
                 .map(str::to_owned);
             (
                 ProbeResult {
-                    available: (200..300).contains(&code),
+                    reachable: true,
+                    healthy: (200..300).contains(&code)
+                        && status.as_deref() == Some("ok"),
+                    http_status: Some(code),
                     status,
                 },
                 value,
@@ -88,8 +93,14 @@ fn collect_snapshot() -> ServiceSnapshot {
         .map(str::to_owned);
     let frontend = match fixed_http_get(FRONTEND_LOOPBACK, "/") {
         Some((code, _)) => ProbeResult {
-            available: (200..400).contains(&code),
-            status: Some("ok".to_owned()),
+            reachable: true,
+            healthy: (200..400).contains(&code),
+            http_status: Some(code),
+            status: Some(if (200..400).contains(&code) {
+                "ok".to_owned()
+            } else {
+                "error".to_owned()
+            }),
         },
         None => ProbeResult::default(),
     };

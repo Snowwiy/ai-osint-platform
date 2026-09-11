@@ -4,6 +4,10 @@ Phase 5AK established desktop readiness and the local operator workflow. Phase
 5AL now provides a minimal Tauri v2 shell prototype; it does not provide an
 installer or production packaging.
 
+Phase 5AM makes the prototype suitable for local operator QA through readable
+degraded states, explicit recovery guidance, safe workspace/status transitions,
+and regression checks. It does not change the underlying architecture.
+
 ## Current approach
 
 1. Keep browser-based local Docker mode as the reference and supported workflow.
@@ -32,6 +36,11 @@ The prototype grants no Tauri plugin permissions and includes no shell or
 filesystem plugin. Its only command has no parameters and probes four fixed
 local routes. It does not collect credentials or history, access secrets,
 administer routers, start services, or execute local or remote commands.
+
+The embedded frontend is limited by CSP to `http://localhost:5173`. Its sandbox
+does not grant popup or top-level navigation, while preserving the scripts,
+forms, downloads, local application storage, and copy behavior needed by the
+existing web workflow.
 
 Desktop packaging, installer signing, auto-update, hosting, deployment, DNS,
 and Supabase migration remain deferred. See `DESKTOP_TAURI_PROTOTYPE.md` for

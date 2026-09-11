@@ -25,13 +25,31 @@
         <p class="eyebrow" data-copy="eyebrow">LOCAL SERVICE STATUS</p>
         <h1 data-copy="title">Preparing the local workspace</h1>
         <p data-copy="intro">This shell checks only fixed localhost services. It never starts Docker or runs host commands.</p>
+        <div id="summary" class="summary checking" role="status" aria-live="polite">
+          <span class="summary-dot"></span>
+          <span id="summary-text" data-copy="checking">Checking…</span>
+        </div>
+        <button id="open-platform" class="primary" type="button" data-copy="openWorkspace" hidden>Open local workspace</button>
       </section>
 
       <section class="status-grid" aria-live="polite">
-        <article><span data-copy="backendHealth">Backend health</span><strong id="backend-status">Checking…</strong></article>
-        <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong></article>
-        <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong></article>
-        <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong></article>
+        <article><span data-copy="backendHealth">Backend health</span><strong id="backend-status">Checking…</strong><small id="backend-detail"></small></article>
+        <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong><small id="ready-detail"></small></article>
+        <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong><small id="release-detail"></small></article>
+        <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong><small id="frontend-detail"></small></article>
+      </section>
+
+      <section id="backend-guidance" class="guidance" hidden>
+        <h2 data-copy="backendHelpTitle">Backend is not reachable</h2>
+        <p data-copy="backendHelpBody">Start the Docker services, then check health again. PostgreSQL and Redis remain required local services.</p>
+      </section>
+      <section id="readiness-guidance" class="guidance" hidden>
+        <h2 data-copy="readinessHelpTitle">Backend dependencies are not ready</h2>
+        <p data-copy="readinessHelpBody">The backend answered, but a required dependency is degraded. Use the platform check command for a readable diagnosis.</p>
+      </section>
+      <section id="frontend-guidance" class="guidance" hidden>
+        <h2 data-copy="frontendHelpTitle">Frontend is not reachable</h2>
+        <p data-copy="frontendHelpBody">Run the Vite development server from the frontend directory. The desktop shell never starts it automatically.</p>
       </section>
 
       <section class="panel">
@@ -42,8 +60,8 @@
 
       <section class="panel endpoints">
         <h2 data-copy="endpoints">Local endpoints</h2>
-        <p><span data-copy="frontendUrl">Frontend URL</span> <code>http://localhost:5173</code></p>
-        <p><span data-copy="backendUrl">Backend URL</span> <code>http://localhost:8000</code></p>
+        <p><span data-copy="frontendUrl">Frontend URL</span> <code id="frontend-url">http://localhost:5173</code></p>
+        <p><span data-copy="backendUrl">Backend URL</span> <code id="backend-url">http://localhost:8000</code></p>
       </section>
       <p id="message" role="status"></p>
     </main>
@@ -52,9 +70,10 @@
       <div class="platform-strip">
         <span class="dot"></span>
         <span data-copy="connected">Local frontend connected</span>
+        <span id="platform-summary"></span>
         <button id="show-status" type="button" data-copy="showStatus">Service status</button>
       </div>
-      <iframe id="platform-frame" title="RavenTech OSINT local web application" sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-popups allow-modals"></iframe>
+      <iframe id="platform-frame" title="RavenTech OSINT local web application" referrerpolicy="no-referrer" allow="clipboard-write" sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-modals"></iframe>
     </section>
   </body>
 </html>
