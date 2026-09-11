@@ -32,6 +32,11 @@ Phase 5AW records the complete clean-checkout order in
 `FRESH_SETUP_CHECKLIST.md` and dry-runs regeneration of all three ignored RC6
 artifact sets. RC6 stays at the existing tag and version; no release is published.
 
+Phase 5AX adds `EXTERNAL_MACHINE_TEST_CHECKLIST.md` for a second authorized
+Windows machine. It keeps the repository and aggregate package as separate
+inputs, distinguishes runtime from rebuild prerequisites, and documents only
+manual, non-destructive recovery.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`

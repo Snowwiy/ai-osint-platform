@@ -186,6 +186,10 @@ local user data, backend, PostgreSQL, Redis, or Docker runtime.
 - [ ] Retain the signed-off checklist privately; do not add it or generated
       binaries to Git.
 
+When the artifacts move to a second Windows host, use
+`EXTERNAL_MACHINE_TEST_CHECKLIST.md` for transfer integrity, receiving-machine
+prerequisites, project rebinding, recovery, and uninstall evidence.
+
 RC6 remains locked: no feature, version bump, new tag, public release, signing,
 auto-update, hosting, deployment, DNS, Supabase migration, router automation,
 arbitrary shell execution, remote command execution, or offensive functionality

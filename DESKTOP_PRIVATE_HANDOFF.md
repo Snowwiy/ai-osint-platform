@@ -8,6 +8,8 @@ This handoff accompanies RavenTech OSINT Desktop RC6. It does not authorize a
 public upload, production deployment, signing claim, or hosted environment.
 For a new checkout, complete `FRESH_SETUP_CHECKLIST.md` before this handoff's
 artifact and receiving-host steps.
+On the receiving Windows machine, use `EXTERNAL_MACHINE_TEST_CHECKLIST.md` for
+prerequisites, transfer integrity, project setup, recovery, and uninstall QA.
 
 ## Artifact locations
 

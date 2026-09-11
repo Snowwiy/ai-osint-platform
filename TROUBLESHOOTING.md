@@ -1,5 +1,11 @@
 # Troubleshooting
 
+For private transfer to a second Windows machine, start with
+`EXTERNAL_MACHINE_TEST_CHECKLIST.md`. Its recovery section covers missing or
+stopped Docker, fixed-port conflicts, backend/frontend reachability, project
+binding, approved scripts, RC6 mismatch, pending migrations, and the expected
+unsigned SmartScreen warning without automatic system changes.
+
 ## Backend Shows Unavailable
 
 For the consolidated local-only repair flow, see `LOCAL_HEALTH_REPAIR.md`.

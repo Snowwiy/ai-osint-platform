@@ -74,6 +74,12 @@ configuration, Docker, migrations, frontend, authentication, synthetic demo,
 desktop binding, artifact builds, and acceptance without adding a feature,
 version, or tag.
 
+Phase 5AX adds the receiving-machine checklist for private transfer QA and
+manual recovery. Use
+[EXTERNAL_MACHINE_TEST_CHECKLIST.md](EXTERNAL_MACHINE_TEST_CHECKLIST.md) to
+verify prerequisites, package checksums, repository setup, portable/installed
+behavior, and non-destructive recovery on a second Windows machine.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -443,6 +449,8 @@ The final private RC6 operator materials are
 They describe local use and QA only; they are not public-release approval.
 For a clean checkout, follow [FRESH_SETUP_CHECKLIST.md](FRESH_SETUP_CHECKLIST.md)
 in order before using the operator acceptance checklist.
+For a separately transferred Windows host, continue with
+[EXTERNAL_MACHINE_TEST_CHECKLIST.md](EXTERNAL_MACHINE_TEST_CHECKLIST.md).
 
 The reviewed GitHub release copy is in
 [GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no

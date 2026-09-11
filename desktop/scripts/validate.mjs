@@ -111,6 +111,7 @@ for (const doc of [
   "DESKTOP_PRIVATE_HANDOFF.md",
   "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
   "FRESH_SETUP_CHECKLIST.md",
+  "EXTERNAL_MACHINE_TEST_CHECKLIST.md",
 ]) await access(resolve(repository, doc));
 
 console.log("Desktop prototype safety checks passed.");

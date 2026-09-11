@@ -12,6 +12,7 @@ const docs = [
   "DESKTOP_PRIVATE_HANDOFF.md",
   "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
   "FRESH_SETUP_CHECKLIST.md",
+  "EXTERNAL_MACHINE_TEST_CHECKLIST.md",
 ];
 
 test("private handoff documents exist and remain RC6-local", async () => {
@@ -68,6 +69,20 @@ test("fresh setup checklist covers reproducible RC6 operator setup", async () =>
   for (const exclusion of [".env", "secret", "token", "credential", "database dump", "backup", "generated report", "log", "local user data"]) {
     assert.ok(setup.includes(exclusion), `Missing fresh-setup exclusion: ${exclusion}`);
   }
+});
+
+test("external-machine checklist covers transfer prerequisites and recovery", async () => {
+  const external = await readFile(resolve(repository, "EXTERNAL_MACHINE_TEST_CHECKLIST.md"), "utf8");
+  for (const prerequisite of ["Windows 10 or 11 x64", "WebView2 Runtime", "Docker Desktop", "Git", "Node.js and npm", "Rust/Cargo", "Tauri CLI", "NSIS"]) {
+    assert.ok(external.includes(prerequisite), `Missing external prerequisite: ${prerequisite}`);
+  }
+  for (const workflow of ["git clone", "Copy-Item -LiteralPath .env.example", "alembic upgrade head", "npm run dev", "scripts/create_admin.py", "scripts.seed_demo_data", "Validate and save", "/health/ready", "/api/v1/release", "Settings > Apps > Installed apps"]) {
+    assert.ok(external.includes(workflow), `Missing external workflow: ${workflow}`);
+  }
+  for (const recovery of ["Docker is not installed", "Docker is installed but not running", "Port 8000 or 5173 is busy", "Backend is unreachable", "Frontend is unreachable", "Project path is wrong", "Approved scripts are missing or altered", "Release mismatch", "Migrations are pending", "SmartScreen warns about the installer"]) {
+    assert.ok(external.includes(recovery), `Missing recovery guidance: ${recovery}`);
+  }
+  assert.doesNotMatch(external, /Stop-Process|taskkill|Set-NetFirewall|Remove-Item|docker compose down --volumes/);
 });
 
 test("present desktop artifacts keep strict allowlists", async () => {

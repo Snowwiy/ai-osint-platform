@@ -66,6 +66,12 @@ security products, or organizational controls. Each receiving environment still
 requires the private operator acceptance checklist. RC6 remains unsigned and
 local-only with a separately managed repository, Docker stack, and frontend.
 
+Phase 5AX provides receiving-machine transfer and recovery guidance, not remote
+support or automated repair. Artifact success on the build host does not prove
+compatibility with another host's Windows policy, WebView2 runtime, Docker
+configuration, endpoint protection, ports, or user permissions. The receiving
+operator must verify checksums and complete the external-machine checklist.
+
 ## Product Boundaries
 
 - RC6 provides English and Spanish UI/report labels. Uncommon dynamic provider,

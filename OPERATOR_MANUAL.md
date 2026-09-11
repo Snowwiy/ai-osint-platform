@@ -249,3 +249,5 @@ For build provenance and private transfer steps, see
 `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` and `FINAL_QA_CHECKLIST.md`.
 Operators starting from a clean checkout should complete
 `FRESH_SETUP_CHECKLIST.md` first.
+Operators receiving artifacts on another Windows machine should also complete
+`EXTERNAL_MACHINE_TEST_CHECKLIST.md` before acceptance.
