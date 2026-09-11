@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>RavenTech OSINT Desktop</title>
+    <link rel="stylesheet" href="app.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <strong>RavenTech OSINT</strong>
+        <span data-copy="prototype">Local desktop prototype</span>
+      </div>
+      <div class="actions">
+        <button id="language" type="button">Español</button>
+        <button id="refresh" type="button" data-copy="refresh">Check again</button>
+      </div>
+    </header>
+
+    <main id="status-view">
+      <section class="hero">
+        <p class="eyebrow" data-copy="eyebrow">LOCAL SERVICE STATUS</p>
+        <h1 data-copy="title">Preparing the local workspace</h1>
+        <p data-copy="intro">This shell checks only fixed localhost services. It never starts Docker or runs host commands.</p>
+      </section>
+
+      <section class="status-grid" aria-live="polite">
+        <article><span data-copy="backendHealth">Backend health</span><strong id="backend-status">Checking…</strong></article>
+        <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong></article>
+        <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong></article>
+        <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong></article>
+      </section>
+
+      <section class="panel">
+        <h2 data-copy="helpTitle">Start the local services</h2>
+        <p data-copy="helpBody">Run these commands yourself from the repository. The buttons copy text only.</p>
+        <div id="commands"></div>
+      </section>
+
+      <section class="panel endpoints">
+        <h2 data-copy="endpoints">Local endpoints</h2>
+        <p><span data-copy="frontendUrl">Frontend URL</span> <code>http://localhost:5173</code></p>
+        <p><span data-copy="backendUrl">Backend URL</span> <code>http://localhost:8000</code></p>
+      </section>
+      <p id="message" role="status"></p>
+    </main>
+
+    <section id="platform-view" hidden>
+      <div class="platform-strip">
+        <span class="dot"></span>
+        <span data-copy="connected">Local frontend connected</span>
+        <button id="show-status" type="button" data-copy="showStatus">Service status</button>
+      </div>
+      <iframe id="platform-frame" title="RavenTech OSINT local web application" sandbox="allow-same-origin allow-scripts allow-forms allow-downloads allow-popups allow-modals"></iframe>
+    </section>
+  </body>
+</html>

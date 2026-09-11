@@ -14,6 +14,12 @@ stakeholder-ready reports without intrusive scanning or offensive automation.
 Current release candidate: `5.0.0-rc4`. The validated runtime is local Docker
 Compose; production and free-tier hosting remain deferred.
 
+Phase 5AL adds an optional Tauri v2 desktop shell prototype in `desktop/`. It
+wraps the unchanged local Vite frontend, reports fixed localhost health and
+release status, and displays copy-only operator guidance. Browser mode remains
+fully supported. See [DESKTOP_TAURI_PROTOTYPE.md](DESKTOP_TAURI_PROTOTYPE.md).
+There is no installer or production desktop package yet.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -128,6 +134,18 @@ npm run dev
 ```
 
 `npm run dev` must be run from the `frontend/` directory.
+
+Optional desktop shell prototype, after the backend and frontend are running:
+
+```powershell
+cd desktop
+npm run check
+npm run tauri:check
+npm run tauri:dev
+```
+
+This command runs the source prototype directly through Cargo. It does not
+create an installer or start Docker/frontend automatically.
 
 For a guided startup and health check:
 
@@ -353,11 +371,12 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current repository is frozen as the `5.0.0-rc4` local web release candidate.
+The current release identity remains the `5.0.0-rc4` local web release candidate.
 Final manual QA, local operations, backup/restore, monitoring, and security
 hygiene are covered by the acceptance gate. The `v5.0.0-rc4` tag identifies the
-validated local package; desktop packaging, hosting, DNS, and Supabase production
-database work remain deferred to separately authorized phases.
+validated local package. Phase 5AL adds a non-packaged Tauri prototype without
+changing that release identity; installer/production packaging, hosting, DNS,
+and Supabase production database work remain deferred.
 
 ## Phase 5AB monitoring reliability
 

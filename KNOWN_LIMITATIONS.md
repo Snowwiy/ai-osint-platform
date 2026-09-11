@@ -4,6 +4,11 @@ The completed validated mode for `5.0.0-rc4` is the local web application using
 Docker Compose services and a local Vite frontend. Desktop packaging, installers,
 hosting, deployment, DNS, and Supabase migration are deferred.
 
+Phase 5AL includes a Tauri source prototype, not a validated desktop package.
+It depends on the separately running local Docker services and Vite frontend,
+uses fixed ports 8000/5173, and creates no installer, updater, or signed binary.
+Its help buttons copy commands only and cannot start or repair services.
+
 ## Product Boundaries
 
 - RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,
@@ -165,8 +170,9 @@ language, classification markings, and branding require administrator review.
   local HTTP probes. They intentionally do not remove volumes, reset databases,
   or expose environment values. The in-app Operator Console is read-only;
   command buttons copy text for a human operator and do not execute host actions.
-- A future desktop shell may open the local frontend and check backend health,
-  but desktop packaging and installers are not part of the validated RC4 mode.
+- The optional Tauri prototype can open the local frontend and check fixed
+  backend endpoints, but desktop packaging and installers are not part of the
+  validated RC4 mode. Browser mode remains the recovery path.
 
 - Platform health is degraded only when required dependencies fail. Missing
   optional host-agent telemetry and Docker neighbor visibility are labeled as

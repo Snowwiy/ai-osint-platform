@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "No plugin permissions. The prototype exposes one fixed loopback health command.",
+  "windows": ["main"],
+  "permissions": []
+}

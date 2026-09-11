@@ -1,30 +1,38 @@
 # RavenTech Desktop App Strategy
 
-Phase 5AK prepares the validated local web platform for a future desktop shell;
-it does not build an installer or desktop application.
+Phase 5AK established desktop readiness and the local operator workflow. Phase
+5AL now provides a minimal Tauri v2 shell prototype; it does not provide an
+installer or production packaging.
 
-## Recommended sequence
+## Current approach
 
-1. Keep the browser-based local Docker mode as the reference operator console.
-2. Use the local launcher scripts for repeatable start, stop, restart, health,
-   and browser-open workflows.
-3. Stabilize the in-app Operator Console and document manual support actions.
-4. Prototype a desktop shell only after the local workflow is accepted.
-5. Package and sign an installer in a separately reviewed phase.
+1. Keep browser-based local Docker mode as the reference and supported workflow.
+2. Keep FastAPI, React/Vite, PostgreSQL, Redis, Celery, and Docker unchanged.
+3. Isolate the prototype in `desktop/` rather than adding Tauri to `frontend/`.
+4. Let the shell check only fixed localhost endpoints and embed the running Vite
+   frontend after health succeeds.
+5. Keep all host operations manual through copyable commands and the existing
+   local launcher scripts.
+6. Review packaging, signing, and clean-machine behavior in a separate phase.
 
-## Shell recommendation
+## Why Tauri
 
-Tauri is the preferred future shell for a small Windows footprint and a native
-health-check/open-local-UI bridge. Electron remains a viable alternative when
-broader Chromium compatibility or JavaScript-native integrations justify its
-larger footprint. The current browser mode remains the simplest and most
-transparent option for development and acceptance.
+Tauri provides a small native shell while allowing RavenTech OSINT to preserve
+the existing web application. The prototype uses a Rust loopback health bridge
+instead of granting browser CORS exceptions or a generic HTTP capability. It
+does not use Electron, embed databases, replace Docker, or change the backend.
 
-The backend remains FastAPI and the frontend remains React/Vite. PostgreSQL and
-Redis remain local Docker services for now. A later shell may check backend
-health and open the local frontend URL, but the browser must not execute host
-commands, collect credentials, run a remote shell, or change router settings.
+The browser workflow remains the simplest development and recovery path. If the
+shell is unavailable, operators can continue using `npm run dev` from
+`frontend/` and open `http://localhost:5173` normally.
 
-Desktop packaging, installer signing, hosting, deployment, DNS, and Supabase
-migration are deferred. No automatic router blocking or other automated
-remediation is planned in this preparation phase.
+## Security posture
+
+The prototype grants no Tauri plugin permissions and includes no shell or
+filesystem plugin. Its only command has no parameters and probes four fixed
+local routes. It does not collect credentials or history, access secrets,
+administer routers, start services, or execute local or remote commands.
+
+Desktop packaging, installer signing, auto-update, hosting, deployment, DNS,
+and Supabase migration remain deferred. See `DESKTOP_TAURI_PROTOTYPE.md` for
+prototype operation and `DESKTOP_PACKAGING_TODO.md` for future gates.

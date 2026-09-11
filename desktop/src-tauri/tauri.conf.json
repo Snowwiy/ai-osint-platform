@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "RavenTech OSINT",
+  "version": "5.0.0-rc4",
+  "identifier": "com.raventech.osint",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "RavenTech OSINT — Local Desktop Prototype",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "devtools": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' customprotocol: asset:; connect-src ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; style-src 'self'; script-src 'self'; frame-src http://localhost:5173"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": ["target/prototype.ico"]
+  }
+}

@@ -13,6 +13,24 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AL — Tauri desktop shell prototype
+
+- [ ] `desktop/` remains isolated from the existing React/Vite frontend.
+- [ ] The shell shows backend health, readiness, release, and frontend status.
+- [ ] With the Vite frontend available, the unchanged bilingual web app opens
+      inside the desktop window; normal browser mode still works.
+- [ ] With a service unavailable, the bilingual help screen shows local URLs
+      and copyable start/stop/restart/check/frontend commands without raw errors.
+- [ ] `cd desktop; npm run check` passes the static security/document checks.
+- [ ] `cd desktop; npm run build` validates the static shell assets only and
+      creates no installer or production bundle.
+- [ ] `cd desktop; npm run tauri:check` passes when Rust dependencies are
+      available locally.
+- [ ] `src-tauri/capabilities/default.json` grants no plugin permissions.
+- [ ] No shell/filesystem plugin, generic URL command, secret access, automatic
+      command execution, installer, hosting, deployment, DNS, Supabase, router
+      automation, remote administration, or offensive feature is present.
+
 ## Phase 5AK — desktop readiness and local operator workflow
 
 - [ ] `scripts/local/start_platform.ps1 -OpenFrontend` starts services, applies

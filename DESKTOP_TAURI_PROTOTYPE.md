@@ -1,0 +1,95 @@
+# RavenTech OSINT Tauri Desktop Prototype
+
+Phase 5AL adds a source-level Tauri v2 shell around the existing local web
+platform. It is a prototype, not an installer or a production package. Browser
+mode remains supported and is still the reference workflow.
+
+## What it does
+
+- opens the unchanged frontend from `http://localhost:5173` inside the shell
+- checks fixed loopback endpoints for backend health, readiness, and release
+- shows a bilingual English/Spanish help screen when services are unavailable
+- displays copyable start, stop, restart, check, and frontend commands
+- returns to the help screen when a later service check fails
+
+The desktop UI is isolated in `desktop/`; it does not rewrite or bundle a second
+copy of the React application. The iframe retains the web application's normal
+API behavior, authentication origin, and English/Spanish localization.
+
+## Prerequisites
+
+- Windows with WebView2 (normally included on supported Windows releases)
+- Docker Desktop with Docker Compose
+- Node.js/npm for the existing frontend
+- Rust and Cargo for the prototype shell
+- local development configuration based on `.env.example`
+
+No Tauri CLI is required for the basic prototype command because the shell runs
+directly through Cargo. Crate dependencies must already be available locally or
+installed in a separately network-approved setup step.
+
+## Run
+
+From the repository root, start the backend dependencies and frontend yourself:
+
+```powershell
+./scripts/local/start_platform.ps1
+cd frontend
+npm run dev
+```
+
+In a second terminal from the repository root:
+
+```powershell
+cd desktop
+npm run check
+npm run tauri:check
+npm run tauri:dev
+```
+
+The shell uses these local defaults only:
+
+- frontend: `http://localhost:5173`
+- backend: `http://localhost:8000`
+- health: `http://localhost:8000/health`
+- readiness: `http://localhost:8000/health/ready`
+- release: `http://localhost:8000/api/v1/release`
+
+`npm run build` in `desktop/` only validates and copies the small shell UI to an
+ignored local `desktop/dist/` directory. It does not create an executable,
+bundle, installer, updater, or signed artifact.
+
+## Security boundary
+
+The Tauri capability file grants no plugin permissions. There is no shell or
+filesystem plugin. The only invoked Rust command accepts no user input and
+performs bounded HTTP GET probes to `127.0.0.1:8000` and
+`127.0.0.1:5173`. Responses are size-limited and shown as simple status values;
+raw stack traces and response bodies are not exposed.
+
+The shell never starts Docker, runs PowerShell, modifies `.env`, resets a
+database, reads secrets or credentials, collects browser history, contacts a
+router, administers another host, or executes remote commands. Copy buttons use
+the web clipboard API and always require the operator to paste and run the text.
+
+## Prototype limitations
+
+- Docker, PostgreSQL, Redis, FastAPI, Celery, and Vite remain separate services.
+- The frontend must be running on port 5173 before it can be embedded.
+- The backend must be running on port 8000 for normal application behavior.
+- This phase provides no installer, signing, auto-update, production packaging,
+  hosted service, deployment, DNS change, or Supabase migration.
+- The CSP intentionally allows framing only `http://localhost:5173`.
+- Production packaging and clean-machine validation remain future work.
+
+## Safe checks
+
+```powershell
+cd desktop
+npm run check
+npm run build
+npm run tauri:check
+```
+
+Review `src-tauri/capabilities/default.json`, `src-tauri/tauri.conf.json`, and
+`src-tauri/src/main.rs` before any future permissions or packaging change.

@@ -1,15 +1,25 @@
 # Desktop Packaging TODO
 
-Deferred work for a separately reviewed phase:
+The Phase 5AL Tauri shell is a source prototype only. Its local status screen,
+fixed health bridge, and existing-frontend wrapper are complete; every item
+below remains deferred to a separately reviewed packaging phase.
 
-- choose Tauri or Electron after local operator acceptance
-- define app icon, product metadata, and splash/loading treatment
-- add a shell-side backend health check and local frontend opener
-- document Docker Desktop and service dependency handling
-- produce and test a Windows build and clean uninstall path
-- arrange installer signing only when release governance is approved
-- assess offline behavior, local data paths, and backup/restore guidance
-- add update checks later only if they can remain opt-in and auditable
+- select final icons, product metadata, and loading treatment
+- install and pin an approved Tauri CLI toolchain with a reproducible lockfile
+- decide whether a production package should serve a built frontend or retain a
+  separately started local frontend
+- define explicit Docker Desktop dependency detection and operator support flow
+- validate WebView2 availability and supported Windows versions
+- produce and test a Windows bundle, installer, upgrade, and clean uninstall
+- define local app data paths without moving PostgreSQL or Redis into the shell
+- arrange code signing only after release governance approval
+- test backup/restore and failure recovery on a clean Windows machine
+- assess opt-in, signed update checks in a later security review
+- repeat CSP, capability, secret, and dependency audits before packaging
 
-This file is planning only. No desktop shell, installer, auto-update service,
-hosting, deployment, or remote command bridge is included in Phase 5AK.
+Do not add automatic Docker/PowerShell execution, database reset, `.env`
+modification, remote administration, router automation, broad filesystem
+access, or a generic command bridge while completing these items.
+
+No installer, executable bundle, auto-update service, hosting, deployment, DNS,
+or Supabase migration is included in Phase 5AL.

@@ -29,6 +29,8 @@ backups/
 node_modules/
 .next/
 *.tsbuildinfo
+target/
+desktop/src-tauri/gen/
 
 # IDE
 .idea/
