@@ -13,6 +13,29 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AN — Windows portable desktop build preparation
+
+- [ ] Desktop metadata reports `RavenTech OSINT Desktop` and `5.0.0-rc4` with
+      the local prototype window title and build-only placeholder icon.
+- [ ] `npm run portable:build` validates desktop source and the existing
+      frontend, then runs Cargo with `--release --locked --offline`.
+- [ ] Output exists only under ignored
+      `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`.
+- [ ] The portable folder contains only `RavenTech OSINT Desktop.exe`,
+      `README.md`, `LICENSE`, and `portable-manifest.json`.
+- [ ] `npm run portable:validate` confirms PE signature, RC4 metadata, file
+      allowlist, disabled boundaries, and SHA-256 checksums.
+- [ ] No `.env`, credential, certificate, database, backup, report, client data,
+      backend service, PostgreSQL, Redis, or Docker runtime is packaged.
+- [ ] The copied executable starts and responds on Windows while retaining the
+      fixed local health/status and copy-only behavior.
+- [ ] Tauri `bundle.active` remains false; no MSI, NSIS, signing, updater,
+      release publishing, or service-autostart work is performed.
+- [ ] Browser/local Docker mode, backend validation, frontend localization,
+      RC4 release metadata, and migration head remain unchanged.
+- [ ] No hosting, deployment, DNS, Supabase migration, router automation,
+      remote command execution, scanning, or offensive functionality is added.
+
 ## Phase 5AM — desktop runtime QA and local build preparation
 
 - [ ] Backend, readiness, release, and frontend cards distinguish reachable,

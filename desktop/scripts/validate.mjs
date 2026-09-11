@@ -10,6 +10,11 @@ const required = [
   "ui/app.css",
   "ui/app.js",
   "tests/runtime.test.mjs",
+  "tests/portable-scripts.test.mjs",
+  "scripts/build_portable.mjs",
+  "scripts/package_portable.mjs",
+  "scripts/validate_portable.mjs",
+  "PORTABLE_BUILD_README.md",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/capabilities/default.json",
@@ -25,6 +30,7 @@ const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 
 if (config.version !== "5.0.0-rc4") throw new Error("Desktop version must match RC4.");
+if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
 if (config.build.frontendDist !== "../ui") throw new Error("Desktop UI must remain isolated.");
 if (config.bundle.active !== false) throw new Error("Installer bundling must remain disabled.");
 if (config.app.windows.some((window) => window.devtools !== false)) {

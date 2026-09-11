@@ -8,6 +8,11 @@ Phase 5AM makes the prototype suitable for local operator QA through readable
 degraded states, explicit recovery guidance, safe workspace/status transitions,
 and regression checks. It does not change the underlying architecture.
 
+Phase 5AN adds a reproducible Windows portable local-test build. The output is
+an unsigned executable plus documentation, license, and checksums. It remains
+dependent on the operator-managed repository, Docker stack, and Vite frontend;
+it does not convert those components into embedded desktop services.
+
 ## Current approach
 
 1. Keep browser-based local Docker mode as the reference and supported workflow.
@@ -18,6 +23,10 @@ and regression checks. It does not change the underlying architecture.
 5. Keep all host operations manual through copyable commands and the existing
    local launcher scripts.
 6. Review packaging, signing, and clean-machine behavior in a separate phase.
+
+The current portable workflow uses Cargo `--release --locked --offline` while
+Tauri installer bundling remains disabled. Generated portable folders are local
+artifacts under ignored `desktop/dist-portable/`, not release assets.
 
 ## Why Tauri
 

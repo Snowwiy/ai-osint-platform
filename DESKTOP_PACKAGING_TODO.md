@@ -5,10 +5,15 @@ prototype only. Its local status screen, fixed health bridge, constrained
 existing-frontend wrapper, and safety checks are complete; every item below
 remains deferred to a separately reviewed packaging phase.
 
+Phase 5AN proves an unsigned Windows portable local-test build can be produced
+without enabling Tauri bundling. The allowlisted folder contains only the
+executable, operator README, license, and checksum manifest. This does not
+complete installer, signing, distribution, or support readiness.
+
 - select final icons, product metadata, and loading treatment
 - install and pin an approved Tauri CLI toolchain with a reproducible lockfile
-- decide whether a production package should serve a built frontend or retain a
-  separately started local frontend
+- decide whether a future production package should serve a built frontend or
+  retain the Phase 5AN separately started local frontend
 - define explicit Docker Desktop dependency detection and operator support flow
 - validate WebView2 availability and supported Windows versions
 - produce and test a Windows bundle, installer, upgrade, and clean uninstall
@@ -19,10 +24,12 @@ remains deferred to a separately reviewed packaging phase.
 - repeat CSP, capability, secret, and dependency audits before packaging
 - perform signed installer validation only after this source prototype passes
   operator QA on a clean Windows test machine
+- decide future artifact retention, provenance, SBOM, and release-attestation
+  policy before any public distribution
 
 Do not add automatic Docker/PowerShell execution, database reset, `.env`
 modification, remote administration, router automation, broad filesystem
 access, or a generic command bridge while completing these items.
 
-No installer, executable bundle, auto-update service, hosting, deployment, DNS,
-or Supabase migration is included in Phase 5AL.
+No installer bundle, code signing, auto-update service, hosting, deployment,
+DNS, or Supabase migration is included in Phase 5AN.

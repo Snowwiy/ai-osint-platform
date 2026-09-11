@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "RavenTech OSINT",
+  "productName": "RavenTech OSINT Desktop",
   "version": "5.0.0-rc4",
   "identifier": "com.raventech.osint",
   "build": {
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "RavenTech OSINT — Local Desktop Prototype",
+        "title": "RavenTech OSINT Desktop — Local Prototype",
         "width": 1440,
         "height": 900,
         "minWidth": 960,

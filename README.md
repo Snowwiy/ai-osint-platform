@@ -25,6 +25,10 @@ readiness, and degraded states; English/Spanish recovery guidance; seven
 copy-only commands; and constrained local-frame navigation. It changes no
 backend, frontend, Docker, database, hosting, or deployment architecture.
 
+Phase 5AN adds an unsigned Windows portable local-test workflow. It creates no
+installer and bundles no backend, PostgreSQL, Redis, Docker, `.env`, backups,
+or reports. Generated output is ignored under `desktop/dist-portable/`.
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -152,6 +156,20 @@ npm run tauri:dev
 
 This command runs the source prototype directly through Cargo. It does not
 create an installer or start Docker/frontend automatically.
+
+To build the Windows portable local-test folder after dependencies are already
+available locally:
+
+```powershell
+cd desktop
+npm run portable:build
+```
+
+The output is
+`desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/`. Read
+[desktop/PORTABLE_BUILD_README.md](desktop/PORTABLE_BUILD_README.md) before
+running the unsigned executable. Docker services and `npm run dev` from
+`frontend/` must still be started manually.
 
 For a guided startup and health check:
 

@@ -6,6 +6,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "node scripts/validate.mjs && node --test tests/*.test.mjs",
+    "portable:build": "node scripts/build_portable.mjs",
+    "portable:package": "node scripts/package_portable.mjs",
+    "portable:validate": "node scripts/validate_portable.mjs",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri:dev": "cargo run --manifest-path src-tauri/Cargo.toml"
   }

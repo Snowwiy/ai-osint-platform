@@ -14,6 +14,13 @@ service supervisor. It can distinguish unreachable, degraded, and ready states
 only from its fixed HTTP probes. Operators must still use Docker/Vite terminals
 and platform logs for diagnosis, and must run copied commands themselves.
 
+Phase 5AN produces an unsigned Windows portable local-test executable. It is not
+an installer, supported deployment, or self-contained application: WebView2,
+the repository, local configuration, Docker services, and Vite frontend remain
+separate prerequisites. The build-only placeholder icon is not final branding.
+The generated `dist-portable/` folder is ignored and must not be published as a
+release artifact without a later signing, provenance, and clean-machine review.
+
 ## Product Boundaries
 
 - RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,

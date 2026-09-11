@@ -8,6 +8,11 @@ Phase 5AM polishes that prototype for local runtime QA. It separates network
 reachability from healthy/readiness state, gives service-specific recovery
 guidance, constrains embedded navigation, and adds automated safety checks.
 
+Phase 5AN adds a Windows portable-build workflow for local testing. It compiles
+the same shell as a standalone executable and collects it with instructions,
+the repository license, and a checksum manifest. It is not an installer or a
+public release package.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
@@ -115,3 +120,28 @@ lack of shell/filesystem or remote-navigation capability.
 
 Review `src-tauri/capabilities/default.json`, `src-tauri/tauri.conf.json`, and
 `src-tauri/src/main.rs` before any future permissions or packaging change.
+
+## Windows portable local-test build
+
+With frontend dependencies already installed and Rust crates already available
+locally, run from `desktop/`:
+
+```powershell
+npm run portable:build
+```
+
+The command validates the desktop source, verifies the existing browser
+frontend build, runs a locked/offline Cargo release build, packages only an
+executable, README, license, and checksum manifest, then validates the result.
+It never runs an installer or contacts a package registry.
+
+Output:
+
+```text
+desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc4/
+```
+
+`dist-portable/` is intentionally Git-ignored. For separate steps, use
+`npm run portable:package` after Cargo compilation and
+`npm run portable:validate` after packaging. See
+`desktop/PORTABLE_BUILD_README.md` for runtime prerequisites and recovery.

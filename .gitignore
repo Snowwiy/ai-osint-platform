@@ -31,6 +31,7 @@ node_modules/
 *.tsbuildinfo
 target/
 desktop/src-tauri/gen/
+desktop/dist-portable/
 
 # IDE
 .idea/
