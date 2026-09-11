@@ -23,6 +23,11 @@ prerequisites, and local services. It reports Docker detection, fixed ports,
 release/migration state, and the next action without installing software,
 editing `.env`, or weakening copy-only fallback.
 
+Phase 5AV adds the final private operator manual, handoff instructions, and
+acceptance checklist. These documents do not alter the shell, artifact contents,
+or distribution status. Use `DESKTOP_PRIVATE_HANDOFF.md` for private transfer
+and `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` for the receiving-host record.
+
 ## Local artifacts
 
 - Portable folder: `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`
@@ -121,3 +126,7 @@ Docker services, PostgreSQL data, Redis data, the repository, or local reports.
 
 Code signing, timestamping, public brand approval, auto-update, public release,
 hosting, deployment, DNS, Supabase migration, and production support remain deferred.
+
+The complete local operating guide is `OPERATOR_MANUAL.md`. It preserves the
+browser/Docker recovery path and keeps backup/restore outside the desktop
+launcher's five-script boundary.

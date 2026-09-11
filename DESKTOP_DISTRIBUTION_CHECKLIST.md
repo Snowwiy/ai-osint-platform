@@ -4,6 +4,19 @@ Phases 5AO–5AT prepare and validate local, unsigned Windows installer, portabl
 and private aggregate-package testing only. Public release remains deferred
 until signing, clean-machine QA, brand approval, and release approval are complete.
 
+## Phase 5AV private handoff gate
+
+- [ ] Review `OPERATOR_MANUAL.md` against the RC6 UI, roles, local scripts,
+      backup/restore safeguards, and documented defensive boundaries.
+- [ ] Verify `DESKTOP_PRIVATE_HANDOFF.md` lists the exact ignored artifact paths,
+      aggregate seven-file allowlist, checksum procedure, and unsigned warning.
+- [ ] Complete `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` on an authorized
+      Windows host without recording credentials, tokens, `.env`, or report data.
+- [ ] Confirm private transfer uses the aggregate package only after manifest,
+      checksum, artifact-exclusion, and source-commit verification.
+- [ ] Confirm the handoff remains private/local, unsigned, Docker-dependent, and
+      contains no public release or hosted-service claim.
+
 ## Phase 5AT local release package
 
 - [ ] Confirm the product, window, portable executable, installer, and RC6

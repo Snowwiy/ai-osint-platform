@@ -55,3 +55,7 @@ time, unsigned/local-only status, and explicit runtime boundaries.
   administration, scanning addition, or offensive functionality.
 
 See `KNOWN_LIMITATIONS.md` and `LOCAL_STARTUP_INSTRUCTIONS.md` in this package.
+The source handoff also provides `OPERATOR_MANUAL.md`,
+`DESKTOP_PRIVATE_HANDOFF.md`, and
+`DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md`. Keep the completed acceptance record
+outside this package because the package has a fixed seven-file allowlist.

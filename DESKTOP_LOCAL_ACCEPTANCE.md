@@ -6,6 +6,11 @@ This acceptance applies only to the local Windows portable and unsigned NSIS
 installer workflows. It is not approval for public distribution or production
 deployment.
 
+Phase 5AV adds the final private handoff set: `OPERATOR_MANUAL.md`,
+`DESKTOP_PRIVATE_HANDOFF.md`, and
+`DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md`. Complete the operator checklist on
+an authorized Windows host and retain the result in a private QA record.
+
 Phase 5AT adds the ignored aggregate package at
 `desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc6/`. It combines
 only the validated portable executable, unsigned installer, local instructions,
@@ -73,6 +78,8 @@ known limitations, checksums, and provenance manifest. The package must pass
 - real portable and installed process launch and clean uninstall
 - branded icon source and generated Windows icon assets
 - strict local-release file allowlist, SHA-256 list, build time, and Git commit
+- completed private operator acceptance checklist with no credentials, secrets,
+  tokens, `.env` values, or report contents
 
 If any required gate fails, do not commit, push, or tag. Generated artifacts
 remain Git-ignored and local. No signing, public release, updater, hosting,

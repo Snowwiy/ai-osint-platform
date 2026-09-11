@@ -17,6 +17,7 @@ const required = [
   "tests/launcher.test.mjs",
   "tests/local-scripts.test.mjs",
   "tests/first-run.test.mjs",
+  "tests/handoff-docs.test.mjs",
   "scripts/build_portable.mjs",
   "scripts/package_portable.mjs",
   "scripts/validate_portable.mjs",
@@ -106,6 +107,9 @@ for (const doc of [
   "FINAL_QA_CHECKLIST.md",
   "DESKTOP_DISTRIBUTION_CHECKLIST.md",
   "DESKTOP_LOCAL_DISTRIBUTION.md",
+  "OPERATOR_MANUAL.md",
+  "DESKTOP_PRIVATE_HANDOFF.md",
+  "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
 ]) await access(resolve(repository, doc));
 
 console.log("Desktop prototype safety checks passed.");

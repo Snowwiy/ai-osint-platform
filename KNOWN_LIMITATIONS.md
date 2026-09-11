@@ -53,6 +53,13 @@ requests a status check; external Docker work already accepted by Docker may
 finish independently. The launcher is not a service supervisor and cannot start
 the separately managed Vite frontend.
 
+Phase 5AV supplies operator and private-handoff documentation only. It does not
+turn documentation review into clean-machine certification, provide support or
+update infrastructure, or expand the installed shell's removal boundary. The
+operator acceptance checklist must be executed on each authorized Windows test
+environment; completed records can contain operational context and therefore
+remain outside Git and distribution artifacts.
+
 ## Product Boundaries
 
 - RC6 provides English and Spanish UI/report labels. Uncommon dynamic provider,

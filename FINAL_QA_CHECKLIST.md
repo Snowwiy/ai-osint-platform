@@ -13,6 +13,23 @@
 
 Version: `5.0.0-rc6`
 
+## Phase 5AV — final private desktop handoff
+
+- [ ] `OPERATOR_MANUAL.md` covers architecture, prerequisites, setup/path
+      binding, launcher flow, health, authentication, localization, monitoring,
+      LAN/agents/posture, reports, backup/restore, troubleshooting, and limits.
+- [ ] `DESKTOP_PRIVATE_HANDOFF.md` records exact portable, installer, aggregate,
+      checksum, installation, smoke-test, and uninstall procedures.
+- [ ] `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` exercises installed and portable
+      RC6 operation without recording secrets or running real scanning.
+- [ ] Existing artifact validators confirm the three ignored outputs contain no
+      `.env`, credential, token, database, backup, report, or log payload.
+- [ ] Release/version remains `5.0.0-rc6`; launcher allowlist, empty Tauri
+      capability permissions, local URLs, and no-updater boundary are unchanged.
+- [ ] Full backend, frontend/localization, desktop, artifact, PowerShell, Cargo,
+      health, readiness, and release gates pass before commit and push.
+- [ ] No tag or public release is created for this documentation-only phase.
+
 ## Phase 5AU — end-user setup wizard and RC6 freeze
 
 - [ ] Backend, `.env.example`, npm/Cargo/Tauri, desktop UI, validators, and

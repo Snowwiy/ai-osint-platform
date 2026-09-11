@@ -1,0 +1,89 @@
+import assert from "node:assert/strict";
+import { access, readFile, readdir, stat } from "node:fs/promises";
+import { test } from "node:test";
+import { resolve } from "node:path";
+
+const desktop = resolve(import.meta.dirname, "..");
+const repository = resolve(desktop, "..");
+const version = "5.0.0-rc6";
+const artifactRoot = `RavenTech-OSINT-Desktop-${version}`;
+const docs = [
+  "OPERATOR_MANUAL.md",
+  "DESKTOP_PRIVATE_HANDOFF.md",
+  "DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md",
+];
+
+test("private handoff documents exist and remain RC6-local", async () => {
+  for (const name of docs) await access(resolve(repository, name));
+  const source = await Promise.all(docs.map((name) => readFile(resolve(repository, name), "utf8")));
+  for (const text of source) {
+    assert.match(text, /5\.0\.0-rc6/);
+    assert.match(text, /private/i);
+    assert.match(text, /unsigned/i);
+    assert.match(text, /Docker/);
+  }
+  assert.doesNotMatch(source.join("\n"), /5\.0\.0-rc[0-5]/);
+});
+
+test("operator manual covers the fixed local workflow", async () => {
+  const manual = await readFile(resolve(repository, "OPERATOR_MANUAL.md"), "utf8");
+  for (const heading of [
+    "Local architecture", "Prerequisites", "First-run setup", "Health checks",
+    "Login and registration", "Language switch", "Monitoring overview",
+    "LAN monitoring and service checks", "Endpoint agents",
+    "Posture recommendations", "Reports and export", "Backup and restore",
+    "Troubleshooting", "Limitations and safety boundary",
+  ]) assert.match(manual, new RegExp(`##[#]? ${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+    assert.match(manual, new RegExp(script.replace(".", "\\.")));
+  }
+  for (const url of ["http://localhost:5173", "http://localhost:8000", "/health/ready", "/api/v1/release"]) {
+    assert.ok(manual.includes(url));
+  }
+});
+
+test("private handoff declares exact ignored artifact paths and exclusions", async () => {
+  const handoff = await readFile(resolve(repository, "DESKTOP_PRIVATE_HANDOFF.md"), "utf8");
+  const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
+  for (const directory of ["dist-portable", "dist-installer", "dist-local-release"]) {
+    assert.ok(handoff.includes(`desktop/${directory}/${artifactRoot}/`));
+    assert.ok(gitignore.split(/\r?\n/).includes(`desktop/${directory}/`));
+  }
+  for (const marker of [".env", "credentials", "tokens", "database dumps", "backups", "generated reports", "logs"]) {
+    assert.ok(handoff.includes(marker));
+  }
+});
+
+test("present desktop artifacts keep strict allowlists", async () => {
+  const expected = {
+    "dist-portable": ["LICENSE", "portable-manifest.json", "RavenTech OSINT Desktop.exe", "README.md"],
+    "dist-installer": ["installer-manifest.json", "LICENSE", `RavenTech-OSINT-Desktop-${version}-unsigned-setup.exe`, "README.md"],
+    "dist-local-release": ["KNOWN_LIMITATIONS.md", "LOCAL_STARTUP_INSTRUCTIONS.md", "local-release-manifest.json", "RavenTech OSINT Desktop.exe", `RavenTech-OSINT-Desktop-${version}-unsigned-setup.exe`, "README.md", "SHA256SUMS.txt"],
+  };
+  for (const [directory, allowlist] of Object.entries(expected)) {
+    const root = resolve(desktop, directory, artifactRoot);
+    let entries;
+    try {
+      entries = (await readdir(root)).sort();
+    } catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    assert.deepEqual(entries, allowlist.sort());
+    for (const entry of entries) assert.equal((await stat(resolve(root, entry))).isFile(), true);
+  }
+});
+
+test("desktop security boundary remains unchanged", async () => {
+  const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri", "capabilities", "default.json"), "utf8"));
+  const cargo = await readFile(resolve(desktop, "src-tauri", "Cargo.toml"), "utf8");
+  const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
+  assert.deepEqual(capability.permissions, []);
+  assert.equal(capability.remote, undefined);
+  assert.doesNotMatch(cargo, /tauri-plugin-(shell|fs|updater)/i);
+  const programs = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
+  assert.deepEqual(programs, ["&powershell"]);
+  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+    assert.ok(rust.includes(script));
+  }
+});

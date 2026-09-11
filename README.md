@@ -61,6 +61,12 @@ wizard covering the project, prerequisites, and local services. It adds clearer
 empty/invalid-path feedback, portable/installed guidance, copy-failure recovery,
 and loopback-only Windows firewall guidance without installing or changing anything.
 
+Phase 5AV completes the private operator handoff for RC6 without changing the
+runtime. Start with [OPERATOR_MANUAL.md](OPERATOR_MANUAL.md), transfer and verify
+artifacts with [DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
+record local Windows acceptance with
+[DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -422,6 +428,12 @@ For the current desktop-local release freeze, see [RELEASE_NOTES_RC6.md](RELEASE
 [DESKTOP_LOCAL_ACCEPTANCE.md](DESKTOP_LOCAL_ACCEPTANCE.md), and
 [FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC4 and earlier notes remain
 available as historical release context.
+
+The final private RC6 operator materials are
+[OPERATOR_MANUAL.md](OPERATOR_MANUAL.md),
+[DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
+[DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
+They describe local use and QA only; they are not public-release approval.
 
 The reviewed GitHub release copy is in
 [GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no
