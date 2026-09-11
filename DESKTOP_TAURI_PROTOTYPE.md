@@ -173,7 +173,7 @@ It never runs an installer or contacts a package registry.
 Output:
 
 ```text
-desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/
+desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/
 ```
 
 `dist-portable/` is intentionally Git-ignored. For separate steps, use
@@ -196,7 +196,7 @@ The build uses only the NSIS target, passes `--no-sign`, skips WebView2 download
 or embedding, and collects a strict four-file package under:
 
 ```text
-desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/
+desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc6/
 ```
 
 The ignored folder contains the unsigned setup executable, README, license, and

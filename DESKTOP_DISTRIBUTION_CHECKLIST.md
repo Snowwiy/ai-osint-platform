@@ -6,7 +6,7 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 
 ## Phase 5AT local release package
 
-- [ ] Confirm the product, window, portable executable, installer, and RC5
+- [ ] Confirm the product, window, portable executable, installer, and RC6
       labels consistently use **RavenTech OSINT Desktop**.
 - [ ] Confirm the repository-owned SVG and generated Windows ICO/PNG assets are
       present and both Tauri bundle configurations use `icons/icon.ico`.
@@ -17,6 +17,15 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 - [ ] Confirm `desktop/dist-local-release/` is ignored and contains no `.env`,
       secrets, databases, backups, reports, logs, credentials, tokens, backend,
       PostgreSQL, Redis, or Docker runtime.
+
+## Phase 5AU RC6 setup gate
+
+- [ ] Verify the three bilingual wizard stages and next-action guidance for
+      valid, invalid, offline, degraded, and ready states.
+- [ ] Verify Docker missing/not-running, ports 8000/5173, release mismatch,
+      migration, frontend/backend, and Windows firewall guidance.
+- [ ] Confirm portable and installed flows use only manual validated path binding.
+- [ ] Rebuild and validate RC6 portable, unsigned installer, and aggregate package.
 
 ## Portable build
 
@@ -30,7 +39,7 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 - [ ] Run `npm ci --offline` in `desktop/` with the pinned lockfile available.
 - [ ] Run `npm run installer:build` and keep output under ignored `dist-installer/`.
 - [ ] Run `npm run installer:validate -- --require-artifact`.
-- [ ] Confirm the filename and RC5 metadata describe an unsigned local-test build.
+- [ ] Confirm the filename and RC6 metadata describe an unsigned local-test build.
 - [ ] Confirm current-user install, Start-menu launch, and Settings-app uninstall.
 - [ ] Confirm Windows SmartScreen identifies the installer as unsigned/untrusted.
 - [ ] Confirm the installed shell launches to **RavenTech OSINT Desktop — Local Workspace**.
@@ -58,7 +67,7 @@ until signing, clean-machine QA, brand approval, and release approval are comple
 
 - [ ] Start the existing Docker/local workflow before launching the desktop shell.
 - [ ] Verify `http://localhost:8000/health` and `/health/ready` are readable.
-- [ ] Verify `/api/v1/release` reports `5.0.0-rc5`.
+- [ ] Verify `/api/v1/release` reports `5.0.0-rc6`.
 - [ ] Test frontend embed at `http://localhost:5173` and offline help fallback.
 - [ ] Export one benign report and confirm existing browser behavior is unchanged.
 - [ ] Switch desktop help and web UI between English and Spanish.

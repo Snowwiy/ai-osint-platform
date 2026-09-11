@@ -4,6 +4,12 @@ import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
+test("frontend package metadata matches the RC6 candidate", () => {
+  const metadata = JSON.parse(read("package.json"));
+  assert.equal(metadata.name, "raventech-osint-dashboard");
+  assert.equal(metadata.version, "5.0.0-rc6");
+});
+
 test("language switcher persists en/es with English fallback", () => {
   const i18n = read("src/lib/i18n.tsx");
   const switcher = read("src/components/LanguageSwitcher.tsx");

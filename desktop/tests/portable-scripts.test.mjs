@@ -11,11 +11,11 @@ const scripts = Object.fromEntries(await Promise.all(names.map(async (name) => [
   await readFile(resolve(desktop, "scripts", name), "utf8"),
 ])));
 
-test("portable scripts exist and keep the RC5 output contract", () => {
+test("portable scripts exist and keep the RC6 output contract", () => {
   for (const name of names) assert.ok(scripts[name].length > 0, `${name} is empty`);
   assert.match(scripts["package_portable.mjs"], /RavenTech-OSINT-Desktop-\$\{VERSION\}/);
   assert.match(scripts["package_portable.mjs"], /RavenTech OSINT Desktop\.exe/);
-  assert.match(scripts["validate_portable.mjs"], /5\.0\.0-rc5/);
+  assert.match(scripts["validate_portable.mjs"], /5\.0\.0-rc6/);
 });
 
 test("portable build is locked, offline, and does not invoke an installer", () => {

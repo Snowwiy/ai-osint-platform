@@ -12,10 +12,10 @@ const build = await readFile(resolve(desktop, "scripts", "package_local_release.
 const validate = await readFile(resolve(desktop, "scripts", "validate_local_release.mjs"), "utf8");
 const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
 
-test("branding and RC5 metadata are consistent", async () => {
-  assert.equal(packageJson.version, "5.0.0-rc5");
+test("branding and RC6 metadata are consistent", async () => {
+  assert.equal(packageJson.version, "5.0.0-rc6");
   assert.equal(tauri.productName, "RavenTech OSINT Desktop");
-  assert.equal(tauri.version, "5.0.0-rc5");
+  assert.equal(tauri.version, "5.0.0-rc6");
   assert.equal(tauri.app.windows[0].title, "RavenTech OSINT Desktop — Local Workspace");
   assert.deepEqual(tauri.bundle.icon, ["icons/icon.ico", "icons/icon.png"]);
   assert.equal(installer.bundle.windows.nsis.installerIcon, "icons/icon.ico");

@@ -33,6 +33,11 @@ shield/radar icon and adds an ignored private aggregate package with strict
 checksums and provenance metadata. This is branding polish for local testing,
 not public brand approval, signing, or release publication.
 
+Phase 5AU freezes the same local-only distribution at `5.0.0-rc6` after adding
+a bilingual end-user setup wizard and clearer prerequisite/firewall guidance.
+The wizard performs detection and guidance only; it does not install software,
+modify `.env`, reset data, or expand launcher permissions.
+
 - complete public brand approval and any future loading treatment before a
   signed release
 - review and update the pinned Tauri CLI only through a separately approved
@@ -57,4 +62,4 @@ reset, `.env` modification, remote administration, router automation, broad
 filesystem access, or a generic command bridge while completing these items.
 
 No signed installer, public release, auto-update service, hosting, deployment,
-DNS, or Supabase migration is included in Phase 5AT.
+DNS, or Supabase migration is included in Phase 5AU.

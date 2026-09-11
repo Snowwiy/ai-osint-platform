@@ -3,7 +3,7 @@ import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc5";
+const VERSION = "5.0.0-rc6";
 const PRODUCT = "RavenTech OSINT Desktop";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const PORTABLE_EXE = `${PRODUCT}.exe`;
@@ -31,7 +31,7 @@ const cargo = await readFile(resolve(desktop, "src-tauri", "Cargo.toml"), "utf8"
 const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
 const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
 
-if (packageJson.version !== VERSION || tauri.version !== VERSION) throw new Error("Local release must remain RC5.");
+if (packageJson.version !== VERSION || tauri.version !== VERSION) throw new Error("Local release must remain RC6.");
 if (tauri.productName !== PRODUCT || tauri.app.windows.some((window) => window.title !== `${PRODUCT} — Local Workspace`)) {
   throw new Error("Desktop branding is inconsistent.");
 }

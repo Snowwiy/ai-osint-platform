@@ -11,12 +11,27 @@
 - [ ] Monitoring Center states avoid raw API errors, crash screens, and horizontal overflow.
 - [ ] No secrets, active scanning, hosting, deployment, DNS, or Supabase changes exist.
 
-Version: `5.0.0-rc5`
+Version: `5.0.0-rc6`
+
+## Phase 5AU — end-user setup wizard and RC6 freeze
+
+- [ ] Backend, `.env.example`, npm/Cargo/Tauri, desktop UI, validators, and
+      artifact manifests consistently report `5.0.0-rc6`.
+- [ ] The bilingual wizard shows Project, Prerequisites, and Local services
+      stages plus one readable next action.
+- [ ] Empty/invalid project paths, unavailable Docker, occupied ports, release
+      mismatch, pending migrations, and offline frontend/backend have safe guidance.
+- [ ] Windows firewall guidance is loopback-only and does not change system policy.
+- [ ] Command-copy failure remains manual; no raw command or secret is surfaced.
+- [ ] RC6 portable, unsigned installer, and local aggregate package rebuild and
+      pass strict manifests, checksums, exclusions, and Git-ignore checks.
+- [ ] Commit and push only after every gate passes, then create `v5.0.0-rc6`
+      without publishing a public release.
 
 ## Phase 5AT — branding and private local release package
 
 - [ ] Product, window, executable, installer, folder, README, and English/Spanish
-      release labels consistently use `RavenTech OSINT Desktop` and RC5.
+      release labels consistently use `RavenTech OSINT Desktop` and RC6.
 - [ ] Original SVG source and generated Windows ICO/PNG assets are committed;
       Tauri executable and NSIS metadata use the branded icon.
 - [ ] `npm run local-release:package` consumes only already-validated portable

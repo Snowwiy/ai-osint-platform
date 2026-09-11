@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc5";
+const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const EXECUTABLE = "RavenTech OSINT Desktop.exe";
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -13,7 +13,7 @@ const allowedFiles = [EXECUTABLE, "LICENSE", "README.md", "portable-manifest.jso
 const packageJson = JSON.parse(await readFile(resolve(desktop, "package.json"), "utf8"));
 const tauriConfig = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.conf.json"), "utf8"));
 if (packageJson.version !== VERSION || tauriConfig.version !== VERSION) {
-  throw new Error("Portable, npm, and Tauri versions must remain 5.0.0-rc5.");
+  throw new Error("Portable, npm, and Tauri versions must remain 5.0.0-rc6.");
 }
 if (tauriConfig.productName !== "RavenTech OSINT Desktop") {
   throw new Error("Unexpected desktop product metadata.");
@@ -39,7 +39,7 @@ if (executable.length < 2 || executable[0] !== 0x4d || executable[1] !== 0x5a) {
 
 const manifest = JSON.parse(await readFile(resolve(output, "portable-manifest.json"), "utf8"));
 if (manifest.version !== VERSION || manifest.executable !== EXECUTABLE) {
-  throw new Error("Portable manifest metadata does not match the RC5 build.");
+  throw new Error("Portable manifest metadata does not match the RC6 build.");
 }
 const { controlledLocalLauncher, safeProjectPathBinding, ...forbiddenBoundaries } = manifest.boundaries;
 if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {

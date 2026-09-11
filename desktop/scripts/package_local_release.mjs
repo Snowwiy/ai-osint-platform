@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const VERSION = "5.0.0-rc5";
+const VERSION = "5.0.0-rc6";
 const PRODUCT = "RavenTech OSINT Desktop";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const PORTABLE_EXE = `${PRODUCT}.exe`;

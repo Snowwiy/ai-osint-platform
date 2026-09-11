@@ -1,6 +1,6 @@
-# RavenTech OSINT Desktop 5.0.0-rc5 — Local Test Package
+# RavenTech OSINT Desktop 5.0.0-rc6 — Local Test Package
 
-This private Windows package contains the RC5 portable desktop executable and
+This private Windows package contains the RC6 portable desktop executable and
 the unsigned NSIS installer. It is for local operator testing only. It is not a
 signed or public release, and it does not contain the RavenTech backend,
 PostgreSQL, Redis, Docker, project data, reports, credentials, or secrets.
@@ -29,7 +29,7 @@ the local Docker services and Vite frontend running while testing.
 
 ## Unsigned installer
 
-Run `RavenTech-OSINT-Desktop-5.0.0-rc5-unsigned-setup.exe`. Windows SmartScreen
+Run `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe`. Windows SmartScreen
 may warn because this local candidate is unsigned. Review the filename and
 SHA-256 checksum before choosing to continue. The current-user installer adds
 only the desktop shell; it does not start services automatically.

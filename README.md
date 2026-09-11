@@ -11,7 +11,7 @@ authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
 stakeholder-ready reports without intrusive scanning or offensive automation.
 
-Current release candidate: `5.0.0-rc5`. The validated runtime is local Docker
+Current release candidate: `5.0.0-rc6`. The validated runtime is local Docker
 Compose; production and free-tier hosting remain deferred.
 
 Phase 5AL adds an optional Tauri v2 desktop shell prototype in `desktop/`. It
@@ -54,7 +54,12 @@ Resolution uses the saved path first, then matching current-directory ancestry,
 then development executable ancestry, and finally copy-only fallback. No folder
 browser, filesystem plugin, arbitrary command argument, `.env` read, or automatic
 install was added. The bilingual checklist reports Docker detection, ports
-8000/5173, backend/frontend health, RC5 release match, and migrations.
+8000/5173, backend/frontend health, RC6 release match, and migrations.
+
+Phase 5AU turns that status screen into a three-stage English/Spanish setup
+wizard covering the project, prerequisites, and local services. It adds clearer
+empty/invalid-path feedback, portable/installed guidance, copy-failure recovery,
+and loopback-only Windows firewall guidance without installing or changing anything.
 
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
@@ -193,7 +198,7 @@ npm run portable:build
 ```
 
 The output is
-`desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc5/`. Read
+`desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`. Read
 [desktop/PORTABLE_BUILD_README.md](desktop/PORTABLE_BUILD_README.md) before
 running the unsigned executable. Docker services and `npm run dev` from
 `frontend/` must still be started manually.
@@ -209,7 +214,7 @@ npm run installer:validate -- --require-artifact
 ```
 
 Output is collected under
-`desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/`. Read
+`desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc6/`. Read
 [desktop/INSTALLER_BUILD_README.md](desktop/INSTALLER_BUILD_README.md) and use
 [DESKTOP_DISTRIBUTION_CHECKLIST.md](DESKTOP_DISTRIBUTION_CHECKLIST.md) for local
 QA. The installer is unsigned, may trigger SmartScreen, never starts services
@@ -235,7 +240,7 @@ npm run local-release:validate -- --require-artifact
 ```
 
 The output is
-`desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc5/` and contains
+`desktop/dist-local-release/RavenTech-OSINT-Desktop-5.0.0-rc6/` and contains
 only the two binaries, local instructions, known limitations, checksums, and a
 provenance manifest. See [desktop/LOCAL_RELEASE_README.md](desktop/LOCAL_RELEASE_README.md).
 
@@ -413,7 +418,7 @@ The complete presentation handoff is in
 [PORTFOLIO_PACKAGE.md](PORTFOLIO_PACKAGE.md), and the frozen platform boundary is
 recorded in [FINAL_PLATFORM_FREEZE.md](FINAL_PLATFORM_FREEZE.md).
 
-For the current desktop-local release freeze, see [RELEASE_NOTES_RC5.md](RELEASE_NOTES_RC5.md),
+For the current desktop-local release freeze, see [RELEASE_NOTES_RC6.md](RELEASE_NOTES_RC6.md),
 [DESKTOP_LOCAL_ACCEPTANCE.md](DESKTOP_LOCAL_ACCEPTANCE.md), and
 [FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC4 and earlier notes remain
 available as historical release context.
@@ -467,10 +472,10 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current release identity is the `5.0.0-rc5` desktop-local candidate. Web,
-local Docker, portable, unsigned installer, first-run binding, and controlled
-launcher checks are covered by the RC5 acceptance gate. The `v5.0.0-rc5` tag
-identifies this validated local candidate only; signing, public distribution,
+The current release identity is the `5.0.0-rc6` desktop-local candidate. Web,
+local Docker, portable, unsigned installer, setup wizard, first-run binding, and
+controlled launcher checks are covered by the RC6 acceptance gate. The
+`v5.0.0-rc6` tag identifies this validated local candidate only; signing, public distribution,
 production packaging, hosting, DNS, and Supabase work remain deferred.
 
 ## Phase 5AB monitoring reliability

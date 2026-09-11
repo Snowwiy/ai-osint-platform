@@ -31,6 +31,29 @@ test("runtime checklist explains Docker, ports, release, migrations, and missing
   }
 });
 
+test("RC6 setup wizard exposes three bilingual prerequisite stages", () => {
+  for (const id of ["step-project", "step-prerequisites", "step-services"]) {
+    assert.ok(html.includes(`id="${id}"`), `missing wizard stage: ${id}`);
+  }
+  for (const text of [
+    "RC6 local setup assistant", "Asistente de configuración local RC6",
+    "Prerequisites", "Requisitos", "Local services", "Servicios locales",
+    "Windows firewall guidance", "Guía del firewall de Windows",
+    "Portable and installed builds", "Las versiones portable e instalada"
+  ]) assert.ok(`${app}\n${html}`.includes(text), `missing RC6 setup guidance: ${text}`);
+  assert.match(app, /renderWizard\(snapshot\)/);
+  assert.match(app, /dockerAvailability !== "notDetected"/);
+});
+
+test("invalid paths and unavailable Docker retain manual guidance", () => {
+  for (const marker of ["enterProjectPath", "pathRejected", "installDocker", "copyFailed"]) {
+    assert.ok(app.includes(marker), `missing safe recovery state: ${marker}`);
+  }
+  assert.match(app, /input\.setAttribute\("aria-invalid", "true"\)/);
+  assert.match(app, /nothing is installed automatically/i);
+  assert.doesNotMatch(app, /docker\s+(install|start)|winget|choco|Start-Process/i);
+});
+
 test("setup UI remains bounded and command output stays sanitized", () => {
   assert.match(css, /overflow-x:\s*hidden/);
   assert.match(css, /overflow-wrap:\s*anywhere/);

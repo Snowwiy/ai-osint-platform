@@ -68,6 +68,15 @@ h2 { margin-top: 0; font-size: 1rem; }
 .path-entry input { min-width: 0; border: 1px solid #2d5063; border-radius: .45rem; padding: .6rem .7rem; color: #d9e8f2; background: #07131b; }
 .path-entry input:focus { border-color: #65e6c4; outline: none; }
 .path-entry .primary { margin-top: 0; }
+.setup-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin: 1rem 0; padding: 0; list-style: none; }
+.setup-steps li { display: flex; align-items: center; gap: .65rem; min-width: 0; padding: .75rem; border: 1px solid #294453; border-radius: .55rem; background: #07131b; }
+.setup-steps li > span { display: grid; flex: 0 0 1.8rem; height: 1.8rem; place-items: center; border-radius: 50%; color: #071018; background: #f0b95c; font-weight: 800; }
+.setup-steps li.complete { border-color: #276553; }
+.setup-steps li.complete > span { background: #65e6c4; }
+.setup-steps strong, .setup-steps small { display: block; overflow-wrap: anywhere; }
+.setup-steps small { margin-top: .2rem; color: #8fa7b8; font-size: .72rem; }
+.distribution-note, .firewall-note p { color: #9db0bd; line-height: 1.55; }
+.path-entry input[aria-invalid="true"] { border-color: #ff8d8d; }
 .project-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0 0; }
 .project-details div { min-width: 0; padding: .7rem; border-radius: .4rem; background: #07131b; }
 .project-details dt { color: #78909f; font-size: .75rem; }
@@ -100,7 +109,7 @@ dialog::backdrop { background: rgb(2 8 12 / .78); }
   #status-view { padding: 2rem 0; }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
   .command { grid-template-columns: 1fr; }
-  .path-entry, .project-details, .runtime-checklist ul { grid-template-columns: 1fr; }
+  .path-entry, .project-details, .runtime-checklist ul, .setup-steps { grid-template-columns: 1fr; }
   .panel-heading { flex-direction: column; }
   .topbar span { display: none; }
 }

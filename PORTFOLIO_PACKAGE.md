@@ -8,7 +8,7 @@ structured findings, analyst-owned remediation, governed case records, and
 stakeholder-ready reports while preserving scope, permissions, and audit
 context.
 
-Current release candidate: `5.0.0-rc5`.
+Current release candidate: `5.0.0-rc6`.
 
 ## Problem Solved
 
@@ -76,7 +76,7 @@ Keep the walkthrough to approximately ten minutes and avoid live external data.
 - ruff, strict mypy, and `pip check` passed
 - frontend TypeScript/Vite production build passed
 - `/health` and `/health/ready` returned `ok`
-- `/api/v1/release` returned `5.0.0-rc5`
+- `/api/v1/release` returned `5.0.0-rc6`
 - Alembic reported one current linear head with no model/schema drift
 - CI uses local PostgreSQL/Redis and requires no live AI, Supabase, hosting, or
   production credentials

@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
-const VERSION = "5.0.0-rc5";
+const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
 const INSTALLER_NAME = `RavenTech-OSINT-Desktop-${VERSION}-unsigned-setup.exe`;
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");

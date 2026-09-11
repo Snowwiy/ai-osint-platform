@@ -11,7 +11,7 @@ async def test_release_endpoint_returns_rc5_metadata_without_secrets(
     assert response.status_code == 200
     body = response.json()
     assert body["app_name"] == "RavenTech OSINT"
-    assert body["version"] == "5.0.0-rc5"
+    assert body["version"] == "5.0.0-rc6"
     assert body["release_channel"] == "release-candidate"
     assert body["environment"] in {"development", "staging", "production"}
     assert body["migration_version"]

@@ -2,7 +2,7 @@
 
 ## RC3 freeze boundary
 
-The `5.0.0-rc5` validated mode is local Docker Compose. LAN monitoring and TCP
+The `5.0.0-rc6` validated mode is local Docker Compose. LAN monitoring and TCP
 service checks remain disabled by default, explicitly authorized, private-range
 limited, manual, rate limited, and bounded by configured ports and timeouts.
 They are connectivity observations only—not public scanning, authentication,

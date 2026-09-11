@@ -1,6 +1,6 @@
 # RavenTech OSINT Known Limitations
 
-The completed validated mode for `5.0.0-rc5` is the local web application using
+The completed validated mode for `5.0.0-rc6` is the local web application using
 Docker Compose services and a local Vite frontend. Portable and unsigned
 installer workflows are local-test aids; signed production packaging, hosting,
 deployment, DNS, and Supabase migration are deferred.
@@ -31,6 +31,11 @@ The ignored `dist-installer/` output is not a trusted or public release. Signing
 timestamping, auto-update, firewall distribution policy, and full clean-machine
 compatibility testing remain deferred.
 
+The RC6 setup wizard can report fixed local signals, but it cannot guarantee
+that Docker Desktop is healthy when its backend is offline, diagnose third-party
+firewall policy, install prerequisites, change ports, or repair migrations. It
+provides manual bilingual guidance and copy-only recovery in those cases.
+
 Phase 5AP adds local artifact smoke checks and consistent distribution naming,
 but it does not make the package self-contained or production-ready. Phase 5AT
 adds an original RavenTech shield/radar asset. Installer launch checks on one development host
@@ -50,7 +55,7 @@ the separately managed Vite frontend.
 
 ## Product Boundaries
 
-- RC5 provides English and Spanish UI/report labels. Uncommon dynamic provider,
+- RC6 provides English and Spanish UI/report labels. Uncommon dynamic provider,
   evidence, or analyst-authored prose can remain in English; missing localized
   copy falls back to English and never exposes raw translation keys.
 

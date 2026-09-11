@@ -12,7 +12,7 @@ async def test_local_operator_status_is_safe_and_reports_rc5(
     assert response.status_code == 200
     body = response.json()
     assert body["status"] in {"healthy", "degraded", "unavailable"}
-    assert body["release"]["version"] == "5.0.0-rc5"
+    assert body["release"]["version"] == "5.0.0-rc6"
     assert body["components"]["database"]["status"] in {
         "healthy",
         "degraded",

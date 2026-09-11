@@ -1,6 +1,6 @@
 # Local startup instructions
 
-RavenTech OSINT Desktop 5.0.0-rc5 wraps the existing local web platform. It does
+RavenTech OSINT Desktop 5.0.0-rc6 wraps the existing local web platform. It does
 not bundle or automatically start Docker, PostgreSQL, Redis, the backend, or the
 Vite frontend.
 

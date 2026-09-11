@@ -12,7 +12,7 @@
     <header class="topbar">
       <div>
         <strong>RavenTech OSINT Desktop</strong>
-        <span data-copy="prototype">Local desktop prototype</span>
+        <span data-copy="prototype">RC6 local setup assistant</span>
       </div>
       <div class="actions">
         <button id="language" type="button">Español</button>
@@ -41,6 +41,11 @@
           <strong id="project-status" data-copy="checking">Checking…</strong>
         </div>
         <p data-copy="setupBody">Enter the repository root manually. The desktop validates fixed markers and stores only the validated path.</p>
+        <ol class="setup-steps" aria-label="Setup progress">
+          <li id="step-project"><span>1</span><div><strong data-copy="wizardProject">Project</strong><small id="step-project-state">—</small></div></li>
+          <li id="step-prerequisites"><span>2</span><div><strong data-copy="wizardPrerequisites">Prerequisites</strong><small id="step-prerequisites-state">—</small></div></li>
+          <li id="step-services"><span>3</span><div><strong data-copy="wizardServices">Local services</strong><small id="step-services-state">—</small></div></li>
+        </ol>
         <form id="project-form">
           <label for="project-path" data-copy="projectPath">Project path</label>
           <div class="path-entry">
@@ -49,6 +54,7 @@
             <button id="clear-project-path" type="button" data-copy="clearPath">Clear saved path</button>
           </div>
         </form>
+        <p class="distribution-note" data-copy="distributionNote">Portable and installed builds use this same validated path. Installed builds normally require you to enter it once.</p>
         <dl class="project-details">
           <div><dt data-copy="resolvedPath">Resolved project</dt><dd id="resolved-project">—</dd></div>
           <div><dt data-copy="resolutionSource">Resolution source</dt><dd id="resolution-source">—</dd></div>
@@ -108,6 +114,10 @@
         <h2 data-copy="endpoints">Local endpoints</h2>
         <p><span data-copy="frontendUrl">Frontend URL</span> <code id="frontend-url">http://localhost:5173</code></p>
         <p><span data-copy="backendUrl">Backend URL</span> <code id="backend-url">http://localhost:8000</code></p>
+      </section>
+      <section class="panel firewall-note">
+        <h2 data-copy="firewallTitle">Windows firewall guidance</h2>
+        <p data-copy="firewallBody">RavenTech uses localhost ports 8000 and 5173. Do not approve public-network exposure; review any firewall prompt before continuing.</p>
       </section>
       <p id="message" role="status"></p>
     </main>

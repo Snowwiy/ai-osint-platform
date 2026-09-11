@@ -9,12 +9,12 @@ const build = await readFile(resolve(desktop, "scripts", "build_installer.mjs"),
 const validate = await readFile(resolve(desktop, "scripts", "validate_installer.mjs"), "utf8");
 const config = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.installer.conf.json"), "utf8"));
 
-test("installer scripts and RC5 NSIS metadata are present", () => {
+test("installer scripts and RC6 NSIS metadata are present", () => {
   assert.ok(build.length > 0 && validate.length > 0);
   assert.equal(config.bundle.active, true);
   assert.deepEqual(config.bundle.targets, ["nsis"]);
   assert.equal(config.bundle.publisher, "RavenTech Local Test (Unsigned)");
-  assert.match(validate, /5\.0\.0-rc5/);
+  assert.match(validate, /5\.0\.0-rc6/);
 });
 
 test("installer configuration is unsigned, local, and carries no payload sidecars", () => {

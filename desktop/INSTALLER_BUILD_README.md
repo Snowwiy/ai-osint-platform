@@ -1,4 +1,4 @@
-# RavenTech OSINT Desktop 5.0.0-rc5 — Unsigned Local Installer
+# RavenTech OSINT Desktop 5.0.0-rc6 — Unsigned Local Installer
 
 This workflow creates an **unsigned** NSIS installer for local Windows testing.
 It is not a trusted or public release. Windows SmartScreen may warn because no
@@ -28,13 +28,13 @@ npm run installer:validate -- --require-artifact
 The local output is:
 
 ```text
-desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc5/
+desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc6/
 ```
 
 That ignored folder contains the unsigned setup executable, this README, the
 license, and `installer-manifest.json` with SHA-256 checksums. Do not publish it.
 The exact installer name is
-`RavenTech-OSINT-Desktop-5.0.0-rc5-unsigned-setup.exe`.
+`RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe`.
 
 ## Start the platform before launching
 
