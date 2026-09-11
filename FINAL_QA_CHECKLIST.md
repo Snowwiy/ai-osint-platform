@@ -13,6 +13,29 @@
 
 Version: `5.0.0-rc4`
 
+## Phase 5AP — installer QA, branding, and local distribution
+
+- [ ] Product name, identifier, RC4 version, portable folder, installer name,
+      README names, and **Local Workspace** window title are consistent.
+- [ ] English and Spanish installer labels remain configured; the build-only
+      placeholder icon is documented and not treated as final branding.
+- [ ] Installer and portable builds pass their strict four-file allowlists and
+      SHA-256 manifest validation while their output folders remain Git-ignored.
+- [ ] `npm run smoke -- --require-artifacts` passes metadata, local URL,
+      permission, updater, manifest, checksum, and forbidden-file checks.
+- [ ] The unsigned installer launches the shell to its local status screen on
+      the authorized QA host; no raw stack traces or secrets are displayed.
+- [ ] Offline backend/frontend states show startup guidance; healthy services
+      are detected and the unchanged frontend embeds successfully.
+- [ ] Docker, FastAPI, Vite, PostgreSQL, and Redis remain separate and manually
+      started; no service autostart or database/backend bundle is present.
+- [ ] The uninstall path is documented and removes only the desktop shell.
+- [ ] SmartScreen and unsigned status are stated clearly; no trusted signature
+      or public-release claim is made.
+- [ ] No signed installer, public release, auto-update, hosting, deployment,
+      DNS, Supabase migration, router automation, remote command execution,
+      scanning, or offensive functionality is added.
+
 ## Phase 5AO — unsigned Windows installer preparation
 
 - [ ] Default/portable `bundle.active` remains false; the isolated installer

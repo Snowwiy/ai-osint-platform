@@ -29,6 +29,9 @@ must paste and run each command in a terminal.
 ## Run the portable application
 
 Double-click `RavenTech OSINT Desktop.exe` after the local services are running.
+The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc4`, the window title
+is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
+documented build-only placeholder pending final brand approval.
 The shell checks only these local endpoints:
 
 - frontend: `http://localhost:5173`
@@ -68,3 +71,5 @@ the folder between local test locations.
 For the separate unsigned current-user installer workflow, read
 `desktop/INSTALLER_BUILD_README.md`. Portable and installer outputs remain
 independent, ignored local artifacts; neither is approved for public release.
+After both artifacts exist, run `npm run smoke -- --require-artifacts` from
+`desktop/` to check their manifests, checksums, names, permissions, and exclusions.

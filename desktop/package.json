@@ -11,6 +11,7 @@
     "portable:validate": "node scripts/validate_portable.mjs",
     "installer:build": "node scripts/build_installer.mjs",
     "installer:validate": "node scripts/validate_installer.mjs",
+    "smoke": "node scripts/smoke_desktop.mjs",
     "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri:dev": "cargo run --manifest-path src-tauri/Cargo.toml"
   },

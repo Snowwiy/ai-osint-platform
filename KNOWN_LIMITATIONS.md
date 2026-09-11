@@ -30,6 +30,12 @@ The ignored `dist-installer/` output is not a trusted or public release. Signing
 timestamping, auto-update, firewall distribution policy, and full clean-machine
 compatibility testing remain deferred.
 
+Phase 5AP adds local artifact smoke checks and consistent distribution naming,
+but it does not make the package self-contained or production-ready. The icon is
+still a build-only placeholder. Installer launch checks on one development host
+do not replace clean-machine, Windows-version, endpoint-security, accessibility,
+upgrade, and uninstall matrix testing.
+
 ## Product Boundaries
 
 - RC4 provides English and Spanish UI/report labels. Uncommon dynamic provider,

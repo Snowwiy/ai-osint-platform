@@ -12,11 +12,13 @@ const required = [
   "tests/runtime.test.mjs",
   "tests/portable-scripts.test.mjs",
   "tests/installer-scripts.test.mjs",
+  "tests/smoke-script.test.mjs",
   "scripts/build_portable.mjs",
   "scripts/package_portable.mjs",
   "scripts/validate_portable.mjs",
   "scripts/build_installer.mjs",
   "scripts/validate_installer.mjs",
+  "scripts/smoke_desktop.mjs",
   "PORTABLE_BUILD_README.md",
   "INSTALLER_BUILD_README.md",
   "src-tauri/Cargo.toml",
@@ -36,6 +38,9 @@ const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 
 if (config.version !== "5.0.0-rc4") throw new Error("Desktop version must match RC4.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
+if (config.app.windows.some((window) => window.title !== "RavenTech OSINT Desktop — Local Workspace")) {
+  throw new Error("Unexpected desktop local-workspace window title.");
+}
 if (config.build.frontendDist !== "../ui") throw new Error("Desktop UI must remain isolated.");
 if (config.bundle.active !== false) throw new Error("Installer bundling must remain disabled.");
 if (config.app.windows.some((window) => window.devtools !== false)) {
@@ -76,6 +81,7 @@ for (const doc of [
   "KNOWN_LIMITATIONS.md",
   "FINAL_QA_CHECKLIST.md",
   "DESKTOP_DISTRIBUTION_CHECKLIST.md",
+  "DESKTOP_LOCAL_DISTRIBUTION.md",
 ]) await access(resolve(repository, doc));
 
 console.log("Desktop prototype safety checks passed.");

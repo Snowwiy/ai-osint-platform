@@ -1,7 +1,8 @@
 # Desktop Distribution Checklist
 
-Phase 5AO prepares local, unsigned Windows installer testing only. Public release
-remains deferred until signing, clean-machine QA, and release approval are complete.
+Phases 5AO–5AP prepare and validate local, unsigned Windows installer and
+portable testing only. Public release remains deferred until signing,
+clean-machine QA, final branding, and release approval are complete.
 
 ## Portable build
 
@@ -18,6 +19,7 @@ remains deferred until signing, clean-machine QA, and release approval are compl
 - [ ] Confirm the filename and RC4 metadata describe an unsigned local-test build.
 - [ ] Confirm current-user install, Start-menu launch, and Settings-app uninstall.
 - [ ] Confirm Windows SmartScreen identifies the installer as unsigned/untrusted.
+- [ ] Confirm the installed shell launches to **RavenTech OSINT Desktop — Local Workspace**.
 
 ## Content and security gate
 
@@ -28,6 +30,8 @@ remains deferred until signing, clean-machine QA, and release approval are compl
 - [ ] Confirm Tauri grants no shell/filesystem plugin permissions or remote origins.
 - [ ] Confirm commands displayed by the shell remain copy-only.
 - [ ] Confirm no service autostart, updater, embedded database, or backend is present.
+- [ ] Run `npm run smoke -- --require-artifacts` and retain the console result
+      with the local QA record; do not add binaries to Git.
 
 ## Local operator QA
 
@@ -37,6 +41,8 @@ remains deferred until signing, clean-machine QA, and release approval are compl
 - [ ] Test frontend embed at `http://localhost:5173` and offline help fallback.
 - [ ] Export one benign report and confirm existing browser behavior is unchanged.
 - [ ] Switch desktop help and web UI between English and Spanish.
+- [ ] Confirm the build-only placeholder icon is documented and not represented
+      as approved final branding.
 - [ ] Test install, upgrade rejection/downgrade protection, and clean uninstall locally.
 - [ ] Review any Windows Firewall prompt: the shell needs loopback access only; do not
       approve public-network exposure for backend or frontend ports.

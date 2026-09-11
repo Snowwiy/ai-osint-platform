@@ -18,6 +18,11 @@ current-user installer. The installer is a local-test wrapper for the same
 shell; it does not bundle or start the backend, frontend, Docker, PostgreSQL,
 or Redis and it is not a public release.
 
+Phase 5AP polishes the local distribution identity and adds an artifact-aware
+smoke check. The window title is **RavenTech OSINT Desktop — Local Workspace**;
+the product, portable folder, and installer names remain aligned to RC4. The
+existing generated icon is still a build-only placeholder.
+
 ## What it does
 
 - opens the unchanged frontend from `http://localhost:5173` inside the shell
@@ -176,3 +181,13 @@ uninstaller. Docker/local services and Vite must still be started manually.
 Read `desktop/INSTALLER_BUILD_README.md` and complete
 `DESKTOP_DISTRIBUTION_CHECKLIST.md` before local testing. SmartScreen warnings
 are expected; signing and public distribution remain deferred.
+
+After portable and installer artifacts are present, run:
+
+```powershell
+npm run smoke -- --require-artifacts
+```
+
+The smoke command performs read-only metadata, manifest, checksum, local-URL,
+permission, updater, ignore-rule, and forbidden-filename checks. See
+`DESKTOP_LOCAL_DISTRIBUTION.md` for the complete local operator sequence.

@@ -34,6 +34,11 @@ It installs only the desktop shell, keeps the portable build available, and
 bundles no backend, database, Docker runtime, secrets, backups, reports, or
 logs. The ignored installer output is not a public release.
 
+Phase 5AP aligns local distribution branding and adds read-only smoke validation
+for portable and installer manifests, checksums, exclusions, local URLs, and
+restricted permissions. See
+[DESKTOP_LOCAL_DISTRIBUTION.md](DESKTOP_LOCAL_DISTRIBUTION.md).
+
 Local mode requires development-only values from `.env.example`; it does not
 require production secrets, hosted services, DNS, or Supabase.
 
@@ -192,6 +197,17 @@ Output is collected under
 [DESKTOP_DISTRIBUTION_CHECKLIST.md](DESKTOP_DISTRIBUTION_CHECKLIST.md) for local
 QA. The installer is unsigned, may trigger SmartScreen, does not start Docker or
 Vite, and must not be published.
+
+After both local artifacts are built, validate the combined distribution:
+
+```powershell
+cd desktop
+npm run smoke -- --require-artifacts
+```
+
+The desktop window is branded **RavenTech OSINT Desktop — Local Workspace**.
+The icon remains a documented build-only placeholder; signing, final branding,
+auto-update, and public release remain deferred.
 
 For a guided startup and health check:
 

@@ -15,7 +15,12 @@ using an isolated Tauri override. Its collected output is also allowlisted and
 ignored. It is not signed, trusted, published, self-contained, or approved for
 production distribution.
 
-- select final icons, product metadata, and loading treatment
+Phase 5AP adds consistent RC4 naming, local distribution instructions, and a
+read-only smoke checker for both ignored artifacts. The current build-only icon
+remains a documented placeholder and is not final branding.
+
+- select and approve final icons and loading treatment; replace the placeholder
+  only in a separately reviewed branding/package phase
 - review and update the pinned Tauri CLI only through a separately approved
   dependency-change process
 - decide whether a future production package should serve a built frontend or
@@ -38,4 +43,4 @@ modification, remote administration, router automation, broad filesystem
 access, or a generic command bridge while completing these items.
 
 No signed installer, public release, auto-update service, hosting, deployment,
-DNS, or Supabase migration is included in Phase 5AO.
+DNS, or Supabase migration is included in Phase 5AP.

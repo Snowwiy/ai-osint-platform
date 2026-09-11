@@ -33,6 +33,8 @@ desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc4/
 
 That ignored folder contains the unsigned setup executable, this README, the
 license, and `installer-manifest.json` with SHA-256 checksums. Do not publish it.
+The exact installer name is
+`RavenTech-OSINT-Desktop-5.0.0-rc4-unsigned-setup.exe`.
 
 ## Start the platform before launching
 
@@ -58,6 +60,8 @@ guidance remains copy-only.
 Run the `-unsigned-setup.exe` file and accept the local-test warning only after
 verifying its checksum. Launch **RavenTech OSINT Desktop** from the Start menu.
 If the services are offline, the shell shows local startup guidance.
+The window title is **RavenTech OSINT Desktop — Local Workspace**. The current
+icon is a build-only placeholder; final icon approval is deferred.
 
 Uninstall from **Settings > Apps > Installed apps > RavenTech OSINT Desktop**.
 The current-user installer does not install backend services or remove Docker data.
@@ -71,3 +75,4 @@ The current-user installer does not install backend services or remove Docker da
 - There is no signing, auto-update, service autostart, database bundle, hosting,
   deployment, DNS, Supabase migration, or public support channel in this phase.
 - Signing and production distribution remain deferred.
+- Run `npm run smoke -- --require-artifacts` after building both local artifacts.
