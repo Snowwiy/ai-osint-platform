@@ -640,3 +640,13 @@ Matching assessed assets can contribute an optional advisory posture summary to
 investigation reports without exposing unrelated LAN inventory. This phase adds
 no desktop packaging, hosting, deployment, DNS, Supabase migration, public
 scanning, exploitation, brute force, credential testing, or router automation.
+
+## Phase 5AZ authorized LAN bootstrap
+
+Monitoring → Activation includes a bilingual, administrator-only **Authorized
+LAN Bootstrap**. Entering `192.168.50.1/24` is normalized to the network boundary
+`192.168.50.0/24`; the host address is retained as gateway hint `192.168.50.1`.
+**Verify LAN setup** refreshes stored summaries without running discovery or TCP
+checks. It supplies copy-only `.env` guidance, one-time endpoint enrollment
+instructions, and a manual router/static observation form. Docker/backend remain
+required; installed and portable clients continue to use embedded assets.

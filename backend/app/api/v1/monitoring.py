@@ -20,6 +20,8 @@ from app.schemas.lan_monitoring import (
     LanAssetResponse,
     LanAssetCriticalityUpdate,
     LanAssetUpdate,
+    LanBootstrapRequest,
+    LanBootstrapStatus,
     LanDiscoveryRequest,
     LanDiscoveryResponse,
     LanOpenPortsResponse,
@@ -186,6 +188,7 @@ from app.services.local_monitoring import (
     ingest_agent_telemetry,
 )
 from app.services.monitoring_runtime import get_monitoring_startup_status
+from app.services.lan_bootstrap import verify_lan_bootstrap
 from app.services.lan_monitoring import (
     LanAssetNotFoundError,
     LanConfigurationError,
@@ -326,6 +329,18 @@ async def monitoring_activation_endpoint(
     _current_user: User = Depends(require_role("admin", "analyst")),
 ) -> MonitoringActivationStatus:
     return get_monitoring_activation()
+
+
+@router.post("/lan/bootstrap/verify", response_model=LanBootstrapStatus)
+async def lan_bootstrap_verify_endpoint(
+    body: LanBootstrapRequest,
+    request: Request,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> LanBootstrapStatus:
+    return await _safe_lan_call(
+        verify_lan_bootstrap, db, request.app.state.redis, current_user, body
+    )
 
 
 @router.get("/triage", response_model=MonitoringTriageListResponse)

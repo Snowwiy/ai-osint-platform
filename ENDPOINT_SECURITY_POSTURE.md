@@ -125,3 +125,12 @@ recommendation, baseline, coverage, and alert counts. This read-only refresh doe
 not contact endpoints, require agent telemetry, authenticate to a device, execute
 commands, or initiate LAN discovery/service checks. Missing agent telemetry is
 an informational coverage limitation rather than a platform failure.
+
+## Bootstrap verification
+
+After an approved observation or endpoint heartbeat exists, assess posture and
+review recommendations. Expected advisory indicators include unauthorized or
+unknown-device review, critical assets missing agents, stale agents, risky
+RDP/SMB/Redis/PostgreSQL exposure, non-standard SSH, missing expected services,
+and manual block/isolate guidance. These are risk indicators, not claims of
+exploitation or compromise; every action requires manual owner review.

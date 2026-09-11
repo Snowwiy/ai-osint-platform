@@ -425,3 +425,17 @@ and Supabase remain unchanged.
   must never be displayed.
 - Report language is selected separately during generation and retained as safe
   report metadata for retries and downloads.
+
+## Authorized LAN bootstrap recovery
+
+- If `192.168.50.1/24` does not normalize to `192.168.50.0/24`, verify the slash
+  and prefix. Public, malformed, or larger-than-256-address inputs are rejected.
+- If configured CIDR needs action, copy the wizard's exact non-secret lines into
+  the untracked `.env` and recreate backend/worker containers.
+- If no heartbeat arrives, confirm the approved endpoint can reach
+  `http://192.168.50.201:8000`; use localhost only on the backend host. Never put
+  the token on the command line.
+- If Docker shows no neighbors, import a manually observed router/static device;
+  do not supply router credentials or scrape the router.
+- If a service-check button is disabled, verify its flag, exact private CIDR,
+  asset authorization, and per-asset monitoring state. Do not bypass it.

@@ -251,3 +251,13 @@ enabled, their parent LAN/service flags, authorized RFC1918 CIDRs, target and po
 limits, timeouts, policies, maintenance windows, cooldowns, and dedupe rules
 still apply. Missing optional agent telemetry or Docker neighbor visibility does
 not degrade platform health.
+
+## Authorized LAN bootstrap verification
+
+The administrator-only `POST /api/v1/monitoring/lan/bootstrap/verify` normalizes
+`192.168.50.1/24` to `192.168.50.0/24`, retains `192.168.50.1` as a gateway hint,
+checks backend/migration/release/config/enrollment/observation/posture readiness,
+and refreshes existing monitoring summaries. It explicitly records that
+discovery and service checks were not executed. Public, invalid, and ranges
+larger than `LAN_SERVICE_CHECK_MAX_HOSTS` are rejected. Commands contain only an
+`<ENROLLMENT_TOKEN>` placeholder; secrets never appear in verification or logs.

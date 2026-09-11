@@ -44,6 +44,10 @@ class LanDiscoveryObservation(BaseModel):
     source: Literal["static", "arp", "ping", "router"] = "static"
     latency_ms: float | None = Field(default=None, ge=0, le=60_000)
     services: list[LanServiceInput] = Field(default_factory=list, max_length=32)
+    interface_name: str | None = Field(default=None, max_length=100)
+    connection_type: str | None = Field(default=None, max_length=100)
+    is_authorized: bool | None = None
+    notes: str | None = Field(default=None, max_length=1000)
 
     @field_validator("mac_address")
     @classmethod
@@ -229,6 +233,7 @@ class LanAssetListResponse(BaseModel):
     discovery_interval_seconds: int
     ping_enabled: bool
     service_check_enabled: bool
+    service_ports: list[int]
     docker_limited: bool = True
     limitation: str
     total: int
@@ -305,6 +310,7 @@ class MonitoringActivationStatus(BaseModel):
     lan_auto_discovery_interval_seconds: int
     lan_auto_service_check_interval_seconds: int
     allowed_cidrs: list[str]
+    gateway_hint: str
     service_ports: list[int]
     discovery_disabled_reason: str | None
     service_check_disabled_reason: str | None
@@ -315,6 +321,44 @@ class MonitoringActivationStatus(BaseModel):
     optional_telemetry_note: str
     agent_setup_steps: list[str]
     token_enrollment_steps: list[str]
+
+
+class LanBootstrapRequest(BaseModel):
+    cidr: str = Field(default="192.168.50.1/24", min_length=7, max_length=43)
+    gateway_hint: str | None = Field(default=None, min_length=7, max_length=45)
+
+
+class LanBootstrapStatus(BaseModel):
+    verified_at: datetime
+    input_cidr: str
+    normalized_cidr: str
+    gateway_hint: str
+    private_cidr_valid: bool
+    configured_cidr_matches: bool
+    backend_reachable: bool
+    migrations_ready: bool
+    release_version: str
+    lan_monitoring_enabled: bool
+    service_check_enabled: bool
+    ping_enabled: bool
+    configured_ports: list[int]
+    active_enrollment_tokens: int
+    enrollment_capability_ready: bool
+    assets_total: int
+    static_router_observations: int
+    agents_total: int
+    fresh_agents: int
+    assessed_posture: int
+    open_recommendations: int
+    discovery_executed: bool = False
+    service_checks_executed: bool = False
+    observation_path_available: bool
+    env_lines: list[str]
+    windows_agent_command: str
+    linux_agent_command: str
+    steps: list[str]
+    next_action: str
+    safety_notes: list[str]
 
 
 class TargetServiceCheckStatus(BaseModel):

@@ -346,4 +346,15 @@ release makes no desktop-package, hosted-service, or production-deployment claim
   either still requires the parent flag and all approved private-CIDR, host,
   port, timeout, policy, maintenance, cooldown, and dedupe constraints.
 - Missing endpoint telemetry and Docker host-neighbor visibility are optional
-  coverage limitations, not platform-health failures.
+coverage limitations, not platform-health failures.
+
+## LAN bootstrap limits
+
+- `192.168.50.1` is a hint only; RavenTech does not verify, connect to,
+  administer, scrape, or reconfigure the router.
+- Bootstrap verification never proves complete LAN coverage and never starts
+  discovery or service checks itself.
+- `http://192.168.50.201:8000` is guided private-backend input, not automatic
+  host-IP detection. Confirm it and restrict firewall access to the private CIDR.
+- Manual observations are operator-supplied evidence requiring owner,
+  authorization, and accuracy review.

@@ -18,6 +18,7 @@ from app.schemas.monitoring import (
 from app.services.lan_monitoring import (
     LanConfigurationError,
     _classify_service,
+    normalize_private_cidr,
     validate_allowed_cidr,
 )
 from app.services.local_monitoring import get_monitoring_alerts
@@ -61,6 +62,54 @@ def test_lan_cidr_validation_rejects_public_ranges(
         validate_allowed_cidr("8.8.8.0/24")
     with pytest.raises(LanConfigurationError):
         validate_allowed_cidr("192.168.1.0/24")
+
+
+def test_lan_cidr_normalizes_host_bits_and_preserves_gateway_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_MAX_HOSTS", 256)
+    network, gateway = normalize_private_cidr("192.168.50.1/24")
+
+    assert str(network) == "192.168.50.0/24"
+    assert str(gateway) == "192.168.50.1"
+    with pytest.raises(LanConfigurationError, match="private RFC1918"):
+        normalize_private_cidr("8.8.8.8/24")
+    with pytest.raises(LanConfigurationError, match="invalid"):
+        normalize_private_cidr("not-a-cidr")
+    with pytest.raises(LanConfigurationError, match="MAX_HOSTS"):
+        normalize_private_cidr("192.168.0.1/16")
+
+
+async def test_manual_router_observation_fields_are_validated_and_persisted(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "LAN_MONITORING_ENABLED", True)
+    monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.50.0/24")
+    response = await client.post(
+        "/api/v1/monitoring/lan/discover",
+        headers=admin_headers,
+        json={
+            "cidr": "192.168.50.1/24",
+            "observations": [{
+                "ip_address": "192.168.50.22",
+                "hostname": "approved-phone",
+                "mac_address": "00:11:22:33:44:66",
+                "source": "router",
+                "interface_name": "wifi",
+                "connection_type": "wireless",
+                "is_authorized": True,
+                "notes": "Observed manually in the approved router UI.",
+            }],
+        },
+    )
+    assert response.status_code == 200
+    listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
+    item = next(value for value in listing.json()["items"] if value["ip_address"] == "192.168.50.22")
+    assert item["is_authorized"] is True
+    assert "Interface: wifi" in item["notes"]
+    assert "Connection: wireless" in item["notes"]
 
 
 async def test_admin_can_create_and_update_authorized_lan_asset(

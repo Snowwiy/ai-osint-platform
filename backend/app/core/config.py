@@ -78,7 +78,8 @@ class Settings(BaseSettings):
     MONITORING_AUTO_REFRESH_ENABLED: bool = True
     MONITORING_AUTO_REFRESH_SECONDS: int = 30
     LAN_MONITORING_ENABLED: bool = False
-    LAN_ALLOWED_CIDRS: str = "192.168.0.0/24"
+    LAN_ALLOWED_CIDRS: str = "192.168.50.0/24"
+    LAN_GATEWAY_HINT: str = "192.168.50.1"
     LAN_DISCOVERY_INTERVAL_SECONDS: int = 300
     LAN_DISCOVERY_PING_ENABLED: bool = False
     LAN_AUTO_DISCOVERY_ON_START: bool = False
@@ -237,6 +238,15 @@ class Settings(BaseSettings):
                 errors.append("LAN_ALLOWED_CIDRS accepts private IPv4 CIDRs only.")
         except ValueError:
             errors.append("LAN_ALLOWED_CIDRS contains an invalid CIDR.")
+        try:
+            gateway = ipaddress.ip_address(self.LAN_GATEWAY_HINT)
+            if self.LAN_MONITORING_ENABLED and (
+                not isinstance(gateway, ipaddress.IPv4Address)
+                or not any(gateway in network for network in networks)
+            ):
+                errors.append("LAN_GATEWAY_HINT must be inside LAN_ALLOWED_CIDRS.")
+        except (ValueError, UnboundLocalError):
+            errors.append("LAN_GATEWAY_HINT must be a valid private IPv4 address.")
         try:
             ports = [
                 int(value.strip())

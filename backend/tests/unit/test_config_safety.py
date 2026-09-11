@@ -97,3 +97,14 @@ def test_public_lan_cidr_is_rejected_at_startup() -> None:
     local_settings = Settings(_env_file=None, LAN_ALLOWED_CIDRS="8.8.8.0/24")
 
     assert "LAN_ALLOWED_CIDRS accepts private IPv4 CIDRs only." in local_settings.startup_errors()
+
+
+def test_rc6_lan_bootstrap_defaults_are_private_and_non_automatic() -> None:
+    local_settings = Settings(_env_file=None)
+
+    assert local_settings.LAN_ALLOWED_CIDRS == "192.168.50.0/24"
+    assert local_settings.LAN_GATEWAY_HINT == "192.168.50.1"
+    assert local_settings.LAN_MONITORING_ENABLED is False
+    assert local_settings.LAN_AUTO_DISCOVERY_ON_START is False
+    assert local_settings.LAN_AUTO_SERVICE_CHECK_ON_START is False
+    assert local_settings.LAN_REJECT_PUBLIC_CIDRS is True

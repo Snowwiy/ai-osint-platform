@@ -236,3 +236,16 @@ Enabling an auto-start flag does not bypass `LAN_MONITORING_ENABLED`,
 limits, timeouts, monitoring policies, maintenance windows, cooldowns, or
 deduplication. Public ranges, authentication, brute force, credential testing,
 and remote commands remain prohibited.
+
+## 192.168.50.0/24 bootstrap profile
+
+Use `192.168.50.1/24` as the wizard input. It normalizes to
+`192.168.50.0/24`; `192.168.50.1` remains only a gateway hint. The copy-only
+profile enables LAN monitoring, bounded ICMP reachability, and separately gated
+TCP checks while leaving both auto-start flags false. Ports are
+`22,80,443,445,3389,8080,8443,3000,5000,5432,6379,8000,9000`, timeout is two
+seconds, and host/port caps remain 256/32.
+
+Manual router observations accept name, private IP, optional MAC, interface,
+connection type, authorization, and notes. They populate inventory without
+router access and are validated against the configured private CIDR.

@@ -273,3 +273,22 @@ active discovery or checks only through the exact local `.env` flags shown in
 **Monitoring → Activation**, then restart the existing Docker services. Installed
 and portable builds use the embedded frontend; `npm run dev` and port 5173 are
 not required.
+
+## Authorized LAN bootstrap for 192.168.50.0/24
+
+As an administrator, open **Monitoring → Activation → Authorized LAN
+Bootstrap**. Keep the input `192.168.50.1/24` and gateway hint `192.168.50.1`,
+then select **Verify LAN setup**. The `/24` mask clears the last octet and
+produces `192.168.50.0/24`; the original host remains a non-operative gateway
+hint. Copy the displayed `.env` lines, edit the untracked file manually, and
+restart Docker with the displayed command.
+
+Create a short-lived enrollment token limited to `192.168.50.0/24`; its secret
+is shown once and is pasted only at the helper's secure prompt. Use
+`http://192.168.50.201:8000` when that private host address is confirmed, or
+localhost for same-host use, at a 30-second interval. Confirm the heartbeat and
+posture in Endpoint Agents. If Docker cannot see neighbors, manually enter a
+device already shown by an authorized router UI. RavenTech never logs in to,
+scrapes, configures, or blocks through the router. TCP checks remain limited to
+authorized monitored private assets and configured ports, without credentials,
+brute force, or exploit payloads.

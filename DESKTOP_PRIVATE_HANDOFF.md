@@ -120,3 +120,9 @@ remote administration, new scanning, or offensive functionality.
 
 Signing, timestamping, public brand approval, clean-machine release-matrix QA,
 public distribution, and production support remain deferred.
+
+For Phase 5AZ private LAN acceptance, bind the repository, sign in as an
+administrator, and run the Activation bootstrap using `192.168.50.1/24`.
+Confirm `192.168.50.0/24`, gateway hint `192.168.50.1`, RC6, and zero discovery
+or service-check executions in the verification result. The desktop never edits
+`.env`; enrollment and restart commands remain copy-only/manual.

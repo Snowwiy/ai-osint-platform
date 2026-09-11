@@ -40,6 +40,7 @@ from app.schemas.agent_management import (
     ServiceBaselineUpdate,
 )
 from app.services.audit import record_event
+from app.services.lan_monitoring import LanConfigurationError, validate_allowed_cidr
 from app.services.notification import create_admin_notification
 
 
@@ -107,11 +108,9 @@ async def create_enrollment_token(
     allowed_cidr: str | None = None
     if body.allowed_cidr:
         try:
-            network = ipaddress.ip_network(body.allowed_cidr, strict=False)
-        except ValueError as exc:
+            network = validate_allowed_cidr(body.allowed_cidr)
+        except (ValueError, LanConfigurationError) as exc:
             raise AgentManagementConflictError("cidr") from exc
-        if not isinstance(network, ipaddress.IPv4Network) or not network.is_private:
-            raise AgentManagementConflictError("cidr")
         allowed_cidr = str(network)
     raw = f"rae_{secrets.token_urlsafe(32)}"
     item = AgentEnrollmentToken(

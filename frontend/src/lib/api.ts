@@ -1209,6 +1209,35 @@ export async function discoverLan(cidr?: string): Promise<LanDiscoveryResponse> 
   });
 }
 
+export async function importLanObservation(body: {
+  cidr: string;
+  observations: Array<{
+    hostname?: string;
+    ip_address: string;
+    mac_address?: string;
+    interface_name?: string;
+    connection_type?: string;
+    is_authorized: boolean;
+    notes?: string;
+    source: "static" | "router";
+  }>;
+}): Promise<LanDiscoveryResponse> {
+  return request<LanDiscoveryResponse>("/monitoring/lan/discover", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function verifyLanBootstrap(body: {
+  cidr: string;
+  gateway_hint?: string;
+}): Promise<import("../types").LanBootstrapStatus> {
+  return request("/monitoring/lan/bootstrap/verify", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function listLanTelemetry(assetId: string): Promise<LanTelemetryListResponse> {
   return request<LanTelemetryListResponse>(`/monitoring/lan/assets/${assetId}/telemetry`);
 }

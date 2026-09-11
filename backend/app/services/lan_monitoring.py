@@ -121,6 +121,7 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
         lan_auto_discovery_interval_seconds=settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS,
         lan_auto_service_check_interval_seconds=settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS,
         allowed_cidrs=allowed_cidrs,
+        gateway_hint=settings.LAN_GATEWAY_HINT,
         service_ports=ports,
         discovery_disabled_reason=(
             None
@@ -137,13 +138,20 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "MONITORING_AUTO_REFRESH_ENABLED=true",
             "MONITORING_AUTO_REFRESH_SECONDS=30",
             "LAN_MONITORING_ENABLED=true",
+            f"LAN_ALLOWED_CIDRS={','.join(allowed_cidrs)}",
+            f"LAN_GATEWAY_HINT={settings.LAN_GATEWAY_HINT}",
+            "LAN_DISCOVERY_PING_ENABLED=true",
+            "LAN_SERVICE_CHECK_ENABLED=true",
             "LAN_AUTO_DISCOVERY_ON_START=false",
             "LAN_AUTO_SERVICE_CHECK_ON_START=false",
             "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=300",
             "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=600",
-            "LAN_SERVICE_CHECK_ENABLED=true",
-            f"LAN_ALLOWED_CIDRS={','.join(allowed_cidrs)}",
             f"LAN_SERVICE_CHECK_PORTS={','.join(str(port) for port in ports)}",
+            f"LAN_SERVICE_CHECK_TIMEOUT_SECONDS={settings.LAN_SERVICE_CHECK_TIMEOUT_SECONDS:g}",
+            f"LAN_SERVICE_CHECK_MAX_HOSTS={settings.LAN_SERVICE_CHECK_MAX_HOSTS}",
+            f"LAN_SERVICE_CHECK_MAX_PORTS={settings.LAN_SERVICE_CHECK_MAX_PORTS}",
+            "LAN_REJECT_PUBLIC_CIDRS=true",
+            "LAN_SSH_BANNER_DETECTION_ENABLED=true",
         ],
         restart_commands=[
             "docker compose up -d --force-recreate backend celery-worker",
@@ -198,8 +206,18 @@ def configured_networks() -> list[ipaddress.IPv4Network]:
 
 
 def validate_allowed_cidr(value: str) -> ipaddress.IPv4Network:
+    network, _gateway = normalize_private_cidr(value)
+    if not any(network.subnet_of(allowed) for allowed in configured_networks()):
+        raise LanConfigurationError("The selected CIDR is outside LAN_ALLOWED_CIDRS.")
+    return network
+
+
+def normalize_private_cidr(
+    value: str, gateway_hint: str | None = None
+) -> tuple[ipaddress.IPv4Network, ipaddress.IPv4Address]:
     try:
-        network = ipaddress.ip_network(value, strict=False)
+        interface = ipaddress.ip_interface(value)
+        network = interface.network
     except ValueError as exc:
         raise LanConfigurationError("The selected LAN CIDR is invalid.") from exc
     if not isinstance(network, ipaddress.IPv4Network) or not _is_rfc1918_network(
@@ -212,9 +230,13 @@ def validate_allowed_cidr(value: str) -> ipaddress.IPv4Network:
         raise LanConfigurationError(
             "The selected discovery range exceeds LAN_SERVICE_CHECK_MAX_HOSTS."
         )
-    if not any(network.subnet_of(allowed) for allowed in configured_networks()):
-        raise LanConfigurationError("The selected CIDR is outside LAN_ALLOWED_CIDRS.")
-    return network
+    try:
+        gateway = ipaddress.ip_address(gateway_hint) if gateway_hint else interface.ip
+    except ValueError as exc:
+        raise LanConfigurationError("The gateway hint is not a valid IPv4 address.") from exc
+    if not isinstance(gateway, ipaddress.IPv4Address) or gateway not in network:
+        raise LanConfigurationError("The gateway hint must be inside the selected private CIDR.")
+    return network, gateway
 
 
 def validate_allowed_ip(value: str) -> ipaddress.IPv4Address:
@@ -253,6 +275,7 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         discovery_interval_seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS,
         ping_enabled=settings.LAN_DISCOVERY_PING_ENABLED,
         service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
+        service_ports=configured_service_ports(),
         limitation=(
             "The backend container does not receive privileged host neighbor or Docker access. "
             "Use supplied static/router observations or the optional endpoint agent."
@@ -1121,6 +1144,19 @@ async def _upsert_observation(
     asset.last_checked_at = now
     asset.response_latency_ms = observation.latency_ms
     asset.confidence = 80 if observation.source == "router" else 70
+    if observation.is_authorized is not None:
+        asset.is_authorized = observation.is_authorized
+    context = [
+        value
+        for value in (
+            f"Interface: {observation.interface_name}" if observation.interface_name else None,
+            f"Connection: {observation.connection_type}" if observation.connection_type else None,
+            _clean(observation.notes),
+        )
+        if value
+    ]
+    if context:
+        asset.notes = " | ".join(context)
     await db.flush()
     return asset, created
 

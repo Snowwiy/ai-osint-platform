@@ -51,6 +51,7 @@ const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
 const frontendApp = await readFile(resolve(repository, "frontend/src/App.tsx"), "utf8");
 const appShell = await readFile(resolve(repository, "frontend/src/components/AppShell.tsx"), "utf8");
 const backendConfig = await readFile(resolve(repository, "backend/app/core/config.py"), "utf8");
+const lanBootstrap = await readFile(resolve(repository, "frontend/src/components/LanBootstrapPanel.tsx"), "utf8");
 
 if (config.version !== "5.0.0-rc6") throw new Error("Desktop version must match RC6.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
@@ -118,6 +119,12 @@ for (const marker of [
   "LAN_AUTO_SERVICE_CHECK_ON_START: bool = False",
 ]) {
   if (!backendConfig.includes(marker)) throw new Error(`Safe monitoring default missing: ${marker}`);
+}
+for (const marker of ["192.168.50.1/24", "192.168.50.0/24", "Verify LAN setup", "<ENROLLMENT_TOKEN>", "Manual router observation"]) {
+  if (!lanBootstrap.includes(marker)) throw new Error(`Authorized LAN bootstrap marker missing: ${marker}`);
+}
+if (/runLanServiceCheck|discoverLan\(/.test(lanBootstrap)) {
+  throw new Error("LAN bootstrap verification must not invoke active discovery or service checks.");
 }
 for (const marker of ["frontend_dev_probe", "frontend_html_response_is_healthy", '"embedded".to_owned()', '"notRequired".to_owned()']) {
   if (!rust.includes(marker)) throw new Error(`Desktop frontend mode marker missing: ${marker}`);

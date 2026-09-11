@@ -3336,6 +3336,7 @@ export interface LanAssetListResponse {
   discovery_interval_seconds: number;
   ping_enabled: boolean;
   service_check_enabled: boolean;
+  service_ports: number[];
   docker_limited: boolean;
   limitation: string;
   total: number;
@@ -3476,6 +3477,7 @@ export interface MonitoringActivationStatus {
   lan_auto_discovery_interval_seconds: number;
   lan_auto_service_check_interval_seconds: number;
   allowed_cidrs: string[];
+  gateway_hint: string;
   service_ports: number[];
   discovery_disabled_reason: string | null;
   service_check_disabled_reason: string | null;
@@ -3486,6 +3488,39 @@ export interface MonitoringActivationStatus {
   optional_telemetry_note: string;
   agent_setup_steps: string[];
   token_enrollment_steps: string[];
+}
+
+export interface LanBootstrapStatus {
+  verified_at: string;
+  input_cidr: string;
+  normalized_cidr: string;
+  gateway_hint: string;
+  private_cidr_valid: boolean;
+  configured_cidr_matches: boolean;
+  backend_reachable: boolean;
+  migrations_ready: boolean;
+  release_version: string;
+  lan_monitoring_enabled: boolean;
+  service_check_enabled: boolean;
+  ping_enabled: boolean;
+  configured_ports: number[];
+  active_enrollment_tokens: number;
+  enrollment_capability_ready: boolean;
+  assets_total: number;
+  static_router_observations: number;
+  agents_total: number;
+  fresh_agents: number;
+  assessed_posture: number;
+  open_recommendations: number;
+  discovery_executed: boolean;
+  service_checks_executed: boolean;
+  observation_path_available: boolean;
+  env_lines: string[];
+  windows_agent_command: string;
+  linux_agent_command: string;
+  steps: string[];
+  next_action: string;
+  safety_notes: string[];
 }
 
 export interface TargetServiceCheckStatus {

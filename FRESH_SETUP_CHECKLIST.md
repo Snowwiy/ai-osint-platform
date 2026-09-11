@@ -199,3 +199,16 @@ RC6 remains locked: no feature, version bump, new tag, public release, signing,
 auto-update, hosting, deployment, DNS, Supabase migration, router automation,
 arbitrary shell execution, remote command execution, or offensive functionality
 is part of this checklist.
+
+## Optional authorized LAN acceptance
+
+- [ ] Open Monitoring → Activation as an administrator.
+- [ ] Verify `192.168.50.1/24` normalizes to `192.168.50.0/24`, retaining
+  `192.168.50.1` as the gateway hint.
+- [ ] Review and manually copy the `.env` profile; keep both LAN auto-start
+  flags false, then restart Docker manually.
+- [ ] Create one short-lived CIDR-limited token and securely capture its one-time
+  value; confirm lists and logs expose only its hint.
+- [ ] Run one approved endpoint agent or import one router/static observation.
+- [ ] Verify heartbeat, service-check eligibility, posture, recommendations, and
+  alerts. Run TCP checks only with explicit authorization and enabled config.

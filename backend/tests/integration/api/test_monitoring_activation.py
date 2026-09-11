@@ -15,6 +15,7 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
     monkeypatch.setattr(settings, "LAN_MONITORING_ENABLED", False)
     monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", False)
     monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.0.0/24")
+    monkeypatch.setattr(settings, "LAN_GATEWAY_HINT", "192.168.0.1")
     monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_PORTS", "22,443,8443")
 
     anonymous = await client.get("/api/v1/monitoring/activation")
@@ -28,12 +29,14 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
     assert payload["lan_monitoring_enabled"] is False
     assert payload["service_check_enabled"] is False
     assert payload["service_ports"] == [22, 443, 8443]
+    assert payload["gateway_hint"] == "192.168.0.1"
     assert "LAN_MONITORING_ENABLED is false" in payload["discovery_disabled_reason"]
     assert "LAN_SERVICE_CHECK_ENABLED is false" in payload[
         "service_check_disabled_reason"
     ]
     assert "LAN_MONITORING_ENABLED=true" in payload["env_lines"]
     assert "MONITORING_AUTO_REFRESH_ENABLED=true" in payload["env_lines"]
+    assert "LAN_GATEWAY_HINT=192.168.0.1" in payload["env_lines"]
     assert payload["auto_refresh_enabled"] is True
     assert payload["lan_auto_discovery_on_start"] is False
     assert payload["lan_auto_service_check_on_start"] is False
