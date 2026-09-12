@@ -271,3 +271,12 @@ The Docker fallback is informational and cannot describe the entire Windows host
 Defaults are `SERVER_HOST_METRICS_INTERVAL_SECONDS=30`,
 `LAN_ENDPOINT_AGENT_INTERVAL_SECONDS=30`, and
 `POSTURE_RECOMPUTE_INTERVAL_SECONDS=300`. All helpers remain manual-only.
+
+## Runtime acceptance summary
+
+`GET /api/v1/monitoring/startup` now includes the normalized allowlist and gateway
+hint, last audited discovery and service-check times, LAN asset/import counts,
+agent coverage, posture/recommendation counts, and backend metric source. It reads
+stored local state only and does not initiate discovery, TCP connections, agent
+execution, or router access. The desktop supplements this with native host metrics
+when available and continues to label disabled optional monitoring as informational.

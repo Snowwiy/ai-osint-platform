@@ -316,3 +316,16 @@ discovery/posture recompute, and 600 seconds for bounded service checks. Stop an
 agent with Ctrl+C; no service, scheduled task, persistence, or autostart is created.
 If LAN endpoints need port 8000, create a manual Windows firewall rule limited to
 remote subnet `192.168.50.0/24`, never Public profile or unrestricted sources.
+
+## Real LAN operator acceptance
+
+Open **Monitoring Center** and verify the runtime card shows CIDR
+`192.168.50.0/24`, gateway hint `192.168.50.1`, the most recent discovery and
+service-check times, asset and agent totals, the chosen host-metric source, and
+posture/recommendation status. Create a short-lived enrollment token, copy it
+once, then enter it only at a `LanEndpoint` agent's secure prompt. `ServerHost`
+instead prompts for a current local admin access token. Run `ServerHost` on the
+main machine and `LanEndpoint` on approved LAN PCs, verify a fresh heartbeat,
+then confirm posture refresh. Import router-observed devices manually if Docker
+neighbor visibility is incomplete. All service results are advisory TCP-connect
+observations; authorize the asset and enable both LAN/service flags first.

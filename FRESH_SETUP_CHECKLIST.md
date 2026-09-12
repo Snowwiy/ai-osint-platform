@@ -219,3 +219,8 @@ is part of this checklist.
   and the confirmed private backend address; never place the token on the command line.
 - [ ] If required, manually limit Windows Firewall inbound TCP/8000 to
   `192.168.50.0/24`. Do not enable Public-profile or unrestricted access.
+- [ ] Confirm the Monitoring Center runtime card shows last discovery/check times,
+  next refresh, asset/import counts, connected-agent coverage, host-metric source,
+  and posture/recommendation status without treating disabled options as degraded.
+- [ ] Confirm open/closed/filtered/timeout service results and SSH indicators are
+  advisory, private-CIDR-only, configured-port-only TCP observations.

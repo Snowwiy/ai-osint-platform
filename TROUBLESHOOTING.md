@@ -453,3 +453,15 @@ and Supabase remain unchanged.
 - **LAN endpoint stale:** confirm TCP/8000 is reachable only from `192.168.50.0/24`,
   the enrollment token was entered only at the prompt, and the 30/60-second cadence
   is allowed. Never open the backend to a public network.
+
+## Real-LAN acceptance troubleshooting
+
+- **No last discovery/check time:** no audited run exists yet; this is informational.
+  Enable the relevant local flags and invoke the bounded action manually if approved.
+- **Zero assets with a healthy platform:** Docker may not see Windows host neighbors.
+  Import a known router/static observation or run an approved endpoint agent.
+- **Agent connected but posture unchanged:** wait for the bounded posture cadence,
+  refresh the summary, and confirm the heartbeat is fresh; do not increase polling
+  aggressively or install persistence.
+- **Service check ineligible:** the displayed reason identifies the disabled flag,
+  CIDR mismatch, missing authorization, or per-asset monitoring state. Do not bypass it.

@@ -369,3 +369,13 @@ coverage limitations, not platform-health failures.
   labeled as fallback. Missing host telemetry remains informational.
 - LAN agent reachability may require an operator-created firewall rule restricted
   to `192.168.50.0/24`; RavenTech does not modify firewall or system settings.
+
+## Phase 5BB acceptance limits
+
+- Runtime timestamps reflect stored audited actions, not proof of complete LAN coverage.
+- Manual router/static observations depend on operator accuracy and do not establish
+  router connectivity or continuous device presence.
+- Enrollment agents remain foreground-only; loss of a heartbeat is an advisory
+  freshness condition, not automatic evidence of compromise.
+- TCP results are point-in-time connect observations on configured ports and cannot
+  prove service safety, identity, authentication state, or exploitability.

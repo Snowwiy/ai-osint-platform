@@ -3,14 +3,16 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.schemas.monitoring import MonitoringStartupStatus
 from app.services.agent_management import list_agents
 from app.services.endpoint_posture import get_posture_overview
-from app.services.lan_monitoring import get_monitoring_activation
+from app.services.lan_monitoring import get_monitoring_activation, list_lan_assets
 from app.services.local_monitoring import get_monitoring_overview
 from app.services.monitoring_triage import list_triage
 from app.services.vulnerability_baseline import get_baseline_overview
@@ -24,6 +26,7 @@ async def get_monitoring_startup_status(
     """Load local monitoring summaries without initiating network observations."""
     overview = await get_monitoring_overview(db, redis, user)
     activation = get_monitoring_activation()
+    lan_assets = await list_lan_assets(db)
     baseline = await get_baseline_overview(db, user)
     triage = await list_triage(
         db,
@@ -53,6 +56,20 @@ async def get_monitoring_startup_status(
         and settings.MONITORING_AUTO_REFRESH_ENABLED
     )
     now = datetime.now(UTC)
+    audit_rows = (
+        await db.execute(
+            select(AuditLog.action, func.max(AuditLog.created_at))
+            .where(
+                AuditLog.action.in_(
+                    ("lan.discovery.executed", "lan.service_check.executed")
+                )
+            )
+            .group_by(AuditLog.action)
+        )
+    ).all()
+    audit_times: dict[str, datetime] = {
+        row[0]: row[1] for row in audit_rows if row[1] is not None
+    }
     lan_enabled = settings.LAN_MONITORING_ENABLED
     service_enabled = lan_enabled and settings.LAN_SERVICE_CHECK_ENABLED
     message = (
@@ -93,7 +110,19 @@ async def get_monitoring_startup_status(
             settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS
         ),
         allowed_cidrs=activation.allowed_cidrs,
+        gateway_hint=activation.gateway_hint,
         service_ports=activation.service_ports,
+        last_discovery_at=audit_times.get("lan.discovery.executed"),
+        last_service_check_at=audit_times.get("lan.service_check.executed"),
+        assets_total=lan_assets.total,
+        assets_online=lan_assets.online,
+        assets_unauthorized=lan_assets.unauthorized,
+        static_router_observations=sum(
+            item.source in {"static", "router"} for item in lan_assets.items
+        ),
+        host_metrics_source=overview.system.source,
+        host_metrics_available=overview.system.available,
+        host_metrics_fallback_reason=overview.system.fallback_reason,
         discovery_disabled_reason=activation.discovery_disabled_reason,
         service_check_disabled_reason=activation.service_check_disabled_reason,
         services_total=len(overview.services.items),

@@ -3265,7 +3265,17 @@ export interface MonitoringStartupStatus {
   lan_auto_discovery_interval_seconds: number;
   lan_auto_service_check_interval_seconds: number;
   allowed_cidrs: string[];
+  gateway_hint: string;
   service_ports: number[];
+  last_discovery_at: string | null;
+  last_service_check_at: string | null;
+  assets_total: number;
+  assets_online: number;
+  assets_unauthorized: number;
+  static_router_observations: number;
+  host_metrics_source: "container" | "server_endpoint_agent" | "backend_host_agent" | string;
+  host_metrics_available: boolean;
+  host_metrics_fallback_reason: string | null;
   discovery_disabled_reason: string | null;
   service_check_disabled_reason: string | null;
   services_total: number;

@@ -144,3 +144,11 @@ metrics or manual `ServerHost` mode; Docker-only data remains explicitly scoped 
 the container. Cadence defaults are 30 seconds for agents and 300 seconds for
 posture recomputation. Missing optional telemetry is informational, not a platform
 failure.
+
+## RC6 acceptance evidence
+
+After the first heartbeat, verify agent freshness, asset linkage, posture score and
+status, critical gaps, and active advisory recommendations. Expected review items
+include missing/stale agents, unauthorized assets, risky exposed services, missing
+expected services, and manual isolate/block guidance. These remain recommendations
+for an operator decision; they are not evidence of exploitation or compromise.

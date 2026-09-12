@@ -660,3 +660,12 @@ uptime are not presented as full host visibility. Run the main-host helper with
 `.\scripts\local\local_monitor_agent.ps1 -Mode ServerHost -BackendUrl http://localhost:8000 -IntervalSeconds 30`.
 Other authorized PCs use `-Mode LanEndpoint -BackendUrl http://192.168.50.201:8000 -IntervalSeconds 30` only after confirming that private server address.
 Agents are manual and non-persistent; no autostart, remote commands, or public scanning is installed.
+
+### Phase 5BB real-LAN acceptance
+
+Monitoring Center now presents one operator-readable RC6 acceptance summary for
+`192.168.50.0/24`: gateway hint, enablement flags, latest discovery/service-check
+times, next refresh, asset/import counts, agent coverage, host-metric source, and
+posture/recommendation counts. Disabled optional LAN features are informational.
+Use manual router/static import when Docker cannot see host neighbors, and run
+TCP-connect checks only for authorized assets after explicit configuration.

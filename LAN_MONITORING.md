@@ -259,3 +259,14 @@ seconds when explicitly enabled. Missing agents remain observed LAN assets with
 platform. Limit inbound backend TCP/8000 to `192.168.50.0/24` when remote LAN agents
 must report. No public range, router automation, authentication attempt, or remote
 command is introduced.
+
+## Real-LAN verification sequence
+
+For private RC6 acceptance, confirm the runtime card, import or discover an
+authorized device, mark authorization/monitoring explicitly, attach an optional
+agent, and inspect last-seen and service observations. Service checks remain
+ineligible until LAN monitoring and TCP checks are both enabled and the asset is
+inside `192.168.50.0/24`. Results distinguish open, closed, filtered, and timeout
+states; SSH and non-standard SSH are indicators only. Risk labels recommend manual
+review and never assert compromise. Docker neighbor gaps should be handled with
+manual router/static evidence or an endpoint agent, never router credentials.

@@ -12,6 +12,7 @@ const api = await readFile(resolve(root, "src/lib/api.ts"), "utf8");
 const i18n = await readFile(resolve(root, "src/lib/i18n.tsx"), "utf8");
 const native = await readFile(resolve(root, "src/lib/nativeHostMetrics.ts"), "utf8");
 const agents = await readFile(resolve(root, "src/components/AgentManagementPanel.tsx"), "utf8");
+const lan = await readFile(resolve(root, "src/components/LanMonitoringPanel.tsx"), "utf8");
 
 test("authenticated application startup loads and safely polls monitoring summary", () => {
   assert.match(api, /request<MonitoringStartupStatus>\("\/monitoring\/startup"\)/);
@@ -65,4 +66,34 @@ test("desktop host metrics take precedence and agent cadence stays manual", () =
   assert.match(agents, /-Mode LanEndpoint/);
   assert.match(agents, /<ENROLLMENT_TOKEN>/);
   assert.doesNotMatch(`${native}\n${agents}`, /Command\.create|shell:|schtasks|New-Service|Startup\\/i);
+});
+
+test("real LAN acceptance status is readable without weakening safety gates", () => {
+  for (const field of [
+    "last_discovery_at",
+    "last_service_check_at",
+    "assets_total",
+    "static_router_observations",
+    "gateway_hint",
+  ]) assert.ok(center.includes(field), `missing LAN runtime field: ${field}`);
+  assert.match(center, /Disabled optional monitoring is informational, not degraded/);
+  assert.match(lan, /Service-check eligible\. TCP connect only/);
+  assert.match(lan, /SSH indicator/);
+  assert.match(lan, /Advisory risk indicator only/);
+  assert.match(lan, /router\/static observations or the optional local agent/);
+});
+
+test("agent enrollment acceptance remains manual and token-secret safe", () => {
+  assert.match(agents, /Endpoint enrollment acceptance/);
+  assert.match(agents, /Verify the first heartbeat and connected status/);
+  assert.match(agents, /Verify telemetry freshness and the 30-second reporting cadence/);
+  assert.match(agents, /-Mode ServerHost -BackendUrl http:\/\/localhost:8000 -IntervalSeconds/);
+  assert.match(agents, /-Mode LanEndpoint -BackendUrl \$\{commandBackendUrl\} -IntervalSeconds/);
+  assert.match(agents, /<ENROLLMENT_TOKEN>/);
+  assert.doesNotMatch(agents, /localStorage.*token|sessionStorage.*token|console\.log\(.*token/);
+  for (const phrase of [
+    "Aceptación de inscripción de endpoints",
+    "Último descubrimiento",
+    "Fuente de métricas del host",
+  ]) assert.ok(i18n.includes(phrase), `missing Spanish acceptance copy: ${phrase}`);
 });

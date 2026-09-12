@@ -135,3 +135,12 @@ when available. If unavailable, run the documented `ServerHost` helper manually;
 otherwise expect **Docker container fallback**, explicitly not full host visibility.
 No agent is installed, persisted, or started automatically. RC6 and all private,
 unsigned distribution constraints remain unchanged.
+
+## Phase 5BB private acceptance
+
+On the authorized test LAN, verify the embedded Monitoring Center reports RC6,
+`192.168.50.0/24`, gateway hint `192.168.50.1`, host-metric precedence, stored LAN
+activity times, asset/agent coverage, and posture status. Enrollment tokens are
+revealed once and entered only at the manual helper prompt. The portable/installer
+artifacts do not include agents, persistence, backend services, databases, secrets,
+or router integration.

@@ -207,7 +207,17 @@ class MonitoringStartupStatus(BaseModel):
     lan_auto_discovery_interval_seconds: int = Field(ge=300)
     lan_auto_service_check_interval_seconds: int = Field(ge=600)
     allowed_cidrs: list[str]
+    gateway_hint: str
     service_ports: list[int]
+    last_discovery_at: datetime | None = None
+    last_service_check_at: datetime | None = None
+    assets_total: int = Field(ge=0)
+    assets_online: int = Field(ge=0)
+    assets_unauthorized: int = Field(ge=0)
+    static_router_observations: int = Field(ge=0)
+    host_metrics_source: str
+    host_metrics_available: bool
+    host_metrics_fallback_reason: str | None = None
     discovery_disabled_reason: str | None
     service_check_disabled_reason: str | None
     services_total: int = Field(ge=0)

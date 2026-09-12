@@ -129,10 +129,20 @@ export function MonitoringCenterPage(): JSX.Element {
           <div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 xl:grid-cols-4">
             <p>{t("Last refresh")}: {safeDate(startup.data.generated_at)?.toLocaleString() ?? t("Unavailable")}</p>
             <p>{t("Next scheduled refresh")}: {safeDate(startup.data.next_refresh_at)?.toLocaleString() ?? t("Disabled")}</p>
-            <p>{t("LAN discovery")}: {startup.data.lan_auto_discovery_on_start ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
-            <p>{t("Service checks")}: {startup.data.lan_auto_service_check_on_start ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
+            <p>{t("Allowed CIDR")}: {safeArray(startup.data.allowed_cidrs).join(", ") || t("Not configured")}</p>
+            <p>{t("Gateway hint")}: {safeString(startup.data.gateway_hint, t("Not configured"))}</p>
+            <p>{t("LAN monitoring")}: {startup.data.lan_monitoring_enabled ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
+            <p>{t("Service checks")}: {startup.data.service_check_enabled ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
+            <p>{t("Last discovery")}: {safeDate(startup.data.last_discovery_at)?.toLocaleString() ?? t("Never")}</p>
+            <p>{t("Last service check")}: {safeDate(startup.data.last_service_check_at)?.toLocaleString() ?? t("Never")}</p>
+            <p>{t("LAN assets")}: {safeNumber(startup.data.assets_total)} · {safeNumber(startup.data.assets_online)} {t("online")}</p>
+            <p>{t("Router/static observations")}: {safeNumber(startup.data.static_router_observations)}</p>
+            <p>{t("Agents connected")}: {safeNumber(startup.data.agent_covered)}</p>
+            <p>{t("Host metrics source")}: {metricSource}</p>
+            <p>{t("Posture assessed")}: {safeNumber(startup.data.assessed_posture)}</p>
+            <p>{t("Open recommendations")}: {safeNumber(startup.data.open_recommendations)}</p>
           </div>
-          <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")}</p>
+          <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")} · {t("Disabled optional monitoring is informational, not degraded")}</p>
         </section>
       ) : null}
 
