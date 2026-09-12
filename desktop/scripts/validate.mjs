@@ -52,6 +52,9 @@ const frontendApp = await readFile(resolve(repository, "frontend/src/App.tsx"), 
 const appShell = await readFile(resolve(repository, "frontend/src/components/AppShell.tsx"), "utf8");
 const backendConfig = await readFile(resolve(repository, "backend/app/core/config.py"), "utf8");
 const lanBootstrap = await readFile(resolve(repository, "frontend/src/components/LanBootstrapPanel.tsx"), "utf8");
+const nativeMetrics = await readFile(resolve(repository, "frontend/src/lib/nativeHostMetrics.ts"), "utf8");
+const monitoringCenter = await readFile(resolve(repository, "frontend/src/pages/MonitoringCenterPage.tsx"), "utf8");
+const localAgent = await readFile(resolve(repository, "scripts/local/local_monitor_agent.ps1"), "utf8");
 
 if (config.version !== "5.0.0-rc6") throw new Error("Desktop version must match RC6.");
 if (config.productName !== "RavenTech OSINT Desktop") throw new Error("Unexpected desktop product name.");
@@ -122,6 +125,15 @@ for (const marker of [
 }
 for (const marker of ["192.168.50.1/24", "192.168.50.0/24", "Verify LAN setup", "<ENROLLMENT_TOKEN>", "Manual router observation"]) {
   if (!lanBootstrap.includes(marker)) throw new Error(`Authorized LAN bootstrap marker missing: ${marker}`);
+}
+for (const marker of ["GlobalMemoryStatusEx", "GetSystemTimes", "GetDiskFreeSpaceExW", "get_native_host_metrics"]) {
+  if (!rust.includes(marker)) throw new Error(`Native host metric marker missing: ${marker}`);
+}
+for (const marker of ["Host native metrics", "server_endpoint_agent", "Docker container fallback"]) {
+  if (!monitoringCenter.includes(marker)) throw new Error(`Metric precedence marker missing: ${marker}`);
+}
+if (!nativeMetrics.includes("raventech-native-host-metrics") || !localAgent.includes('ValidateSet("ServerHost", "BackendHost", "Server", "LanEndpoint")')) {
+  throw new Error("Native metric bridge or manual ServerHost mode is missing.");
 }
 if (/runLanServiceCheck|discoverLan\(/.test(lanBootstrap)) {
   throw new Error("LAN bootstrap verification must not invoke active discovery or service checks.");

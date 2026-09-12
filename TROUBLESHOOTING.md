@@ -439,3 +439,17 @@ and Supabase remain unchanged.
   do not supply router credentials or scrape the router.
 - If a service-check button is disabled, verify its flag, exact private CIDR,
   asset authorization, and per-asset monitoring state. Do not bypass it.
+
+## Host metrics troubleshooting
+
+- **Docker container fallback:** the backend is healthy but lacks full Windows-host
+  visibility. Open the installed/portable desktop for native metrics or manually run
+  `ServerHost` at a 30-second interval.
+- **Native metrics unavailable:** no platform failure occurred. Confirm the desktop
+  is the Windows Tauri build; browser-only mode cannot call native APIs.
+- **ServerHost stale:** confirm the helper is still open, the backend is reachable at
+  localhost, and the manually supplied admin token is current. Restart it manually;
+  do not create a service or scheduled task.
+- **LAN endpoint stale:** confirm TCP/8000 is reachable only from `192.168.50.0/24`,
+  the enrollment token was entered only at the prompt, and the 30/60-second cadence
+  is allowed. Never open the backend to a public network.

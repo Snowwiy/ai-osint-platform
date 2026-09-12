@@ -44,6 +44,7 @@ from app.schemas.monitoring import (
     MonitoringServiceStatus,
     MonitoringStatus,
     MonitoringSystemResponse,
+    TelemetrySource,
 )
 from app.services.health import health_snapshot
 from app.services.notification import create_notification
@@ -56,7 +57,11 @@ STALE_TARGET_DAYS = 30
 AGENT_STALE_SECONDS = 600
 UNRESOLVED_FINDING_STATUSES = {"new", "open", "under_review", "validated"}
 
-_latest_agent_sample: tuple[AgentTelemetryIngest, datetime] | None = None
+_latest_agent_samples: dict[str, tuple[AgentTelemetryIngest, datetime]] = {}
+_AGENT_SOURCE_PRECEDENCE: tuple[tuple[str, TelemetrySource, str], ...] = (
+    ("server_host", "server_endpoint_agent", "primary RavenTech server host"),
+    ("backend_host", "backend_host_agent", "backend host"),
+)
 
 
 async def get_monitoring_overview(
@@ -161,18 +166,25 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
 
 def get_system_metrics() -> MonitoringSystemResponse:
     now = datetime.now(UTC)
-    if _latest_agent_sample is not None:
-        sample, received_at = _latest_agent_sample
+    for role, source, scope in _AGENT_SOURCE_PRECEDENCE:
+        latest = _latest_agent_samples.get(role)
+        if latest is None or not settings.SERVER_HOST_METRICS_ENABLED:
+            continue
+        sample, received_at = latest
         age = max(0.0, (now - received_at).total_seconds())
         if age <= AGENT_STALE_SECONDS:
             return MonitoringSystemResponse(
                 generated_at=now,
-                source="local_agent",
-                metric_scope="authorized local host",
+                source=source,
+                metric_scope=scope,
                 available=True,
                 stale=False,
                 agent_id=sample.agent_id,
                 platform=sample.platform,
+                hostname=sample.hostname,
+                os_name=sample.os_name,
+                os_version=sample.os_version,
+                os_build=sample.os_build,
                 collected_at=sample.collected_at,
                 received_at=received_at,
                 cpu_percent=sample.cpu_percent,
@@ -180,7 +192,9 @@ def get_system_metrics() -> MonitoringSystemResponse:
                 disk_percent=sample.disk_percent,
                 process_count=sample.process_count,
                 uptime_seconds=sample.uptime_seconds,
-                detail="Latest optional local-agent sample; no secrets are collected.",
+                listening_tcp_ports=sample.listening_tcp_ports,
+                freshness_seconds=int(age),
+                detail="Latest manually operated host-agent sample; no secrets are collected.",
             )
 
     cpu_percent = _container_cpu_percent()
@@ -204,11 +218,12 @@ def get_system_metrics() -> MonitoringSystemResponse:
         disk_percent=disk_percent,
         process_count=process_count,
         detail=(
-            "Container-scoped fallback metrics; run the optional local agent for "
-            "Windows host metrics."
+            "Docker container fallback; these are not full host metrics. Run the "
+            "manual ServerHost agent or use the Tauri native metrics view."
             if available
             else "System metrics are unavailable; platform health remains usable."
         ),
+        fallback_reason="No fresh native desktop or server-host agent sample is available to the backend.",
     )
 
 
@@ -217,9 +232,8 @@ async def ingest_agent_telemetry(
     user: User,
     payload: AgentTelemetryIngest,
 ) -> AgentTelemetryIngestResponse:
-    global _latest_agent_sample
     received_at = datetime.now(UTC)
-    _latest_agent_sample = (payload, received_at)
+    _latest_agent_samples[payload.agent_role] = (payload, received_at)
     from app.services.audit import record_event
 
     await record_event(
@@ -230,6 +244,7 @@ async def ingest_agent_telemetry(
         metadata={
             "agent_id": payload.agent_id,
             "platform": payload.platform,
+            "agent_role": payload.agent_role,
             "metric_count": sum(
                 value is not None
                 for value in (
@@ -1148,5 +1163,4 @@ async def _retire_recovered_alerts(
 
 
 def _reset_agent_telemetry_for_tests() -> None:
-    global _latest_agent_sample
-    _latest_agent_sample = None
+    _latest_agent_samples.clear()

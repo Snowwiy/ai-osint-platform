@@ -10,6 +10,8 @@ const activation = await readFile(resolve(root, "src/components/MonitoringActiva
 const bootstrap = await readFile(resolve(root, "src/components/LanBootstrapPanel.tsx"), "utf8");
 const api = await readFile(resolve(root, "src/lib/api.ts"), "utf8");
 const i18n = await readFile(resolve(root, "src/lib/i18n.tsx"), "utf8");
+const native = await readFile(resolve(root, "src/lib/nativeHostMetrics.ts"), "utf8");
+const agents = await readFile(resolve(root, "src/components/AgentManagementPanel.tsx"), "utf8");
 
 test("authenticated application startup loads and safely polls monitoring summary", () => {
   assert.match(api, /request<MonitoringStartupStatus>\("\/monitoring\/startup"\)/);
@@ -47,5 +49,20 @@ test("new runtime states retain Spanish translations", () => {
     "Inicio guiado de LAN autorizada",
     "Verificar configuración LAN",
     "Observación manual del router",
+    "Métricas nativas del host",
+    "Agente de endpoint del servidor",
+    "Alternativa del contenedor Docker",
   ]) assert.ok(i18n.includes(phrase), `missing Spanish monitoring copy: ${phrase}`);
+});
+
+test("desktop host metrics take precedence and agent cadence stays manual", () => {
+  assert.match(center, /const metricSource = nativePrimary\s*\? t\("Host native metrics"\)/);
+  assert.match(center, /server_endpoint_agent/);
+  assert.match(center, /Docker container fallback/);
+  assert.match(native, /get_native_host_metrics/);
+  assert.match(native, /raventech-native-host-metrics/);
+  assert.match(agents, /-Mode ServerHost -BackendUrl http:\/\/localhost:8000/);
+  assert.match(agents, /-Mode LanEndpoint/);
+  assert.match(agents, /<ENROLLMENT_TOKEN>/);
+  assert.doesNotMatch(`${native}\n${agents}`, /Command\.create|shell:|schtasks|New-Service|Startup\\/i);
 });

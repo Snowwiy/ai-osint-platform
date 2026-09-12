@@ -77,6 +77,10 @@ class Settings(BaseSettings):
     DESKTOP_AUTO_MONITORING_ENABLED: bool = True
     MONITORING_AUTO_REFRESH_ENABLED: bool = True
     MONITORING_AUTO_REFRESH_SECONDS: int = 30
+    SERVER_HOST_METRICS_ENABLED: bool = True
+    SERVER_HOST_METRICS_INTERVAL_SECONDS: int = 30
+    LAN_ENDPOINT_AGENT_INTERVAL_SECONDS: int = 30
+    POSTURE_RECOMPUTE_INTERVAL_SECONDS: int = 300
     LAN_MONITORING_ENABLED: bool = False
     LAN_ALLOWED_CIDRS: str = "192.168.50.0/24"
     LAN_GATEWAY_HINT: str = "192.168.50.1"
@@ -186,6 +190,18 @@ class Settings(BaseSettings):
         if not 15 <= self.MONITORING_AUTO_REFRESH_SECONDS <= 300:
             errors.append(
                 "MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300."
+            )
+        if not 30 <= self.SERVER_HOST_METRICS_INTERVAL_SECONDS <= 3600:
+            errors.append(
+                "SERVER_HOST_METRICS_INTERVAL_SECONDS must be between 30 and 3600."
+            )
+        if not 30 <= self.LAN_ENDPOINT_AGENT_INTERVAL_SECONDS <= 3600:
+            errors.append(
+                "LAN_ENDPOINT_AGENT_INTERVAL_SECONDS must be between 30 and 3600."
+            )
+        if not 300 <= self.POSTURE_RECOMPUTE_INTERVAL_SECONDS <= 86_400:
+            errors.append(
+                "POSTURE_RECOMPUTE_INTERVAL_SECONDS must be between 300 and 86400."
             )
         if self.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS < 300:
             errors.append(

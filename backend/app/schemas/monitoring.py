@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 MonitoringStatus = Literal["healthy", "degraded", "unavailable"]
 MonitoringSeverity = Literal["info", "warning", "critical"]
-TelemetrySource = Literal["container", "local_agent"]
+TelemetrySource = Literal["container", "server_endpoint_agent", "backend_host_agent"]
 
 
 class MonitoringServiceStatus(BaseModel):
@@ -28,12 +28,25 @@ class MonitoringServicesResponse(BaseModel):
 class AgentTelemetryIngest(BaseModel):
     agent_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._-]+$")
     platform: Literal["windows", "linux", "macos", "other"] = "other"
+    agent_role: Literal["server_host", "backend_host"] = "backend_host"
+    hostname: str | None = Field(default=None, max_length=255)
+    os_name: str | None = Field(default=None, max_length=100)
+    os_version: str | None = Field(default=None, max_length=100)
+    os_build: str | None = Field(default=None, max_length=100)
     collected_at: datetime
     cpu_percent: float | None = Field(default=None, ge=0, le=100)
     memory_percent: float | None = Field(default=None, ge=0, le=100)
     disk_percent: float | None = Field(default=None, ge=0, le=100)
     process_count: int | None = Field(default=None, ge=0, le=1_000_000)
     uptime_seconds: int | None = Field(default=None, ge=0)
+    listening_tcp_ports: list[int] = Field(default_factory=list, max_length=64)
+
+    @field_validator("listening_tcp_ports")
+    @classmethod
+    def validate_listening_ports(cls, value: list[int]) -> list[int]:
+        if any(port < 1 or port > 65535 for port in value):
+            raise ValueError("listening TCP ports must be between 1 and 65535")
+        return sorted(set(value))
 
     @field_validator("collected_at")
     @classmethod
@@ -68,6 +81,10 @@ class MonitoringSystemResponse(BaseModel):
     stale: bool
     agent_id: str | None = None
     platform: str
+    hostname: str | None = None
+    os_name: str | None = None
+    os_version: str | None = None
+    os_build: str | None = None
     collected_at: datetime | None = None
     received_at: datetime | None = None
     cpu_percent: float | None = Field(default=None, ge=0, le=100)
@@ -75,6 +92,9 @@ class MonitoringSystemResponse(BaseModel):
     disk_percent: float | None = Field(default=None, ge=0, le=100)
     process_count: int | None = Field(default=None, ge=0)
     uptime_seconds: int | None = Field(default=None, ge=0)
+    listening_tcp_ports: list[int] = Field(default_factory=list)
+    freshness_seconds: int | None = Field(default=None, ge=0)
+    fallback_reason: str | None = None
     detail: str
 
 
@@ -176,6 +196,10 @@ class MonitoringStartupStatus(BaseModel):
     desktop_auto_monitoring_enabled: bool
     auto_refresh_enabled: bool
     auto_refresh_seconds: int = Field(ge=15, le=300)
+    server_host_metrics_enabled: bool
+    server_host_metrics_interval_seconds: int = Field(ge=30, le=3600)
+    lan_endpoint_agent_interval_seconds: int = Field(ge=30, le=3600)
+    posture_recompute_interval_seconds: int = Field(ge=300, le=86_400)
     lan_monitoring_enabled: bool
     service_check_enabled: bool
     lan_auto_discovery_on_start: bool

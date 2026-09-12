@@ -303,6 +303,10 @@ class MonitoringActivationStatus(BaseModel):
     desktop_auto_monitoring_enabled: bool
     auto_refresh_enabled: bool
     auto_refresh_seconds: int
+    server_host_metrics_enabled: bool
+    server_host_metrics_interval_seconds: int
+    lan_endpoint_agent_interval_seconds: int
+    posture_recompute_interval_seconds: int
     lan_monitoring_enabled: bool
     service_check_enabled: bool
     lan_auto_discovery_on_start: bool

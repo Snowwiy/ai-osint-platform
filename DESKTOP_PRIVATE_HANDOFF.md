@@ -126,3 +126,12 @@ administrator, and run the Activation bootstrap using `192.168.50.1/24`.
 Confirm `192.168.50.0/24`, gateway hint `192.168.50.1`, RC6, and zero discovery
 or service-check executions in the verification result. The desktop never edits
 `.env`; enrollment and restart commands remain copy-only/manual.
+
+## Phase 5BA host visibility handoff
+
+The desktop binary contains a fixed read-only native Windows metric command and no
+new capability permissions. Verify that the Server tab says **Host native metrics**
+when available. If unavailable, run the documented `ServerHost` helper manually;
+otherwise expect **Docker container fallback**, explicitly not full host visibility.
+No agent is installed, persisted, or started automatically. RC6 and all private,
+unsigned distribution constraints remain unchanged.

@@ -292,3 +292,27 @@ device already shown by an authorized router UI. RavenTech never logs in to,
 scrapes, configures, or blocks through the router. TCP checks remain limited to
 authorized monitored private assets and configured ports, without credentials,
 brute force, or exploit payloads.
+
+## Native host metrics and endpoint cadence
+
+In the installed or portable desktop, the Server tab chooses metrics in this
+order: native desktop host, fresh `ServerHost` endpoint agent, fresh backend-host
+agent, Docker container fallback, unavailable. Native collection uses read-only
+Windows APIs for CPU, memory, system-drive utilization, uptime, OS/build, hostname,
+and timestamp. It does not enumerate documents, command lines, browser history,
+credentials, tokens, or environment contents.
+
+Run the server helper manually from the repository root:
+
+```powershell
+.\scripts\local\local_monitor_agent.ps1 -Mode ServerHost -BackendUrl http://localhost:8000 -IntervalSeconds 30
+```
+
+On another approved `192.168.50.0/24` Windows endpoint, use the confirmed server
+address and `LanEndpoint` mode. The UI supplies only an `<ENROLLMENT_TOKEN>`
+placeholder and the secret is entered at the secure prompt. Recommended cadences
+are 30 seconds for server/endpoint samples and UI refresh, 300 seconds for LAN
+discovery/posture recompute, and 600 seconds for bounded service checks. Stop an
+agent with Ctrl+C; no service, scheduled task, persistence, or autostart is created.
+If LAN endpoints need port 8000, create a manual Windows firewall rule limited to
+remote subnet `192.168.50.0/24`, never Public profile or unrestricted sources.

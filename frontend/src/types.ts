@@ -3101,12 +3101,16 @@ export interface MonitoringServiceStatus {
 
 export interface MonitoringSystem {
   generated_at: string;
-  source: "container" | "local_agent";
+  source: "container" | "server_endpoint_agent" | "backend_host_agent";
   metric_scope: string;
   available: boolean;
   stale: boolean;
   agent_id: string | null;
   platform: string;
+  hostname: string | null;
+  os_name: string | null;
+  os_version: string | null;
+  os_build: string | null;
   collected_at: string | null;
   received_at: string | null;
   cpu_percent: number | null;
@@ -3114,6 +3118,9 @@ export interface MonitoringSystem {
   disk_percent: number | null;
   process_count: number | null;
   uptime_seconds: number | null;
+  listening_tcp_ports: number[];
+  freshness_seconds: number | null;
+  fallback_reason: string | null;
   detail: string;
 }
 
@@ -3247,6 +3254,10 @@ export interface MonitoringStartupStatus {
   desktop_auto_monitoring_enabled: boolean;
   auto_refresh_enabled: boolean;
   auto_refresh_seconds: number;
+  server_host_metrics_enabled: boolean;
+  server_host_metrics_interval_seconds: number;
+  lan_endpoint_agent_interval_seconds: number;
+  posture_recompute_interval_seconds: number;
   lan_monitoring_enabled: boolean;
   service_check_enabled: boolean;
   lan_auto_discovery_on_start: boolean;
@@ -3470,6 +3481,10 @@ export interface MonitoringActivationStatus {
   desktop_auto_monitoring_enabled: boolean;
   auto_refresh_enabled: boolean;
   auto_refresh_seconds: number;
+  server_host_metrics_enabled: boolean;
+  server_host_metrics_interval_seconds: number;
+  lan_endpoint_agent_interval_seconds: number;
+  posture_recompute_interval_seconds: number;
   lan_monitoring_enabled: boolean;
   service_check_enabled: boolean;
   lan_auto_discovery_on_start: boolean;

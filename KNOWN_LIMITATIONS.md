@@ -358,3 +358,14 @@ coverage limitations, not platform-health failures.
   host-IP detection. Confirm it and restrict firewall access to the private CIDR.
 - Manual observations are operator-supplied evidence requiring owner,
   authorization, and accuracy review.
+
+## Phase 5BA limitations
+
+- Native metrics are Windows desktop-only and show the system drive rather than
+  enumerating every volume. Browser mode relies on manual host-agent telemetry.
+- `ServerHost` and `LanEndpoint` helpers are foreground/manual processes with no
+  persistence, automatic restart, service installation, or autostart.
+- The backend's Docker metrics describe only the container and are intentionally
+  labeled as fallback. Missing host telemetry remains informational.
+- LAN agent reachability may require an operator-created firewall rule restricted
+  to `192.168.50.0/24`; RavenTech does not modify firewall or system settings.

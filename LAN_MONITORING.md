@@ -249,3 +249,13 @@ seconds, and host/port caps remain 256/32.
 Manual router observations accept name, private IP, optional MAC, interface,
 connection type, authorization, and notes. They populate inventory without
 router access and are validated against the configured private CIDR.
+
+## Endpoint telemetry cadence
+
+Authorized LAN endpoints normally report every 30 seconds; 60 seconds is available
+for lower-frequency testing. Discovery remains 300 seconds and service checks 600
+seconds when explicitly enabled. Missing agents remain observed LAN assets with
+"no host telemetry / endpoint agent recommended" guidance and do not degrade the
+platform. Limit inbound backend TCP/8000 to `192.168.50.0/24` when remote LAN agents
+must report. No public range, router automation, authentication attempt, or remote
+command is introduced.

@@ -23,6 +23,7 @@ import {
 } from "../lib/safe";
 import type { MonitoringStatus } from "../types";
 import { useI18n } from "../lib/i18n";
+import { useNativeHostMetrics } from "../lib/nativeHostMetrics";
 
 const fallbackIntervals = [15, 30, 60, 120, 300];
 type MonitoringTab = "server" | "services" | "activation" | "lan" | "agents" | "posture" | "baseline" | "changes" | "alerts" | "policies" | "maintenance";
@@ -31,6 +32,7 @@ export function MonitoringCenterPage(): JSX.Element {
   const { t } = useI18n();
   const [pollSeconds, setPollSeconds] = useState(30);
   const [tab, setTab] = useState<MonitoringTab>("server");
+  const nativeMetrics = useNativeHostMetrics();
   const startup = useQuery({
     queryKey: ["monitoring-startup"],
     queryFn: getMonitoringStartup,
@@ -60,6 +62,16 @@ export function MonitoringCenterPage(): JSX.Element {
   const serviceItems = safeArray(data?.services?.items);
   const assetItems = safeArray(data?.assets?.items);
   const system = data?.system;
+  const nativePrimary = nativeMetrics?.available === true ? nativeMetrics : null;
+  const metricSource = nativePrimary
+    ? t("Host native metrics")
+    : system?.source === "server_endpoint_agent"
+      ? t("Server endpoint agent")
+      : system?.source === "backend_host_agent"
+        ? t("Backend host agent")
+        : system?.source === "container" && system.available
+          ? t("Docker container fallback")
+          : t("Unavailable");
   const overviewVisible = tab === "server" || tab === "services";
 
   return (
@@ -136,7 +148,7 @@ export function MonitoringCenterPage(): JSX.Element {
               <div className="min-w-0">
                 <p className="font-semibold">Local platform {statusLabel(data.status)}</p>
                 <p className="text-sm text-raven-muted">Release {safeString(data.release_version, "unknown")} · read-only polling every {pollSeconds}s</p>
-                {system?.source === "container" ? <p className="mt-1 text-xs text-raven-muted">{data.status === "healthy" ? "Platform healthy · optional host telemetry unavailable; showing backend container metrics." : "Optional host telemetry unavailable; required dependency status is shown above."}</p> : <p className="mt-1 text-xs text-emerald-200">Optional host-agent telemetry available.</p>}
+                {nativePrimary || (system?.source !== "container" && system?.available) ? <p className="mt-1 text-xs text-emerald-200">{metricSource} {t("available")}</p> : system?.available ? <p className="mt-1 text-xs text-raven-muted">{t("Platform healthy; Docker container fallback is informational and is not full host visibility.")}</p> : <p className="mt-1 text-xs text-raven-muted">{t("Host telemetry unavailable is informational, not a platform failure.")}</p>}
               </div>
             </div>
             <StatusPill status={data.status} />
@@ -162,16 +174,18 @@ export function MonitoringCenterPage(): JSX.Element {
           {tab === "server" ? <section>
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <h2 className="text-lg font-semibold">System metrics</h2>
-              <p className="text-xs text-raven-muted">{system?.source === "local_agent" ? "Host-agent metrics" : "Container metrics"} · {safeString(system?.metric_scope, "local scope")}</p>
+              <p className="text-xs text-raven-muted">{metricSource} · {nativePrimary ? t("desktop host") : safeString(system?.metric_scope, "local scope")}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <Metric label="CPU" value={percentage(system?.cpu_percent)} />
-              <Metric label="Memory" value={percentage(system?.memory_percent)} />
-              <Metric label="Disk" value={percentage(system?.disk_percent)} />
-              <Metric label="Processes" value={metricValue(system?.process_count)} />
-              <Metric label={system?.source === "local_agent" ? "Host uptime" : "Container uptime"} value={duration(system?.uptime_seconds)} />
+              <Metric label="CPU" value={percentage(nativePrimary?.cpuPercent ?? system?.cpu_percent)} />
+              <Metric label="Memory" value={percentage(nativePrimary?.memoryPercent ?? system?.memory_percent)} />
+              <Metric label="Disk" value={percentage(nativePrimary?.diskPercent ?? system?.disk_percent)} />
+              <Metric label={t("Uptime")} value={duration(nativePrimary?.uptimeSeconds ?? system?.uptime_seconds)} />
+              <Metric label={t("Freshness")} value={nativePrimary ? duration(Math.max(0, Date.now() / 1000 - nativePrimary.sampledAtUnixMs / 1000)) : duration(system?.freshness_seconds)} />
             </div>
-            <p className="mt-2 text-xs text-raven-muted">{safeString(system?.detail, "System metrics are unavailable.")} Last sample: {safeDate(system?.collected_at)?.toLocaleString() ?? "not available"}</p>
+            <div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2"><p><strong>{t("OS")}:</strong> {safeString(nativePrimary?.osName ?? system?.os_name, safeString(system?.platform, t("Unavailable")))} {safeString(nativePrimary?.osVersion ?? system?.os_version)} {safeString(nativePrimary?.osBuild ?? system?.os_build)}</p><p><strong>{t("Hostname")}:</strong> {safeString(nativePrimary?.hostname ?? system?.hostname, t("Unavailable"))}</p><p><strong>{t("Last sample")}:</strong> {nativePrimary ? new Date(nativePrimary.sampledAtUnixMs).toLocaleString() : safeDate(system?.collected_at)?.toLocaleString() ?? t("Unavailable")}</p><p><strong>{t("Metric source")}:</strong> {metricSource}</p></div>
+            <p className="mt-2 text-xs text-raven-muted">{nativePrimary?.detail ?? safeString(system?.detail, t("System metrics are unavailable."))}</p>
+            {!nativePrimary && system?.source === "container" ? <p className="mt-2 rounded border border-cyan-300/30 p-3 text-xs text-cyan-100">{safeString(system.fallback_reason, t("Run the manual ServerHost agent for full host visibility."))}</p> : null}
           </section> : null}
 
           {tab === "server" ? <section>

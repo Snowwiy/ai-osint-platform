@@ -78,3 +78,14 @@ test("contains bilingual status and service-specific help without secret fields"
   }
   assert.doesNotMatch(`${app}\n${html}`, /(api[_-]?key|access[_-]?token|password|secret)\s*[:=]/i);
 });
+
+test("native host metrics use fixed read-only Windows APIs", () => {
+  for (const marker of ["GlobalMemoryStatusEx", "GetSystemTimes", "GetDiskFreeSpaceExW", "GetTickCount64", "GetComputerNameW", "GetVersionExW"]) {
+    assert.ok(rust.includes(marker), `missing native metric API: ${marker}`);
+  }
+  assert.match(rust, /async fn get_native_host_metrics\(\)/);
+  assert.match(app, /raventech-native-host-metrics/);
+  assert.match(html, /host-metrics-status/);
+  assert.doesNotMatch(rust, /wmic|powershell.*metric|Get-CimInstance/);
+  assert.deepEqual(capability.permissions, []);
+});

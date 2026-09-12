@@ -74,6 +74,10 @@ async def get_monitoring_startup_status(
         desktop_auto_monitoring_enabled=settings.DESKTOP_AUTO_MONITORING_ENABLED,
         auto_refresh_enabled=enabled,
         auto_refresh_seconds=settings.MONITORING_AUTO_REFRESH_SECONDS,
+        server_host_metrics_enabled=settings.SERVER_HOST_METRICS_ENABLED,
+        server_host_metrics_interval_seconds=settings.SERVER_HOST_METRICS_INTERVAL_SECONDS,
+        lan_endpoint_agent_interval_seconds=settings.LAN_ENDPOINT_AGENT_INTERVAL_SECONDS,
+        posture_recompute_interval_seconds=settings.POSTURE_RECOMPUTE_INTERVAL_SECONDS,
         lan_monitoring_enabled=lan_enabled,
         service_check_enabled=service_enabled,
         lan_auto_discovery_on_start=(

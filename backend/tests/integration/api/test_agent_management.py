@@ -104,6 +104,12 @@ async def test_agent_registration_heartbeat_revoke_and_inventory(
         },
     )
     assert heartbeat.status_code == 202
+    posture = await client.get(
+        f"/api/v1/monitoring/lan/assets/{asset_id}/posture",
+        headers=admin_headers,
+    )
+    assert posture.status_code == 200
+    assert posture.json()["agent_freshness"] == "fresh"
     inventory = await client.get("/api/v1/monitoring/agents", headers=admin_headers)
     assert inventory.status_code == 200
     assert inventory.json()["items"][0]["telemetry_fresh"] is True

@@ -8,7 +8,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 
 const LOOPBACK: &str = "127.0.0.1:8000";
@@ -50,7 +50,78 @@ struct ServiceSnapshot {
     frontend_port_status: String,
     release_matches: Option<bool>,
     migration_status: Option<String>,
+    native_host_metrics: NativeHostMetrics,
     setup: ProjectSetup,
+}
+
+#[derive(Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeHostMetrics {
+    available: bool,
+    source: String,
+    cpu_percent: Option<f64>,
+    memory_percent: Option<f64>,
+    disk_percent: Option<f64>,
+    uptime_seconds: Option<u64>,
+    os_name: Option<String>,
+    os_version: Option<String>,
+    os_build: Option<String>,
+    hostname: Option<String>,
+    sampled_at_unix_ms: u128,
+    detail: String,
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct WinFileTime {
+    low: u32,
+    high: u32,
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct WinMemoryStatus {
+    length: u32,
+    memory_load: u32,
+    total_phys: u64,
+    avail_phys: u64,
+    total_page_file: u64,
+    avail_page_file: u64,
+    total_virtual: u64,
+    avail_virtual: u64,
+    avail_extended_virtual: u64,
+}
+
+#[cfg(target_os = "windows")]
+#[repr(C)]
+struct WinVersionInfo {
+    size: u32,
+    major: u32,
+    minor: u32,
+    build: u32,
+    platform_id: u32,
+    service_pack: [u16; 128],
+}
+
+#[cfg(target_os = "windows")]
+#[link(name = "kernel32")]
+extern "system" {
+    fn GlobalMemoryStatusEx(status: *mut WinMemoryStatus) -> i32;
+    fn GetSystemTimes(
+        idle: *mut WinFileTime,
+        kernel: *mut WinFileTime,
+        user: *mut WinFileTime,
+    ) -> i32;
+    fn GetTickCount64() -> u64;
+    fn GetDiskFreeSpaceExW(
+        path: *const u16,
+        available: *mut u64,
+        total: *mut u64,
+        free: *mut u64,
+    ) -> i32;
+    fn GetComputerNameW(buffer: *mut u16, size: *mut u32) -> i32;
+    fn GetVersionExW(info: *mut WinVersionInfo) -> i32;
 }
 
 #[derive(Default, Serialize)]
@@ -234,6 +305,116 @@ fn embedded_frontend_probe() -> ProbeResult {
     }
 }
 
+fn sampled_at_unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
+#[cfg(target_os = "windows")]
+fn file_time_value(value: WinFileTime) -> u64 {
+    (u64::from(value.high) << 32) | u64::from(value.low)
+}
+
+#[cfg(target_os = "windows")]
+fn cpu_times() -> Option<(u64, u64)> {
+    let mut idle = WinFileTime::default();
+    let mut kernel = WinFileTime::default();
+    let mut user = WinFileTime::default();
+    let ok = unsafe { GetSystemTimes(&mut idle, &mut kernel, &mut user) };
+    (ok != 0).then(|| {
+        (
+            file_time_value(idle),
+            file_time_value(kernel) + file_time_value(user),
+        )
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn collect_native_host_metrics() -> NativeHostMetrics {
+    let before = cpu_times();
+    thread::sleep(Duration::from_millis(120));
+    let after = cpu_times();
+    let cpu_percent =
+        before
+            .zip(after)
+            .and_then(|((idle_a, total_a), (idle_b, total_b))| {
+                let idle = idle_b.saturating_sub(idle_a);
+                let total = total_b.saturating_sub(total_a);
+                (total > 0).then(|| {
+                    (((total.saturating_sub(idle)) as f64 / total as f64) * 100.0)
+                        .clamp(0.0, 100.0)
+                })
+            });
+
+    let mut memory = WinMemoryStatus {
+        length: std::mem::size_of::<WinMemoryStatus>() as u32,
+        memory_load: 0,
+        total_phys: 0,
+        avail_phys: 0,
+        total_page_file: 0,
+        avail_page_file: 0,
+        total_virtual: 0,
+        avail_virtual: 0,
+        avail_extended_virtual: 0,
+    };
+    let memory_percent = (unsafe { GlobalMemoryStatusEx(&mut memory) } != 0)
+        .then_some(f64::from(memory.memory_load));
+
+    let disk_path: Vec<u16> = "C:\\".encode_utf16().chain(std::iter::once(0)).collect();
+    let (mut available, mut total, mut free) = (0_u64, 0_u64, 0_u64);
+    let disk_percent = (unsafe {
+        GetDiskFreeSpaceExW(disk_path.as_ptr(), &mut available, &mut total, &mut free)
+    } != 0 && total > 0)
+        .then(|| (((total - free) as f64 / total as f64) * 100.0).clamp(0.0, 100.0));
+
+    let mut host_buffer = [0_u16; 256];
+    let mut host_length = host_buffer.len() as u32;
+    let hostname = (unsafe { GetComputerNameW(host_buffer.as_mut_ptr(), &mut host_length) } != 0)
+        .then(|| String::from_utf16_lossy(&host_buffer[..host_length as usize]));
+
+    let mut version = WinVersionInfo {
+        size: std::mem::size_of::<WinVersionInfo>() as u32,
+        major: 0,
+        minor: 0,
+        build: 0,
+        platform_id: 0,
+        service_pack: [0; 128],
+    };
+    let version_available = unsafe { GetVersionExW(&mut version) } != 0;
+    let available = cpu_percent.is_some() || memory_percent.is_some() || disk_percent.is_some();
+    NativeHostMetrics {
+        available,
+        source: "native_desktop".to_owned(),
+        cpu_percent: cpu_percent.map(|value| (value * 10.0).round() / 10.0),
+        memory_percent,
+        disk_percent: disk_percent.map(|value| (value * 10.0).round() / 10.0),
+        uptime_seconds: Some(unsafe { GetTickCount64() } / 1000),
+        os_name: Some("Windows".to_owned()),
+        os_version: version_available.then(|| format!("{}.{}", version.major, version.minor)),
+        os_build: version_available.then(|| version.build.to_string()),
+        hostname,
+        sampled_at_unix_ms: sampled_at_unix_ms(),
+        detail: if available {
+            "Read-only native Windows host metrics; no files, commands, environment values, or secrets were collected."
+        } else {
+            "Native Windows host metrics are unavailable; use the manual ServerHost agent or Docker fallback."
+        }
+        .to_owned(),
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_native_host_metrics() -> NativeHostMetrics {
+    NativeHostMetrics {
+        source: "unavailable".to_owned(),
+        sampled_at_unix_ms: sampled_at_unix_ms(),
+        detail: "Native desktop host metrics are currently implemented only for Windows.".to_owned(),
+        ..NativeHostMetrics::default()
+    }
+}
+
 fn port_status(address: &str, service_reachable: bool) -> String {
     if service_reachable {
         return "application".to_owned();
@@ -312,6 +493,7 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         .as_deref()
         .map(|version| version == EXPECTED_RELEASE);
     let setup = project_setup(app);
+    let native_host_metrics = collect_native_host_metrics();
 
     ServiceSnapshot {
         backend,
@@ -326,6 +508,7 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         frontend_port_status,
         release_matches,
         migration_status,
+        native_host_metrics,
         setup,
     }
 }
@@ -688,6 +871,18 @@ async fn probe_local_services(app: tauri::AppHandle) -> ServiceSnapshot {
 }
 
 #[tauri::command]
+async fn get_native_host_metrics() -> NativeHostMetrics {
+    tauri::async_runtime::spawn_blocking(collect_native_host_metrics)
+        .await
+        .unwrap_or_else(|_| NativeHostMetrics {
+            source: "unavailable".to_owned(),
+            sampled_at_unix_ms: sampled_at_unix_ms(),
+            detail: "Native host metric collection was interrupted; use the manual ServerHost agent or Docker fallback.".to_owned(),
+            ..NativeHostMetrics::default()
+        })
+}
+
+#[tauri::command]
 async fn get_project_setup(app: tauri::AppHandle) -> ProjectSetup {
     project_setup(&app)
 }
@@ -816,12 +1011,41 @@ mod tests {
             assert!(embedded_frontend_probe().healthy);
         }
     }
+
+    #[test]
+    fn native_metrics_are_bounded_and_secret_free() {
+        let sample = collect_native_host_metrics();
+        assert!(matches!(
+            sample.source.as_str(),
+            "native_desktop" | "unavailable"
+        ));
+        assert!(sample
+            .cpu_percent
+            .map_or(true, |value| (0.0..=100.0).contains(&value)));
+        assert!(sample
+            .memory_percent
+            .map_or(true, |value| (0.0..=100.0).contains(&value)));
+        assert!(sample
+            .disk_percent
+            .map_or(true, |value| (0.0..=100.0).contains(&value)));
+        #[cfg(target_os = "windows")]
+        {
+            assert!(sample.available);
+            assert_eq!(sample.source, "native_desktop");
+            assert!(sample.uptime_seconds.is_some());
+            assert!(sample.hostname.is_some());
+        }
+        let detail = sample.detail.to_ascii_lowercase();
+        assert!(!detail.contains("token="));
+        assert!(!detail.contains("password="));
+    }
 }
 
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             probe_local_services,
+            get_native_host_metrics,
             check_platform,
             start_platform,
             stop_platform,

@@ -108,6 +108,10 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
         desktop_auto_monitoring_enabled=settings.DESKTOP_AUTO_MONITORING_ENABLED,
         auto_refresh_enabled=settings.MONITORING_AUTO_REFRESH_ENABLED,
         auto_refresh_seconds=settings.MONITORING_AUTO_REFRESH_SECONDS,
+        server_host_metrics_enabled=settings.SERVER_HOST_METRICS_ENABLED,
+        server_host_metrics_interval_seconds=settings.SERVER_HOST_METRICS_INTERVAL_SECONDS,
+        lan_endpoint_agent_interval_seconds=settings.LAN_ENDPOINT_AGENT_INTERVAL_SECONDS,
+        posture_recompute_interval_seconds=settings.POSTURE_RECOMPUTE_INTERVAL_SECONDS,
         lan_monitoring_enabled=settings.LAN_MONITORING_ENABLED,
         service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
         lan_auto_discovery_on_start=(
@@ -137,6 +141,10 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "DESKTOP_AUTO_MONITORING_ENABLED=true",
             "MONITORING_AUTO_REFRESH_ENABLED=true",
             "MONITORING_AUTO_REFRESH_SECONDS=30",
+            "SERVER_HOST_METRICS_ENABLED=true",
+            "SERVER_HOST_METRICS_INTERVAL_SECONDS=30",
+            "LAN_ENDPOINT_AGENT_INTERVAL_SECONDS=30",
+            "POSTURE_RECOMPUTE_INTERVAL_SECONDS=300",
             "LAN_MONITORING_ENABLED=true",
             f"LAN_ALLOWED_CIDRS={','.join(allowed_cidrs)}",
             f"LAN_GATEWAY_HINT={settings.LAN_GATEWAY_HINT}",
@@ -576,6 +584,9 @@ async def ingest_agent_telemetry(
         },
     )
     await db.flush()
+    from app.services.endpoint_posture import refresh_asset_posture_if_due
+
+    await refresh_asset_posture_if_due(db, asset.id)
     return LanAgentTelemetryResponse(
         accepted=True,
         asset_id=asset.id,

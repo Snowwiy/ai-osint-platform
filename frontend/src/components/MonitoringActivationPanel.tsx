@@ -24,12 +24,13 @@ export function MonitoringActivationPanel(): JSX.Element {
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="font-semibold">Local monitoring activation</h2><p className="mt-1 text-sm text-raven-muted">Read-only guidance for this local Docker environment. The UI never edits <code>.env</code>.</p></div>
-          <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /></div>
+          <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.server_host_metrics_enabled} label={t("Server host metrics")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /></div>
         </div>
         <p className="mt-3 text-sm text-raven-muted">Allowed private ranges: {safeArray(data.allowed_cidrs).join(", ") || "none"}</p>
         <p className="mt-1 text-sm text-raven-muted">{t("Gateway hint")}: {safeString(data.gateway_hint, "unavailable")}</p>
         <p className="mt-1 text-sm text-raven-muted">Configured TCP ports: {safeArray(data.service_ports).join(", ") || "none"}</p>
         <p className="mt-1 text-sm text-raven-muted">{t("Auto refresh")}: {data.auto_refresh_seconds}s · {t("LAN discovery")}: {data.lan_auto_discovery_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_discovery_interval_seconds}s) · {t("Service checks")}: {data.lan_auto_service_check_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_service_check_interval_seconds}s)</p>
+        <p className="mt-1 text-sm text-raven-muted">{t("Server host metrics")}: {data.server_host_metrics_interval_seconds}s · {t("LAN endpoint agents")}: {data.lan_endpoint_agent_interval_seconds}s · {t("Posture recompute")}: {data.posture_recompute_interval_seconds}s</p>
         {!data.lan_monitoring_enabled ? <Notice text={t("Monitoring ready, LAN discovery disabled by configuration.")} informational /> : null}
         {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} informational /> : null}
         {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} informational /> : null}

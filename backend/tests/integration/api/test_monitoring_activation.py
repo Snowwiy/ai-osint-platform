@@ -38,6 +38,10 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
     assert "MONITORING_AUTO_REFRESH_ENABLED=true" in payload["env_lines"]
     assert "LAN_GATEWAY_HINT=192.168.0.1" in payload["env_lines"]
     assert payload["auto_refresh_enabled"] is True
+    assert payload["server_host_metrics_enabled"] is True
+    assert payload["server_host_metrics_interval_seconds"] == 30
+    assert payload["lan_endpoint_agent_interval_seconds"] == 30
+    assert payload["posture_recompute_interval_seconds"] == 300
     assert payload["lan_auto_discovery_on_start"] is False
     assert payload["lan_auto_service_check_on_start"] is False
     assert "Docker Desktop" in payload["docker_limitation"]

@@ -15,6 +15,7 @@ const translations = {
     startDocker: "Start Docker Desktop, then start the platform.", installDocker: "Install Docker Desktop manually; nothing is installed automatically.", backendPortConflict: "Port 8000 is occupied by another service.", frontendPortConflict: "Port 5173 is occupied by another service.",
     startBackend: "Start the approved local Docker services.", startFrontend: "Start the local Vite frontend for development/browser mode.", fixMigrations: "Use the approved platform start/check flow to resolve pending migrations.", releaseMismatchAction: "The backend release does not match 5.0.0-rc6.", runtimeReady: "Local runtime is ready.",
     backendHealth: "Backend", readiness: "Readiness", release: "Release", frontend: "Frontend", dockerServices: "Docker services", runtimeChecklist: "Runtime checklist", repoStructure: "Repository structure", dockerAvailability: "Docker availability", backendPort: "Port 8000", frontendPort: "Port 5173 (development only)", releaseMatch: "Expected release", migrationState: "Migrations",
+    hostMetrics: "Server host metrics", hostNative: "Host native metrics", serverAgentRecommended: "Run ServerHost agent", hostMetricsUnavailable: "Native metrics unavailable; the Monitoring Center will prefer a fresh ServerHost agent and label Docker metrics as fallback.",
     runningDocker: "Running", installedDocker: "Installed, not confirmed running", notDetected: "Not detected", application: "RavenTech responding", occupied: "Occupied by another service", portAvailable: "Available; service not listening", matches: "Matches", mismatch: "Mismatch", pending: "Pending or degraded",
     helpTitle: "Controlled local launcher", helpBody: "Approved actions use five fixed scripts from the validated repository. Copy remains available if runtime execution is unavailable.",
     backendHelpTitle: "Backend is not reachable", backendHelpBody: "Confirm Docker Desktop is running, then use Start platform. PostgreSQL and Redis remain required local services.", readinessHelpTitle: "Backend dependencies are not ready", readinessHelpBody: "A dependency or migration is degraded. Use Check health for a sanitized diagnosis.", frontendHelpTitle: "Frontend is not reachable", frontendHelpBody: "Run the Vite development server from the validated repository. It is not auto-installed or started outside the approved script flow.",
@@ -36,6 +37,7 @@ const translations = {
     startDocker: "Inicia Docker Desktop y después la plataforma.", installDocker: "Instala Docker Desktop manualmente; nada se instala automáticamente.", backendPortConflict: "El puerto 8000 está ocupado por otro servicio.", frontendPortConflict: "El puerto 5173 está ocupado por otro servicio.",
     startBackend: "Inicia los servicios Docker locales aprobados.", startFrontend: "Inicia el frontend Vite solo para desarrollo/modo navegador.", fixMigrations: "Usa el inicio/comprobación aprobado para resolver migraciones pendientes.", releaseMismatchAction: "La versión del backend no coincide con 5.0.0-rc6.", runtimeReady: "El entorno local está listo.",
     backendHealth: "Backend", readiness: "Disponibilidad", release: "Versión", frontend: "Frontend", dockerServices: "Servicios Docker", runtimeChecklist: "Lista del entorno", repoStructure: "Estructura del repositorio", dockerAvailability: "Disponibilidad de Docker", backendPort: "Puerto 8000", frontendPort: "Puerto 5173 (solo desarrollo)", releaseMatch: "Versión esperada", migrationState: "Migraciones",
+    hostMetrics: "Métricas del host servidor", hostNative: "Métricas nativas del host", serverAgentRecommended: "Ejecutar agente ServerHost", hostMetricsUnavailable: "Las métricas nativas no están disponibles; el Centro de Monitoreo preferirá un agente ServerHost reciente y etiquetará Docker como alternativa.",
     runningDocker: "En ejecución", installedDocker: "Instalado, ejecución no confirmada", notDetected: "No detectado", application: "RavenTech responde", occupied: "Ocupado por otro servicio", portAvailable: "Disponible; servicio sin escuchar", matches: "Coincide", mismatch: "No coincide", pending: "Pendientes o degradadas",
     helpTitle: "Iniciador local controlado", helpBody: "Las acciones aprobadas usan cinco scripts fijos del repositorio validado. Copiar sigue disponible si la ejecución no está disponible.",
     backendHelpTitle: "No se puede acceder al backend", backendHelpBody: "Confirma que Docker Desktop esté activo y usa Iniciar plataforma. PostgreSQL y Redis siguen siendo necesarios.", readinessHelpTitle: "Las dependencias del backend no están listas", readinessHelpBody: "Una dependencia o migración está degradada. Usa Comprobar salud para un diagnóstico sanitizado.", frontendHelpTitle: "No se puede acceder al frontend", frontendHelpBody: "Ejecuta el servidor Vite desde el repositorio validado. No se instala ni inicia automáticamente fuera del flujo aprobado.",
@@ -61,6 +63,7 @@ let language = localStorage.getItem("raventech-desktop-language") === "es" ? "es
 let checking = false, platformOpen = false, statusPinned = false, previouslyReady = false, launcherBusy = false;
 let lastCommandKey = null, lastResultKey = "notRun", currentSetup = null;
 let currentFrontendMode = "embedded";
+let currentSnapshot = null;
 
 function copy(key) { return translations[language][key] ?? translations.en[key] ?? key; }
 function setState(node, text, good) { node.textContent = text; node.className = good === true ? "ok" : good === false ? "offline" : ""; }
@@ -71,7 +74,21 @@ function renderLanguage() {
   document.querySelector("#language").textContent = language === "en" ? "Español" : "English";
   renderFrontendSource(); document.querySelector("#backend-url").textContent = BACKEND_URL;
   document.querySelector("#last-command").textContent = lastCommandKey ? copy(lastCommandKey) : copy("noCommand");
-  document.querySelector("#command-result").textContent = copy(lastResultKey); renderCommands(); if (currentSetup) renderSetup(currentSetup);
+  document.querySelector("#command-result").textContent = copy(lastResultKey); renderCommands(); if (currentSetup) renderSetup(currentSetup); if (currentSnapshot) renderHostMetrics(currentSnapshot.nativeHostMetrics);
+}
+
+function renderHostMetrics(metrics) {
+  const available = metrics?.available === true;
+  setState(document.querySelector("#host-metrics-status"), copy(available ? "hostNative" : "serverAgentRecommended"), available ? true : null);
+  document.querySelector("#host-metrics-detail").textContent = available ? `${metrics.hostname ?? copy("unknown")} · ${Math.round(metrics.cpuPercent ?? 0)}% CPU · ${Math.round(metrics.memoryPercent ?? 0)}% RAM` : copy("hostMetricsUnavailable");
+}
+
+function publishNativeMetrics(metrics) {
+  const frame = document.querySelector("#platform-frame");
+  if (!frame?.contentWindow || !metrics) return;
+  const origin = currentFrontendMode === "development" ? new URL(FRONTEND_URL).origin : window.location.origin;
+  if (!origin || origin === "null") return;
+  try { frame.contentWindow.postMessage({ type: "raventech-native-host-metrics", payload: metrics }, origin); } catch { /* Direct Tauri invocation remains available. */ }
 }
 
 function renderCommands() {
@@ -173,6 +190,7 @@ function renderChecklist(snapshot) {
 }
 
 function renderSnapshot(snapshot) {
+  currentSnapshot = snapshot;
   currentFrontendMode = snapshot.frontendMode === "development" ? "development" : "embedded"; renderFrontendSource(); renderCommands();
   renderSetup(snapshot.setup); renderChecklist(snapshot); renderWizard(snapshot); document.querySelector("#next-action").textContent = copy(nextRuntimeAction(snapshot));
   const backendState = !snapshot.backend.reachable ? "unreachable" : snapshot.backend.healthy ? "reachable" : "degraded";
@@ -183,6 +201,7 @@ function renderSnapshot(snapshot) {
   document.querySelector("#release-detail").textContent = snapshot.release.httpStatus ? `HTTP ${snapshot.release.httpStatus}` : copy("unknown");
   paint("#frontend-status", frontendState, currentFrontendMode === "embedded" ? copy("bundledAssets") : snapshot.frontend.httpStatus ? `HTTP ${snapshot.frontend.httpStatus}` : "");
   const dockerState = snapshot.dockerServicesStatus ?? (!snapshot.backend.reachable ? "unknown" : "degraded"); paint("#docker-status", dockerState, snapshot.dockerServicesStatus ? copy(dockerState) : copy("unknown"));
+  renderHostMetrics(snapshot.nativeHostMetrics); publishNativeMetrics(snapshot.nativeHostMetrics);
   const allReady = snapshot.setup.configuredPathValid && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   const summary = document.querySelector("#summary"), summaryText = document.querySelector("#summary-text"), openButton = document.querySelector("#open-platform"); openButton.hidden = !allReady;
   if (!snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
@@ -205,4 +224,5 @@ document.querySelector("#language").addEventListener("click", () => { language =
 document.querySelector("#refresh").addEventListener("click", refresh); document.querySelector("#show-status").addEventListener("click", () => showStatus(true)); document.querySelector("#open-platform").addEventListener("click", showPlatform);
 document.querySelector("#project-form").addEventListener("submit", saveProjectPath); document.querySelector("#clear-project-path").addEventListener("click", clearProjectPath);
 document.querySelector("#project-path").addEventListener("input", (event) => event.currentTarget.removeAttribute("aria-invalid"));
+document.querySelector("#platform-frame").addEventListener("load", () => publishNativeMetrics(currentSnapshot?.nativeHostMetrics));
 renderLanguage(); refresh(); window.setInterval(refresh, 15_000);

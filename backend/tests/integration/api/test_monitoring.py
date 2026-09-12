@@ -266,6 +266,11 @@ async def test_agent_ingest_is_admin_only_and_validated(
     payload = {
         "agent_id": "local-test",
         "platform": "windows",
+        "agent_role": "server_host",
+        "hostname": "RAVEN-SERVER",
+        "os_name": "Windows",
+        "os_version": "11",
+        "os_build": "26100",
         "collected_at": datetime.now(UTC).isoformat(),
         "cpu_percent": 12.5,
         "memory_percent": 35.5,
@@ -295,9 +300,40 @@ async def test_agent_ingest_is_admin_only_and_validated(
     assert accepted.status_code == 202
     assert accepted.json()["accepted"] is True
     assert system.status_code == 200
-    assert system.json()["source"] == "local_agent"
+    assert system.json()["source"] == "server_endpoint_agent"
     assert system.json()["agent_id"] == "local-test"
+    assert system.json()["hostname"] == "RAVEN-SERVER"
     assert system.json()["cpu_percent"] == 12.5
+    _reset_agent_telemetry_for_tests()
+
+
+async def test_server_host_agent_precedes_backend_host_agent(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    analyst_headers: dict[str, str],
+) -> None:
+    _reset_agent_telemetry_for_tests()
+    base = {
+        "platform": "windows",
+        "collected_at": datetime.now(UTC).isoformat(),
+        "cpu_percent": 10,
+    }
+    backend = await client.post(
+        "/api/v1/monitoring/agent/ingest",
+        headers=admin_headers,
+        json={**base, "agent_id": "backend-host", "agent_role": "backend_host"},
+    )
+    server = await client.post(
+        "/api/v1/monitoring/agent/ingest",
+        headers=admin_headers,
+        json={**base, "agent_id": "server-host", "agent_role": "server_host"},
+    )
+    system = await client.get("/api/v1/monitoring/system", headers=analyst_headers)
+
+    assert backend.status_code == 202
+    assert server.status_code == 202
+    assert system.json()["source"] == "server_endpoint_agent"
+    assert system.json()["agent_id"] == "server-host"
     _reset_agent_telemetry_for_tests()
 
 

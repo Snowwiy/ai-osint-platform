@@ -212,3 +212,10 @@ is part of this checklist.
 - [ ] Run one approved endpoint agent or import one router/static observation.
 - [ ] Verify heartbeat, service-check eligibility, posture, recommendations, and
   alerts. Run TCP checks only with explicit authorization and enabled config.
+- [ ] Confirm the Server tab metric source: native host, ServerHost agent, or
+  explicitly scoped Docker container fallback.
+- [ ] If native metrics are unavailable, manually run `.\scripts\local\local_monitor_agent.ps1 -Mode ServerHost -BackendUrl http://localhost:8000 -IntervalSeconds 30`.
+- [ ] For another approved LAN PC, use `LanEndpoint`, a one-time enrollment token,
+  and the confirmed private backend address; never place the token on the command line.
+- [ ] If required, manually limit Windows Firewall inbound TCP/8000 to
+  `192.168.50.0/24`. Do not enable Public-profile or unrestricted access.

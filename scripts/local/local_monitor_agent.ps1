@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
-    [ValidateSet("Server", "LanEndpoint")]
-    [string]$Mode = "Server",
+    [ValidateSet("ServerHost", "BackendHost", "Server", "LanEndpoint")]
+    [string]$Mode = "ServerHost",
     [ValidateRange(10, 3600)]
     [int]$IntervalSeconds = 30,
     [ValidatePattern("^[A-Za-z0-9._-]+$")]
@@ -167,7 +167,8 @@ try {
         $headers = @{ Authorization = "Bearer $secretValue" }
         $endpoint = $BackendUrl.TrimEnd("/") + "/api/v1/monitoring/agent/ingest"
         $assetId = $null
-        Write-Host "Sending server telemetry every $IntervalSeconds seconds. Press Ctrl+C to stop."
+        $agentRole = if ($Mode -eq "ServerHost") { "server_host" } else { "backend_host" }
+        Write-Host "Sending $Mode telemetry every $IntervalSeconds seconds. Press Ctrl+C to stop."
     }
 
     do {
@@ -199,12 +200,18 @@ try {
                 $payload = @{
                     agent_id = $AgentId
                     platform = "windows"
+                    agent_role = $agentRole
+                    hostname = $env:COMPUTERNAME
+                    os_name = $sample.os_name
+                    os_version = $sample.os_version
+                    os_build = $sample.os_build
                     collected_at = $sample.collected_at
                     cpu_percent = $sample.cpu_percent
                     memory_percent = $sample.memory_percent
                     disk_percent = $sample.disk_percent
                     process_count = $sample.process_count
                     uptime_seconds = $sample.uptime_seconds
+                    listening_tcp_ports = $sample.listening_tcp_ports
                 } | ConvertTo-Json -Compress
             }
             $response = Invoke-RestMethod -Method Post -Uri $endpoint `

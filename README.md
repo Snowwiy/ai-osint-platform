@@ -650,3 +650,13 @@ LAN Bootstrap**. Entering `192.168.50.1/24` is normalized to the network boundar
 checks. It supplies copy-only `.env` guidance, one-time endpoint enrollment
 instructions, and a manual router/static observation form. Docker/backend remain
 required; installed and portable clients continue to use embedded assets.
+
+### Phase 5BA host metric precedence
+
+The desktop Monitoring Center now prefers read-only native Windows host metrics,
+then a fresh manual `ServerHost` agent, then a backend-host agent, and finally a
+clearly labeled **Docker container fallback**. Container CPU, memory, disk, and
+uptime are not presented as full host visibility. Run the main-host helper with
+`.\scripts\local\local_monitor_agent.ps1 -Mode ServerHost -BackendUrl http://localhost:8000 -IntervalSeconds 30`.
+Other authorized PCs use `-Mode LanEndpoint -BackendUrl http://192.168.50.201:8000 -IntervalSeconds 30` only after confirming that private server address.
+Agents are manual and non-persistent; no autostart, remote commands, or public scanning is installed.

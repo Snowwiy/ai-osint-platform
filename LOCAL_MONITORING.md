@@ -261,3 +261,13 @@ and refreshes existing monitoring summaries. It explicitly records that
 discovery and service checks were not executed. Public, invalid, and ranges
 larger than `LAN_SERVICE_CHECK_MAX_HOSTS` are rejected. Commands contain only an
 `<ENROLLMENT_TOKEN>` placeholder; secrets never appear in verification or logs.
+
+## Server metric sources
+
+System Metrics uses: Tauri native host metrics, `ServerHost` agent telemetry,
+backend-host agent telemetry, Docker container fallback, then unavailable. Native
+desktop metrics never transit the backend and remain inside the local webview.
+The Docker fallback is informational and cannot describe the entire Windows host.
+Defaults are `SERVER_HOST_METRICS_INTERVAL_SECONDS=30`,
+`LAN_ENDPOINT_AGENT_INTERVAL_SECONDS=30`, and
+`POSTURE_RECOMPUTE_INTERVAL_SECONDS=300`. All helpers remain manual-only.

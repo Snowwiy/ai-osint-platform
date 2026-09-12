@@ -50,6 +50,10 @@ def test_lan_monitoring_defaults_are_non_intrusive() -> None:
     assert local_settings.DESKTOP_AUTO_MONITORING_ENABLED is True
     assert local_settings.MONITORING_AUTO_REFRESH_ENABLED is True
     assert local_settings.MONITORING_AUTO_REFRESH_SECONDS == 30
+    assert local_settings.SERVER_HOST_METRICS_ENABLED is True
+    assert local_settings.SERVER_HOST_METRICS_INTERVAL_SECONDS == 30
+    assert local_settings.LAN_ENDPOINT_AGENT_INTERVAL_SECONDS == 30
+    assert local_settings.POSTURE_RECOMPUTE_INTERVAL_SECONDS == 300
     assert local_settings.LAN_AUTO_DISCOVERY_ON_START is False
     assert local_settings.LAN_AUTO_SERVICE_CHECK_ON_START is False
     assert local_settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS == 300
@@ -66,12 +70,18 @@ def test_monitoring_automatic_intervals_are_bounded() -> None:
         MONITORING_AUTO_REFRESH_SECONDS=5,
         LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=60,
         LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=120,
+        SERVER_HOST_METRICS_INTERVAL_SECONDS=5,
+        LAN_ENDPOINT_AGENT_INTERVAL_SECONDS=5,
+        POSTURE_RECOMPUTE_INTERVAL_SECONDS=60,
     )
 
     errors = invalid.startup_errors()
     assert "MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300." in errors
     assert "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS must be at least 300." in errors
     assert "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS must be at least 600." in errors
+    assert "SERVER_HOST_METRICS_INTERVAL_SECONDS must be between 30 and 3600." in errors
+    assert "LAN_ENDPOINT_AGENT_INTERVAL_SECONDS must be between 30 and 3600." in errors
+    assert "POSTURE_RECOMPUTE_INTERVAL_SECONDS must be between 300 and 86400." in errors
 
 
 def test_local_desktop_origins_are_exact_and_production_is_unchanged() -> None:

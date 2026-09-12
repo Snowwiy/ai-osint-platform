@@ -134,3 +134,13 @@ unknown-device review, critical assets missing agents, stale agents, risky
 RDP/SMB/Redis/PostgreSQL exposure, non-standard SSH, missing expected services,
 and manual block/isolate guidance. These are risk indicators, not claims of
 exploitation or compromise; every action requires manual owner review.
+
+## Telemetry-driven updates
+
+Each accepted `LanEndpoint` heartbeat updates asset freshness, agent coverage,
+posture evidence, stale-agent state, critical gaps, and advisory recommendations
+through the existing defensive pipeline. The primary server may use native desktop
+metrics or manual `ServerHost` mode; Docker-only data remains explicitly scoped to
+the container. Cadence defaults are 30 seconds for agents and 300 seconds for
+posture recomputation. Missing optional telemetry is informational, not a platform
+failure.

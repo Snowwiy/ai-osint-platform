@@ -68,7 +68,7 @@ class RecommendationSpec:
 
 
 async def assess_asset_posture(
-    db: AsyncSession, user: User, asset_id: uuid.UUID
+    db: AsyncSession, user: User | None, asset_id: uuid.UUID
 ) -> EndpointSecurityPostureResponse:
     asset = await db.get(LanAsset, asset_id)
     if asset is None:
@@ -126,7 +126,7 @@ async def assess_asset_posture(
     await record_event(
         db,
         action="monitoring.endpoint_posture_assessed",
-        actor_id=user.id,
+        actor_id=user.id if user else None,
         resource_type="lan_asset",
         resource_id=asset.id,
         metadata={
@@ -136,6 +136,25 @@ async def assess_asset_posture(
         },
     )
     return _posture_response(posture, asset)
+
+
+async def refresh_asset_posture_if_due(
+    db: AsyncSession, asset_id: uuid.UUID
+) -> EndpointSecurityPostureResponse | None:
+    """Recompute advisory posture at a bounded cadence after agent telemetry."""
+    posture = (
+        await db.execute(
+            select(EndpointSecurityPosture).where(
+                EndpointSecurityPosture.lan_asset_id == asset_id
+            )
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if posture is not None and now - posture.assessed_at < timedelta(
+        seconds=settings.POSTURE_RECOMPUTE_INTERVAL_SECONDS
+    ):
+        return None
+    return await assess_asset_posture(db, None, asset_id)
 
 
 async def assess_all_postures(
