@@ -152,3 +152,10 @@ status, critical gaps, and active advisory recommendations. Expected review item
 include missing/stale agents, unauthorized assets, risky exposed services, missing
 expected services, and manual isolate/block guidance. These remain recommendations
 for an operator decision; they are not evidence of exploitation or compromise.
+
+For Phase 5BC, verify posture only after the configured service restart and a
+stored observation or fresh heartbeat. A `ServerHost` sample can replace Docker
+fallback metrics; a `LanEndpoint` sample updates endpoint freshness and the bounded
+posture cadence. Unauthorized or risky-service observations may create deduplicated
+advisory recommendations, including manual isolate/block review. Recovered states
+retire through the existing alert lifecycle; no enforcement action is performed.

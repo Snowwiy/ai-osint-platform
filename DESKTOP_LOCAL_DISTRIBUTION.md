@@ -10,7 +10,8 @@ subject to the existing private-CIDR, target, port, timeout, policy, maintenance
 cooldown, and deduplication controls.
 It is an unpublished, unsigned QA workflow—not a public release.
 
-Phase 5AQ adds optional runtime orchestration for five fixed repository scripts.
+Phase 5BC allows optional runtime orchestration for six fixed repository scripts,
+including the bounded LAN configuration profile.
 It does not add service autostart or arbitrary shell access.
 
 Phase 5AR adds first-run path binding for installed and portable launches. Enter

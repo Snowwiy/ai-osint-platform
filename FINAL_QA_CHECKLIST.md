@@ -105,7 +105,7 @@ Version: `5.0.0-rc6`
 ## Phase 5AR — first-run setup and project-path reliability
 
 - [ ] Manual path input accepts the RavenTech root only when compose, Python,
-      desktop, frontend, backend, and all five approved script markers validate.
+      desktop, frontend, backend, and all six approved script markers validate.
 - [ ] Altered content under an approved script filename is rejected using the
       scripts pinned into the desktop build.
 - [ ] Invalid, missing, moved, and incomplete paths are rejected or produce a
@@ -123,7 +123,8 @@ Version: `5.0.0-rc6`
 ## Phase 5AQ — controlled local service launcher
 
 - [ ] Rust exposes only argument-free check/start/stop/restart/open-frontend
-      actions mapped to the five approved `scripts/local/` filenames; the injected
+      actions plus the fixed, confirmation-gated LAN configuration action mapped
+      to the six approved `scripts/local/` filenames; the injected
       app handle is not user input.
 - [ ] Script resolution uses the validated saved path and canonical local ancestry;
       no UI command, argument, or script filename is accepted. The separate setup

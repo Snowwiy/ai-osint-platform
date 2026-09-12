@@ -465,3 +465,11 @@ and Supabase remain unchanged.
   aggressively or install persistence.
 - **Service check ineligible:** the displayed reason identifies the disabled flag,
   CIDR mismatch, missing authorization, or per-asset monitoring state. Do not bypass it.
+- **Fixed profile apply unavailable:** bind the correct repository and restore the
+  exact six scripts from trusted Git. In browser mode, use the copy-only profile.
+- **Duplicate monitoring key:** resolve the duplicate active key manually; the script
+  stops before backup/write so it cannot silently choose between conflicting values.
+- **Restart still required:** use the separately confirmed restart action and wait for
+  health/readiness/RC6 verification. Never restart by supplying custom commands.
+- **Need to recover `.env`:** stop and review the timestamped ignored backup locally.
+  Do not print, attach, or commit it because it may contain existing secrets.

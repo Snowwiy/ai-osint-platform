@@ -16,7 +16,7 @@ credentials, database contents, or report contents.
 The receiving machine needs two separate inputs:
 
 1. A RavenTech OSINT repository checkout for Docker services, migrations, the
-   Vite frontend, configuration, and the five approved launcher scripts.
+   Vite frontend, configuration, and the six approved local scripts.
 2. The ignored private distribution folder for the portable executable and
    unsigned installer.
 

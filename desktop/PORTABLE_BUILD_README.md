@@ -24,8 +24,8 @@ The portable executable contains the built React frontend. For optional browser
 or desktop-development testing only, run `npm run dev` from `frontend/`.
 
 The portable application never starts services automatically. When it can
-discover the repository above its executable, it can run only five fixed local
-scripts; start, stop, and restart require confirmation. Copy remains available
+discover the repository above its executable, it can run only six fixed local
+scripts; start, stop, restart, and LAN configuration require confirmation. Copy remains available
 for every action, and Vite/Docker direct commands remain copy-only.
 
 ## Run the portable application

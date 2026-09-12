@@ -36,7 +36,7 @@ test("operator manual covers the fixed local workflow", async () => {
     "Posture recommendations", "Reports and export", "Backup and restore",
     "Troubleshooting", "Limitations and safety boundary",
   ]) assert.match(manual, new RegExp(`##[#]? ${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"]) {
     assert.match(manual, new RegExp(script.replace(".", "\\.")));
   }
   for (const url of ["http://localhost:5173", "http://localhost:8000", "/health/ready", "/api/v1/release"]) {
@@ -117,7 +117,7 @@ test("desktop security boundary remains unchanged", async () => {
   assert.doesNotMatch(cargo, /tauri-plugin-(shell|fs|updater)/i);
   const programs = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
   assert.deepEqual(programs, ["&powershell"]);
-  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+  for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"]) {
     assert.ok(rust.includes(script));
   }
 });

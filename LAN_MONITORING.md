@@ -270,3 +270,15 @@ inside `192.168.50.0/24`. Results distinguish open, closed, filtered, and timeou
 states; SSH and non-standard SSH are indicators only. Risk labels recommend manual
 review and never assert compromise. Docker neighbor gaps should be handled with
 manual router/static evidence or an endpoint agent, never router credentials.
+
+## Controlled activation profile
+
+The fixed desktop profile enables LAN monitoring, ping observations, separately
+gated TCP service checks, SSH indication, native/server host metrics, and 30-second
+manual agent cadence for `192.168.50.0/24` with gateway hint `192.168.50.1`.
+Auto-discovery-on-start and auto-service-check-on-start remain false. After the
+confirmed apply, restart separately and verify status before importing known router
+devices or running a bounded check. The import form supports gateway, workstation,
+phone, Alexa/IoT, and unknown-device observations through name, IP, optional MAC,
+connection type, interface/band, authorization, and notes. It never contacts the
+router or blocks a device.

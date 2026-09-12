@@ -280,3 +280,42 @@ agent coverage, posture/recommendation counts, and backend metric source. It rea
 stored local state only and does not initiate discovery, TCP connections, agent
 execution, or router access. The desktop supplements this with native host metrics
 when available and continues to label disabled optional monitoring as informational.
+
+## Fixed configuration activation
+
+`apply_lan_monitoring_config.ps1` has no parameters and is the sixth exact desktop
+launcher entry. It normalizes the internal `192.168.50.1/24` input to
+`192.168.50.0/24`, rejects non-private or over-256-host profiles, preserves unknown
+and secret `.env` lines, rejects duplicate active monitoring keys, creates an
+ignored timestamped backup, and writes only the 21 approved non-secret keys. Its
+output contains the backup filename and changed key names, never existing values.
+Apply and restart each require their own desktop confirmation; no discovery or
+service check runs as a side effect.
+
+The complete write allowlist is:
+
+```text
+DESKTOP_AUTO_MONITORING_ENABLED
+MONITORING_AUTO_REFRESH_ENABLED
+MONITORING_AUTO_REFRESH_SECONDS
+LAN_MONITORING_ENABLED
+LAN_ALLOWED_CIDRS
+LAN_GATEWAY_HINT
+LAN_DISCOVERY_PING_ENABLED
+LAN_SERVICE_CHECK_ENABLED
+LAN_AUTO_DISCOVERY_ON_START
+LAN_AUTO_SERVICE_CHECK_ON_START
+LAN_AUTO_DISCOVERY_INTERVAL_SECONDS
+LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS
+LAN_SERVICE_CHECK_PORTS
+LAN_SERVICE_CHECK_TIMEOUT_SECONDS
+LAN_SERVICE_CHECK_MAX_HOSTS
+LAN_SERVICE_CHECK_MAX_PORTS
+LAN_REJECT_PUBLIC_CIDRS
+LAN_SSH_BANNER_DETECTION_ENABLED
+SERVER_HOST_METRICS_ENABLED
+SERVER_HOST_METRICS_INTERVAL_SECONDS
+LAN_ENDPOINT_AGENT_INTERVAL_SECONDS
+```
+
+No other `.env` key is eligible for modification by this action.

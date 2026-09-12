@@ -56,7 +56,7 @@ use the embedded UI; Vite is retained only as a development fallback.
 - shows a bilingual English/Spanish help screen when services are unavailable
 - displays copyable start, stop, restart, check, and frontend commands
 - displays copy-only helpers for the browser opener and direct Docker services
-- can invoke only five approved scripts when the repository is discoverable;
+- can invoke only six approved scripts when the repository is discoverable;
   otherwise it retains the copy-only fallback
 - shows Docker dependency state plus the last launcher action and sanitized result
 - returns to the help screen when a later service check fails

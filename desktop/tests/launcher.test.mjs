@@ -12,13 +12,13 @@ const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri", "capa
 
 const scripts = [
   "start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1",
-  "check_platform.ps1", "open_platform.ps1",
+  "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1",
 ];
 const commands = [
   "check_platform", "start_platform", "stop_platform", "restart_platform", "open_local_frontend",
 ];
 
-test("Rust launcher allowlist contains exactly the five approved scripts", () => {
+test("Rust launcher allowlist contains exactly the six approved scripts", () => {
   for (const script of scripts) assert.ok(rust.includes(`"${script}"`), `missing ${script}`);
   for (const rejected of ["reset_demo.ps1", "restore_db.ps1", "backup_db.ps1", "local_monitor_agent.ps1"]) {
     assert.ok(!rust.includes(rejected), `unsafe script entered allowlist: ${rejected}`);
@@ -78,4 +78,7 @@ test("start stop and restart require confirmation while copy fallback remains", 
   assert.match(html, /id="confirm-dialog"/);
   assert.match(app, /navigator\.clipboard\.writeText\(command\.text\)/);
   assert.match(app, /commandUnavailable/);
+  assert.match(app, /label: "applyLanConfig"[^\n]+confirm: true[^\n]+confirmedArgument: true/);
+  assert.match(rust, /async fn apply_lan_monitoring_config\([\s\S]*confirmed: bool/);
+  assert.match(rust, /if !confirmed/);
 });

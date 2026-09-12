@@ -46,15 +46,17 @@ test("production embeds React while development accepts successful HTML", () => 
 test("offers copy fallback and only fixed controlled launcher actions", () => {
   for (const command of [
     "start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1",
-    "check_platform.ps1", "open_platform.ps1 -Target frontend",
+    "check_platform.ps1", "apply_lan_monitoring_config.ps1", "open_platform.ps1 -Target frontend",
     "cd frontend; npm run dev", "docker compose up -d postgres redis backend celery-worker"
   ]) assert.ok(app.includes(command), `missing copy command: ${command}`);
   assert.doesNotMatch(app, /__TAURI__\.(shell|process)|Command\.create|invoke\(["'](?:shell|execute)/i);
-  for (const invoke of ["start_platform", "stop_platform", "restart_platform", "check_platform", "open_local_frontend"]) {
+  for (const invoke of ["start_platform", "stop_platform", "restart_platform", "check_platform", "apply_lan_monitoring_config", "open_local_frontend"]) {
     assert.ok(app.includes(`invoke: "${invoke}"`), `missing fixed launcher mapping: ${invoke}`);
   }
   assert.match(rust, /Command::new\(&powershell\)/);
   assert.match(rust, /join\("System32"\)/);
+  assert.match(app, /confirmedArgument: true/);
+  assert.match(rust, /if !confirmed/);
 });
 
 test("keeps Tauri permissions and navigation constrained", () => {

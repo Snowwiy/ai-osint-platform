@@ -17,8 +17,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\start_platfo
 The desktop includes the built React frontend and expects the backend at
 `http://localhost:8000`. `http://localhost:5173` and `npm run dev` are optional
 for browser/development testing only. Use the first-run screen to bind the repository root.
-Start, stop, and restart actions require confirmation and can invoke only the
-five fixed local launcher scripts. If the repository cannot be validated, the
+Start, stop, restart, and LAN configuration actions require confirmation and can
+invoke only six fixed local scripts. If the repository cannot be validated, the
 desktop keeps copy-only guidance.
 
 ## Portable app

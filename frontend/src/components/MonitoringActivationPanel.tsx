@@ -1,5 +1,6 @@
 import { CheckCircle2, Clipboard, Info, ShieldAlert } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { getMonitoringActivation } from "../lib/api";
 import { safeArray, safeString } from "../lib/safe";
@@ -9,6 +10,8 @@ import { LanBootstrapPanel } from "./LanBootstrapPanel";
 
 export function MonitoringActivationPanel(): JSX.Element {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const [desktopAction, setDesktopAction] = useState<DesktopActionState | null>(null);
   const activation = useQuery({
     queryKey: ["monitoring-activation"],
     queryFn: getMonitoringActivation,
@@ -18,12 +21,34 @@ export function MonitoringActivationPanel(): JSX.Element {
   if (activation.error) return <ErrorBlock message="Local activation guidance is temporarily unavailable." onRetry={() => void activation.refetch()} />;
   const data = activation.data;
   if (!data) return <ErrorBlock message="Local activation guidance is temporarily unavailable." />;
+  const applyProfile = async (): Promise<void> => {
+    if (!window.confirm(t("Apply the fixed private LAN profile after creating a timestamped .env backup?"))) return;
+    const invoke = desktopInvoke();
+    if (!invoke) {
+      await navigator.clipboard.writeText(safeArray(data.env_lines).join("\n"));
+      setDesktopAction({ success: false, message: t("Desktop execution is unavailable; the reviewed profile was copied only."), output: "", appliedAt: null, restartRequired: false });
+      return;
+    }
+    const result = await invoke("apply_lan_monitoring_config", { confirmed: true });
+    setDesktopAction({ success: result.success, message: result.message, output: result.output, appliedAt: result.success ? new Date() : null, restartRequired: result.success });
+  };
+  const restartAndVerify = async (): Promise<void> => {
+    if (!window.confirm(t("Restart the approved local services and verify health, readiness, and RC6?"))) return;
+    const invoke = desktopInvoke();
+    if (!invoke) {
+      setDesktopAction((current) => current ? { ...current, message: t("Desktop execution is unavailable; use the copy-only restart command.") } : current);
+      return;
+    }
+    const result = await invoke("restart_platform");
+    setDesktopAction((current) => ({ success: result.success, message: result.message, output: result.output, appliedAt: current?.appliedAt ?? null, restartRequired: !result.success }));
+    await Promise.all([activation.refetch(), queryClient.invalidateQueries({ queryKey: ["monitoring-startup"] }), queryClient.invalidateQueries({ queryKey: ["monitoring-overview"] })]);
+  };
   return (
     <div className="min-w-0 space-y-5">
       <LanBootstrapPanel />
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div><h2 className="font-semibold">Local monitoring activation</h2><p className="mt-1 text-sm text-raven-muted">Read-only guidance for this local Docker environment. The UI never edits <code>.env</code>.</p></div>
+          <div><h2 className="font-semibold">{t("Local monitoring activation")}</h2><p className="mt-1 text-sm text-raven-muted">{t("The desktop may apply only the reviewed non-secret profile after confirmation and backup; browser mode remains copy-only.")}</p></div>
           <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.server_host_metrics_enabled} label={t("Server host metrics")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /></div>
         </div>
         <p className="mt-3 text-sm text-raven-muted">Allowed private ranges: {safeArray(data.allowed_cidrs).join(", ") || "none"}</p>
@@ -31,10 +56,17 @@ export function MonitoringActivationPanel(): JSX.Element {
         <p className="mt-1 text-sm text-raven-muted">Configured TCP ports: {safeArray(data.service_ports).join(", ") || "none"}</p>
         <p className="mt-1 text-sm text-raven-muted">{t("Auto refresh")}: {data.auto_refresh_seconds}s · {t("LAN discovery")}: {data.lan_auto_discovery_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_discovery_interval_seconds}s) · {t("Service checks")}: {data.lan_auto_service_check_on_start ? t("Enabled by configuration") : t("Disabled by configuration")} ({data.lan_auto_service_check_interval_seconds}s)</p>
         <p className="mt-1 text-sm text-raven-muted">{t("Server host metrics")}: {data.server_host_metrics_interval_seconds}s · {t("LAN endpoint agents")}: {data.lan_endpoint_agent_interval_seconds}s · {t("Posture recompute")}: {data.posture_recompute_interval_seconds}s</p>
+        <p className="mt-1 text-sm text-raven-muted">{t("Config source")}: {t("Local .env loaded by Docker Compose")}</p>
         {!data.lan_monitoring_enabled ? <Notice text={t("Monitoring ready, LAN discovery disabled by configuration.")} informational /> : null}
         {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} informational /> : null}
         {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} informational /> : null}
         <div className="mt-3 grid gap-2 md:grid-cols-2"><Notice text={data.docker_limitation} /><Notice text={data.optional_telemetry_note} /></div>
+      </section>
+
+      <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-medium">{t("Controlled LAN activation")}</h3><p className="mt-1 max-w-3xl text-sm text-raven-muted">{t("Applies the fixed 192.168.50.0/24 profile only. Existing secrets and unknown settings are preserved and never displayed.")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => void applyProfile()} className="rounded border border-raven-border px-3 py-2 text-sm">{t("Apply fixed LAN profile")}</button><button type="button" disabled={!desktopAction?.restartRequired} onClick={() => void restartAndVerify()} className="rounded bg-raven-violet px-3 py-2 text-sm text-white disabled:opacity-50">{t("Restart and verify")}</button></div></div>
+        <div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-3"><p>{t("Last config apply")}: {desktopAction?.appliedAt?.toLocaleString() ?? t("Not available")}</p><p>{t("Backup path")}: {backupName(desktopAction?.output) ?? t("Created only after a successful desktop apply")}</p><p>{t("Restart required")}: {desktopAction?.restartRequired ? t("Yes") : t("No")}</p></div>
+        {desktopAction ? <div className={`mt-3 rounded border p-3 text-sm ${desktopAction.success ? "border-emerald-400/30 text-emerald-100" : "border-cyan-300/30 text-cyan-100"}`}><p>{desktopAction.message}</p>{desktopAction.output ? <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-raven-muted">{desktopAction.output}</pre> : null}</div> : null}
       </section>
 
       <section className="grid min-w-0 gap-4 lg:grid-cols-2">
@@ -52,6 +84,24 @@ export function MonitoringActivationPanel(): JSX.Element {
       </section>
     </div>
   );
+}
+
+interface DesktopLauncherResult { success: boolean; message: string; output: string }
+interface DesktopActionState extends DesktopLauncherResult { appliedAt: Date | null; restartRequired: boolean }
+type DesktopInvoke = (command: string, args?: Record<string, unknown>) => Promise<DesktopLauncherResult>;
+
+function desktopInvoke(): DesktopInvoke | null {
+  try {
+    const own = (window as typeof window & { __TAURI__?: { core?: { invoke?: DesktopInvoke } } }).__TAURI__?.core?.invoke;
+    const parent = window.parent !== window ? (window.parent as typeof window & { __TAURI__?: { core?: { invoke?: DesktopInvoke } } }).__TAURI__?.core?.invoke : undefined;
+    return own ?? parent ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function backupName(output?: string): string | null {
+  return output?.match(/Backup: (\.env\.backup-\d{8}-\d{9})/)?.[1] ?? null;
 }
 
 function State({ enabled, label }: { enabled: boolean; label: string }): JSX.Element {

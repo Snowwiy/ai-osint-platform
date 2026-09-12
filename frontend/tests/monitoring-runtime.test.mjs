@@ -97,3 +97,20 @@ test("agent enrollment acceptance remains manual and token-secret safe", () => {
     "Fuente de métricas del host",
   ]) assert.ok(i18n.includes(phrase), `missing Spanish acceptance copy: ${phrase}`);
 });
+
+test("controlled LAN activation is confirmed, fixed, and copy-only outside desktop", () => {
+  assert.match(activation, /apply_lan_monitoring_config/);
+  assert.match(activation, /\{ confirmed: true \}/);
+  assert.match(activation, /window\.confirm/);
+  assert.match(activation, /restart_platform/);
+  assert.match(activation, /Existing secrets and unknown settings are preserved and never displayed/);
+  assert.match(activation, /navigator\.clipboard\.writeText/);
+  assert.match(activation, /Backup: \(\\\.env\\\.backup/);
+  assert.doesNotMatch(activation, /readTextFile|writeTextFile|Command\.create|shell:/);
+  for (const phrase of [
+    "Activación LAN controlada",
+    "Aplicar perfil LAN fijo",
+    "Reiniciar y verificar",
+    "Ruta del respaldo",
+  ]) assert.ok(i18n.includes(phrase), `missing Spanish activation copy: ${phrase}`);
+});

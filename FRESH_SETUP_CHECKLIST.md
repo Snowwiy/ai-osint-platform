@@ -224,3 +224,10 @@ is part of this checklist.
   and posture/recommendation status without treating disabled options as degraded.
 - [ ] Confirm open/closed/filtered/timeout service results and SSH indicators are
   advisory, private-CIDR-only, configured-port-only TCP observations.
+- [ ] In desktop mode, review and confirm **Apply fixed LAN profile**; record the
+  displayed `.env.backup-<timestamp>` filename without opening or distributing it.
+- [ ] Confirm unknown/secret `.env` settings remain unchanged and both LAN auto-start
+  flags remain false, then separately confirm **Restart and verify**.
+- [ ] Verify health, readiness, RC6, LAN enablement, and service-check enablement.
+- [ ] Run `ServerHost` on the main machine and `LanEndpoint` on one approved private
+  endpoint manually; verify heartbeat, freshness, metric-source change, and posture.

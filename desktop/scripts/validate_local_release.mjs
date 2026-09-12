@@ -42,7 +42,7 @@ if (capability.permissions.length !== 0 || capability.remote !== undefined) thro
 if (/tauri-plugin-(shell|fs|updater)|shell:|fs:|updater:/i.test(`${cargo}\n${JSON.stringify(capability)}`)) {
   throw new Error("Forbidden shell, filesystem, or updater permission detected.");
 }
-const approved = ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"];
+const approved = ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"];
 for (const script of approved) if (!rust.includes(script)) throw new Error(`Missing approved launcher: ${script}`);
 if ([...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]).join() !== "&powershell") {
   throw new Error("Launcher command boundary changed.");

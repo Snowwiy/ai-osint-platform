@@ -22,7 +22,7 @@ codes, tokens, `.env` values, or report contents here.
 
 - [ ] Verify an empty, missing, or incomplete project path is rejected safely.
 - [ ] Configure the valid repository root and confirm all expected markers and
-      five approved scripts pass validation.
+      six approved scripts pass validation.
 - [ ] Verify Docker availability/running state and ports 8000/5173 are reported.
 - [ ] Start services only after accepting the confirmation dialog.
 - [ ] Verify backend health and readiness are ready and the frontend is reachable.

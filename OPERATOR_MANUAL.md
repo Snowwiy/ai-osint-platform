@@ -5,7 +5,7 @@ Audience: authorized local operators and private desktop testers
 
 RavenTech OSINT Desktop is a local Windows shell for the existing RavenTech
 OSINT web platform. It shows setup and service status, embeds the local web UI
-when it is ready, and can invoke five fixed repository launchers after the
+when it is ready, and can invoke six fixed repository launchers after the
 required confirmation. It is not a hosted service, a remote administration
 tool, or a replacement for the browser workflow.
 
@@ -54,7 +54,7 @@ needed to run an already-built portable executable or installer.
 
 An accepted project path must resolve to a canonical directory containing the
 expected Compose file, Python project marker, `backend/app`, `frontend/package.json`,
-`desktop/`, and all five approved scripts under `scripts/local/`. The approved
+`desktop/`, and all six approved scripts under `scripts/local/`. The approved
 scripts must match the copies pinned into the desktop build. Empty, missing,
 incomplete, or altered repositories are rejected and remain copy-only.
 
@@ -76,6 +76,7 @@ The desktop may invoke only these exact, argument-free repository scripts:
 - `scripts/local/restart_platform.ps1`
 - `scripts/local/check_platform.ps1`
 - `scripts/local/open_platform.ps1`
+- `scripts/local/apply_lan_monitoring_config.ps1`
 
 Start, stop, and restart require an explicit confirmation dialog. Check and
 open-frontend remain deliberate button actions. Output is bounded, time-limited,
@@ -329,3 +330,21 @@ main machine and `LanEndpoint` on approved LAN PCs, verify a fresh heartbeat,
 then confirm posture refresh. Import router-observed devices manually if Docker
 neighbor visibility is incomplete. All service results are advisory TCP-connect
 observations; authorize the asset and enable both LAN/service flags first.
+
+## Controlled LAN activation
+
+In **Monitoring → Activation**, review the displayed fixed profile and select
+**Apply fixed LAN profile**. The desktop requires confirmation, validates the
+bound repository and exact script bytes, and creates `.env.backup-<UTC timestamp>`
+before changing `.env`. Only the documented monitoring keys are replaced or
+appended; passwords, tokens, connection strings, and unknown settings are neither
+read into the UI nor changed. Browser mode copies the profile instead of writing.
+
+After a successful apply, select **Restart and verify** and confirm separately.
+The existing restart launcher recreates changed Compose services, applies existing
+migrations safely, then checks `/health`, `/health/ready`, and `/api/v1/release`.
+Confirm RC6 and that LAN/service flags are enabled. Automatic discovery and service
+checks on startup remain false. Run `ServerHost` manually with localhost and a
+current local admin access token entered only at its secure prompt. Run
+`LanEndpoint` manually with a short-lived enrollment token and the confirmed private
+backend URL; restrict Windows Firewall TCP/8000 to `192.168.50.0/24`.

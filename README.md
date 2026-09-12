@@ -47,7 +47,7 @@ command argument is accepted.
 
 Phase 5AR adds a lightweight first-run screen and safe project-path binding. The
 operator manually enters the repository root; Rust canonicalizes it and requires
-the compose, Python, desktop, frontend, backend, and all five approved-script
+the compose, Python, desktop, frontend, backend, and all six approved-script
 markers plus exact build-pinned script contents before storing the path in the
 current user's app-config directory.
 Resolution uses the saved path first, then matching current-directory ancestry,
@@ -669,3 +669,13 @@ times, next refresh, asset/import counts, agent coverage, host-metric source, an
 posture/recommendation counts. Disabled optional LAN features are informational.
 Use manual router/static import when Docker cannot see host neighbors, and run
 TCP-connect checks only for authorized assets after explicit configuration.
+
+### Phase 5BC controlled activation
+
+The desktop can now run one additional fixed, integrity-checked script after an
+explicit confirmation: `scripts/local/apply_lan_monitoring_config.ps1`. It updates
+only the documented non-secret monitoring keys for `192.168.50.0/24`, creates an
+ignored timestamped `.env` backup, preserves every other line, keeps discovery
+and service-check auto-start disabled, and reports only sanitized key names. A
+second confirmation is required to restart/verify Docker services. Browser mode
+remains copy-only; no general `.env` editor or arbitrary launcher was added.

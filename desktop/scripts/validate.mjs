@@ -87,7 +87,7 @@ const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((matc
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")') || !rust.includes('var_os("SystemRoot")')) {
   throw new Error("Only the fixed Windows PowerShell launcher is allowed.");
 }
-for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1"]) {
+for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"]) {
   if (!rust.includes(script)) throw new Error(`Missing approved launcher script: ${script}`);
 }
 if (!html.includes('lang="en"') || !html.includes("Español")) {

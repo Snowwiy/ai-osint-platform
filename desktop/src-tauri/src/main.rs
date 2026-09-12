@@ -18,12 +18,13 @@ const MAX_COMMAND_OUTPUT_BYTES: usize = 16_384;
 const MAX_PROJECT_PATH_CHARS: usize = 1024;
 const EXPECTED_RELEASE: &str = "5.0.0-rc6";
 const PROJECT_PATH_FILE: &str = "project-path.json";
-const REQUIRED_SCRIPTS: [&str; 5] = [
+const REQUIRED_SCRIPTS: [&str; 6] = [
     "start_platform.ps1",
     "stop_platform.ps1",
     "restart_platform.ps1",
     "check_platform.ps1",
     "open_platform.ps1",
+    "apply_lan_monitoring_config.ps1",
 ];
 
 #[derive(Default, Serialize)]
@@ -173,6 +174,7 @@ enum LocalAction {
     Stop,
     Restart,
     OpenFrontend,
+    ApplyLanConfig,
 }
 
 impl LocalAction {
@@ -183,6 +185,7 @@ impl LocalAction {
             Self::Stop => "stop",
             Self::Restart => "restart",
             Self::OpenFrontend => "openFrontend",
+            Self::ApplyLanConfig => "applyLanConfig",
         }
     }
 
@@ -193,6 +196,7 @@ impl LocalAction {
             Self::Stop => "stop_platform.ps1",
             Self::Restart => "restart_platform.ps1",
             Self::OpenFrontend => "open_platform.ps1",
+            Self::ApplyLanConfig => "apply_lan_monitoring_config.ps1",
         }
     }
 
@@ -201,7 +205,7 @@ impl LocalAction {
             Self::Start | Self::Restart => Duration::from_secs(150),
             Self::Stop => Duration::from_secs(60),
             Self::Check => Duration::from_secs(90),
-            Self::OpenFrontend => Duration::from_secs(20),
+            Self::OpenFrontend | Self::ApplyLanConfig => Duration::from_secs(20),
         }
     }
 }
@@ -546,6 +550,7 @@ fn trusted_script_bytes(name: &str) -> Option<&'static [u8]> {
         "restart_platform.ps1" => Some(include_bytes!("../../../scripts/local/restart_platform.ps1")),
         "check_platform.ps1" => Some(include_bytes!("../../../scripts/local/check_platform.ps1")),
         "open_platform.ps1" => Some(include_bytes!("../../../scripts/local/open_platform.ps1")),
+        "apply_lan_monitoring_config.ps1" => Some(include_bytes!("../../../scripts/local/apply_lan_monitoring_config.ps1")),
         _ => None,
     }
 }
@@ -864,6 +869,25 @@ async fn open_local_frontend(app: tauri::AppHandle) -> LauncherResult {
 }
 
 #[tauri::command]
+async fn apply_lan_monitoring_config(
+    app: tauri::AppHandle,
+    confirmed: bool,
+) -> LauncherResult {
+    if !confirmed {
+        return LauncherResult {
+            action: LocalAction::ApplyLanConfig.name(),
+            success: false,
+            script_available: find_script(&app, LocalAction::ApplyLanConfig).is_some(),
+            timed_out: false,
+            exit_code: None,
+            message: "Explicit operator confirmation is required before editing local monitoring configuration.".to_owned(),
+            output: String::new(),
+        };
+    }
+    run_action(app, LocalAction::ApplyLanConfig).await
+}
+
+#[tauri::command]
 async fn probe_local_services(app: tauri::AppHandle) -> ServiceSnapshot {
     tauri::async_runtime::spawn_blocking(move || collect_snapshot(&app))
         .await
@@ -903,7 +927,7 @@ async fn bind_project_path(
     let Some(root) = validate_repository_root(Path::new(value)) else {
         return ProjectBindingResult {
             success: false,
-            message: "That path does not contain the required RavenTech repository structure and five approved scripts.".to_owned(),
+            message: "That path does not contain the required RavenTech repository structure and six approved scripts.".to_owned(),
             setup: project_setup(&app),
         };
     };
@@ -1051,6 +1075,7 @@ fn main() {
             stop_platform,
             restart_platform,
             open_local_frontend,
+            apply_lan_monitoring_config,
             get_project_setup,
             bind_project_path,
             clear_project_path

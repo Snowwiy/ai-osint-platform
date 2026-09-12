@@ -43,7 +43,7 @@ adds an original RavenTech shield/radar asset. Installer launch checks on one de
 do not replace clean-machine, Windows-version, endpoint-security, accessibility,
 upgrade, and uninstall matrix testing.
 
-Phase 5AQ can orchestrate only five fixed scripts. Phase 5AR can store one
+Phase 5BC can orchestrate only six fixed scripts. Phase 5AR can store one
 validated per-user project-path preference, but it does not search the whole
 computer or provide a folder browser. A moved, deleted, or incomplete repository
 must be rebound manually; otherwise the launcher falls back to copied guidance.
@@ -379,3 +379,14 @@ coverage limitations, not platform-health failures.
   freshness condition, not automatic evidence of compromise.
 - TCP results are point-in-time connect observations on configured ports and cannot
   prove service safety, identity, authentication state, or exploitability.
+
+## Phase 5BC activation limits
+
+- The activation script applies only the fixed `192.168.50.0/24` profile; it is not
+  a general settings editor and accepts no keys, values, paths, or commands.
+- Timestamped `.env` backups may contain pre-existing secrets and therefore remain
+  local and Git-ignored; the desktop displays only their filename.
+- Configuration changes require a separately confirmed Compose restart. The script
+  does not start discovery, service checks, endpoint agents, or Docker.
+- ServerHost/LanEndpoint tests remain manual foreground processes with no persistence,
+  service installation, scheduled task, or automatic recovery.

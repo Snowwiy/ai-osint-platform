@@ -55,9 +55,9 @@ Expected URLs:
 
 The desktop shell never starts services automatically. On first launch, enter
 the local repository root manually. The shell saves it only after canonical
-validation of the compose, backend, frontend, desktop, Python, and five approved
+validation of the compose, backend, frontend, desktop, Python, and six approved
 script markers. It never accepts a script name, command argument, or arbitrary
-PowerShell command. The five script contents must match this desktop build;
+PowerShell command. The six script contents must match this desktop build;
 invalid, altered, or missing paths retain copy-only guidance.
 
 The installer contains the production React assets, so `npm run dev` and port
@@ -77,8 +77,9 @@ The current-user installer does not install backend services or remove Docker da
 
 ## Controlled launcher behavior
 
-Only five fixed repository scripts are eligible: start, stop, restart, check,
-and open frontend. Start/stop/restart require confirmation. Output is sanitized
+Only six fixed repository scripts are eligible: start, stop, restart, check,
+open frontend, and apply the bounded LAN configuration profile.
+Start/stop/restart/configuration require confirmation. Output is sanitized
 and capped, and every action has a timeout. No shell/filesystem Tauri plugin or
 generic command input is enabled.
 
