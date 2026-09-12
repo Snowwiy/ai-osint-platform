@@ -44,6 +44,55 @@ function Get-PrivateAddress {
     return $candidate.IPAddress
 }
 
+function Get-AdapterForAddress([string]$Address) {
+    $ipRecord = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+        Where-Object IPAddress -eq $Address | Select-Object -First 1
+    if (-not $ipRecord) { return $null }
+    return Get-NetAdapter -InterfaceIndex $ipRecord.InterfaceIndex -ErrorAction SilentlyContinue
+}
+
+function ConvertTo-NormalizedMac([string]$Value) {
+    if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
+    $normalized = $Value.Trim().Replace("-", ":").ToUpperInvariant()
+    if ($normalized -notmatch '^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$') { return $null }
+    return $normalized
+}
+
+function Get-SafeHostNeighborObservations([string]$HostAddress) {
+    if (-not (Test-PrivateHost $HostAddress)) { return @() }
+    $octets = $HostAddress.Split(".")
+    if ($octets.Count -ne 4) { return @() }
+    $prefix = "$($octets[0]).$($octets[1]).$($octets[2])."
+    $observedAt = (Get-Date).ToUniversalTime().ToString("o")
+    try {
+        return @(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction Stop |
+            Where-Object {
+                $_.IPAddress.StartsWith($prefix) -and
+                $_.IPAddress -ne $HostAddress -and
+                $_.IPAddress -notmatch '\.(0|255)$' -and
+                (Test-PrivateHost $_.IPAddress)
+            } |
+            Sort-Object IPAddress -Unique |
+            Select-Object -First 256 |
+            ForEach-Object {
+                $neighborState = if ($_.State) { ([string]$_.State).ToLowerInvariant() } else { "unknown" }
+                if ($neighborState -notin @("reachable", "stale", "delay", "probe", "permanent", "unreachable", "incomplete")) {
+                    $neighborState = "unknown"
+                }
+                @{
+                    ip_address = $_.IPAddress
+                    mac_address = ConvertTo-NormalizedMac $_.LinkLayerAddress
+                    interface_name = if ($_.InterfaceAlias) { [string]$_.InterfaceAlias } else { $null }
+                    state = $neighborState
+                    observed_at = $observedAt
+                    source = "host_neighbor_table"
+                }
+            })
+    } catch {
+        return @()
+    }
+}
+
 function Read-Secret([string]$Prompt) {
     $secureValue = Read-Host $Prompt -AsSecureString
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureValue)
@@ -133,23 +182,21 @@ if (-not (Test-PrivateHost $uri.Host)) {
 
 $secretValue = $null
 $headers = @{}
+$hostAddress = $null
+$hostAdapter = $null
 try {
     if ($Mode -eq "LanEndpoint") {
         $secretValue = Read-Secret "Paste the configured LAN endpoint agent token"
         if ([string]::IsNullOrWhiteSpace($secretValue)) { throw "A LAN endpoint agent token is required." }
         $headers = @{ "X-LAN-Agent-Token" = $secretValue }
         $endpointIp = Get-PrivateAddress
-        $ipRecord = Get-NetIPAddress -AddressFamily IPv4 |
-            Where-Object IPAddress -eq $endpointIp | Select-Object -First 1
-        $adapter = if ($ipRecord) {
-            Get-NetAdapter -InterfaceIndex $ipRecord.InterfaceIndex -ErrorAction SilentlyContinue
-        } else { $null }
+        $adapter = Get-AdapterForAddress $endpointIp
         $os = Get-CimInstance Win32_OperatingSystem
         $registration = @{
             ip_address = $endpointIp
             mac_address = if ($adapter) { $adapter.MacAddress } else { $null }
             hostname = $env:COMPUTERNAME
-            asset_type = "endpoint"
+            asset_type = "lan_endpoint"
             os_name = $os.Caption
             os_version = $os.Version
             agent_version = $AgentVersion
@@ -160,7 +207,7 @@ try {
             -Headers $headers -ContentType "application/json" -Body $registration
         $assetId = $registered.asset_id
         $endpoint = $BackendUrl.TrimEnd("/") + "/api/v1/monitoring/agent/telemetry"
-        Write-Host "Endpoint registered. Sending basic resource telemetry every $IntervalSeconds seconds. Press Ctrl+C to stop."
+        Write-Host "Endpoint asset registered for $endpointIp. Sending approved telemetry every $IntervalSeconds seconds. Press Ctrl+C to stop."
     } else {
         $secretValue = Read-Secret "Paste a current local admin access token"
         if ([string]::IsNullOrWhiteSpace($secretValue)) { throw "An admin access token is required." }
@@ -168,6 +215,10 @@ try {
         $endpoint = $BackendUrl.TrimEnd("/") + "/api/v1/monitoring/agent/ingest"
         $assetId = $null
         $agentRole = if ($Mode -eq "ServerHost") { "server_host" } else { "backend_host" }
+        if ($Mode -eq "ServerHost") {
+            $hostAddress = Get-PrivateAddress
+            $hostAdapter = Get-AdapterForAddress $hostAddress
+        }
         Write-Host "Sending $Mode telemetry every $IntervalSeconds seconds. Press Ctrl+C to stop."
     }
 
@@ -197,11 +248,16 @@ try {
                     metadata = @{ collection_mode = "manual" }
                 } | ConvertTo-Json -Compress
             } else {
+                $neighbors = if ($Mode -eq "ServerHost") {
+                    @(Get-SafeHostNeighborObservations $hostAddress)
+                } else { @() }
                 $payload = @{
                     agent_id = $AgentId
                     platform = "windows"
                     agent_role = $agentRole
                     hostname = $env:COMPUTERNAME
+                    ip_address = $hostAddress
+                    mac_address = if ($hostAdapter) { ConvertTo-NormalizedMac $hostAdapter.MacAddress } else { $null }
                     os_name = $sample.os_name
                     os_version = $sample.os_version
                     os_build = $sample.os_build
@@ -212,11 +268,18 @@ try {
                     process_count = $sample.process_count
                     uptime_seconds = $sample.uptime_seconds
                     listening_tcp_ports = $sample.listening_tcp_ports
+                    neighbor_observations = $neighbors
                 } | ConvertTo-Json -Compress
             }
             $response = Invoke-RestMethod -Method Post -Uri $endpoint `
                 -Headers $headers -ContentType "application/json" -Body $payload
-            Write-Host "Telemetry accepted at $($response.received_at)."
+            if ($Mode -eq "ServerHost") {
+                Write-Host "Telemetry accepted; host metrics sent; LAN asset registered: $($response.lan_asset_registered); neighbor observations sent: $($response.neighbor_observations_accepted); next heartbeat in ${IntervalSeconds}s."
+            } elseif ($Mode -eq "LanEndpoint") {
+                Write-Host "Heartbeat accepted for LAN endpoint $endpointIp; telemetry is fresh; next heartbeat in ${IntervalSeconds}s."
+            } else {
+                Write-Host "Telemetry accepted at $($response.received_at)."
+            }
         } catch {
             Write-Warning "Telemetry was not accepted. Check LAN configuration, backend health, and the current token."
         }

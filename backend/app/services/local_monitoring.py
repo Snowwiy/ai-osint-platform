@@ -234,6 +234,15 @@ async def ingest_agent_telemetry(
 ) -> AgentTelemetryIngestResponse:
     received_at = datetime.now(UTC)
     _latest_agent_samples[payload.agent_role] = (payload, received_at)
+    lan_asset = None
+    neighbors_accepted = 0
+    neighbors_rejected = 0
+    if payload.agent_role == "server_host":
+        from app.services.lan_monitoring import ingest_server_host_observations
+
+        lan_asset, neighbors_accepted, neighbors_rejected = (
+            await ingest_server_host_observations(db, user, payload)
+        )
     from app.services.audit import record_event
 
     await record_event(
@@ -255,12 +264,21 @@ async def ingest_agent_telemetry(
                     payload.uptime_seconds,
                 )
             ),
+            "lan_asset_registered": lan_asset is not None,
+            "neighbor_observations_received": len(payload.neighbor_observations),
+            "neighbor_observations_accepted": neighbors_accepted,
+            "neighbor_observations_rejected": neighbors_rejected,
         },
     )
     return AgentTelemetryIngestResponse(
         accepted=True,
         received_at=received_at,
-        message="Local telemetry sample accepted.",
+        message="Local telemetry sample accepted; authorized LAN observations were processed safely.",
+        lan_asset_id=lan_asset.id if lan_asset else None,
+        lan_asset_registered=lan_asset is not None,
+        neighbor_observations_received=len(payload.neighbor_observations),
+        neighbor_observations_accepted=neighbors_accepted,
+        neighbor_observations_rejected=neighbors_rejected,
     )
 
 

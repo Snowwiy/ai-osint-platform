@@ -49,7 +49,7 @@ export function MonitoringActivationPanel(): JSX.Element {
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><h2 className="font-semibold">{t("Local monitoring activation")}</h2><p className="mt-1 text-sm text-raven-muted">{t("The desktop may apply only the reviewed non-secret profile after confirmation and backup; browser mode remains copy-only.")}</p></div>
-          <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.server_host_metrics_enabled} label={t("Server host metrics")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /></div>
+          <div className="flex flex-wrap gap-2"><State enabled={data.auto_refresh_enabled} label={t("Auto refresh")} /><State enabled={data.server_host_metrics_enabled} label={t("Server host metrics")} /><State enabled={data.lan_monitoring_enabled} label={t("LAN monitoring")} /><State enabled={data.service_check_enabled} label={t("TCP service checks")} /><State enabled={data.auto_registration_enabled} label={t("Automatic asset registration")} /><State enabled={data.host_neighbor_collection_enabled} label={t("Read-only host neighbors")} /></div>
         </div>
         <p className="mt-3 text-sm text-raven-muted">Allowed private ranges: {safeArray(data.allowed_cidrs).join(", ") || "none"}</p>
         <p className="mt-1 text-sm text-raven-muted">{t("Gateway hint")}: {safeString(data.gateway_hint, "unavailable")}</p>
@@ -61,6 +61,7 @@ export function MonitoringActivationPanel(): JSX.Element {
         {data.discovery_disabled_reason ? <Notice text={data.discovery_disabled_reason} informational /> : null}
         {data.service_check_disabled_reason ? <Notice text={data.service_check_disabled_reason} informational /> : null}
         <div className="mt-3 grid gap-2 md:grid-cols-2"><Notice text={data.docker_limitation} /><Notice text={data.optional_telemetry_note} /></div>
+        <p className="mt-3 rounded border border-cyan-300/20 bg-cyan-400/5 p-3 text-xs text-cyan-100">{t(data.host_neighbor_guidance)}</p>
       </section>
 
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">

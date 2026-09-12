@@ -11,6 +11,7 @@ import {
   resolveEndpointRecommendation,
 } from "../lib/api";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
+import { useI18n } from "../lib/i18n";
 import { useAuth } from "../lib/useAuth";
 import type { EndpointRecommendation, EndpointSecurityPosture, Severity } from "../types";
 import { SeverityBadge } from "./SeverityBadge";
@@ -18,6 +19,7 @@ import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 
 export function EndpointSecurityPosturePanel(): JSX.Element {
+  const { t } = useI18n();
   const { user } = useAuth();
   const admin = user?.role === "admin";
   const queryClient = useQueryClient();
@@ -71,6 +73,7 @@ export function EndpointSecurityPosturePanel(): JSX.Element {
           </div>
         </div>
         <p className="mt-3 text-xs text-raven-muted">{safeString(summary?.advisory, "Posture is advisory and requires manual review.")}</p>
+        <p className="mt-2 text-xs text-cyan-100">{t("Auto-registered agent and host-neighbor assets feed advisory posture and recommendations without active scanning.")}</p>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">

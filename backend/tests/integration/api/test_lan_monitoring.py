@@ -211,6 +211,48 @@ async def test_agent_token_registration_and_telemetry(
     assert telemetry.json()["items"][0]["metadata"]["firewall_status"] == "enabled"
     assert telemetry.json()["items"][0]["metadata"]["listening_tcp_ports"] == [22, 443]
     assert detail.json()["agent_connected"] is True
+    assert detail.json()["source"] == "endpoint_agent"
+
+
+async def test_lan_endpoint_registration_preserves_manual_authorization(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_lan(monkeypatch)
+    monkeypatch.setattr(settings, "LAN_AGENT_TOKEN", "test-agent-token-value")
+    manual = LanAsset(
+        ip_address="192.168.0.30",
+        hostname="Operator assigned name",
+        status="online",
+        source="router",
+        is_authorized=False,
+        monitoring_enabled=True,
+    )
+    db.add(manual)
+    await db.commit()
+
+    registered = await client.post(
+        "/api/v1/monitoring/agent/register",
+        headers={"X-LAN-Agent-Token": "test-agent-token-value"},
+        json=_registration_payload(),
+    )
+    detail = await client.get(
+        f"/api/v1/monitoring/lan/assets/{manual.id}", headers=admin_headers
+    )
+    telemetry = await client.post(
+        "/api/v1/monitoring/agent/telemetry",
+        headers={"X-LAN-Agent-Token": "test-agent-token-value"},
+        json=_telemetry_payload(str(manual.id)),
+    )
+
+    assert registered.status_code == 202
+    assert detail.status_code == 200
+    assert detail.json()["hostname"] == "Operator assigned name"
+    assert detail.json()["is_authorized"] is False
+    assert detail.json()["source"] == "endpoint_agent"
+    assert telemetry.status_code == 202
 
 
 async def test_lan_alerts_are_deduplicated(
@@ -321,6 +363,43 @@ async def test_docker_fallback_and_risky_service_indicator(
     listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
     indicators = listing.json()["items"][0]["risk_indicators"]
     assert any(item["key"] == "risky_service_3389" for item in indicators)
+
+
+async def test_safe_discovery_prefers_stored_host_neighbor_observations(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_lan(monkeypatch)
+    monkeypatch.setattr(settings, "LAN_DISCOVERY_PING_ENABLED", True)
+    from app.services import lan_monitoring
+
+    observed = LanAsset(
+        ip_address="192.168.0.91",
+        mac_address="AA:BB:CC:DD:EE:91",
+        status="online",
+        source="host_neighbor_table",
+        is_authorized=False,
+        monitoring_enabled=True,
+        last_seen=datetime.now(UTC),
+    )
+    db.add(observed)
+    await db.commit()
+    monkeypatch.setattr(lan_monitoring, "_read_container_arp", lambda _network: [])
+
+    async def unexpected_ping(_network):
+        raise AssertionError("ping must not run when a fresh passive observation exists")
+
+    monkeypatch.setattr(lan_monitoring, "_ping_network", unexpected_ping)
+    response = await client.post(
+        "/api/v1/monitoring/lan/discover", headers=admin_headers, json={}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["observations_received"] == 1
+    assert response.json()["assets_updated"] == 1
+    assert response.json()["service_observations_created"] == 0
 
 
 async def test_manual_service_check_is_disabled_by_default_and_admin_only(

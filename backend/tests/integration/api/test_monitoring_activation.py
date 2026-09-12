@@ -44,7 +44,7 @@ async def test_activation_status_is_authenticated_safe_and_explains_disabled(
     assert payload["posture_recompute_interval_seconds"] == 300
     assert payload["lan_auto_discovery_on_start"] is False
     assert payload["lan_auto_service_check_on_start"] is False
-    assert "Docker Desktop" in payload["docker_limitation"]
+    assert "Docker could not read host LAN neighbors" in payload["docker_limitation"]
     assert "not a platform failure" in payload["optional_telemetry_note"]
     serialized = json.dumps(payload).lower()
     assert "lan_agent_token" not in serialized

@@ -15,12 +15,14 @@ import {
   updateLanAssetCriticality,
 } from "../lib/api";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
+import { useI18n } from "../lib/i18n";
 import { useAuth } from "../lib/useAuth";
 import type { LanAsset } from "../types";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 
 export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolean }): JSX.Element {
+  const { t } = useI18n();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
@@ -38,7 +40,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     retry: 1,
   });
   const allAssets = safeArray(listing.data?.items);
-  const assets = agentsOnly ? allAssets.filter((asset) => asset.source === "agent") : allAssets;
+  const assets = agentsOnly ? allAssets.filter((asset) => ["agent", "endpoint_agent"].includes(asset.source)) : allAssets;
   useEffect(() => {
     if (selectedId && !assets.some((asset) => asset.id === selectedId)) setSelectedId(null);
   }, [assets, selectedId]);
@@ -157,6 +159,8 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
         <p className="mt-3 text-xs text-raven-muted">Private ranges: {safeArray(config?.allowed_cidrs).join(", ") || "none"} · interval {safeNumber(config?.discovery_interval_seconds, 300)}s · ping {config?.ping_enabled ? "enabled" : "disabled"} · service observations {config?.service_check_enabled ? "enabled" : "disabled"}</p>
       </section>
 
+      {!agentsOnly ? <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><div className="flex flex-wrap gap-2"><State label={t("Automatic asset registration")} active={Boolean(config?.auto_registration_enabled)} /><State label={t("ServerHost agent")} active={Boolean(config?.server_host_agent_connected)} /><State label={t("Host neighbor observations")} active={safeNumber(config?.host_neighbor_observations) > 0} /></div><div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 xl:grid-cols-5"><p>{t("Agent registered assets")}: {safeNumber(config?.agent_self_registered)}</p><p>{t("Host neighbor assets")}: {safeNumber(config?.host_neighbor_observations)}</p><p>{t("Manual/router assets")}: {safeNumber(config?.manual_router_observations)}</p><p>{t("Assets requiring review")}: {safeNumber(config?.needs_review)}</p><p>{t("Last host neighbor sample")}: {safeDate(config?.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p></div></section> : null}
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label="Assets" value={agentsOnly ? assets.length : safeNumber(config?.total)} />
         <Metric label="Online" value={assets.filter((asset) => asset.status === "online").length} />
@@ -166,7 +170,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
       </section>
 
       {!assets.length ? (
-        <EmptyBlock title={agentsOnly ? "No endpoint agents are reporting" : "No authorized LAN observations yet"} message={agentsOnly ? "No optional host telemetry has registered. Platform health is unaffected; install and manually run the local agent only on an approved host." : "Docker cannot always read host neighbors. Enable LAN monitoring, then provide an authorized private range through router/static observations or the optional local agent."} nextStep={agentsOnly ? "Use the documented agent registration flow; no credentials or commands are collected." : "Host LAN discovery may be limited inside Docker; this is not a platform failure."} />
+        <EmptyBlock title={agentsOnly ? "No endpoint agents are reporting" : "No authorized LAN observations yet"} message={agentsOnly ? "No optional host telemetry has registered. Platform health is unaffected; install and manually run the local agent only on an approved host." : t("Docker could not read host LAN neighbors. Start the ServerHost agent to collect read-only host neighbor observations, or import router observations manually.")} nextStep={agentsOnly ? "Use the documented agent registration flow; no credentials or commands are collected." : t("Agent self-registration does not require manual asset creation.")} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-raven-border">
           <table className="w-full min-w-[900px] text-left text-sm">
@@ -179,7 +183,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
                 <td className="p-3 capitalize">{safeString(asset.status, "unknown")}</td>
                 <td className="p-3 text-raven-muted">{safeDate(asset.last_seen)?.toLocaleString() ?? "Never"}</td>
                 <td className="p-3">{asset.is_authorized ? "Authorized" : "Review required"}<br /><span className="text-xs text-raven-muted">Monitoring {asset.monitoring_enabled ? "on" : "off"}</span></td>
-                <td className="p-3">{asset.agent_connected ? "Connected" : asset.source === "agent" ? "Not reporting" : "Not installed"}</td>
+                <td className="p-3">{asset.agent_connected ? "Connected" : ["agent", "endpoint_agent"].includes(asset.source) ? "Not reporting" : "Not installed"}</td>
                 <td className="p-3">{safeArray(asset.risk_indicators).filter((item) => item.severity !== "info").length || "None"}</td>
               </tr>
             ))}</tbody>
@@ -227,6 +231,10 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
 
 function Metric({ label, value }: { label: string; value: string | number }): JSX.Element {
   return <div className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><p className="text-xs uppercase tracking-wide text-raven-muted">{label}</p><p className="mt-2 text-xl font-semibold">{value}</p></div>;
+}
+
+function State({ label, active }: { label: string; active: boolean }): JSX.Element {
+  return <span className={`rounded-full border px-2 py-1 text-xs ${active ? "border-emerald-400/30 text-emerald-200" : "border-cyan-300/30 text-cyan-100"}`}>{label}: {active ? "ready" : "needs action"}</span>;
 }
 
 function percent(value: unknown): string {

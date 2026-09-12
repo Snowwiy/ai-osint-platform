@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.engagement import Engagement
 from app.models.finding import Finding
 from app.models.investigation import Investigation
+from app.models.lan_monitoring import LanAsset
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.target import Target
@@ -335,6 +337,137 @@ async def test_server_host_agent_precedes_backend_host_agent(
     assert system.json()["source"] == "server_endpoint_agent"
     assert system.json()["agent_id"] == "server-host"
     _reset_agent_telemetry_for_tests()
+
+
+async def test_server_host_registers_asset_and_ingests_safe_neighbors(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "LAN_MONITORING_ENABLED", True)
+    monkeypatch.setattr(settings, "LAN_REJECT_PUBLIC_CIDRS", True)
+    monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.50.0/24")
+    monkeypatch.setattr(settings, "LAN_GATEWAY_HINT", "192.168.50.1")
+    now = datetime.now(UTC).isoformat()
+    payload = {
+        "agent_id": "primary-server",
+        "platform": "windows",
+        "agent_role": "server_host",
+        "hostname": "RAVEN-SERVER",
+        "ip_address": "192.168.50.201",
+        "mac_address": "00-11-22-33-44-55",
+        "os_name": "Windows",
+        "os_version": "11",
+        "collected_at": now,
+        "cpu_percent": 10,
+        "neighbor_observations": [
+            {
+                "ip_address": "192.168.50.1",
+                "mac_address": "AA-BB-CC-DD-EE-01",
+                "interface_name": "Wi-Fi",
+                "state": "reachable",
+                "observed_at": now,
+            },
+            {
+                "ip_address": "192.168.50.40",
+                "mac_address": "AA-BB-CC-DD-EE-40",
+                "interface_name": "Wi-Fi",
+                "state": "stale",
+                "observed_at": now,
+            },
+            {
+                "ip_address": "192.168.50.41",
+                "mac_address": "AA-BB-CC-DD-EE-40",
+                "interface_name": "Wi-Fi",
+                "state": "unreachable",
+                "observed_at": now,
+            },
+            {
+                "ip_address": "192.168.60.9",
+                "mac_address": "AA-BB-CC-DD-EE-60",
+                "state": "reachable",
+                "observed_at": now,
+            },
+        ],
+    }
+    manual = LanAsset(
+        ip_address="192.168.50.40",
+        mac_address="AA:BB:CC:DD:EE:40",
+        hostname="Operator workstation",
+        status="online",
+        source="router",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(manual)
+    await db.commit()
+    accepted = await client.post(
+        "/api/v1/monitoring/agent/ingest", headers=admin_headers, json=payload
+    )
+    listing = await client.get(
+        "/api/v1/monitoring/lan/assets", headers=admin_headers
+    )
+    posture = await client.get(
+        "/api/v1/monitoring/posture/overview", headers=admin_headers
+    )
+
+    assert accepted.status_code == 202
+    result = accepted.json()
+    assert result["lan_asset_registered"] is True
+    assert result["neighbor_observations_received"] == 4
+    assert result["neighbor_observations_accepted"] == 2
+    assert result["neighbor_observations_rejected"] == 1
+    items = listing.json()["items"]
+    server = next(item for item in items if item["ip_address"] == "192.168.50.201")
+    gateway = next(item for item in items if item["ip_address"] == "192.168.50.1")
+    deduped = next(item for item in items if item["mac_address"] == "AA:BB:CC:DD:EE:40")
+    assert server["source"] == "endpoint_agent"
+    assert server["asset_type"] == "server_host"
+    assert server["agent_connected"] is True
+    assert gateway["source"] == "host_neighbor_table"
+    assert gateway["asset_type"] == "gateway"
+    assert "gateway/router" in gateway["hostname"]
+    assert gateway["is_authorized"] is False
+    assert deduped["ip_address"] == "192.168.50.41"
+    assert deduped["hostname"] == "Operator workstation"
+    assert deduped["is_authorized"] is True
+    assert deduped["status"] == "offline"
+    assert "192.168.60.9" not in {item["ip_address"] for item in items}
+    assert listing.json()["agent_self_registered"] == 1
+    assert listing.json()["host_neighbor_observations"] == 2
+    assert listing.json()["needs_review"] == 1
+    assert listing.json()["server_host_agent_connected"] is True
+    assert listing.json()["last_host_neighbor_sample"] is not None
+    assert posture.status_code == 200
+    assert posture.json()["assessed_assets"] >= 3
+    assert posture.json()["open_recommendations"] >= 1
+    assert "token" not in json.dumps(result).lower()
+    assert await db.get(LanAsset, result["lan_asset_id"]) is not None
+
+
+async def test_server_host_rejects_public_neighbor_payload(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+) -> None:
+    payload = {
+        "agent_id": "public-neighbor-test",
+        "platform": "windows",
+        "agent_role": "server_host",
+        "collected_at": datetime.now(UTC).isoformat(),
+        "cpu_percent": 10,
+        "neighbor_observations": [
+            {
+                "ip_address": "8.8.8.8",
+                "state": "reachable",
+                "observed_at": datetime.now(UTC).isoformat(),
+            }
+        ],
+    }
+    response = await client.post(
+        "/api/v1/monitoring/agent/ingest", headers=admin_headers, json=payload
+    )
+    assert response.status_code == 422
 
 
 async def test_asset_watch_counts_repeated_local_failures(

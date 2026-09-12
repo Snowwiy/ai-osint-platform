@@ -679,3 +679,15 @@ ignored timestamped `.env` backup, preserves every other line, keeps discovery
 and service-check auto-start disabled, and reports only sanitized key names. A
 second confirmation is required to restart/verify Docker services. Browser mode
 remains copy-only; no general `.env` editor or arbitrary launcher was added.
+
+### Phase 5BD automatic private LAN inventory
+
+The manually run `ServerHost` helper now self-registers the primary RavenTech host
+and submits a bounded, read-only Windows neighbor-table sample. `LanEndpoint` agents
+self-register their own device. The backend accepts only private addresses inside
+`192.168.50.0/24`, deduplicates IP/MAC observations, preserves manual authorization,
+marks passive unknowns for review, and labels `192.168.50.1` only as the likely
+gateway. Docker neighbor visibility is no longer the only population path; manual
+router observations remain a fallback. Service checks remain explicit, authorized,
+private-CIDR-only TCP connects. No router automation, public scanning, remote command,
+credential testing, persistence, or autostart was added.

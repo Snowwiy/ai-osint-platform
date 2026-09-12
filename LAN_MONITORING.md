@@ -282,3 +282,15 @@ devices or running a bounded check. The import form supports gateway, workstatio
 phone, Alexa/IoT, and unknown-device observations through name, IP, optional MAC,
 connection type, interface/band, authorization, and notes. It never contacts the
 router or blocks a device.
+
+## Automatic authorized inventory
+
+Accepted agent registration creates or updates the matching LAN asset. New agent
+assets inside `192.168.50.0/24` are authorized; an existing manual authorization
+choice is never overwritten. `ServerHost` is identified as the primary monitoring
+host and `LanEndpoint` as an endpoint. Host-neighbor observations use source
+`host_neighbor_table`, preserve manual names/authorization, deduplicate by IP or
+normalized MAC, and leave unknown devices in **needs review**. The gateway hint
+`192.168.50.1` receives only a likely-gateway label. Service checks are still
+separate, configuration-gated TCP connects against authorized assets and configured
+ports; automatic registration does not trigger them.

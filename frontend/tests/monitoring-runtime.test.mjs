@@ -80,7 +80,27 @@ test("real LAN acceptance status is readable without weakening safety gates", ()
   assert.match(lan, /Service-check eligible\. TCP connect only/);
   assert.match(lan, /SSH indicator/);
   assert.match(lan, /Advisory risk indicator only/);
-  assert.match(lan, /router\/static observations or the optional local agent/);
+  assert.match(lan, /Docker could not read host LAN neighbors/);
+});
+
+test("automatic LAN registration states remain local, readable, and bilingual", () => {
+  for (const field of [
+    "agent_self_registered",
+    "host_neighbor_observations",
+    "assets_needing_review",
+    "last_host_neighbor_sample",
+    "server_host_agent_connected",
+  ]) assert.ok(`${center}\n${lan}`.includes(field), `missing automatic registration field: ${field}`);
+  assert.match(activation, /auto_registration_enabled/);
+  assert.match(activation, /host_neighbor_collection_enabled/);
+  assert.match(agents, /self-register authorized LAN assets/);
+  assert.match(lan, /Agent self-registration does not require manual asset creation/);
+  for (const phrase of [
+    "Registro automático de activos",
+    "Observaciones de vecinos del host",
+    "Activos que requieren revisión",
+    "Docker no pudo leer los vecinos LAN del host",
+  ]) assert.ok(i18n.includes(phrase), `missing Spanish auto-registration copy: ${phrase}`);
 });
 
 test("agent enrollment acceptance remains manual and token-secret safe", () => {

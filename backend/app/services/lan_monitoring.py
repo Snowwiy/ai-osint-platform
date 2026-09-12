@@ -45,7 +45,7 @@ from app.schemas.lan_monitoring import (
     LanTelemetryListResponse,
     LanTelemetryResponse,
 )
-from app.schemas.monitoring import MonitoringAlert
+from app.schemas.monitoring import AgentTelemetryIngest, HostNeighborObservation, MonitoringAlert
 from app.services.audit import record_event
 from app.services.notification import create_admin_notification
 from app.services.monitoring_history import (
@@ -83,6 +83,7 @@ SERVICE_GUESSES = {
     9000: "http",
 }
 CURRENT_AGENT_VERSION = "1.1.0"
+AGENT_ASSET_SOURCES = {"agent", "endpoint_agent"}
 
 
 class LanMonitoringDisabledError(Exception):
@@ -170,8 +171,8 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "only from the configured private CIDR in Windows Defender Firewall."
         ),
         docker_limitation=(
-            "Docker Desktop may not expose the host neighbor table to the backend. "
-            "Use approved static/router observations or the optional endpoint agent."
+            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
+            "collect read-only host neighbor observations, or import router observations manually."
         ),
         optional_telemetry_note=(
             "Missing endpoint-agent telemetry is an optional coverage gap, not a platform failure."
@@ -188,6 +189,14 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "Confirm the endpoint appears in inventory, then close the reveal.",
             "Revoke or rotate the credential when enrollment is complete.",
         ],
+        auto_registration_enabled=settings.LAN_MONITORING_ENABLED,
+        host_neighbor_collection_enabled=(
+            settings.LAN_MONITORING_ENABLED and settings.LAN_REJECT_PUBLIC_CIDRS
+        ),
+        host_neighbor_guidance=(
+            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
+            "collect read-only host neighbor observations, or import router observations manually."
+        ),
     )
 
 
@@ -285,14 +294,34 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
         service_ports=configured_service_ports(),
         limitation=(
-            "The backend container does not receive privileged host neighbor or Docker access. "
-            "Use supplied static/router observations or the optional endpoint agent."
+            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
+            "collect read-only host neighbor observations, or import router observations manually."
         ),
         total=len(items),
         online=sum(item.status == "online" for item in items),
         offline=sum(item.status == "offline" for item in items),
         unauthorized=sum(not item.is_authorized for item in items),
         agent_connected=sum(item.agent_connected for item in items),
+        auto_registration_enabled=settings.LAN_MONITORING_ENABLED,
+        agent_self_registered=sum(item.source in AGENT_ASSET_SOURCES for item in items),
+        host_neighbor_observations=sum(
+            item.source == "host_neighbor_table" for item in items
+        ),
+        manual_router_observations=sum(
+            item.source in {"static", "router"} for item in items
+        ),
+        needs_review=sum(not item.is_authorized for item in items),
+        last_host_neighbor_sample=max(
+            (
+                item.last_seen
+                for item in items
+                if item.source == "host_neighbor_table" and item.last_seen is not None
+            ),
+            default=None,
+        ),
+        server_host_agent_connected=any(
+            item.asset_type == "server_host" and item.agent_connected for item in items
+        ),
         items=items,
     )
 
@@ -349,13 +378,19 @@ async def discover_lan(
     await _enforce_discovery_interval(db)
     observations = list(body.observations)
     if not observations:
-        observations = _read_container_arp(network)
-        if settings.LAN_DISCOVERY_PING_ENABLED:
-            observations = _merge_observations(
-                observations, await _ping_network(network)
-            )
+        observations = await _stored_host_neighbor_observations(db, network)
+        observations = _merge_observations(observations, _read_container_arp(network))
+        if settings.LAN_DISCOVERY_PING_ENABLED and not observations:
+            observations = await _ping_network(network)
         if settings.LAN_SERVICE_CHECK_ENABLED and observations:
-            await _observe_configured_services(observations)
+            eligible: list[LanDiscoveryObservation] = []
+            for observation in observations:
+                existing = await _asset_by_ip_or_mac(
+                    db, observation.ip_address, observation.mac_address
+                )
+                if existing and existing.is_authorized and existing.monitoring_enabled:
+                    eligible.append(observation)
+            await _observe_configured_services(eligible)
     if (
         any(item.services for item in observations)
         and not settings.LAN_SERVICE_CHECK_ENABLED
@@ -402,8 +437,8 @@ async def discover_lan(
     limitation = None
     if not observations:
         limitation = (
-            "No accessible neighbor observations were available inside Docker. "
-            "No ping or TCP checks were attempted."
+            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
+            "collect read-only host neighbor observations, or import router observations manually."
         )
         await _notify_discovery_limitation(db, user)
     await record_event(
@@ -446,7 +481,7 @@ async def register_agent(
     now = datetime.now(UTC)
     asset = await _asset_by_ip(db, str(address))
     created = asset is None
-    new_enrollment = asset is None or asset.source != "agent"
+    new_enrollment = asset is None or asset.source not in AGENT_ASSET_SOURCES
     old_status = asset.status if asset else None
     old_hostname = asset.hostname if asset else None
     old_mac = asset.mac_address if asset else None
@@ -455,17 +490,18 @@ async def register_agent(
             ip_address=str(address),
             first_seen=now,
             confidence=95,
-            source="agent",
+            source="endpoint_agent",
+            is_authorized=True,
         )
         db.add(asset)
     asset.mac_address = body.mac_address or asset.mac_address
-    asset.hostname = _clean(body.hostname) or asset.hostname
+    if not asset.hostname or asset.source in AGENT_ASSET_SOURCES:
+        asset.hostname = _clean(body.hostname) or asset.hostname
     asset.asset_type = body.asset_type
-    asset.source = "agent"
+    asset.source = "endpoint_agent"
     asset.status = "online"
     asset.last_seen = now
     asset.last_checked_at = now
-    asset.is_authorized = True
     asset.monitoring_enabled = True
     asset.enrolled_at = asset.enrolled_at or now
     asset.enrollment_token_id = (
@@ -518,7 +554,7 @@ async def ingest_agent_telemetry(
 ) -> LanAgentTelemetryResponse:
     _ensure_enabled()
     asset = await db.get(LanAsset, body.asset_id)
-    if asset is None or asset.source != "agent" or not asset.is_authorized:
+    if asset is None or asset.source not in AGENT_ASSET_SOURCES:
         raise LanAssetNotFoundError
     received_at = datetime.now(UTC)
     old_status = asset.status
@@ -593,6 +629,154 @@ async def ingest_agent_telemetry(
         received_at=received_at,
         message="Endpoint telemetry accepted.",
     )
+
+
+async def ingest_server_host_observations(
+    db: AsyncSession,
+    user: User,
+    body: AgentTelemetryIngest,
+) -> tuple[LanAsset | None, int, int]:
+    """Persist only authorized ServerHost identity and read-only neighbor observations."""
+    if (
+        body.agent_role != "server_host"
+        or not settings.LAN_MONITORING_ENABLED
+        or not settings.LAN_REJECT_PUBLIC_CIDRS
+    ):
+        return None, 0, len(body.neighbor_observations)
+
+    now = datetime.now(UTC)
+    touched: set[uuid.UUID] = set()
+    server_asset: LanAsset | None = None
+    if body.ip_address:
+        try:
+            address = validate_allowed_ip(body.ip_address)
+        except LanConfigurationError:
+            address = None
+        if address is not None:
+            server_asset = await _asset_by_ip_or_mac(
+                db, str(address), body.mac_address
+            )
+            created = server_asset is None
+            old_status = server_asset.status if server_asset else None
+            old_hostname = server_asset.hostname if server_asset else None
+            old_mac = server_asset.mac_address if server_asset else None
+            if server_asset is None:
+                server_asset = LanAsset(
+                    ip_address=str(address),
+                    first_seen=body.collected_at,
+                    source="endpoint_agent",
+                    is_authorized=True,
+                    confidence=95,
+                    created_by=user.id,
+                )
+                db.add(server_asset)
+            elif server_asset.ip_address != str(address):
+                server_asset.ip_address = str(address)
+            server_asset.mac_address = body.mac_address or server_asset.mac_address
+            if not server_asset.hostname or server_asset.source in AGENT_ASSET_SOURCES:
+                server_asset.hostname = _clean(body.hostname) or server_asset.hostname
+            server_asset.asset_type = "server_host"
+            server_asset.source = "endpoint_agent"
+            server_asset.status = "online"
+            server_asset.last_seen = body.collected_at
+            server_asset.last_checked_at = now
+            server_asset.monitoring_enabled = True
+            server_asset.enrolled_at = server_asset.enrolled_at or now
+            server_asset.capabilities = [
+                "basic_telemetry",
+                "host_metrics",
+                "host_neighbor_observations",
+                "server_host",
+            ]
+            await db.flush()
+            await record_asset_observation_changes(
+                db,
+                asset=server_asset,
+                created=created,
+                old_status=old_status,
+                old_hostname=old_hostname,
+                old_mac=old_mac,
+                source="endpoint_agent",
+                detected_at=body.collected_at,
+            )
+            telemetry = LanAssetTelemetry(
+                lan_asset_id=server_asset.id,
+                cpu_percent=body.cpu_percent,
+                memory_percent=body.memory_percent,
+                disk_percent=body.disk_percent,
+                uptime_seconds=body.uptime_seconds,
+                os_name=_clean(body.os_name),
+                os_version=_clean(body.os_version),
+                agent_version=CURRENT_AGENT_VERSION,
+                collected_at=body.collected_at,
+                event_metadata={
+                    "agent_id": body.agent_id,
+                    "agent_mode": "server_host",
+                    "os_build": body.os_build,
+                    "listening_tcp_ports": body.listening_tcp_ports,
+                },
+            )
+            db.add(telemetry)
+            touched.add(server_asset.id)
+
+    accepted = 0
+    rejected = 0
+    for observation in _dedupe_host_neighbors(body.neighbor_observations):
+        try:
+            validate_allowed_ip(observation.ip_address)
+        except LanConfigurationError:
+            rejected += 1
+            continue
+        lan_observation = LanDiscoveryObservation(
+            ip_address=observation.ip_address,
+            mac_address=observation.mac_address,
+            source="host_neighbor_table",
+            interface_name=observation.interface_name,
+            notes=f"Host neighbor state: {observation.state}",
+        )
+        previous = await _asset_by_ip_or_mac(
+            db, lan_observation.ip_address, lan_observation.mac_address
+        )
+        old_status = previous.status if previous else None
+        old_hostname = previous.hostname if previous else None
+        old_mac = previous.mac_address if previous else None
+        asset, created = await _upsert_observation(db, user, lan_observation, observation.observed_at)
+        if observation.state == "unreachable":
+            asset.status = "offline"
+        elif observation.state in {"stale", "incomplete", "unknown"}:
+            asset.status = "unknown"
+        await record_asset_observation_changes(
+            db,
+            asset=asset,
+            created=created,
+            old_status=old_status,
+            old_hostname=old_hostname,
+            old_mac=old_mac,
+            source="host_neighbor_table",
+            detected_at=observation.observed_at,
+        )
+        touched.add(asset.id)
+        accepted += 1
+
+    await record_event(
+        db,
+        action="lan.host_neighbors.ingested",
+        actor_id=user.id,
+        resource_type="lan_monitoring",
+        resource_id=server_asset.id if server_asset else None,
+        metadata={
+            "agent_id": body.agent_id,
+            "received": len(body.neighbor_observations),
+            "accepted": accepted,
+            "rejected": rejected,
+        },
+    )
+    await db.flush()
+    from app.services.endpoint_posture import refresh_asset_posture_if_due
+
+    for asset_id in touched:
+        await refresh_asset_posture_if_due(db, asset_id)
+    return server_asset, accepted, rejected
 
 
 async def list_asset_telemetry(
@@ -1042,7 +1226,7 @@ def _risk_indicators(
                 "No recent authorized observation is available.",
             )
         )
-    if asset.source == "agent" and not connected:
+    if asset.source in AGENT_ASSET_SOURCES and not connected:
         indicators.append(
             _indicator(
                 "agent_stale",
@@ -1051,7 +1235,7 @@ def _risk_indicators(
                 "Endpoint telemetry is missing or stale.",
             )
         )
-    if asset.source != "agent" and asset.monitoring_enabled:
+    if asset.source not in AGENT_ASSET_SOURCES and asset.monitoring_enabled:
         indicators.append(
             _indicator(
                 "unmanaged",
@@ -1140,17 +1324,29 @@ async def _upsert_observation(
     db: AsyncSession, user: User, observation: LanDiscoveryObservation, now: datetime
 ) -> tuple[LanAsset, bool]:
     address = str(validate_allowed_ip(observation.ip_address))
-    asset = await _asset_by_ip(db, address)
+    asset = await _asset_by_ip_or_mac(db, address, observation.mac_address)
     created = asset is None
     if asset is None:
-        asset = LanAsset(ip_address=address, first_seen=now, created_by=user.id)
+        asset = LanAsset(
+            ip_address=address,
+            first_seen=now,
+            created_by=user.id,
+            is_authorized=False,
+        )
         db.add(asset)
+    elif asset.ip_address != address:
+        asset.ip_address = address
     asset.mac_address = observation.mac_address or asset.mac_address
     asset.hostname = _clean(observation.hostname) or asset.hostname
     asset.vendor = _clean(observation.vendor) or asset.vendor
-    asset.asset_type = observation.asset_type
+    if observation.asset_type != "unknown" or asset.asset_type == "unknown":
+        asset.asset_type = observation.asset_type
+    if address == settings.LAN_GATEWAY_HINT:
+        asset.asset_type = "gateway"
+        asset.hostname = asset.hostname or "Likely gateway/router"
     asset.source = observation.source
-    asset.status = "online"
+    if observation.source != "host_neighbor_table" or created:
+        asset.status = "online"
     asset.last_seen = now
     asset.last_checked_at = now
     asset.response_latency_ms = observation.latency_ms
@@ -1167,7 +1363,11 @@ async def _upsert_observation(
         if value
     ]
     if context:
-        asset.notes = " | ".join(context)
+        additions = [item for item in context if not asset.notes or item not in asset.notes]
+        if additions:
+            asset.notes = " | ".join(
+                value for value in (asset.notes, *additions) if value
+            )
     await db.flush()
     return asset, created
 
@@ -1235,8 +1435,10 @@ def _effective_status(
 ) -> LanAssetStatus:
     if not asset.monitoring_enabled:
         return "unknown"
-    if asset.source == "agent":
+    if asset.source in AGENT_ASSET_SOURCES:
         return "online" if _agent_connected(asset, telemetry, now) else "offline"
+    if asset.source == "host_neighbor_table" and asset.status in {"offline", "unknown"}:
+        return "offline" if asset.status == "offline" else "unknown"
     stale_seconds = max(settings.LAN_DISCOVERY_INTERVAL_SECONDS * 2, 600)
     if asset.last_seen and now - asset.last_seen <= timedelta(seconds=stale_seconds):
         return "online"
@@ -1247,7 +1449,7 @@ def _agent_connected(
     asset: LanAsset, telemetry: LanAssetTelemetry | None, now: datetime
 ) -> bool:
     return bool(
-        asset.source == "agent"
+        asset.source in AGENT_ASSET_SOURCES
         and telemetry
         and now - telemetry.collected_at
         <= timedelta(minutes=settings.LAN_AGENT_MAX_STALE_MINUTES)
@@ -1258,6 +1460,41 @@ async def _asset_by_ip(db: AsyncSession, ip_address: str) -> LanAsset | None:
     return (
         await db.execute(select(LanAsset).where(LanAsset.ip_address == ip_address))
     ).scalar_one_or_none()
+
+
+async def _asset_by_ip_or_mac(
+    db: AsyncSession, ip_address: str, mac_address: str | None
+) -> LanAsset | None:
+    asset = await _asset_by_ip(db, ip_address)
+    if asset is not None or not mac_address:
+        return asset
+    return (
+        await db.execute(select(LanAsset).where(LanAsset.mac_address == mac_address))
+    ).scalars().first()
+
+
+def _dedupe_host_neighbors(
+    observations: list[HostNeighborObservation],
+) -> list[HostNeighborObservation]:
+    deduped: list[HostNeighborObservation] = []
+    positions_by_ip: dict[str, int] = {}
+    positions_by_mac: dict[str, int] = {}
+    for item in observations:
+        position = positions_by_ip.get(item.ip_address)
+        if position is None and item.mac_address:
+            position = positions_by_mac.get(item.mac_address)
+        if position is not None:
+            deduped[position] = item
+            positions_by_ip[item.ip_address] = position
+            if item.mac_address:
+                positions_by_mac[item.mac_address] = position
+            continue
+        position = len(deduped)
+        deduped.append(item)
+        positions_by_ip[item.ip_address] = position
+        if item.mac_address:
+            positions_by_mac[item.mac_address] = position
+    return deduped
 
 
 async def _require_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAsset:
@@ -1305,6 +1542,45 @@ def _read_container_arp(
             )
         except (LanConfigurationError, ValueError):
             continue
+    return observations
+
+
+async def _stored_host_neighbor_observations(
+    db: AsyncSession, network: ipaddress.IPv4Network
+) -> list[LanDiscoveryObservation]:
+    cutoff = datetime.now(UTC) - timedelta(
+        seconds=max(settings.LAN_DISCOVERY_INTERVAL_SECONDS * 2, 600)
+    )
+    rows = list(
+        (
+            await db.execute(
+                select(LanAsset)
+                .where(
+                    LanAsset.source == "host_neighbor_table",
+                    LanAsset.last_seen >= cutoff,
+                )
+                .order_by(LanAsset.last_seen.desc())
+                .limit(settings.LAN_SERVICE_CHECK_MAX_HOSTS)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    observations: list[LanDiscoveryObservation] = []
+    for item in rows:
+        try:
+            address = validate_allowed_ip(item.ip_address)
+        except LanConfigurationError:
+            continue
+        if address not in network:
+            continue
+        observations.append(
+            LanDiscoveryObservation(
+                ip_address=item.ip_address,
+                mac_address=item.mac_address,
+                source="host_neighbor_table",
+            )
+        )
     return observations
 
 
@@ -1379,9 +1655,12 @@ async def _notify_discovery_limitation(db: AsyncSession, user: User) -> None:
     await create_admin_notification(
         db,
         notification_type="monitoring_alert",
-        severity="warning",
-        title="LAN discovery is Docker-limited",
-        message="The backend container could not access local neighbor observations; no active probes were attempted.",
+        severity="info",
+        title="Docker neighbor visibility is limited",
+        message=(
+            "Docker could not read host LAN neighbors. Start the ServerHost agent "
+            "for read-only host observations or use manual router observations."
+        ),
         entity_type="lan_monitoring",
         actor_user_id=user.id,
         action_url="/monitoring",

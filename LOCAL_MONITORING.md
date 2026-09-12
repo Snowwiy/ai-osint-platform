@@ -319,3 +319,13 @@ LAN_ENDPOINT_AGENT_INTERVAL_SECONDS
 ```
 
 No other `.env` key is eligible for modification by this action.
+
+## Phase 5BD automatic observations
+
+The foreground `ServerHost` helper is the preferred bridge to the Windows host
+neighbor table because Docker Desktop cannot reliably expose it. Collection is
+read-only and bounded: the helper sends host metrics plus at most 256 same-private-
+`/24` neighbor identities. The backend accepts only configured RFC1918 addresses.
+`LanEndpoint` registers only itself. Neither mode captures files, packet contents,
+credentials, process command lines, environment values, or browser data, and neither
+mode installs persistence. Manual router import remains an operator fallback.

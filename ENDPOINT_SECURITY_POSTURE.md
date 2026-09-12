@@ -159,3 +159,10 @@ fallback metrics; a `LanEndpoint` sample updates endpoint freshness and the boun
 posture cadence. Unauthorized or risky-service observations may create deduplicated
 advisory recommendations, including manual isolate/block review. Recovered states
 retire through the existing alert lifecycle; no enforcement action is performed.
+
+Phase 5BD includes auto-registered agent and host-neighbor assets in the existing
+bounded posture cadence. Fresh agent telemetry improves endpoint coverage; observed
+neighbors without an agent remain informational coverage gaps and may receive an
+advisory needs-review or missing-agent recommendation. Authorization, risky-service,
+critical-gap, dedupe, and recovery rules are unchanged. No observation proves
+compromise, and all isolate/block language remains a manual recommendation.

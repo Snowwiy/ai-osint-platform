@@ -120,6 +120,11 @@ async def get_monitoring_startup_status(
         static_router_observations=sum(
             item.source in {"static", "router"} for item in lan_assets.items
         ),
+        agent_self_registered=lan_assets.agent_self_registered,
+        host_neighbor_observations=lan_assets.host_neighbor_observations,
+        assets_needing_review=lan_assets.needs_review,
+        last_host_neighbor_sample=lan_assets.last_host_neighbor_sample,
+        server_host_agent_connected=lan_assets.server_host_agent_connected,
         host_metrics_source=overview.system.source,
         host_metrics_available=overview.system.available,
         host_metrics_fallback_reason=overview.system.fallback_reason,
@@ -136,6 +141,7 @@ async def get_monitoring_startup_status(
         baseline_total=baseline.total,
         baseline_open=baseline.open + baseline.acknowledged + baseline.in_progress,
         docker_limitation=activation.docker_limitation,
+        host_neighbor_guidance=activation.host_neighbor_guidance,
         safety_notes=[
             "Automatic refresh reads local summaries only; it does not start discovery or TCP checks.",
             "LAN actions remain restricted to configured RFC1918 CIDRs, bounded ports, limits, timeouts, and intervals.",

@@ -348,3 +348,16 @@ checks on startup remain false. Run `ServerHost` manually with localhost and a
 current local admin access token entered only at its secure prompt. Run
 `LanEndpoint` manually with a short-lived enrollment token and the confirmed private
 backend URL; restrict Windows Firewall TCP/8000 to `192.168.50.0/24`.
+
+### Automatic LAN asset registration
+
+`ServerHost` and `LanEndpoint` now register their own authorized private endpoint
+in LAN inventory when the backend accepts their authenticated telemetry. No manual
+asset record is required first. Existing operator names and authorization decisions
+are preserved. The manually run `ServerHost` also reads a maximum of 256 entries
+from the Windows neighbor table, limited to its local private `/24`, and sends only
+IP, normalized MAC, interface, state, timestamp, and source. The backend applies the
+configured `LAN_ALLOWED_CIDRS` boundary again, rejects public/out-of-range entries,
+deduplicates by IP/MAC, and marks newly observed neighbors for review. The configured
+`192.168.50.1` gateway is labeled as a likely gateway; RavenTech never connects to,
+authenticates to, scrapes, or configures it.

@@ -8,7 +8,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 LanAssetStatus = Literal["online", "offline", "unknown"]
-LanAssetSource = Literal["static", "arp", "ping", "router", "agent"]
+LanAssetSource = Literal[
+    "static", "arp", "ping", "router", "agent", "endpoint_agent", "host_neighbor_table"
+]
 LanRiskSeverity = Literal["info", "warning", "critical"]
 AssetCriticality = Literal["low", "medium", "high", "critical"]
 _MAC_PATTERN = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
@@ -41,7 +43,7 @@ class LanDiscoveryObservation(BaseModel):
     hostname: str | None = Field(default=None, max_length=255)
     vendor: str | None = Field(default=None, max_length=255)
     asset_type: str = Field(default="unknown", min_length=1, max_length=40)
-    source: Literal["static", "arp", "ping", "router"] = "static"
+    source: Literal["static", "arp", "ping", "router", "host_neighbor_table"] = "static"
     latency_ms: float | None = Field(default=None, ge=0, le=60_000)
     services: list[LanServiceInput] = Field(default_factory=list, max_length=32)
     interface_name: str | None = Field(default=None, max_length=100)
@@ -241,6 +243,13 @@ class LanAssetListResponse(BaseModel):
     offline: int
     unauthorized: int
     agent_connected: int
+    auto_registration_enabled: bool = False
+    agent_self_registered: int = 0
+    host_neighbor_observations: int = 0
+    manual_router_observations: int = 0
+    needs_review: int = 0
+    last_host_neighbor_sample: datetime | None = None
+    server_host_agent_connected: bool = False
     items: list[LanAssetResponse]
 
 
@@ -325,6 +334,9 @@ class MonitoringActivationStatus(BaseModel):
     optional_telemetry_note: str
     agent_setup_steps: list[str]
     token_enrollment_steps: list[str]
+    auto_registration_enabled: bool = False
+    host_neighbor_collection_enabled: bool = False
+    host_neighbor_guidance: str
 
 
 class LanBootstrapRequest(BaseModel):

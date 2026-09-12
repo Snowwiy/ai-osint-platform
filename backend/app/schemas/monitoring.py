@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -9,6 +11,63 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 MonitoringStatus = Literal["healthy", "degraded", "unavailable"]
 MonitoringSeverity = Literal["info", "warning", "critical"]
 TelemetrySource = Literal["container", "server_endpoint_agent", "backend_host_agent"]
+_MAC_PATTERN = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+_RFC1918 = tuple(
+    ipaddress.ip_network(value)
+    for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+)
+
+
+class HostNeighborObservation(BaseModel):
+    ip_address: str = Field(min_length=7, max_length=45)
+    mac_address: str | None = Field(default=None, max_length=17)
+    interface_name: str | None = Field(default=None, max_length=100)
+    state: Literal[
+        "reachable",
+        "stale",
+        "delay",
+        "probe",
+        "permanent",
+        "unreachable",
+        "incomplete",
+        "unknown",
+    ] = "unknown"
+    observed_at: datetime
+    source: Literal["host_neighbor_table"] = "host_neighbor_table"
+
+    @field_validator("ip_address")
+    @classmethod
+    def private_ipv4(cls, value: str) -> str:
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError as exc:
+            raise ValueError("neighbor IP address is invalid") from exc
+        if not isinstance(address, ipaddress.IPv4Address) or not any(
+            address in network for network in _RFC1918
+        ):
+            raise ValueError("neighbor IP address must be private IPv4")
+        return str(address)
+
+    @field_validator("mac_address")
+    @classmethod
+    def safe_mac(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        normalized = value.strip().replace("-", ":").upper()
+        if not _MAC_PATTERN.fullmatch(normalized):
+            raise ValueError("neighbor MAC must use six hexadecimal octets")
+        return normalized
+
+    @field_validator("observed_at")
+    @classmethod
+    def safe_timestamp(cls, value: datetime) -> datetime:
+        normalized = value if value.tzinfo else value.replace(tzinfo=UTC)
+        now = datetime.now(UTC)
+        if normalized > now + timedelta(minutes=5):
+            raise ValueError("neighbor timestamp cannot be more than five minutes ahead")
+        if normalized < now - timedelta(days=1):
+            raise ValueError("neighbor timestamp cannot be more than one day old")
+        return normalized
 
 
 class MonitoringServiceStatus(BaseModel):
@@ -30,6 +89,8 @@ class AgentTelemetryIngest(BaseModel):
     platform: Literal["windows", "linux", "macos", "other"] = "other"
     agent_role: Literal["server_host", "backend_host"] = "backend_host"
     hostname: str | None = Field(default=None, max_length=255)
+    ip_address: str | None = Field(default=None, min_length=7, max_length=45)
+    mac_address: str | None = Field(default=None, max_length=17)
     os_name: str | None = Field(default=None, max_length=100)
     os_version: str | None = Field(default=None, max_length=100)
     os_build: str | None = Field(default=None, max_length=100)
@@ -40,6 +101,29 @@ class AgentTelemetryIngest(BaseModel):
     process_count: int | None = Field(default=None, ge=0, le=1_000_000)
     uptime_seconds: int | None = Field(default=None, ge=0)
     listening_tcp_ports: list[int] = Field(default_factory=list, max_length=64)
+    neighbor_observations: list[HostNeighborObservation] = Field(
+        default_factory=list, max_length=256
+    )
+
+    @field_validator("ip_address")
+    @classmethod
+    def private_host_ip(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError as exc:
+            raise ValueError("host IP address is invalid") from exc
+        if not isinstance(address, ipaddress.IPv4Address) or not any(
+            address in network for network in _RFC1918
+        ):
+            raise ValueError("host IP address must be private IPv4")
+        return str(address)
+
+    @field_validator("mac_address")
+    @classmethod
+    def safe_host_mac(cls, value: str | None) -> str | None:
+        return HostNeighborObservation.safe_mac(value)
 
     @field_validator("listening_tcp_ports")
     @classmethod
@@ -103,6 +187,11 @@ class AgentTelemetryIngestResponse(BaseModel):
     received_at: datetime
     source: Literal["local_agent"] = "local_agent"
     message: str
+    lan_asset_id: uuid.UUID | None = None
+    lan_asset_registered: bool = False
+    neighbor_observations_received: int = 0
+    neighbor_observations_accepted: int = 0
+    neighbor_observations_rejected: int = 0
 
 
 class MonitoringAssetItem(BaseModel):
@@ -215,6 +304,11 @@ class MonitoringStartupStatus(BaseModel):
     assets_online: int = Field(ge=0)
     assets_unauthorized: int = Field(ge=0)
     static_router_observations: int = Field(ge=0)
+    agent_self_registered: int = Field(ge=0)
+    host_neighbor_observations: int = Field(ge=0)
+    assets_needing_review: int = Field(ge=0)
+    last_host_neighbor_sample: datetime | None = None
+    server_host_agent_connected: bool = False
     host_metrics_source: str
     host_metrics_available: bool
     host_metrics_fallback_reason: str | None = None
@@ -232,4 +326,5 @@ class MonitoringStartupStatus(BaseModel):
     baseline_open: int = Field(ge=0)
     optional_telemetry: bool = True
     docker_limitation: str
+    host_neighbor_guidance: str
     safety_notes: list[str]

@@ -39,7 +39,12 @@ def test_production_cors_wildcard_is_rejected() -> None:
 
 
 def test_lan_monitoring_defaults_are_non_intrusive() -> None:
-    local_settings = Settings(_env_file=None)
+    local_settings = Settings(
+        _env_file=None,
+        LAN_MONITORING_ENABLED=False,
+        LAN_DISCOVERY_PING_ENABLED=False,
+        LAN_SERVICE_CHECK_ENABLED=False,
+    )
 
     assert local_settings.APP_MODE == "local"
     assert local_settings.DESKTOP_MODE_ENABLED is False
@@ -110,7 +115,12 @@ def test_public_lan_cidr_is_rejected_at_startup() -> None:
 
 
 def test_rc6_lan_bootstrap_defaults_are_private_and_non_automatic() -> None:
-    local_settings = Settings(_env_file=None)
+    local_settings = Settings(
+        _env_file=None,
+        LAN_MONITORING_ENABLED=False,
+        LAN_AUTO_DISCOVERY_ON_START=False,
+        LAN_AUTO_SERVICE_CHECK_ON_START=False,
+    )
 
     assert local_settings.LAN_ALLOWED_CIDRS == "192.168.50.0/24"
     assert local_settings.LAN_GATEWAY_HINT == "192.168.50.1"

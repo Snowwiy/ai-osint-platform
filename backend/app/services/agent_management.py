@@ -40,7 +40,11 @@ from app.schemas.agent_management import (
     ServiceBaselineUpdate,
 )
 from app.services.audit import record_event
-from app.services.lan_monitoring import LanConfigurationError, validate_allowed_cidr
+from app.services.lan_monitoring import (
+    AGENT_ASSET_SOURCES,
+    LanConfigurationError,
+    validate_allowed_cidr,
+)
 from app.services.notification import create_admin_notification
 
 
@@ -313,7 +317,7 @@ async def list_agents(db: AsyncSession) -> AgentInventoryResponse:
     ]
     agents: list[AgentInventoryItem] = []
     for asset, response in zip(assets, responses, strict=True):
-        if asset.source != "agent":
+        if asset.source not in AGENT_ASSET_SOURCES:
             continue
         sample = telemetry.get(asset.id)
         groups = group_map.get(asset.id, [])
@@ -350,7 +354,7 @@ async def update_agent(
     db: AsyncSession, user: User, agent_id: uuid.UUID, body: AgentUpdate
 ) -> AgentInventoryItem:
     asset = await db.get(LanAsset, agent_id)
-    if asset is None or asset.source != "agent":
+    if asset is None or asset.source not in AGENT_ASSET_SOURCES:
         raise AgentManagementNotFoundError
     for key, value in body.model_dump(exclude_unset=True).items():
         setattr(asset, key, _clean(value) if isinstance(value, str) else value)
@@ -728,12 +732,13 @@ async def _coverage(
                 group_name=group.name,
                 total_assets=len(members),
                 monitored_by_agent=sum(
-                    1 for asset in members if asset.source == "agent"
+                    1 for asset in members if asset.source in AGENT_ASSET_SOURCES
                 ),
                 stale_agents=sum(
                     1
                     for asset in members
-                    if asset.source == "agent" and not by_id[asset.id].agent_connected
+                    if asset.source in AGENT_ASSET_SOURCES
+                    and not by_id[asset.id].agent_connected
                 ),
                 risk_indicators=sum(
                     len(by_id[asset.id].risk_indicators) for asset in members
@@ -742,12 +747,16 @@ async def _coverage(
         )
     return AgentCoverage(
         total_lan_assets=len(assets),
-        monitored_by_agent=sum(1 for asset in assets if asset.source == "agent"),
-        missing_agent=sum(1 for asset in assets if asset.source != "agent"),
+        monitored_by_agent=sum(
+            1 for asset in assets if asset.source in AGENT_ASSET_SOURCES
+        ),
+        missing_agent=sum(
+            1 for asset in assets if asset.source not in AGENT_ASSET_SOURCES
+        ),
         stale_agents=sum(
             1
             for asset, item in zip(assets, responses, strict=True)
-            if asset.source == "agent" and not item.agent_connected
+            if asset.source in AGENT_ASSET_SOURCES and not item.agent_connected
         ),
         unauthorized_assets=sum(1 for asset in assets if not asset.is_authorized),
         critical_assets_without_telemetry=sum(

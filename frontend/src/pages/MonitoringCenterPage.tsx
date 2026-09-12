@@ -137,12 +137,18 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("Last service check")}: {safeDate(startup.data.last_service_check_at)?.toLocaleString() ?? t("Never")}</p>
             <p>{t("LAN assets")}: {safeNumber(startup.data.assets_total)} · {safeNumber(startup.data.assets_online)} {t("online")}</p>
             <p>{t("Router/static observations")}: {safeNumber(startup.data.static_router_observations)}</p>
+            <p>{t("Agent registered assets")}: {safeNumber(startup.data.agent_self_registered)}</p>
+            <p>{t("Host neighbor assets")}: {safeNumber(startup.data.host_neighbor_observations)}</p>
+            <p>{t("Assets requiring review")}: {safeNumber(startup.data.assets_needing_review)}</p>
+            <p>{t("Last host neighbor sample")}: {safeDate(startup.data.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p>
+            <p>{t("ServerHost agent")}: {startup.data.server_host_agent_connected ? t("Connected") : t("Needs action")}</p>
             <p>{t("Agents connected")}: {safeNumber(startup.data.agent_covered)}</p>
             <p>{t("Host metrics source")}: {metricSource}</p>
             <p>{t("Posture assessed")}: {safeNumber(startup.data.assessed_posture)}</p>
             <p>{t("Open recommendations")}: {safeNumber(startup.data.open_recommendations)}</p>
           </div>
           <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")} · {t("Disabled optional monitoring is informational, not degraded")}</p>
+          {!startup.data.host_neighbor_observations ? <p className="mt-2 text-xs text-cyan-100">{t(startup.data.host_neighbor_guidance)}</p> : null}
         </section>
       ) : null}
 

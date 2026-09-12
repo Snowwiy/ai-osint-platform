@@ -3273,6 +3273,11 @@ export interface MonitoringStartupStatus {
   assets_online: number;
   assets_unauthorized: number;
   static_router_observations: number;
+  agent_self_registered: number;
+  host_neighbor_observations: number;
+  assets_needing_review: number;
+  last_host_neighbor_sample: string | null;
+  server_host_agent_connected: boolean;
   host_metrics_source: "container" | "server_endpoint_agent" | "backend_host_agent" | string;
   host_metrics_available: boolean;
   host_metrics_fallback_reason: string | null;
@@ -3290,6 +3295,7 @@ export interface MonitoringStartupStatus {
   baseline_open: number;
   optional_telemetry: boolean;
   docker_limitation: string;
+  host_neighbor_guidance: string;
   safety_notes: string[];
 }
 
@@ -3365,6 +3371,13 @@ export interface LanAssetListResponse {
   offline: number;
   unauthorized: number;
   agent_connected: number;
+  auto_registration_enabled: boolean;
+  agent_self_registered: number;
+  host_neighbor_observations: number;
+  manual_router_observations: number;
+  needs_review: number;
+  last_host_neighbor_sample: string | null;
+  server_host_agent_connected: boolean;
   items: LanAsset[];
 }
 
@@ -3513,6 +3526,9 @@ export interface MonitoringActivationStatus {
   optional_telemetry_note: string;
   agent_setup_steps: string[];
   token_enrollment_steps: string[];
+  auto_registration_enabled: boolean;
+  host_neighbor_collection_enabled: boolean;
+  host_neighbor_guidance: string;
 }
 
 export interface LanBootstrapStatus {

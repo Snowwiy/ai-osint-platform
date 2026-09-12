@@ -473,3 +473,12 @@ and Supabase remain unchanged.
   health/readiness/RC6 verification. Never restart by supplying custom commands.
 - **Need to recover `.env`:** stop and review the timestamped ignored backup locally.
   Do not print, attach, or commit it because it may contain existing secrets.
+- **Docker reports no LAN neighbors:** this is informational. Run the trusted
+  `ServerHost` helper manually so Windows supplies a read-only neighbor sample, or
+  use manual router observations. Do not mount privileged host networking into Docker.
+- **ServerHost reports zero neighbors:** confirm the host uses an address inside
+  `192.168.50.0/24`, the backend loaded that allowed CIDR, and Windows has recent
+  neighbor entries. No active scan is forced by the helper.
+- **An observed device requires review:** agent identities are authorized only when
+  newly registered inside the configured range. Passive neighbor identities remain
+  untrusted until an operator reviews them; this is expected, not platform failure.

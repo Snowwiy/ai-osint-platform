@@ -390,3 +390,13 @@ coverage limitations, not platform-health failures.
   does not start discovery, service checks, endpoint agents, or Docker.
 - ServerHost/LanEndpoint tests remain manual foreground processes with no persistence,
   service installation, scheduled task, or automatic recovery.
+
+## Phase 5BD observation limits
+
+- Windows neighbor tables contain only recently resolved local peers and are not a
+  complete network inventory. Offline, isolated, or quiet devices may not appear.
+- The trusted ServerHost helper limits collection to its same private `/24`; the
+  backend independently enforces `LAN_ALLOWED_CIDRS`. Other approved subnets require
+  an agent or manual observation within that configured range.
+- Auto-registered neighbor assets default to review-required. No router discovery,
+  packet capture, device authentication, blocking, or remediation is performed.

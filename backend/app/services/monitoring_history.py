@@ -322,7 +322,7 @@ async def reconcile_asset_state_changes(db: AsyncSession) -> None:
                 new_value="offline",
                 detected_at=now,
             )
-        if asset.source != "agent":
+        if asset.source not in {"agent", "endpoint_agent"}:
             continue
         latest = (
             (
