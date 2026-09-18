@@ -3275,6 +3275,7 @@ export interface MonitoringStartupStatus {
   assets_unauthorized: number;
   assets_agent_monitored: number;
   assets_missing_agent: number;
+  service_observations: number;
   open_service_observations: number;
   static_router_observations: number;
   agent_self_registered: number;
@@ -3384,6 +3385,7 @@ export interface LanAssetListResponse {
   unauthorized: number;
   agent_connected: number;
   missing_agent: number;
+  service_observations: number;
   open_service_observations: number;
   auto_registration_enabled: boolean;
   agent_self_registered: number;

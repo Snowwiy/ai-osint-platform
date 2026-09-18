@@ -407,3 +407,4 @@ coverage limitations, not platform-health failures.
 - Passive observations cannot prove ownership or trust. They remain `needs_review`, including the configured gateway hint, until an operator decides otherwise.
 - Service guesses use configured-port mappings and a fixed minimal SSH protocol classification. They do not authenticate, collect arbitrary banners, identify vulnerabilities, or prove compromise.
 - Online/offline and telemetry freshness reflect bounded observation windows, not continuous availability monitoring.
+- The read-only LAN Runtime Acceptance panel reports stored evidence. ServerHost and neighbor states remain `WAITING` until an operator manually supplies the prompt-only admin token and an accepted heartbeat reaches the backend; automated QA does not fabricate that event.

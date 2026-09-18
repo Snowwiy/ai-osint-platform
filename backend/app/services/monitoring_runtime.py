@@ -120,6 +120,7 @@ async def get_monitoring_startup_status(
         assets_unauthorized=lan_assets.unauthorized,
         assets_agent_monitored=lan_assets.agent_self_registered,
         assets_missing_agent=lan_assets.missing_agent,
+        service_observations=lan_assets.service_observations,
         open_service_observations=lan_assets.open_service_observations,
         static_router_observations=sum(
             item.source in {"static", "router"} for item in lan_assets.items

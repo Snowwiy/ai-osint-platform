@@ -580,7 +580,9 @@ check blocks the current release-freeze commit and push.
 - [ ] LanEndpoint self-registers inside the authorized private CIDR without manual asset creation.
 - [ ] `192.168.50.0/24` network/broadcast and out-of-CIDR observations are rejected; `192.168.50.1` is a reviewable gateway.
 - [ ] Passive neighbors default to needs review and preserve manual names/authorization after IP/MAC deduplication.
+- [ ] Needs-review and unauthorized counters are distinct; approving the gateway removes it from review without losing its gateway asset type.
 - [ ] LAN filters, neighbor diagnostics, freshness, service eligibility, posture and recommendation counts render in English and Spanish.
+- [ ] LAN Runtime Acceptance is read-only and shows PASS/FAIL/WAITING without initiating discovery or TCP checks.
 - [ ] Service summaries show bounded TCP results, fixed sanitized SSH hints, first/last observation and prior-state changes.
 - [ ] Change Timeline covers asset/service/agent transitions without duplicate unchanged events.
 - [ ] Docker neighbor visibility is optional and empty observations remain informational.

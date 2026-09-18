@@ -256,6 +256,7 @@ class LanAssetListResponse(BaseModel):
     unauthorized: int
     agent_connected: int
     missing_agent: int = 0
+    service_observations: int = 0
     open_service_observations: int = 0
     auto_registration_enabled: bool = False
     agent_self_registered: int = 0

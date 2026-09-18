@@ -110,6 +110,7 @@ test("live LAN acceptance exposes trust filters diagnostics and service changes"
     "neighbor_rejected_observations",
     "neighbor_deduplicated_observations",
     "neighbor_out_of_cidr_observations",
+    "service_observations",
     "trust_state",
     "telemetry_freshness",
     "service_check_eligible",
@@ -127,6 +128,23 @@ test("live LAN acceptance exposes trust filters diagnostics and service changes"
     "Observaciones fuera del CIDR",
     "Monitoreados por agente",
   ]) assert.ok(i18n.includes(phrase), `missing Spanish live-LAN copy: ${phrase}`);
+});
+
+test("runtime acceptance panel is read-only and bilingual", () => {
+  for (const phrase of [
+    "LAN Runtime Acceptance",
+    "Read-only diagnostics; rendering this summary never starts discovery or service checks.",
+    "Neighbor observations",
+    "Alerts/recommendations",
+  ]) assert.ok(center.includes(phrase), `missing runtime acceptance copy: ${phrase}`);
+  assert.match(center, /server_host_agent_connected \? "pass" : "waiting"/);
+  assert.match(center, /last_host_neighbor_sample \? "pass" : "waiting"/);
+  assert.doesNotMatch(center, /LAN Runtime Acceptance[\s\S]*discovery\.mutate|LAN Runtime Acceptance[\s\S]*serviceCheck\.mutate/);
+  for (const phrase of [
+    "Aceptación del entorno LAN",
+    "Diagnóstico de solo lectura",
+    "EN ESPERA",
+  ]) assert.ok(i18n.includes(phrase), `missing Spanish runtime acceptance copy: ${phrase}`);
 });
 
 test("agent enrollment acceptance remains manual and token-secret safe", () => {

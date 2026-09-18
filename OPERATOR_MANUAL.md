@@ -364,10 +364,19 @@ authenticates to, scrapes, or configures it.
 
 ### Phase 5BE live acceptance procedure
 
-1. Run the ServerHost agent manually from the validated repository root with `-BackendUrl http://localhost:8000 -IntervalSeconds 30`; paste the current admin token only into the secure prompt.
-2. Confirm the sanitized output reports an accepted heartbeat, an existing host asset, host telemetry, accepted/rejected neighbor counts, and the next heartbeat.
-3. In **Monitoring Center → LAN Assets**, confirm the collector is active, review raw/accepted/rejected/deduplicated/out-of-CIDR counts, and filter by Authorized, Needs review, Unauthorized, Agent monitored, No agent, Online, or Offline.
-4. Approve passive devices deliberately. Passive host-neighbor and gateway observations are not trusted automatically; existing operator names and authorization decisions are preserved.
-5. For an authorized monitored asset, run the bounded TCP service check and review current status, first/last observation, prior status, SSH classification, posture, recommendations, and Change Timeline events.
+1. Enable the reviewed authorized LAN profile for `192.168.50.0/24`; keep both active-check-on-start settings disabled.
+2. Start the local Docker platform.
+3. Verify `/health`, `/health/ready`, and `/api/v1/release` before accepting monitoring data.
+4. Open the embedded desktop frontend and review **LAN Runtime Acceptance**. The panel is read-only and never starts discovery or service checks.
+5. Run the ServerHost agent manually from the validated repository root with `-BackendUrl http://localhost:8000 -IntervalSeconds 30`; paste the current admin token only into the secure prompt.
+6. Wait 30–60 seconds and confirm the sanitized output reports an accepted heartbeat, an existing host asset, host telemetry, accepted/rejected neighbor counts, and the next heartbeat.
+7. Refresh **Monitoring Center → LAN Assets**.
+8. Verify the ServerHost asset and any accepted private neighbor observations were created automatically.
+9. Review **Needs review**. Passive host-neighbor and gateway observations are not trusted automatically; existing operator names and authorization decisions are preserved.
+10. Authorize only devices the operator recognizes and intends to monitor.
+11. For an authorized monitored asset, run the bounded configured-port TCP service check.
+12. Verify advisory Security Posture findings and recommendations without interpreting an open port as proof of compromise.
+13. Verify first-seen, online/offline, agent, hostname/IP/MAC, port, and SSH transitions in Change Timeline without repeated-sample flooding.
+14. Review Alerts and triage only the advisory items supported by stored observations.
 
 For another approved PC, use the detected/configured private server address when available. `http://192.168.50.201:8000` is an example, not a mandatory address. Restrict any Windows firewall allowance for port 8000 to `192.168.50.0/24`.

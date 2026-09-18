@@ -72,6 +72,12 @@ export function MonitoringCenterPage(): JSX.Element {
         : system?.source === "container" && system.available
           ? t("Docker container fallback")
           : t("Unavailable");
+  const backendAccepted = startup.data?.platform_status !== "unavailable";
+  const hostMetricsAccepted = Boolean(nativePrimary || startup.data?.host_metrics_available);
+  const lanConfigurationAccepted = Boolean(
+    startup.data?.lan_monitoring_enabled
+      && safeArray(startup.data.allowed_cidrs).includes("192.168.50.0/24"),
+  );
   const overviewVisible = tab === "server" || tab === "services";
 
   return (
@@ -144,6 +150,7 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("ServerHost agent")}: {startup.data.server_host_agent_connected ? t("Connected") : t("Needs action")}</p>
             <p>{t("Agents connected")}: {safeNumber(startup.data.agent_covered)}</p>
             <p>{t("Missing agent")}: {safeNumber(startup.data.assets_missing_agent)}</p>
+            <p>{t("Service observations")}: {safeNumber(startup.data.service_observations)}</p>
             <p>{t("Open service observations")}: {safeNumber(startup.data.open_service_observations)}</p>
             <p>{t("Host metrics source")}: {metricSource}</p>
             <p>{t("Posture assessed")}: {safeNumber(startup.data.assessed_posture)}</p>
@@ -151,6 +158,21 @@ export function MonitoringCenterPage(): JSX.Element {
           </div>
           <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")} · {t("Disabled optional monitoring is informational, not degraded")}</p>
           {!startup.data.host_neighbor_observations ? <p className="mt-2 text-xs text-cyan-100">{t(startup.data.host_neighbor_guidance)}</p> : null}
+          <div className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft/60 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-raven-muted">{t("LAN Runtime Acceptance")}</p>
+            <p className="mt-1 text-xs text-raven-muted">{t("Read-only diagnostics; rendering this summary never starts discovery or service checks.")}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <AcceptanceState label={t("Backend")} state={backendAccepted ? "pass" : "fail"} t={t} />
+              <AcceptanceState label={t("Host metrics")} state={hostMetricsAccepted ? "pass" : "fail"} t={t} />
+              <AcceptanceState label={t("LAN configuration")} state={lanConfigurationAccepted ? "pass" : "fail"} t={t} />
+              <AcceptanceState label={t("ServerHost agent")} state={startup.data.server_host_agent_connected ? "pass" : "waiting"} t={t} />
+              <AcceptanceState label={t("Neighbor observations")} state={startup.data.last_host_neighbor_sample ? "pass" : "waiting"} t={t} />
+              <AcceptanceCount label={t("LAN assets")} value={startup.data.assets_total} />
+              <AcceptanceCount label={t("Service observations")} value={startup.data.service_observations} />
+              <AcceptanceCount label={t("Posture evaluation")} value={startup.data.assessed_posture} />
+              <AcceptanceCount label={t("Alerts/recommendations")} value={safeNumber(startup.data.active_alerts) + safeNumber(startup.data.open_recommendations)} />
+            </div>
+          </div>
         </section>
       ) : null}
 
@@ -254,6 +276,15 @@ export function MonitoringCenterPage(): JSX.Element {
       {tab === "alerts" ? <MonitoringTriagePanel /> : null}
     </>
   );
+}
+
+function AcceptanceState({ label, state, t }: { label: string; state: "pass" | "fail" | "waiting"; t: (value: string) => string }): JSX.Element {
+  const style = state === "pass" ? "text-emerald-200" : state === "fail" ? "text-rose-100" : "text-cyan-100";
+  return <p className="text-xs text-raven-muted">{label}: <span className={`font-semibold ${style}`}>{t(state === "pass" ? "PASS" : state === "fail" ? "FAIL" : "WAITING")}</span></p>;
+}
+
+function AcceptanceCount({ label, value }: { label: string; value: unknown }): JSX.Element {
+  return <p className="text-xs text-raven-muted">{label}: <span className="font-semibold text-raven-text">{safeNumber(value)}</span></p>;
 }
 
 function Metric({ label: metricLabel, value }: { label: string; value: string }): JSX.Element {

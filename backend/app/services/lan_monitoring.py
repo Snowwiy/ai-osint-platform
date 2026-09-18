@@ -322,9 +322,10 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         online=sum(item.status == "online" for item in items),
         offline=sum(item.status == "offline" for item in items),
         authorized=sum(item.is_authorized for item in items),
-        unauthorized=sum(not item.is_authorized for item in items),
+        unauthorized=sum(item.trust_state == "unauthorized" for item in items),
         agent_connected=sum(item.agent_connected for item in items),
         missing_agent=sum(item.source not in AGENT_ASSET_SOURCES for item in items),
+        service_observations=sum(item.observed_services for item in items),
         open_service_observations=sum(
             service.status == "open"
             for asset_services in services.values()
@@ -338,7 +339,9 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         manual_router_observations=sum(
             item.source in {"static", "router"} for item in items
         ),
-        needs_review=sum(not item.is_authorized for item in items),
+        needs_review=sum(
+            item.trust_state in {"needs_review", "gateway"} for item in items
+        ),
         last_host_neighbor_sample=max(
             (
                 item.last_seen
@@ -1313,7 +1316,7 @@ def _asset_response(
 def _trust_state(
     asset: LanAsset,
 ) -> Literal["authorized", "needs_review", "unauthorized", "known_agent", "gateway"]:
-    if asset.asset_type == "gateway":
+    if asset.asset_type == "gateway" and not asset.is_authorized:
         return "gateway"
     if asset.source in AGENT_ASSET_SOURCES and asset.is_authorized:
         return "known_agent"

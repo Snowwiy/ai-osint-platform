@@ -443,6 +443,8 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     assert listing.json()["agent_self_registered"] == 1
     assert listing.json()["host_neighbor_observations"] == 2
     assert listing.json()["needs_review"] == 1
+    assert listing.json()["unauthorized"] == 0
+    assert listing.json()["service_observations"] == 0
     assert listing.json()["server_host_agent_connected"] is True
     assert listing.json()["last_host_neighbor_sample"] is not None
     assert listing.json()["neighbor_collector_active"] is True
@@ -461,6 +463,19 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     }
     assert "token" not in json.dumps(result).lower()
     assert await db.get(LanAsset, result["lan_asset_id"]) is not None
+
+    approved_gateway = await client.patch(
+        f"/api/v1/monitoring/lan/assets/{gateway['id']}",
+        headers=admin_headers,
+        json={"is_authorized": True},
+    )
+    refreshed = await client.get(
+        "/api/v1/monitoring/lan/assets", headers=admin_headers
+    )
+    assert approved_gateway.status_code == 200
+    assert approved_gateway.json()["trust_state"] == "authorized"
+    assert refreshed.json()["needs_review"] == 0
+    assert refreshed.json()["unauthorized"] == 0
 
 
 async def test_server_host_rejects_public_neighbor_payload(
