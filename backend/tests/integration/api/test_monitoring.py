@@ -411,6 +411,9 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     posture = await client.get(
         "/api/v1/monitoring/posture/overview", headers=admin_headers
     )
+    history = await client.get(
+        f"/api/v1/monitoring/lan/assets/{manual.id}/history", headers=admin_headers
+    )
 
     assert accepted.status_code == 202
     result = accepted.json()
@@ -425,8 +428,11 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     assert server["source"] == "endpoint_agent"
     assert server["asset_type"] == "server_host"
     assert server["agent_connected"] is True
+    assert server["trust_state"] == "known_agent"
+    assert server["telemetry_freshness"] == "fresh"
     assert gateway["source"] == "host_neighbor_table"
     assert gateway["asset_type"] == "gateway"
+    assert gateway["trust_state"] == "gateway"
     assert "gateway/router" in gateway["hostname"]
     assert gateway["is_authorized"] is False
     assert deduped["ip_address"] == "192.168.50.41"
@@ -439,9 +445,20 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     assert listing.json()["needs_review"] == 1
     assert listing.json()["server_host_agent_connected"] is True
     assert listing.json()["last_host_neighbor_sample"] is not None
+    assert listing.json()["neighbor_collector_active"] is True
+    assert listing.json()["neighbor_raw_observations"] == 4
+    assert listing.json()["neighbor_accepted_observations"] == 2
+    assert listing.json()["neighbor_rejected_observations"] == 1
+    assert listing.json()["neighbor_deduplicated_observations"] == 1
+    assert listing.json()["neighbor_out_of_cidr_observations"] == 1
+    assert listing.json()["neighbor_assets_created"] == 1
+    assert listing.json()["neighbor_assets_updated"] == 1
     assert posture.status_code == 200
     assert posture.json()["assessed_assets"] >= 3
     assert posture.json()["open_recommendations"] >= 1
+    assert "ip_changed" in {
+        item["event_type"] for item in history.json()["changes"]["items"]
+    }
     assert "token" not in json.dumps(result).lower()
     assert await db.get(LanAsset, result["lan_asset_id"]) is not None
 

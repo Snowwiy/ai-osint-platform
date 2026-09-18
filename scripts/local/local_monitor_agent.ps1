@@ -274,7 +274,7 @@ try {
             $response = Invoke-RestMethod -Method Post -Uri $endpoint `
                 -Headers $headers -ContentType "application/json" -Body $payload
             if ($Mode -eq "ServerHost") {
-                Write-Host "Telemetry accepted; host metrics sent; LAN asset registered: $($response.lan_asset_registered); neighbor observations sent: $($response.neighbor_observations_accepted); next heartbeat in ${IntervalSeconds}s."
+                Write-Host "Heartbeat accepted; host asset exists: $($response.lan_asset_registered); host telemetry sent; neighbor observations accepted: $($response.neighbor_observations_accepted)/$($response.neighbor_observations_received); rejected: $($response.neighbor_observations_rejected); next heartbeat in ${IntervalSeconds}s."
             } elseif ($Mode -eq "LanEndpoint") {
                 Write-Host "Heartbeat accepted for LAN endpoint $endpointIp; telemetry is fresh; next heartbeat in ${IntervalSeconds}s."
             } else {

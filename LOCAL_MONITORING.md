@@ -329,3 +329,9 @@ read-only and bounded: the helper sends host metrics plus at most 256 same-priva
 `LanEndpoint` registers only itself. Neither mode captures files, packet contents,
 credentials, process command lines, environment values, or browser data, and neither
 mode installs persistence. Manual router import remains an operator fallback.
+
+## Phase 5BE live LAN diagnostics
+
+The LAN inventory and desktop UI report collector active/inactive state, last sample time, raw, accepted, rejected, deduplicated and out-of-CIDR observations, plus assets created and updated by the latest ServerHost sample. An empty neighbor sample is informational and suggests starting the manually operated ServerHost agent or using the manual router/static fallback.
+
+Each asset exposes derived trust state, telemetry freshness, service-check eligibility, current observed-service count, posture state and active recommendation count. These are local acceptance signals, not evidence of compromise. Current services include first and last observation times and a previous-state change marker; banner output remains limited to the fixed `SSH protocol banner detected` classification.

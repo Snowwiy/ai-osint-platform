@@ -21,8 +21,9 @@ test("ServerHost collects only bounded read-only private neighbor observations",
 });
 
 test("agent output is sanitized and both modes self-register without persistence", () => {
-  assert.match(agent, /LAN asset registered:/);
-  assert.match(agent, /neighbor observations sent:/);
+  assert.match(agent, /Heartbeat accepted; host asset exists:/);
+  assert.match(agent, /neighbor observations accepted:/);
+  assert.match(agent, /next heartbeat in/);
   assert.match(agent, /Endpoint asset registered/);
   assert.match(agent, /asset_type = "lan_endpoint"/);
   assert.match(agent, /Paste a current local admin access token/);

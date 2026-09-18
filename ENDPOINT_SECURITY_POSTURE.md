@@ -166,3 +166,7 @@ neighbors without an agent remain informational coverage gaps and may receive an
 advisory needs-review or missing-agent recommendation. Authorization, risky-service,
 critical-gap, dedupe, and recovery rules are unchanged. No observation proves
 compromise, and all isolate/block language remains a manual recommendation.
+
+## Phase 5BE acceptance linkage
+
+The LAN Assets review table now shows posture state and recommendation count beside trust, agent freshness and service eligibility. Automatically learned passive assets can produce review/missing-agent recommendations; authorized agent assets can produce stale-agent, expected-service and risky-service guidance. SMB, RDP, PostgreSQL, Redis and non-standard SSH findings remain risk indicators only. Segmentation or isolation is always a manual operator decision.

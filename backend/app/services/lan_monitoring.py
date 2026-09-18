@@ -7,7 +7,7 @@ import shutil
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 from sqlalchemy import func, select
@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.agent_management import AgentEnrollmentToken
+from app.models.endpoint_posture import EndpointSecurityPosture
 from app.models.lan_monitoring import LanAsset, LanAssetTelemetry, LanServiceObservation
 from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.target import Target
@@ -267,8 +268,15 @@ def validate_allowed_ip(value: str) -> ipaddress.IPv4Address:
         raise LanConfigurationError(
             "LAN assets must use private RFC1918 IPv4 addresses."
         )
-    if not any(address in network for network in configured_networks()):
+    matching_network = next(
+        (network for network in configured_networks() if address in network), None
+    )
+    if matching_network is None:
         raise LanConfigurationError("The LAN asset IP is outside LAN_ALLOWED_CIDRS.")
+    if address in {matching_network.network_address, matching_network.broadcast_address}:
+        raise LanConfigurationError(
+            "LAN network and broadcast addresses cannot be registered as assets."
+        )
     return address
 
 
@@ -280,9 +288,22 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
     )
     telemetry = await _latest_telemetry(db)
     services = await _latest_services(db)
+    postures = {
+        item.lan_asset_id: item
+        for item in (
+            (await db.execute(select(EndpointSecurityPosture))).scalars().all()
+        )
+    }
+    neighbor_diagnostics = await _latest_neighbor_diagnostics(db)
     now = datetime.now(UTC)
     items = [
-        _asset_response(item, telemetry.get(item.id), services.get(item.id, []), now)
+        _asset_response(
+            item,
+            telemetry.get(item.id),
+            services.get(item.id, []),
+            now,
+            postures.get(item.id),
+        )
         for item in assets
     ]
     return LanAssetListResponse(
@@ -300,8 +321,15 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         total=len(items),
         online=sum(item.status == "online" for item in items),
         offline=sum(item.status == "offline" for item in items),
+        authorized=sum(item.is_authorized for item in items),
         unauthorized=sum(not item.is_authorized for item in items),
         agent_connected=sum(item.agent_connected for item in items),
+        missing_agent=sum(item.source not in AGENT_ASSET_SOURCES for item in items),
+        open_service_observations=sum(
+            service.status == "open"
+            for asset_services in services.values()
+            for service in asset_services
+        ),
         auto_registration_enabled=settings.LAN_MONITORING_ENABLED,
         agent_self_registered=sum(item.source in AGENT_ASSET_SOURCES for item in items),
         host_neighbor_observations=sum(
@@ -322,6 +350,24 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         server_host_agent_connected=any(
             item.asset_type == "server_host" and item.agent_connected for item in items
         ),
+        neighbor_collector_active=any(
+            item.asset_type == "server_host" and item.agent_connected for item in items
+        ),
+        neighbor_raw_observations=neighbor_diagnostics["neighbor_raw_observations"],
+        neighbor_accepted_observations=neighbor_diagnostics[
+            "neighbor_accepted_observations"
+        ],
+        neighbor_rejected_observations=neighbor_diagnostics[
+            "neighbor_rejected_observations"
+        ],
+        neighbor_deduplicated_observations=neighbor_diagnostics[
+            "neighbor_deduplicated_observations"
+        ],
+        neighbor_out_of_cidr_observations=neighbor_diagnostics[
+            "neighbor_out_of_cidr_observations"
+        ],
+        neighbor_assets_created=neighbor_diagnostics["neighbor_assets_created"],
+        neighbor_assets_updated=neighbor_diagnostics["neighbor_assets_updated"],
         items=items,
     )
 
@@ -332,8 +378,19 @@ async def get_lan_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAssetRespon
         raise LanAssetNotFoundError
     telemetry = await _latest_telemetry(db, asset_id)
     services = await _latest_services(db, asset_id)
+    posture = (
+        await db.execute(
+            select(EndpointSecurityPosture).where(
+                EndpointSecurityPosture.lan_asset_id == asset_id
+            )
+        )
+    ).scalar_one_or_none()
     return _asset_response(
-        asset, telemetry.get(asset.id), services.get(asset.id, []), datetime.now(UTC)
+        asset,
+        telemetry.get(asset.id),
+        services.get(asset.id, []),
+        datetime.now(UTC),
+        posture,
     )
 
 
@@ -407,10 +464,13 @@ async def discover_lan(
             raise LanConfigurationError(
                 "An observed asset is outside the selected CIDR."
             )
-        previous_asset = await _asset_by_ip(db, observation.ip_address)
+        previous_asset = await _asset_by_ip_or_mac(
+            db, observation.ip_address, observation.mac_address
+        )
         old_status = previous_asset.status if previous_asset else None
         old_hostname = previous_asset.hostname if previous_asset else None
         old_mac = previous_asset.mac_address if previous_asset else None
+        old_ip = previous_asset.ip_address if previous_asset else None
         asset, was_created = await _upsert_observation(db, user, observation, now)
         await record_asset_observation_changes(
             db,
@@ -421,6 +481,7 @@ async def discover_lan(
             old_mac=old_mac,
             source=observation.source,
             detected_at=now,
+            old_ip=old_ip,
         )
         created += int(was_created)
         updated += int(not was_created)
@@ -660,6 +721,7 @@ async def ingest_server_host_observations(
             old_status = server_asset.status if server_asset else None
             old_hostname = server_asset.hostname if server_asset else None
             old_mac = server_asset.mac_address if server_asset else None
+            old_ip = server_asset.ip_address if server_asset else None
             if server_asset is None:
                 server_asset = LanAsset(
                     ip_address=str(address),
@@ -698,6 +760,7 @@ async def ingest_server_host_observations(
                 old_mac=old_mac,
                 source="endpoint_agent",
                 detected_at=body.collected_at,
+                old_ip=old_ip,
             )
             telemetry = LanAssetTelemetry(
                 lan_asset_id=server_asset.id,
@@ -721,7 +784,10 @@ async def ingest_server_host_observations(
 
     accepted = 0
     rejected = 0
-    for observation in _dedupe_host_neighbors(body.neighbor_observations):
+    assets_created = 0
+    assets_updated = 0
+    deduped_observations = _dedupe_host_neighbors(body.neighbor_observations)
+    for observation in deduped_observations:
         try:
             validate_allowed_ip(observation.ip_address)
         except LanConfigurationError:
@@ -740,6 +806,7 @@ async def ingest_server_host_observations(
         old_status = previous.status if previous else None
         old_hostname = previous.hostname if previous else None
         old_mac = previous.mac_address if previous else None
+        old_ip = previous.ip_address if previous else None
         asset, created = await _upsert_observation(db, user, lan_observation, observation.observed_at)
         if observation.state == "unreachable":
             asset.status = "offline"
@@ -754,9 +821,12 @@ async def ingest_server_host_observations(
             old_mac=old_mac,
             source="host_neighbor_table",
             detected_at=observation.observed_at,
+            old_ip=old_ip,
         )
         touched.add(asset.id)
         accepted += 1
+        assets_created += int(created)
+        assets_updated += int(not created)
 
     await record_event(
         db,
@@ -769,6 +839,11 @@ async def ingest_server_host_observations(
             "received": len(body.neighbor_observations),
             "accepted": accepted,
             "rejected": rejected,
+            "deduplicated": len(body.neighbor_observations)
+            - len(deduped_observations),
+            "out_of_cidr": rejected,
+            "assets_created": assets_created,
+            "assets_updated": assets_updated,
         },
     )
     await db.flush()
@@ -811,16 +886,17 @@ async def list_asset_services(
                 select(LanServiceObservation)
                 .where(LanServiceObservation.lan_asset_id == asset_id)
                 .order_by(LanServiceObservation.observed_at.desc())
-                .limit(limit)
+                .limit(min(max(limit * 100, 1_000), 10_000))
             )
         )
         .scalars()
         .all()
     )
+    summaries = _service_summary_responses(list(reversed(rows)))[:limit]
     return LanServiceListResponse(
-        total=len(rows),
+        total=len(summaries),
         service_checks_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
-        items=[_service_response(item) for item in rows],
+        items=summaries,
     )
 
 
@@ -1167,9 +1243,27 @@ def _asset_response(
     telemetry: LanAssetTelemetry | None,
     services: list[LanServiceObservation],
     now: datetime,
+    posture: EndpointSecurityPosture | None = None,
 ) -> LanAssetResponse:
     connected = _agent_connected(asset, telemetry, now)
     status = _effective_status(asset, telemetry, now)
+    agent_asset = asset.source in AGENT_ASSET_SOURCES
+    service_eligible = bool(
+        settings.LAN_MONITORING_ENABLED
+        and settings.LAN_SERVICE_CHECK_ENABLED
+        and asset.is_authorized
+        and asset.monitoring_enabled
+    )
+    if not settings.LAN_MONITORING_ENABLED:
+        service_reason = "LAN_MONITORING_ENABLED is false."
+    elif not settings.LAN_SERVICE_CHECK_ENABLED:
+        service_reason = "LAN_SERVICE_CHECK_ENABLED is false."
+    elif not asset.is_authorized:
+        service_reason = "Asset requires operator authorization before TCP checks."
+    elif not asset.monitoring_enabled:
+        service_reason = "Asset monitoring is disabled."
+    else:
+        service_reason = "Eligible for bounded configured-port TCP connect checks."
     return LanAssetResponse(
         id=asset.id,
         ip_address=asset.ip_address,
@@ -1193,11 +1287,41 @@ def _asset_response(
         enrolled_at=asset.enrolled_at,
         capabilities=asset.capabilities,
         agent_connected=connected,
+        trust_state=_trust_state(asset),
+        telemetry_freshness=(
+            "fresh"
+            if connected
+            else "stale"
+            if agent_asset and telemetry is not None
+            else "missing"
+        ),
+        service_check_eligible=service_eligible,
+        service_check_reason=service_reason,
+        observed_services=len(services),
+        posture_status=cast(
+            Literal["healthy", "needs_review", "at_risk", "critical", "unknown"],
+            posture.posture_status if posture else "unknown",
+        ),
+        recommendation_count=posture.recommendation_count if posture else 0,
         response_latency_ms=asset.response_latency_ms,
         risk_indicators=_risk_indicators(asset, telemetry, services, status, connected),
         created_at=asset.created_at,
         updated_at=asset.updated_at,
     )
+
+
+def _trust_state(
+    asset: LanAsset,
+) -> Literal["authorized", "needs_review", "unauthorized", "known_agent", "gateway"]:
+    if asset.asset_type == "gateway":
+        return "gateway"
+    if asset.source in AGENT_ASSET_SOURCES and asset.is_authorized:
+        return "known_agent"
+    if asset.is_authorized:
+        return "authorized"
+    if asset.source == "host_neighbor_table":
+        return "needs_review"
+    return "unauthorized"
 
 
 def _risk_indicators(
@@ -1408,6 +1532,40 @@ async def _latest_telemetry(
     for row in rows:
         latest.setdefault(row.lan_asset_id, row)
     return latest
+
+
+async def _latest_neighbor_diagnostics(db: AsyncSession) -> dict[str, int]:
+    latest = (
+        (
+            await db.execute(
+                select(AuditLog)
+                .where(AuditLog.action == "lan.host_neighbors.ingested")
+                .order_by(AuditLog.created_at.desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    metadata = (
+        latest.event_metadata
+        if latest is not None and isinstance(latest.event_metadata, dict)
+        else {}
+    )
+
+    def count(key: str) -> int:
+        value = metadata.get(key, 0)
+        return value if isinstance(value, int) and value >= 0 else 0
+
+    return {
+        "neighbor_raw_observations": count("received"),
+        "neighbor_accepted_observations": count("accepted"),
+        "neighbor_rejected_observations": count("rejected"),
+        "neighbor_deduplicated_observations": count("deduplicated"),
+        "neighbor_out_of_cidr_observations": count("out_of_cidr"),
+        "neighbor_assets_created": count("assets_created"),
+        "neighbor_assets_updated": count("assets_updated"),
+    }
 
 
 async def _latest_services(
@@ -1685,7 +1843,12 @@ def _telemetry_response(item: LanAssetTelemetry) -> LanTelemetryResponse:
     )
 
 
-def _service_response(item: LanServiceObservation) -> LanServiceResponse:
+def _service_response(
+    item: LanServiceObservation,
+    *,
+    first_observed_at: datetime | None = None,
+    previous_status: str | None = None,
+) -> LanServiceResponse:
     return LanServiceResponse(
         id=item.id,
         lan_asset_id=item.lan_asset_id,
@@ -1699,8 +1862,30 @@ def _service_response(item: LanServiceObservation) -> LanServiceResponse:
         non_standard_ssh=item.non_standard_ssh,
         status=item.status,
         observed_at=item.observed_at,
+        first_observed_at=first_observed_at or item.observed_at,
+        previous_status=previous_status,
+        changed_from_previous=(
+            previous_status is not None and previous_status != item.status
+        ),
         source=item.source,
     )
+
+
+def _service_summary_responses(
+    rows: list[LanServiceObservation],
+) -> list[LanServiceResponse]:
+    grouped: dict[tuple[int, str], list[LanServiceObservation]] = {}
+    for item in rows:
+        grouped.setdefault((item.port, item.protocol), []).append(item)
+    summaries = [
+        _service_response(
+            history[-1],
+            first_observed_at=history[0].observed_at,
+            previous_status=history[-2].status if len(history) > 1 else None,
+        )
+        for history in grouped.values()
+    ]
+    return sorted(summaries, key=lambda item: (item.port, item.protocol))
 
 
 def _metric_count(body: LanAgentTelemetryIngest) -> int:

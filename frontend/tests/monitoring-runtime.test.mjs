@@ -103,6 +103,32 @@ test("automatic LAN registration states remain local, readable, and bilingual", 
   ]) assert.ok(i18n.includes(phrase), `missing Spanish auto-registration copy: ${phrase}`);
 });
 
+test("live LAN acceptance exposes trust filters diagnostics and service changes", () => {
+  for (const field of [
+    "neighbor_raw_observations",
+    "neighbor_accepted_observations",
+    "neighbor_rejected_observations",
+    "neighbor_deduplicated_observations",
+    "neighbor_out_of_cidr_observations",
+    "trust_state",
+    "telemetry_freshness",
+    "service_check_eligible",
+    "recommendation_count",
+    "changed_from_previous",
+    "first_observed_at",
+  ]) assert.ok(`${center}\n${lan}`.includes(field), `missing LAN acceptance field: ${field}`);
+  for (const filter of ["Authorized", "Needs review", "Unauthorized", "Agent monitored", "No agent", "Online", "Offline"]) {
+    assert.ok(lan.includes(filter), `missing LAN asset filter: ${filter}`);
+  }
+  for (const phrase of [
+    "Recolector de vecinos del host",
+    "Observaciones aceptadas",
+    "Observaciones rechazadas",
+    "Observaciones fuera del CIDR",
+    "Monitoreados por agente",
+  ]) assert.ok(i18n.includes(phrase), `missing Spanish live-LAN copy: ${phrase}`);
+});
+
 test("agent enrollment acceptance remains manual and token-secret safe", () => {
   assert.match(agents, /Endpoint enrollment acceptance/);
   assert.match(agents, /Verify the first heartbeat and connected status/);

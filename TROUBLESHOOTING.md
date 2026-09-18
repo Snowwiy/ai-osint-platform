@@ -482,3 +482,9 @@ and Supabase remain unchanged.
 - **An observed device requires review:** agent identities are authorized only when
   newly registered inside the configured range. Passive neighbor identities remain
   untrusted until an operator reviews them; this is expected, not platform failure.
+
+### Live acceptance diagnostics show zero neighbors
+
+Confirm the ServerHost agent says `Heartbeat accepted` and `host asset exists: True`, then check **LAN Assets → Host neighbor collector**. Zero raw observations means Windows returned no eligible private neighbors at that moment; it is not platform degradation. Reconnect an approved LAN device or import an observation manually. Rejected/out-of-CIDR counts indicate the backend correctly refused an address outside `192.168.50.0/24`, including network and broadcast addresses.
+
+If a device appears under **Needs review**, this is expected for passive neighbor observations. Authorize it only after matching the IP/MAC to an approved device. `192.168.50.201` is only an example backend address for LanEndpoint commands; use the actual detected/configured server LAN address.

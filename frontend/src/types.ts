@@ -3271,7 +3271,11 @@ export interface MonitoringStartupStatus {
   last_service_check_at: string | null;
   assets_total: number;
   assets_online: number;
+  assets_offline: number;
   assets_unauthorized: number;
+  assets_agent_monitored: number;
+  assets_missing_agent: number;
+  open_service_observations: number;
   static_router_observations: number;
   agent_self_registered: number;
   host_neighbor_observations: number;
@@ -3329,6 +3333,13 @@ export interface LanAsset {
   business_function: string | null;
   environment: string | null;
   agent_connected: boolean;
+  trust_state: "authorized" | "needs_review" | "unauthorized" | "known_agent" | "gateway";
+  telemetry_freshness: "fresh" | "stale" | "missing";
+  service_check_eligible: boolean;
+  service_check_reason: string;
+  observed_services: number;
+  posture_status: "healthy" | "needs_review" | "at_risk" | "critical" | "unknown";
+  recommendation_count: number;
   response_latency_ms: number | null;
   risk_indicators: LanRiskIndicator[];
   created_at: string;
@@ -3369,8 +3380,11 @@ export interface LanAssetListResponse {
   total: number;
   online: number;
   offline: number;
+  authorized: number;
   unauthorized: number;
   agent_connected: number;
+  missing_agent: number;
+  open_service_observations: number;
   auto_registration_enabled: boolean;
   agent_self_registered: number;
   host_neighbor_observations: number;
@@ -3378,6 +3392,14 @@ export interface LanAssetListResponse {
   needs_review: number;
   last_host_neighbor_sample: string | null;
   server_host_agent_connected: boolean;
+  neighbor_collector_active: boolean;
+  neighbor_raw_observations: number;
+  neighbor_accepted_observations: number;
+  neighbor_rejected_observations: number;
+  neighbor_deduplicated_observations: number;
+  neighbor_out_of_cidr_observations: number;
+  neighbor_assets_created: number;
+  neighbor_assets_updated: number;
   items: LanAsset[];
 }
 
@@ -3488,6 +3510,9 @@ export interface LanServiceObservation {
   non_standard_ssh: boolean;
   status: string;
   observed_at: string;
+  first_observed_at: string;
+  previous_status: string | null;
+  changed_from_previous: boolean;
   source: string;
 }
 

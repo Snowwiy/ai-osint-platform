@@ -568,8 +568,19 @@ check blocks the current release-freeze commit and push.
       non-standard SSH, risk, and manual isolation copy works in both languages.
 - [ ] English and Spanish reports retain the selected language on retry and
       export successfully as PDF, DOCX, HTML, and Markdown.
-- [ ] `/api/v1/release` reports `5.0.0-rc4`; migration current/head remains
+- [ ] `/api/v1/release` reports `5.0.0-rc6`; migration current/head remains
       `0036_phase5ai_posture` and no Phase 5AJ migration exists.
 - [ ] `npm run test:i18n` and `npm run build` pass before commit/tag.
 - [ ] Desktop packaging, hosting, deployment, DNS, Supabase, router automation,
       public scanning, and offensive behavior remain absent.
+
+## Phase 5BE live LAN acceptance
+
+- [ ] ServerHost output shows accepted heartbeat, host asset, host telemetry, neighbor counts and next heartbeat without printing its token.
+- [ ] LanEndpoint self-registers inside the authorized private CIDR without manual asset creation.
+- [ ] `192.168.50.0/24` network/broadcast and out-of-CIDR observations are rejected; `192.168.50.1` is a reviewable gateway.
+- [ ] Passive neighbors default to needs review and preserve manual names/authorization after IP/MAC deduplication.
+- [ ] LAN filters, neighbor diagnostics, freshness, service eligibility, posture and recommendation counts render in English and Spanish.
+- [ ] Service summaries show bounded TCP results, fixed sanitized SSH hints, first/last observation and prior-state changes.
+- [ ] Change Timeline covers asset/service/agent transitions without duplicate unchanged events.
+- [ ] Docker neighbor visibility is optional and empty observations remain informational.

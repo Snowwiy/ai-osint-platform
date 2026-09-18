@@ -361,3 +361,13 @@ configured `LAN_ALLOWED_CIDRS` boundary again, rejects public/out-of-range entri
 deduplicates by IP/MAC, and marks newly observed neighbors for review. The configured
 `192.168.50.1` gateway is labeled as a likely gateway; RavenTech never connects to,
 authenticates to, scrapes, or configures it.
+
+### Phase 5BE live acceptance procedure
+
+1. Run the ServerHost agent manually from the validated repository root with `-BackendUrl http://localhost:8000 -IntervalSeconds 30`; paste the current admin token only into the secure prompt.
+2. Confirm the sanitized output reports an accepted heartbeat, an existing host asset, host telemetry, accepted/rejected neighbor counts, and the next heartbeat.
+3. In **Monitoring Center → LAN Assets**, confirm the collector is active, review raw/accepted/rejected/deduplicated/out-of-CIDR counts, and filter by Authorized, Needs review, Unauthorized, Agent monitored, No agent, Online, or Offline.
+4. Approve passive devices deliberately. Passive host-neighbor and gateway observations are not trusted automatically; existing operator names and authorization decisions are preserved.
+5. For an authorized monitored asset, run the bounded TCP service check and review current status, first/last observation, prior status, SSH classification, posture, recommendations, and Change Timeline events.
+
+For another approved PC, use the detected/configured private server address when available. `http://192.168.50.201:8000` is an example, not a mandatory address. Restrict any Windows firewall allowance for port 8000 to `192.168.50.0/24`.

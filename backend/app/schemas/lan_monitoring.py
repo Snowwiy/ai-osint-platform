@@ -220,6 +220,17 @@ class LanAssetResponse(BaseModel):
     business_function: str | None
     environment: str | None
     agent_connected: bool
+    trust_state: Literal[
+        "authorized", "needs_review", "unauthorized", "known_agent", "gateway"
+    ]
+    telemetry_freshness: Literal["fresh", "stale", "missing"]
+    service_check_eligible: bool
+    service_check_reason: str
+    observed_services: int = Field(ge=0)
+    posture_status: Literal[
+        "healthy", "needs_review", "at_risk", "critical", "unknown"
+    ] = "unknown"
+    recommendation_count: int = Field(default=0, ge=0)
     response_latency_ms: float | None = None
     risk_indicators: list[LanRiskIndicator]
     created_at: datetime
@@ -241,8 +252,11 @@ class LanAssetListResponse(BaseModel):
     total: int
     online: int
     offline: int
+    authorized: int = 0
     unauthorized: int
     agent_connected: int
+    missing_agent: int = 0
+    open_service_observations: int = 0
     auto_registration_enabled: bool = False
     agent_self_registered: int = 0
     host_neighbor_observations: int = 0
@@ -250,6 +264,14 @@ class LanAssetListResponse(BaseModel):
     needs_review: int = 0
     last_host_neighbor_sample: datetime | None = None
     server_host_agent_connected: bool = False
+    neighbor_collector_active: bool = False
+    neighbor_raw_observations: int = 0
+    neighbor_accepted_observations: int = 0
+    neighbor_rejected_observations: int = 0
+    neighbor_deduplicated_observations: int = 0
+    neighbor_out_of_cidr_observations: int = 0
+    neighbor_assets_created: int = 0
+    neighbor_assets_updated: int = 0
     items: list[LanAssetResponse]
 
 
@@ -285,6 +307,9 @@ class LanServiceResponse(BaseModel):
     non_standard_ssh: bool
     status: str
     observed_at: datetime
+    first_observed_at: datetime
+    previous_status: str | None = None
+    changed_from_previous: bool = False
     source: str
 
 

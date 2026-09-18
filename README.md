@@ -691,3 +691,9 @@ gateway. Docker neighbor visibility is no longer the only population path; manua
 router observations remain a fallback. Service checks remain explicit, authorized,
 private-CIDR-only TCP connects. No router automation, public scanning, remote command,
 credential testing, persistence, or autostart was added.
+
+### Phase 5BE live LAN acceptance
+
+Monitoring Center now exposes live acceptance details for the authorized `192.168.50.0/24` deployment: agent/self-registration state, trust and review state, read-only ServerHost neighbor diagnostics, telemetry freshness, service-check eligibility, current service state and changes, posture, and recommendation counts. Passive neighbor-table assets default to **needs review**; authenticated agents inside the configured private range are known/authorized agents, and `192.168.50.1` remains a reviewable gateway hint.
+
+Safe discovery prefers ServerHost neighbor observations, then known agent and stored manual/router assets, and only uses bounded private reachability checks when explicitly enabled. Docker host-neighbor visibility is not required. Service checks remain configured-port, TCP-connect-only, private-CIDR-only, bounded, unauthenticated, and advisory.

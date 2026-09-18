@@ -8,6 +8,7 @@ import pytest
 from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.lan_monitoring import LanAsset, LanServiceObservation
+from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.monitoring import (
@@ -20,7 +21,10 @@ from app.services.lan_monitoring import (
     _classify_service,
     normalize_private_cidr,
     validate_allowed_cidr,
+    validate_allowed_ip,
 )
+from app.schemas.lan_monitoring import LanServiceInput
+from app.services.monitoring_history import record_service_observation
 from app.services.local_monitoring import get_monitoring_alerts
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select
@@ -78,6 +82,20 @@ def test_lan_cidr_normalizes_host_bits_and_preserves_gateway_hint(
         normalize_private_cidr("not-a-cidr")
     with pytest.raises(LanConfigurationError, match="MAX_HOSTS"):
         normalize_private_cidr("192.168.0.1/16")
+
+
+def test_network_broadcast_and_out_of_cidr_assets_are_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.50.0/24")
+
+    assert str(validate_allowed_ip("192.168.50.1")) == "192.168.50.1"
+    with pytest.raises(LanConfigurationError, match="network and broadcast"):
+        validate_allowed_ip("192.168.50.0")
+    with pytest.raises(LanConfigurationError, match="network and broadcast"):
+        validate_allowed_ip("192.168.50.255")
+    with pytest.raises(LanConfigurationError, match="outside"):
+        validate_allowed_ip("192.168.51.10")
 
 
 async def test_manual_router_observation_fields_are_validated_and_persisted(
@@ -253,6 +271,78 @@ async def test_lan_endpoint_registration_preserves_manual_authorization(
     assert detail.json()["is_authorized"] is False
     assert detail.json()["source"] == "endpoint_agent"
     assert telemetry.status_code == 202
+
+
+async def test_current_service_summary_reports_first_last_and_state_change(
+    client: AsyncClient,
+    admin_headers: dict[str, str],
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_lan(monkeypatch)
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
+    asset = LanAsset(
+        ip_address="192.168.0.81",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.flush()
+    first = datetime(2026, 1, 1, tzinfo=UTC)
+    second = datetime(2026, 1, 2, tzinfo=UTC)
+    await record_service_observation(
+        db,
+        asset=asset,
+        observation=LanServiceInput(
+            port=2222,
+            status="open",
+            service_name="ssh",
+            banner_hint="SSH protocol banner detected",
+            non_standard_ssh=True,
+            confidence=95,
+        ),
+        source="test_safe_tcp",
+        observed_at=first,
+    )
+    await record_service_observation(
+        db,
+        asset=asset,
+        observation=LanServiceInput(
+            port=2222,
+            status="closed",
+            service_name="ssh",
+            confidence=80,
+        ),
+        source="test_safe_tcp",
+        observed_at=second,
+    )
+    await db.commit()
+
+    response = await client.get(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/services",
+        headers=admin_headers,
+    )
+    changes = set(
+        (
+            await db.execute(
+                select(MonitoringChangeEvent.event_type).where(
+                    MonitoringChangeEvent.asset_id == asset.id
+                )
+            )
+        ).scalars()
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    item = response.json()["items"][0]
+    assert item["first_observed_at"].startswith("2026-01-01")
+    assert item["observed_at"].startswith("2026-01-02")
+    assert item["previous_status"] == "open"
+    assert item["changed_from_previous"] is True
+    assert item["banner_hint"] is None
+    assert {"port_opened", "port_closed", "ssh_nonstandard_detected"} <= changes
 
 
 async def test_lan_alerts_are_deduplicated(

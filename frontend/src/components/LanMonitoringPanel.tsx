@@ -21,6 +21,8 @@ import type { LanAsset } from "../types";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 
+type AssetFilter = "all" | "authorized" | "needs_review" | "unauthorized" | "agent" | "no_agent" | "online" | "offline";
+
 export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolean }): JSX.Element {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -32,6 +34,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   const [assetOwner, setAssetOwner] = useState("");
   const [businessFunction, setBusinessFunction] = useState("");
   const [assetEnvironment, setAssetEnvironment] = useState("");
+  const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
   const listing = useQuery({
     queryKey: ["lan-assets"],
     queryFn: listLanAssets,
@@ -40,7 +43,8 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     retry: 1,
   });
   const allAssets = safeArray(listing.data?.items);
-  const assets = agentsOnly ? allAssets.filter((asset) => ["agent", "endpoint_agent"].includes(asset.source)) : allAssets;
+  const modeAssets = agentsOnly ? allAssets.filter((asset) => ["agent", "endpoint_agent"].includes(asset.source)) : allAssets;
+  const assets = modeAssets.filter((asset) => assetMatchesFilter(asset, assetFilter));
   useEffect(() => {
     if (selectedId && !assets.some((asset) => asset.id === selectedId)) setSelectedId(null);
   }, [assets, selectedId]);
@@ -159,14 +163,16 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
         <p className="mt-3 text-xs text-raven-muted">Private ranges: {safeArray(config?.allowed_cidrs).join(", ") || "none"} · interval {safeNumber(config?.discovery_interval_seconds, 300)}s · ping {config?.ping_enabled ? "enabled" : "disabled"} · service observations {config?.service_check_enabled ? "enabled" : "disabled"}</p>
       </section>
 
-      {!agentsOnly ? <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><div className="flex flex-wrap gap-2"><State label={t("Automatic asset registration")} active={Boolean(config?.auto_registration_enabled)} /><State label={t("ServerHost agent")} active={Boolean(config?.server_host_agent_connected)} /><State label={t("Host neighbor observations")} active={safeNumber(config?.host_neighbor_observations) > 0} /></div><div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 xl:grid-cols-5"><p>{t("Agent registered assets")}: {safeNumber(config?.agent_self_registered)}</p><p>{t("Host neighbor assets")}: {safeNumber(config?.host_neighbor_observations)}</p><p>{t("Manual/router assets")}: {safeNumber(config?.manual_router_observations)}</p><p>{t("Assets requiring review")}: {safeNumber(config?.needs_review)}</p><p>{t("Last host neighbor sample")}: {safeDate(config?.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p></div></section> : null}
+      {!agentsOnly ? <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><div className="flex flex-wrap gap-2"><State label={t("Automatic asset registration")} active={Boolean(config?.auto_registration_enabled)} /><State label={t("ServerHost agent")} active={Boolean(config?.server_host_agent_connected)} /><State label={t("Host neighbor collector")} active={Boolean(config?.neighbor_collector_active)} /></div><div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 lg:grid-cols-4"><p>{t("Last host neighbor sample")}: {safeDate(config?.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p><p>{t("Raw observations")}: {safeNumber(config?.neighbor_raw_observations)}</p><p>{t("Accepted observations")}: {safeNumber(config?.neighbor_accepted_observations)}</p><p>{t("Rejected observations")}: {safeNumber(config?.neighbor_rejected_observations)}</p><p>{t("Deduplicated observations")}: {safeNumber(config?.neighbor_deduplicated_observations)}</p><p>{t("Out-of-CIDR observations")}: {safeNumber(config?.neighbor_out_of_cidr_observations)}</p><p>{t("Assets created")}: {safeNumber(config?.neighbor_assets_created)}</p><p>{t("Assets updated")}: {safeNumber(config?.neighbor_assets_updated)}</p></div>{!config?.neighbor_collector_active ? <p className="mt-3 text-xs text-cyan-100">{t("Start the manual ServerHost agent to populate read-only host neighbor observations. An empty sample is informational, not a platform failure.")}</p> : null}</section> : null}
+
+      <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-3"><p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">{t("Asset filters")}</p><div className="flex flex-wrap gap-2">{(["all", "authorized", "needs_review", "unauthorized", "agent", "no_agent", "online", "offline"] as AssetFilter[]).map((filter) => <button type="button" key={filter} onClick={() => setAssetFilter(filter)} className={`rounded-full border px-3 py-1 text-xs ${assetFilter === filter ? "border-raven-cyan bg-raven-cyan/10 text-raven-cyan" : "border-raven-border text-raven-muted"}`}>{t(filterLabel(filter))}</button>)}</div></section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Assets" value={agentsOnly ? assets.length : safeNumber(config?.total)} />
-        <Metric label="Online" value={assets.filter((asset) => asset.status === "online").length} />
-        <Metric label="Offline" value={assets.filter((asset) => asset.status === "offline").length} />
-        <Metric label="Unauthorized" value={assets.filter((asset) => !asset.is_authorized).length} />
-        <Metric label="Agents connected" value={assets.filter((asset) => asset.agent_connected).length} />
+        <Metric label="Assets" value={agentsOnly ? modeAssets.length : safeNumber(config?.total)} />
+        <Metric label="Online" value={modeAssets.filter((asset) => asset.status === "online").length} />
+        <Metric label="Needs review" value={modeAssets.filter((asset) => asset.trust_state === "needs_review" || asset.trust_state === "gateway").length} />
+        <Metric label="Open services" value={safeNumber(config?.open_service_observations)} />
+        <Metric label="Agents connected" value={modeAssets.filter((asset) => asset.agent_connected).length} />
       </section>
 
       {!assets.length ? (
@@ -174,17 +180,17 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
       ) : (
         <div className="overflow-x-auto rounded-lg border border-raven-border">
           <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">Asset</th><th className="p-3">Address</th><th className="p-3">Criticality</th><th className="p-3">Status</th><th className="p-3">Last seen</th><th className="p-3">Authorization</th><th className="p-3">Agent</th><th className="p-3">Attention</th></tr></thead>
+            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">Asset</th><th className="p-3">Address</th><th className="p-3">Trust/source</th><th className="p-3">Status</th><th className="p-3">Last seen</th><th className="p-3">Service checks</th><th className="p-3">Agent</th><th className="p-3">Posture</th></tr></thead>
             <tbody>{assets.map((asset) => (
               <tr key={asset.id} className="border-t border-raven-border align-top hover:bg-raven-panelSoft/60">
-                <td className="p-3"><button type="button" className="text-left font-medium text-raven-cyan hover:underline" onClick={() => setSelectedId(asset.id)}>{safeString(asset.hostname, safeString(asset.asset_type, "Unknown asset"))}</button><p className="text-xs text-raven-muted">{safeString(asset.vendor, safeString(asset.source, "unknown"))}</p></td>
+                <td className="p-3"><button type="button" className="text-left font-medium text-raven-cyan hover:underline" onClick={() => setSelectedId(asset.id)}>{safeString(asset.hostname, safeString(asset.asset_type, "Unknown asset"))}</button><p className="text-xs text-raven-muted">{safeString(asset.vendor, safeString(asset.asset_type, "unknown"))}</p></td>
                 <td className="p-3 font-mono text-xs">{safeString(asset.ip_address, "unknown")}<br /><span className="text-raven-muted">{safeString(asset.mac_address, "MAC unavailable")}</span></td>
-                <td className="p-3 capitalize">{safeString(asset.criticality, "medium")}</td>
-                <td className="p-3 capitalize">{safeString(asset.status, "unknown")}</td>
+                <td className="p-3 capitalize">{safeString(asset.trust_state, "needs_review").replace(/_/g, " ")}<br /><span className="text-xs text-raven-muted">{safeString(asset.source, "unknown")}</span></td>
+                <td className="p-3 capitalize">{safeString(asset.status, "unknown")}<br /><span className="text-xs text-raven-muted">Telemetry {safeString(asset.telemetry_freshness, "missing")}</span></td>
                 <td className="p-3 text-raven-muted">{safeDate(asset.last_seen)?.toLocaleString() ?? "Never"}</td>
-                <td className="p-3">{asset.is_authorized ? "Authorized" : "Review required"}<br /><span className="text-xs text-raven-muted">Monitoring {asset.monitoring_enabled ? "on" : "off"}</span></td>
-                <td className="p-3">{asset.agent_connected ? "Connected" : ["agent", "endpoint_agent"].includes(asset.source) ? "Not reporting" : "Not installed"}</td>
-                <td className="p-3">{safeArray(asset.risk_indicators).filter((item) => item.severity !== "info").length || "None"}</td>
+                <td className="p-3">{asset.service_check_eligible ? "Eligible" : "Not eligible"}<br /><span className="text-xs text-raven-muted">{safeNumber(asset.observed_services)} observed</span></td>
+                <td className="p-3">{asset.agent_connected ? "Connected" : ["agent", "endpoint_agent"].includes(asset.source) ? "Stale" : "No agent"}</td>
+                <td className="p-3 capitalize">{safeString(asset.posture_status, "unknown").replace(/_/g, " ")}<br /><span className="text-xs text-raven-muted">{safeNumber(asset.recommendation_count)} recommendation(s)</span></td>
               </tr>
             ))}</tbody>
           </table>
@@ -216,7 +222,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>
-            <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.service_name === "ssh" ? <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2 py-0.5 text-xs text-cyan-100">SSH indicator</span> : null}{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · observed {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Advisory risk indicator only; manually review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
+            <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.changed_from_previous ? <span className="rounded-full border border-amber-300/30 px-2 py-0.5 text-xs text-amber-100">Changed from {safeString(item.previous_status, "unknown")}</span> : null}{item.service_name === "ssh" ? <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2 py-0.5 text-xs text-cyan-100">SSH indicator</span> : null}{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · first {safeDate(item.first_observed_at)?.toLocaleString() ?? "unknown"} · last {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Advisory risk indicator only; manually review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Change timeline</h3>{history.isLoading ? <p className="mt-2 text-sm text-raven-muted">Loading asset history…</p> : history.error ? <p className="mt-2 text-sm text-rose-100">Asset history is temporarily unavailable.</p> : safeArray(history.data?.changes?.items).length ? <ul className="mt-2 space-y-2">{safeArray(history.data?.changes?.items).slice(0, 8).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{safeString(item.title, "Monitoring change")}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.severity, "info")}</span></div><p className="mt-1 break-words text-xs text-raven-muted">{safeDate(item.detected_at)?.toLocaleString() ?? "time unavailable"} · {safeString(item.event_type, "change")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No asset changes have been recorded yet.</p>}<p className="mt-2 text-xs text-raven-muted">Telemetry history: {safeNumber(history.data?.telemetry_samples)} sample(s) · latest {safeDate(history.data?.telemetry_last_at)?.toLocaleString() ?? "unavailable"}</p></div>
@@ -246,4 +252,28 @@ function serviceCheckReason(enabled: boolean | undefined, asset: LanAsset): stri
   if (!asset.is_authorized) return "Authorize this private LAN asset before checking services.";
   if (!asset.monitoring_enabled) return "Enable monitoring for this asset before checking services.";
   return "Run a rate-limited TCP connect check against configured ports only.";
+}
+
+function assetMatchesFilter(asset: LanAsset, filter: AssetFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "authorized") return asset.trust_state === "authorized" || asset.trust_state === "known_agent";
+  if (filter === "needs_review") return asset.trust_state === "needs_review" || asset.trust_state === "gateway";
+  if (filter === "unauthorized") return asset.trust_state === "unauthorized";
+  if (filter === "agent") return ["agent", "endpoint_agent"].includes(asset.source);
+  if (filter === "no_agent") return !["agent", "endpoint_agent"].includes(asset.source);
+  return asset.status === filter;
+}
+
+function filterLabel(filter: AssetFilter): string {
+  const labels: Record<AssetFilter, string> = {
+    all: "All",
+    authorized: "Authorized",
+    needs_review: "Needs review",
+    unauthorized: "Unauthorized",
+    agent: "Agent monitored",
+    no_agent: "No agent",
+    online: "Online",
+    offline: "Offline",
+  };
+  return labels[filter];
 }

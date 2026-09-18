@@ -135,7 +135,7 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("Service checks")}: {startup.data.service_check_enabled ? t("Enabled by configuration") : t("Disabled by configuration")}</p>
             <p>{t("Last discovery")}: {safeDate(startup.data.last_discovery_at)?.toLocaleString() ?? t("Never")}</p>
             <p>{t("Last service check")}: {safeDate(startup.data.last_service_check_at)?.toLocaleString() ?? t("Never")}</p>
-            <p>{t("LAN assets")}: {safeNumber(startup.data.assets_total)} · {safeNumber(startup.data.assets_online)} {t("online")}</p>
+            <p>{t("LAN assets")}: {safeNumber(startup.data.assets_total)} · {safeNumber(startup.data.assets_online)} {t("online")} · {safeNumber(startup.data.assets_offline)} {t("offline")}</p>
             <p>{t("Router/static observations")}: {safeNumber(startup.data.static_router_observations)}</p>
             <p>{t("Agent registered assets")}: {safeNumber(startup.data.agent_self_registered)}</p>
             <p>{t("Host neighbor assets")}: {safeNumber(startup.data.host_neighbor_observations)}</p>
@@ -143,6 +143,8 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("Last host neighbor sample")}: {safeDate(startup.data.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p>
             <p>{t("ServerHost agent")}: {startup.data.server_host_agent_connected ? t("Connected") : t("Needs action")}</p>
             <p>{t("Agents connected")}: {safeNumber(startup.data.agent_covered)}</p>
+            <p>{t("Missing agent")}: {safeNumber(startup.data.assets_missing_agent)}</p>
+            <p>{t("Open service observations")}: {safeNumber(startup.data.open_service_observations)}</p>
             <p>{t("Host metrics source")}: {metricSource}</p>
             <p>{t("Posture assessed")}: {safeNumber(startup.data.assessed_posture)}</p>
             <p>{t("Open recommendations")}: {safeNumber(startup.data.open_recommendations)}</p>

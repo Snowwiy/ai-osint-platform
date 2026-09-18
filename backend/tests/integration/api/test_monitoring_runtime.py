@@ -76,6 +76,9 @@ async def test_monitoring_startup_requires_authentication_and_loads_safe_summary
     assert payload["last_service_check_at"] is not None
     assert payload["assets_total"] == 1
     assert payload["assets_online"] == 1
+    assert payload["assets_offline"] == 0
+    assert payload["assets_missing_agent"] == 1
+    assert payload["open_service_observations"] == 0
     assert payload["static_router_observations"] == 1
     assert payload["host_metrics_source"] in {
         "container",

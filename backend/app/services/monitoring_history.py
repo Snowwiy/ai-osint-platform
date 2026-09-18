@@ -152,6 +152,7 @@ async def record_asset_observation_changes(
     old_mac: str | None,
     source: str,
     detected_at: datetime,
+    old_ip: str | None = None,
 ) -> None:
     if created:
         await record_change(
@@ -169,7 +170,7 @@ async def record_asset_observation_changes(
             },
             detected_at=detected_at,
         )
-    elif old_status == "offline":
+    elif old_status in {"offline", "unknown"} and asset.status == "online":
         await record_change(
             db,
             asset_id=asset.id,
@@ -180,6 +181,32 @@ async def record_asset_observation_changes(
             source=source,
             old_value="offline",
             new_value="online",
+            detected_at=detected_at,
+        )
+    elif old_status == "online" and asset.status == "offline":
+        await record_change(
+            db,
+            asset_id=asset.id,
+            event_type="asset_offline",
+            severity="critical" if asset.criticality == "critical" else "medium",
+            title="LAN asset went offline",
+            description="A fresh authorized observation reported this LAN asset unreachable.",
+            source=source,
+            old_value="online",
+            new_value="offline",
+            detected_at=detected_at,
+        )
+    if old_ip and old_ip != asset.ip_address:
+        await record_change(
+            db,
+            asset_id=asset.id,
+            event_type="ip_changed",
+            severity="medium",
+            title="LAN asset IP address changed",
+            description="The same normalized MAC address was observed at a different private LAN address.",
+            source=source,
+            old_value=old_ip,
+            new_value=asset.ip_address,
             detected_at=detected_at,
         )
     if old_hostname and asset.hostname and old_hostname != asset.hostname:

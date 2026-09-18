@@ -294,3 +294,13 @@ normalized MAC, and leave unknown devices in **needs review**. The gateway hint
 `192.168.50.1` receives only a likely-gateway label. Service checks are still
 separate, configuration-gated TCP connects against authorized assets and configured
 ports; automatic registration does not trigger them.
+
+## Phase 5BE trust, discovery and service acceptance
+
+- ServerHost self-registration is authorized and labeled as the primary server host.
+- Authenticated LanEndpoint enrollment inside `LAN_ALLOWED_CIDRS` becomes a known agent without prior manual asset creation.
+- Passive `host_neighbor_table` devices default to `needs_review`; the gateway hint is labeled `gateway` and still requires operator review.
+- Network, broadcast, public and out-of-CIDR addresses are rejected before asset creation.
+- Manual names and authorization decisions survive later IP/MAC deduplication.
+
+Safe discovery precedence is ServerHost neighbor observations, known agent assets, stored router/static observations, explicitly enabled bounded private reachability, then an informational empty state. Configured service observations remain private-only TCP connects with fixed port, host, timeout, cooldown and interval limits. Port opened/closed, SSH/non-standard SSH, hostname, MAC, IP, agent stale and agent recovered changes feed the deduplicated Change Timeline.

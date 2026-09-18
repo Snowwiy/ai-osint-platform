@@ -400,3 +400,10 @@ coverage limitations, not platform-health failures.
   an agent or manual observation within that configured range.
 - Auto-registered neighbor assets default to review-required. No router discovery,
   packet capture, device authentication, blocking, or remediation is performed.
+
+## Phase 5BE live LAN acceptance limits
+
+- Windows neighbor tables are cache-based and may omit sleeping, isolated, IPv6-only, or never-contacted devices; zero observations are informational.
+- Passive observations cannot prove ownership or trust. They remain `needs_review`, including the configured gateway hint, until an operator decides otherwise.
+- Service guesses use configured-port mappings and a fixed minimal SSH protocol classification. They do not authenticate, collect arbitrary banners, identify vulnerabilities, or prove compromise.
+- Online/offline and telemetry freshness reflect bounded observation windows, not continuous availability monitoring.

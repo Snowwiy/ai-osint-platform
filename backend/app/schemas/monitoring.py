@@ -302,7 +302,11 @@ class MonitoringStartupStatus(BaseModel):
     last_service_check_at: datetime | None = None
     assets_total: int = Field(ge=0)
     assets_online: int = Field(ge=0)
+    assets_offline: int = Field(ge=0)
     assets_unauthorized: int = Field(ge=0)
+    assets_agent_monitored: int = Field(ge=0)
+    assets_missing_agent: int = Field(ge=0)
+    open_service_observations: int = Field(ge=0)
     static_router_observations: int = Field(ge=0)
     agent_self_registered: int = Field(ge=0)
     host_neighbor_observations: int = Field(ge=0)
