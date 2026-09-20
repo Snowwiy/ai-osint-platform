@@ -58,6 +58,17 @@ function ConvertTo-NormalizedMac([string]$Value) {
     return $normalized
 }
 
+function Get-LocalFormFactor {
+    try {
+        $chassis = @(Get-CimInstance Win32_SystemEnclosure -ErrorAction Stop |
+            ForEach-Object { $_.ChassisTypes } | ForEach-Object { [int]$_ })
+        if (@($chassis | Where-Object { $_ -in @(8, 9, 10, 14, 30, 31, 32) }).Count) { return "laptop" }
+        if (@($chassis | Where-Object { $_ -in @(17, 23) }).Count) { return "server" }
+        if (@($chassis | Where-Object { $_ -in @(3, 4, 5, 6, 7, 15, 16) }).Count) { return "desktop" }
+    } catch { return $null }
+    return $null
+}
+
 function Get-SafeHostNeighborObservations([string]$HostAddress) {
     if (-not (Test-PrivateHost $HostAddress)) { return @() }
     $octets = $HostAddress.Split(".")
@@ -199,6 +210,10 @@ try {
             asset_type = "lan_endpoint"
             os_name = $os.Caption
             os_version = $os.Version
+            os_family = "windows"
+            architecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+            form_factor = Get-LocalFormFactor
+            agent_mode = "LanEndpoint"
             agent_version = $AgentVersion
             capabilities = @("basic_telemetry", "os_basics", "security_posture", "patch_awareness", "listening_ports")
         } | ConvertTo-Json -Compress

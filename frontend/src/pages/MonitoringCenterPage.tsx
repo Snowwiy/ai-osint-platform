@@ -12,6 +12,7 @@ import { MonitoringTriagePanel } from "../components/MonitoringTriagePanel";
 import { AgentManagementPanel } from "../components/AgentManagementPanel";
 import { MonitoringActivationPanel } from "../components/MonitoringActivationPanel";
 import { EndpointSecurityPosturePanel } from "../components/EndpointSecurityPosturePanel";
+import { LocalHostPanel } from "../components/LocalHostPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { getMonitoringOverview, getMonitoringStartup } from "../lib/api";
 import {
@@ -227,6 +228,8 @@ export function MonitoringCenterPage(): JSX.Element {
             <p className="mt-2 text-xs text-raven-muted">{nativePrimary?.detail ?? safeString(system?.detail, t("System metrics are unavailable."))}</p>
             {!nativePrimary && system?.source === "container" ? <p className="mt-2 rounded border border-cyan-300/30 p-3 text-xs text-cyan-100">{safeString(system.fallback_reason, t("Run the manual ServerHost agent for full host visibility."))}</p> : null}
           </section> : null}
+
+          {tab === "server" ? <LocalHostPanel platformServices={serviceItems.map((item) => ({ key: safeString(item.key, item.label), label: safeString(item.label, "Service"), status: safeString(item.status, "unknown"), detail: safeString(item.detail) }))} serverHostConnected={Boolean(startup.data?.server_host_agent_connected)} /> : null}
 
           {tab === "server" ? <section>
             <h2 className="mb-3 text-lg font-semibold">Asset watch</h2>

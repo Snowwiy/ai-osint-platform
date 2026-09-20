@@ -10,6 +10,7 @@ import {
   listLanAssets,
   listLanServices,
   listLanTelemetry,
+  listEndpointRecommendations,
   runLanServiceCheck,
   updateLanAsset,
   updateLanAssetCriticality,
@@ -21,7 +22,7 @@ import type { LanAsset } from "../types";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 
-type AssetFilter = "all" | "authorized" | "needs_review" | "unauthorized" | "agent" | "no_agent" | "online" | "offline";
+type AssetFilter = "all" | "authorized" | "needs_review" | "unauthorized" | "agent" | "no_agent" | "online" | "offline" | "windows" | "linux" | "android" | "ios" | "mobile" | "tablet" | "server" | "router" | "iot" | "unknown";
 
 export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolean }): JSX.Element {
   const { t } = useI18n();
@@ -75,6 +76,11 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     queryFn: () => getLanServiceHistory(selectedId ?? ""),
     enabled: isAdmin && Boolean(selectedId),
     retry: 1,
+  });
+  const recommendations = useQuery({
+    queryKey: ["lan-recommendations", selectedId],
+    queryFn: () => listEndpointRecommendations({ asset_id: selectedId ?? "" }),
+    enabled: isAdmin && Boolean(selectedId),
   });
   const selected = detail.data ?? assets.find((asset) => asset.id === selectedId);
   useEffect(() => {
@@ -165,7 +171,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
 
       {!agentsOnly ? <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><div className="flex flex-wrap gap-2"><State label={t("Automatic asset registration")} active={Boolean(config?.auto_registration_enabled)} /><State label={t("ServerHost agent")} active={Boolean(config?.server_host_agent_connected)} /><State label={t("Host neighbor collector")} active={Boolean(config?.neighbor_collector_active)} /></div><div className="mt-3 grid gap-2 text-xs text-raven-muted sm:grid-cols-2 lg:grid-cols-4"><p>{t("Last host neighbor sample")}: {safeDate(config?.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p><p>{t("Raw observations")}: {safeNumber(config?.neighbor_raw_observations)}</p><p>{t("Accepted observations")}: {safeNumber(config?.neighbor_accepted_observations)}</p><p>{t("Rejected observations")}: {safeNumber(config?.neighbor_rejected_observations)}</p><p>{t("Deduplicated observations")}: {safeNumber(config?.neighbor_deduplicated_observations)}</p><p>{t("Out-of-CIDR observations")}: {safeNumber(config?.neighbor_out_of_cidr_observations)}</p><p>{t("Assets created")}: {safeNumber(config?.neighbor_assets_created)}</p><p>{t("Assets updated")}: {safeNumber(config?.neighbor_assets_updated)}</p></div>{!config?.neighbor_collector_active ? <p className="mt-3 text-xs text-cyan-100">{t("Start the manual ServerHost agent to populate read-only host neighbor observations. An empty sample is informational, not a platform failure.")}</p> : null}</section> : null}
 
-      <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-3"><p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">{t("Asset filters")}</p><div className="flex flex-wrap gap-2">{(["all", "authorized", "needs_review", "unauthorized", "agent", "no_agent", "online", "offline"] as AssetFilter[]).map((filter) => <button type="button" key={filter} onClick={() => setAssetFilter(filter)} className={`rounded-full border px-3 py-1 text-xs ${assetFilter === filter ? "border-raven-cyan bg-raven-cyan/10 text-raven-cyan" : "border-raven-border text-raven-muted"}`}>{t(filterLabel(filter))}</button>)}</div></section>
+      <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-3"><p className="mb-2 text-xs uppercase tracking-wide text-raven-muted">{t("Asset filters")}</p><div className="flex flex-wrap gap-2">{(["all", "authorized", "needs_review", "unauthorized", "agent", "no_agent", "online", "offline", "windows", "linux", "android", "ios", "mobile", "tablet", "server", "router", "iot", "unknown"] as AssetFilter[]).map((filter) => <button type="button" key={filter} onClick={() => setAssetFilter(filter)} className={`rounded-full border px-3 py-1 text-xs ${assetFilter === filter ? "border-raven-cyan bg-raven-cyan/10 text-raven-cyan" : "border-raven-border text-raven-muted"}`}>{t(filterLabel(filter))}</button>)}</div></section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label="Assets" value={agentsOnly ? modeAssets.length : safeNumber(config?.total)} />
@@ -179,12 +185,18 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
         <EmptyBlock title={agentsOnly ? "No endpoint agents are reporting" : "No authorized LAN observations yet"} message={agentsOnly ? "No optional host telemetry has registered. Platform health is unaffected; install and manually run the local agent only on an approved host." : t("Docker could not read host LAN neighbors. Start the ServerHost agent to collect read-only host neighbor observations, or import router observations manually.")} nextStep={agentsOnly ? "Use the documented agent registration flow; no credentials or commands are collected." : t("Agent self-registration does not require manual asset creation.")} />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-raven-border">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">Asset</th><th className="p-3">Address</th><th className="p-3">Trust/source</th><th className="p-3">Status</th><th className="p-3">Last seen</th><th className="p-3">Service checks</th><th className="p-3">Agent</th><th className="p-3">Posture</th></tr></thead>
+          <table className="w-full min-w-[1400px] text-left text-sm">
+            <thead className="bg-raven-panelSoft text-xs uppercase tracking-wide text-raven-muted"><tr><th className="p-3">{t("Device")}</th><th className="p-3">IP</th><th className="p-3">MAC</th><th className="p-3">{t("Vendor")}</th><th className="p-3">{t("OS")}</th><th className="p-3">{t("Device type")}</th><th className="p-3">{t("Classification confidence")}</th><th className="p-3">{t("Classification source")}</th><th className="p-3">{t("Trust/source")}</th><th className="p-3">{t("Status")}</th><th className="p-3">{t("Last seen")}</th><th className="p-3">{t("Services")}</th><th className="p-3">{t("Agent")}</th><th className="p-3">{t("Posture")}</th></tr></thead>
             <tbody>{assets.map((asset) => (
               <tr key={asset.id} className="border-t border-raven-border align-top hover:bg-raven-panelSoft/60">
-                <td className="p-3"><button type="button" className="text-left font-medium text-raven-cyan hover:underline" onClick={() => setSelectedId(asset.id)}>{safeString(asset.hostname, safeString(asset.asset_type, "Unknown asset"))}</button><p className="text-xs text-raven-muted">{safeString(asset.vendor, safeString(asset.asset_type, "unknown"))}</p></td>
-                <td className="p-3 font-mono text-xs">{safeString(asset.ip_address, "unknown")}<br /><span className="text-raven-muted">{safeString(asset.mac_address, "MAC unavailable")}</span></td>
+                <td className="p-3"><button type="button" className="text-left font-medium text-raven-cyan hover:underline" onClick={() => setSelectedId(asset.id)}>{safeString(asset.hostname, safeString(asset.asset_type, "Unknown asset"))}</button></td>
+                <td className="p-3 font-mono text-xs">{safeString(asset.ip_address, "unknown")}</td>
+                <td className="p-3 font-mono text-xs">{safeString(asset.mac_address, "MAC unavailable")}</td>
+                <td className="p-3">{safeString(asset.vendor, t("Unknown"))}<br /><span className="text-xs text-raven-muted">{safeString(asset.vendor_source)} {safeString(asset.vendor_confidence)}</span></td>
+                <td className="p-3">{t(asset.os_family)}<br /><span className="text-xs text-raven-muted">{safeString(asset.os_version)}</span></td>
+                <td className="p-3">{t(asset.device_type)}</td>
+                <td className="p-3">{t(asset.classification_confidence)}</td>
+                <td className="p-3 text-xs">{t(asset.classification_source)}</td>
                 <td className="p-3 capitalize">{safeString(asset.trust_state, "needs_review").replace(/_/g, " ")}<br /><span className="text-xs text-raven-muted">{safeString(asset.source, "unknown")}</span></td>
                 <td className="p-3 capitalize">{safeString(asset.status, "unknown")}<br /><span className="text-xs text-raven-muted">Telemetry {safeString(asset.telemetry_freshness, "missing")}</span></td>
                 <td className="p-3 text-raven-muted">{safeDate(asset.last_seen)?.toLocaleString() ?? "Never"}</td>
@@ -208,6 +220,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
             <Metric label="Disk" value={percent(safeArray(telemetry.data?.items)[0]?.disk_percent)} />
             <Metric label="Latency" value={selected.response_latency_ms == null ? "Unavailable" : `${selected.response_latency_ms.toFixed(1)} ms`} />
           </div>
+          <div className="mt-4 grid gap-3 rounded-md border border-raven-border p-3 text-sm sm:grid-cols-2 xl:grid-cols-4"><div><h3 className="font-medium">{t("Identity")}</h3><p>{safeString(selected.hostname, t("Unknown"))}</p></div><div><h3 className="font-medium">{t("Network")}</h3><p>{selected.ip_address} · {safeString(selected.mac_address, t("Unknown"))}</p></div><div><h3 className="font-medium">{t("Operating System")}</h3><p>{t(selected.os_family)} {safeString(selected.os_name)} {safeString(selected.os_version)} {safeString(selected.architecture)}</p></div><div><h3 className="font-medium">{t("Device Classification")}</h3><p>{t(selected.device_type)} · {t(selected.classification_confidence)} · {t(selected.classification_source)}</p><ul className="mt-1 list-inside list-disc text-xs text-raven-muted">{safeArray(selected.classification_evidence).map((evidence) => <li key={evidence}>{t(evidence)}</li>)}</ul></div><div><h3 className="font-medium">{t("Agent")}</h3><p>{selected.agent_connected ? t("Connected") : t("No agent")} · {safeString(selected.agent_mode)}</p></div><div><h3 className="font-medium">{t("Vendor")}</h3><p>{safeString(selected.vendor, t("Unknown"))} · {safeString(selected.vendor_source)} · {t(selected.vendor_confidence)}</p></div><div><h3 className="font-medium">{t("Security Posture")}</h3><p>{t(selected.posture_status)} · {selected.recommendation_count} {t("Recommendations")}</p></div><div><h3 className="font-medium">{t("Device type")}</h3><select value={safeString(selected.manual_device_type, "unknown")} onChange={(event) => update.mutate({ asset: selected, changes: { device_type: event.target.value } })} className="mt-1 rounded border border-raven-border bg-raven-panelSoft p-1"><option value="unknown">{t("No manual classification")}</option>{["desktop", "laptop", "server", "mobile", "tablet", "router", "network_device", "iot", "virtual_machine"].map((kind) => <option key={kind} value={kind}>{t(kind)}</option>)}</select><p className="mt-1 text-xs text-raven-muted">{t("Authenticated agent metadata takes priority.")}</p></div></div>
           <div className="mt-4 flex flex-wrap items-end gap-2 rounded-md border border-raven-border p-3">
             <label className="text-xs text-raven-muted">Criticality<select defaultValue={safeString(selected.criticality, "medium")} id={`criticality-${selected.id}`} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label>
             <label className="text-xs text-raven-muted">Owner<input value={assetOwner} onChange={(event) => setAssetOwner(event.target.value)} maxLength={255} className="mt-1 block rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm text-raven-text" /></label>
@@ -224,6 +237,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>
             <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.changed_from_previous ? <span className="rounded-full border border-amber-300/30 px-2 py-0.5 text-xs text-amber-100">Changed from {safeString(item.previous_status, "unknown")}</span> : null}{item.service_name === "ssh" ? <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2 py-0.5 text-xs text-cyan-100">SSH indicator</span> : null}{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · first {safeDate(item.first_observed_at)?.toLocaleString() ?? "unknown"} · last {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Advisory risk indicator only; manually review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
           </div>
+          <section className="mt-4"><h3 className="text-sm font-medium">{t("Recommendations")}</h3>{safeArray(recommendations.data?.items).length ? <ul className="mt-2 grid gap-2 md:grid-cols-2">{safeArray(recommendations.data?.items).map((item) => <li key={item.id} className="rounded border border-raven-border p-3 text-sm"><p className="font-medium">{item.title} · {t(item.confidence)}</p><p className="mt-1 text-raven-muted">{item.reason}</p><p className="mt-1 text-xs">{item.recommended_action}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">{t("No recommendations available.")}</p>}</section>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Change timeline</h3>{history.isLoading ? <p className="mt-2 text-sm text-raven-muted">Loading asset history…</p> : history.error ? <p className="mt-2 text-sm text-rose-100">Asset history is temporarily unavailable.</p> : safeArray(history.data?.changes?.items).length ? <ul className="mt-2 space-y-2">{safeArray(history.data?.changes?.items).slice(0, 8).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-medium">{safeString(item.title, "Monitoring change")}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.severity, "info")}</span></div><p className="mt-1 break-words text-xs text-raven-muted">{safeDate(item.detected_at)?.toLocaleString() ?? "time unavailable"} · {safeString(item.event_type, "change")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No asset changes have been recorded yet.</p>}<p className="mt-2 text-xs text-raven-muted">Telemetry history: {safeNumber(history.data?.telemetry_samples)} sample(s) · latest {safeDate(history.data?.telemetry_last_at)?.toLocaleString() ?? "unavailable"}</p></div>
             <div><h3 className="text-sm font-medium">Service history</h3>{serviceHistory.isLoading ? <p className="mt-2 text-sm text-raven-muted">Loading service history…</p> : serviceHistory.error ? <p className="mt-2 text-sm text-rose-100">Service history is temporarily unavailable.</p> : safeArray(serviceHistory.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(serviceHistory.data?.items).slice(0, 8).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.previous_status, "first observation")} → {safeString(item.current_status, "unknown")}</span></div><p className="mt-1 break-words text-xs text-raven-muted">{safeString(item.service_name, "unidentified service")} · confidence {safeNumber(item.confidence)}% · {safeDate(item.observed_at)?.toLocaleString() ?? "time unavailable"}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service history has been recorded.</p>}</div>
@@ -261,6 +275,9 @@ function assetMatchesFilter(asset: LanAsset, filter: AssetFilter): boolean {
   if (filter === "unauthorized") return asset.trust_state === "unauthorized";
   if (filter === "agent") return ["agent", "endpoint_agent"].includes(asset.source);
   if (filter === "no_agent") return !["agent", "endpoint_agent"].includes(asset.source);
+  if (["windows", "linux", "android", "ios"].includes(filter)) return asset.os_family === filter;
+  if (["mobile", "tablet", "server", "router", "iot"].includes(filter)) return asset.device_type === filter;
+  if (filter === "unknown") return asset.os_family === "unknown" || asset.device_type === "unknown";
   return asset.status === filter;
 }
 
@@ -274,6 +291,7 @@ function filterLabel(filter: AssetFilter): string {
     no_agent: "No agent",
     online: "Online",
     offline: "Offline",
+    windows: "Windows", linux: "Linux", android: "Android", ios: "iOS", mobile: "Mobile", tablet: "Tablet", server: "Server", router: "Router", iot: "IoT", unknown: "Unknown",
   };
   return labels[filter];
 }

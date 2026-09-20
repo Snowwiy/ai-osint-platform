@@ -48,6 +48,7 @@ from app.schemas.lan_monitoring import (
 )
 from app.schemas.monitoring import AgentTelemetryIngest, HostNeighborObservation, MonitoringAlert
 from app.services.audit import record_event
+from app.services.device_classification import classify
 from app.services.notification import create_admin_notification
 from app.services.monitoring_history import (
     record_agent_telemetry_changes,
@@ -405,7 +406,14 @@ async def update_lan_asset(
         raise LanAssetNotFoundError
     old_hostname = asset.hostname
     for field, value in body.model_dump(exclude_unset=True).items():
+        if field == "device_type":
+            asset.manual_device_type = value if value != "unknown" else None
+            continue
         setattr(asset, field, value.strip() if isinstance(value, str) else value)
+    if "vendor" in body.model_fields_set:
+        asset.vendor_source = "operator" if asset.vendor else None
+        asset.vendor_confidence = "high" if asset.vendor else "low"
+    _classify_asset(asset)
     if asset.is_authorized and old_hostname and asset.hostname != old_hostname:
         await record_asset_observation_changes(
             db,
@@ -561,8 +569,15 @@ async def register_agent(
     asset.mac_address = body.mac_address or asset.mac_address
     if not asset.hostname or asset.source in AGENT_ASSET_SOURCES:
         asset.hostname = _clean(body.hostname) or asset.hostname
-    asset.asset_type = body.asset_type
+    if asset.classification_source != "operator":
+        asset.asset_type = body.asset_type
+    asset.os_name = _clean(body.os_name)
+    asset.os_version = _clean(body.os_version)
+    asset.architecture = _clean(body.architecture)
+    asset.agent_mode = body.agent_mode
+    asset.agent_form_factor = body.form_factor
     asset.source = "endpoint_agent"
+    _classify_asset(asset, agent_family=body.os_family, agent_form_factor=body.form_factor)
     asset.status = "online"
     asset.last_seen = now
     asset.last_checked_at = now
@@ -661,6 +676,11 @@ async def ingest_agent_telemetry(
     asset.status = "online"
     asset.last_seen = body.collected_at
     asset.last_checked_at = received_at
+    if body.os_name:
+        asset.os_name = _clean(body.os_name)
+    if body.os_version:
+        asset.os_version = _clean(body.os_version)
+    _classify_asset(asset)
     if old_status == "offline":
         await record_asset_observation_changes(
             db,
@@ -742,6 +762,11 @@ async def ingest_server_host_observations(
                 server_asset.hostname = _clean(body.hostname) or server_asset.hostname
             server_asset.asset_type = "server_host"
             server_asset.source = "endpoint_agent"
+            server_asset.os_name = _clean(body.os_name)
+            server_asset.os_version = _clean(body.os_version)
+            server_asset.agent_mode = "ServerHost"
+            server_asset.agent_form_factor = "server"
+            _classify_asset(server_asset, agent_form_factor="server")
             server_asset.status = "online"
             server_asset.last_seen = body.collected_at
             server_asset.last_checked_at = now
@@ -1273,6 +1298,18 @@ def _asset_response(
         mac_address=asset.mac_address,
         hostname=asset.hostname,
         vendor=asset.vendor,
+        vendor_source=asset.vendor_source,
+        vendor_confidence=asset.vendor_confidence or "low",
+        os_family=asset.os_family or "unknown",
+        os_name=asset.os_name,
+        os_version=asset.os_version,
+        architecture=asset.architecture,
+        agent_mode=asset.agent_mode,
+        device_type=asset.device_type or "unknown",
+        manual_device_type=asset.manual_device_type,
+        classification_source=asset.classification_source or "insufficient_evidence",
+        classification_confidence=asset.classification_confidence or "low",
+        classification_evidence=asset.classification_evidence or [],
         asset_type=asset.asset_type,
         status=status,
         source=asset.source,
@@ -1311,6 +1348,27 @@ def _asset_response(
         created_at=asset.created_at,
         updated_at=asset.updated_at,
     )
+
+
+def _classify_asset(
+    asset: LanAsset, *, agent_family: str | None = None,
+    agent_form_factor: str | None = None,
+) -> None:
+    result = classify(
+        os_name=asset.os_name,
+        agent_family=agent_family,
+        agent_form_factor=agent_form_factor or asset.agent_form_factor,
+        agent_mode=asset.agent_mode if asset.source in AGENT_ASSET_SOURCES else None,
+        manual_type=asset.manual_device_type,
+        gateway=asset.ip_address == settings.LAN_GATEWAY_HINT or asset.asset_type == "gateway",
+        hostname=asset.hostname,
+        vendor=asset.vendor,
+    )
+    asset.os_family = result.os_family
+    asset.device_type = result.device_type
+    asset.classification_source = result.source
+    asset.classification_confidence = result.confidence
+    asset.classification_evidence = list(result.evidence)
 
 
 def _trust_state(
@@ -1465,13 +1523,18 @@ async def _upsert_observation(
         asset.ip_address = address
     asset.mac_address = observation.mac_address or asset.mac_address
     asset.hostname = _clean(observation.hostname) or asset.hostname
-    asset.vendor = _clean(observation.vendor) or asset.vendor
+    if observation.vendor:
+        asset.vendor = _clean(observation.vendor)
+        asset.vendor_source = observation.source
+        asset.vendor_confidence = "medium" if observation.source == "router" else "low"
     if observation.asset_type != "unknown" or asset.asset_type == "unknown":
         asset.asset_type = observation.asset_type
     if address == settings.LAN_GATEWAY_HINT:
         asset.asset_type = "gateway"
         asset.hostname = asset.hostname or "Likely gateway/router"
-    asset.source = observation.source
+    _classify_asset(asset)
+    if asset.source not in AGENT_ASSET_SOURCES:
+        asset.source = observation.source
     if observation.source != "host_neighbor_table" or created:
         asset.status = "online"
     asset.last_seen = now

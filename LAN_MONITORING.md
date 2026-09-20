@@ -304,3 +304,21 @@ ports; automatic registration does not trigger them.
 - Manual names and authorization decisions survive later IP/MAC deduplication.
 
 Safe discovery precedence is ServerHost neighbor observations, known agent assets, stored router/static observations, explicitly enabled bounded private reachability, then an informational empty state. Configured service observations remain private-only TCP connects with fixed port, host, timeout, cooldown and interval limits. Port opened/closed, SSH/non-standard SSH, hostname, MAC, IP, agent stale and agent recovered changes feed the deduplicated Change Timeline.
+# Phase 5BG device classification
+
+LAN assets now record normalized OS family, reported OS name/version and
+architecture, device type, classification source, confidence, and evidence.
+Authenticated endpoint agent metadata has priority, followed by operator device
+classification, the configured gateway address, and cautious hostname/vendor
+hints. Weak hints never invent an exact OS version. Device type remains unknown
+when an agent reports Windows or Linux without a supported form-factor signal.
+An Android/iOS agent likewise needs form-factor metadata to distinguish mobile
+from tablet. Agent mode remains telemetry-only.
+
+The asset table offers OS and device-type filters. Its detail view shows identity,
+network, classification evidence, agent state, observed services, posture,
+recommendations, and the existing change timeline. MAC vendor is shown only
+when already present in safe observation data; no external OUI API is required.
+Vendor alone never produces high-confidence device type. Router, IoT, mobile,
+and tablet recommendations are advisory and account for limited endpoint
+visibility. No remote administrative action is attached to LAN assets.

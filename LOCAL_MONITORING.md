@@ -335,3 +335,27 @@ mode installs persistence. Manual router import remains an operator fallback.
 The LAN inventory and desktop UI report collector active/inactive state, last sample time, raw, accepted, rejected, deduplicated and out-of-CIDR observations, plus assets created and updated by the latest ServerHost sample. An empty neighbor sample is informational and suggests starting the manually operated ServerHost agent or using the manual router/static fallback.
 
 Each asset exposes derived trust state, telemetry freshness, service-check eligibility, current observed-service count, posture state and active recommendation count. These are local acceptance signals, not evidence of compromise. Current services include first and last observation times and a previous-state change marker; banner output remains limited to the fixed `SSH protocol banner detected` classification.
+# Phase 5BG local host operations
+
+Monitoring Center > Server now shows an administrator-only Windows Service Control
+Manager inventory and local process inventory in the desktop app. It refreshes
+every 5, 15, or 30 seconds. Processes expose PID, executable name, CPU, memory,
+start time, and runtime. Services expose name, display name, state, start type,
+PID when supplied by SCM, and description when permitted. Service uptime and
+account are omitted where the Windows APIs do not provide a reliable or safe
+value. The RavenTech Operations group shows desktop, backend, Docker readiness,
+frontend mode, ServerHost agent, and platform service health separately.
+
+The desktop invokes native Windows APIs for service control and process
+termination. An admin session and an explicit confirmation showing the service
+name or process name and PID are required. A process action also checks its
+start time immediately before termination to prevent PID reuse. The OS critical
+process flag, a protected name list, and Windows permissions can all refuse an
+action. Critical Windows services and the RavenTech desktop are non-actionable.
+Service dependency failures, permission denials, and timeouts return sanitized
+messages. Successful and failed actions are audited without command lines or
+environment values. Docker restarts use the existing approved platform controls.
+
+These actions work only in the primary Windows desktop. The backend cannot
+execute a host action, and endpoint agents cannot receive actions. No remote
+service or process management, shell text, autostart, or router control is added.

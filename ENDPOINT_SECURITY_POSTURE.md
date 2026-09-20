@@ -170,3 +170,12 @@ compromise, and all isolate/block language remains a manual recommendation.
 ## Phase 5BE acceptance linkage
 
 The LAN Assets review table now shows posture state and recommendation count beside trust, agent freshness and service eligibility. Automatically learned passive assets can produce review/missing-agent recommendations; authorized agent assets can produce stale-agent, expected-service and risky-service guidance. SMB, RDP, PostgreSQL, Redis and non-standard SSH findings remain risk indicators only. Segmentation or isolation is always a manual operator decision.
+# Phase 5BG classification-aware advice
+
+Posture advice now uses evidence-backed OS and device type. Windows advice
+covers endpoint coverage, firewall, patch awareness, and SMB/RDP review; Linux
+advice covers SSH, database exposure, patches, and agent freshness. Mobile and
+tablet devices receive limited-visibility guidance rather than desktop/server
+service assumptions. Routers and network devices receive manual firmware and
+administrator review guidance without agent enrollment or router automation.
+IoT advice covers segmentation and unexpected services. All are advisory.

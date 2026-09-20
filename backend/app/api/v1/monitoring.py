@@ -5,8 +5,10 @@ import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_role
@@ -222,6 +224,60 @@ from app.services.vulnerability_baseline import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+
+class LocalHostAuthorization(BaseModel):
+    action: Literal["service_inventory", "process_inventory", "service_start", "service_stop", "service_restart", "process_terminate"]
+    target: str = Field(default="", max_length=255)
+    confirmed: bool = False
+
+
+@router.post("/local-host/authorize")
+async def authorize_local_host_action(
+    body: LocalHostAuthorization,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+) -> dict[str, bool]:
+    from app.services.audit import record_event
+
+    inventory = body.action.endswith("inventory")
+    if not inventory and (not body.confirmed or not body.target.strip()):
+        raise HTTPException(status_code=400, detail="Explicit target confirmation is required")
+    await record_event(
+        db, action=f"local_{body.action}.viewed" if inventory else "local_host.action_authorized",
+        actor_id=current_user.id, resource_type="local_host",
+        metadata={"action": body.action, "target": body.target[:80] if not inventory else ""},
+    )
+    return {"authorized": True}
+
+
+class LocalHostActionResult(BaseModel):
+    action: Literal["service_start", "service_stop", "service_restart", "process_terminate"]
+    target: str = Field(min_length=1, max_length=255)
+    success: bool
+    previous_state: str = Field(max_length=40)
+    resulting_state: str = Field(max_length=40)
+
+
+@router.post("/local-host/result")
+async def record_local_host_action_result(
+    body: LocalHostActionResult,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+) -> dict[str, bool]:
+    from app.services.audit import record_event
+
+    event = {
+        "service_start": "local_service.started", "service_stop": "local_service.stopped",
+        "service_restart": "local_service.restarted", "process_terminate": "local_process.terminated",
+    }[body.action]
+    await record_event(
+        db, action=event if body.success else "local_host.action_failed",
+        actor_id=current_user.id, resource_type="local_host",
+        metadata={"action": body.action, "target": body.target[:80],
+                  "previous_state": body.previous_state, "resulting_state": body.resulting_state},
+    )
+    return {"recorded": True}
 
 
 @router.get("/posture/overview", response_model=EndpointPostureOverviewResponse)

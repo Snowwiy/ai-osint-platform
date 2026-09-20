@@ -380,3 +380,17 @@ authenticates to, scrapes, or configures it.
 14. Review Alerts and triage only the advisory items supported by stored observations.
 
 For another approved PC, use the detected/configured private server address when available. `http://192.168.50.201:8000` is an example, not a mandatory address. Restrict any Windows firewall allowance for port 8000 to `192.168.50.0/24`.
+# Phase 5BG operating procedure
+
+Open Monitoring Center > Server for local system metrics, RavenTech Operations,
+Windows services, and processes. Use search and CPU/memory/PID sorting to find
+a process. To terminate it, review its name and PID in the confirmation dialog.
+To start, stop, or restart a Windows service, review its display and system name
+in the dialog. These actions require the admin role and Windows permissions;
+protected items are disabled or refused. Review the resulting state and audit
+log. Use the approved RavenTech platform controls for Docker operations.
+
+In LAN Assets, filter by OS or device type and open a device for classification
+source, confidence, and evidence. Set an operator device type only with evidence.
+Unknown means insufficient evidence. Agent-provided OS facts take priority;
+passive hints are advisory. Remote service/process control is unavailable.

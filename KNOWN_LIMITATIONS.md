@@ -408,3 +408,13 @@ coverage limitations, not platform-health failures.
 - Service guesses use configured-port mappings and a fixed minimal SSH protocol classification. They do not authenticate, collect arbitrary banners, identify vulnerabilities, or prove compromise.
 - Online/offline and telemetry freshness reflect bounded observation windows, not continuous availability monitoring.
 - The read-only LAN Runtime Acceptance panel reports stored evidence. ServerHost and neighbor states remain `WAITING` until an operator manually supplies the prompt-only admin token and an accepted heartbeat reaches the backend; automated QA does not fabricate that event.
+# Phase 5BG limitations
+
+Native service/process inventory and actions require the Windows desktop app
+and the current user's OS permissions. A non-elevated desktop may list services
+but be refused control. SCM may omit services whose status is inaccessible.
+Service uptime/account are not shown when reliable native evidence is absent.
+Docker component CPU/RAM/PID detail is limited to available local health data.
+LAN OS/device classification can remain unknown; passive hints are advisory,
+and mobile/tablet TCP visibility is incomplete. There is no external OUI lookup
+or remote administrative action.

@@ -297,3 +297,12 @@ Before release:
   is no file collection, persistence, autostart, remote shell, or command API.
 - Groups and baselines do not authorize public scanning, exploitation, brute
   force, hosting, deployment, DNS, or Supabase work.
+# Phase 5BG local administrative boundary
+
+Process and Windows service actions require a current admin session, an exact
+UI confirmation, and a native desktop call on the primary host. Process PID,
+name, start time, and Windows critical-state checks precede termination.
+Protected core processes/services are refused. Inventory and actions produce
+sanitized audit events. Full command lines, environment variables, files,
+credentials, and browser data are not collected. LAN agents remain telemetry-only;
+there is no remote execution, router control, or arbitrary shell interface.

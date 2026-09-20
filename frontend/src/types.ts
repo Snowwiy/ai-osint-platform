@@ -3317,6 +3317,18 @@ export interface LanAsset {
   mac_address: string | null;
   hostname: string | null;
   vendor: string | null;
+  vendor_source: string | null;
+  vendor_confidence: string;
+  os_family: string;
+  os_name: string | null;
+  os_version: string | null;
+  architecture: string | null;
+  agent_mode: string | null;
+  device_type: string;
+  manual_device_type: string | null;
+  classification_source: string;
+  classification_confidence: string;
+  classification_evidence: string[];
   asset_type: string;
   status: "online" | "offline" | "unknown";
   source: string;

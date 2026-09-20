@@ -20,6 +20,22 @@ from urllib.parse import urlparse
 AGENT_VERSION = "1.1.0"
 
 
+def linux_form_factor() -> str | None:
+    """Use local firmware chassis evidence, never a hostname/vendor guess."""
+    try:
+        with open("/sys/class/dmi/id/chassis_type", encoding="ascii") as handle:
+            chassis = int(handle.read().strip())
+    except (OSError, ValueError):
+        return None
+    if chassis in {8, 9, 10, 14, 30, 31, 32}:
+        return "laptop"
+    if chassis in {17, 23}:
+        return "server"
+    if chassis in {3, 4, 5, 6, 7, 15, 16}:
+        return "desktop"
+    return None
+
+
 def private_ip(backend_host: str, explicit: str | None) -> str:
     if explicit:
         address = ipaddress.ip_address(explicit)
@@ -142,6 +158,9 @@ def main() -> int:
         registered = post(f"{base}/api/v1/monitoring/agent/register", token, {
             "ip_address": address, "hostname": socket.gethostname(), "asset_type": "endpoint",
             "os_name": platform.system(), "os_version": platform.release(),
+            "os_family": "linux", "architecture": platform.machine()[:40],
+            "form_factor": linux_form_factor(),
+            "agent_mode": "LanEndpoint",
             "agent_version": AGENT_VERSION,
             "capabilities": ["basic_telemetry", "os_basics", "security_posture", "patch_awareness", "listening_ports"],
         })

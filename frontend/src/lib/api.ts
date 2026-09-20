@@ -1194,7 +1194,7 @@ export async function getLanAsset(assetId: string): Promise<LanAsset> {
 
 export async function updateLanAsset(
   assetId: string,
-  body: Partial<Pick<LanAsset, "hostname" | "vendor" | "asset_type" | "notes" | "is_authorized" | "monitoring_enabled">>,
+  body: Partial<Pick<LanAsset, "hostname" | "vendor" | "asset_type" | "device_type" | "notes" | "is_authorized" | "monitoring_enabled">>,
 ): Promise<LanAsset> {
   return request<LanAsset>(`/monitoring/lan/assets/${assetId}`, {
     method: "PATCH",

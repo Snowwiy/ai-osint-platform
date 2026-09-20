@@ -586,3 +586,14 @@ check blocks the current release-freeze commit and push.
 - [ ] Service summaries show bounded TCP results, fixed sanitized SSH hints, first/last observation and prior-state changes.
 - [ ] Change Timeline covers asset/service/agent transitions without duplicate unchanged events.
 - [ ] Docker neighbor visibility is optional and empty observations remain informational.
+# Phase 5BG checks
+
+- [ ] Windows desktop admin can view native service/process inventory and refresh.
+- [ ] Service start/stop/restart and process termination require confirmation.
+- [ ] Core Windows and RavenTech desktop processes/services are protected.
+- [ ] PID reuse, OS critical state, permissions, dependency failure, and timeout are handled.
+- [ ] Audit contains inventory views and sanitized action outcomes.
+- [ ] Agent metadata, operator choice, gateway, passive hint, and unknown classification priorities pass.
+- [ ] LAN asset filters, detail evidence, posture advice, and English/Spanish labels render.
+- [ ] Endpoint agent remains telemetry-only; no remote administrative actions exist.
+- [ ] Version remains `5.0.0-rc6`; no tag or public release is created.

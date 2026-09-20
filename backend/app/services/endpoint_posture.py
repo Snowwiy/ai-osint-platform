@@ -442,7 +442,7 @@ async def _recommendation_specs(
             isolation=True,
         )
     freshness = _agent_freshness(latest)
-    if asset.criticality == "critical" and freshness == "missing":
+    if asset.criticality == "critical" and freshness == "missing" and asset.device_type not in {"router", "network_device", "iot", "mobile", "tablet"}:
         add(
             "critical_without_agent",
             "Add endpoint coverage to critical asset",
@@ -470,8 +470,42 @@ async def _recommendation_specs(
             ],
             "endpoint_agent",
         )
+    if asset.device_type in {"mobile", "tablet"}:
+        add("mobile_visibility", "Review mobile visibility", "low",
+            "Mobile and tablet service visibility is limited; absence of TCP observations does not prove safety.",
+            "Review the device through approved mobile management tools manually.",
+            ["Confirm ownership and mobile management coverage.", "Review supported platform updates manually."],
+            "device_classification", "medium")
+    elif asset.device_type in {"router", "network_device"}:
+        add("network_device_review", "Review network device firmware", "medium",
+            "Network infrastructure requires manual firmware and administrator review.",
+            "Review vendor guidance and management access manually; no router commands are sent.",
+            ["Confirm the model and firmware locally.", "Review administrator access through approved procedures."],
+            "device_classification", "medium")
+    elif asset.device_type == "iot":
+        add("iot_segmentation", "Review IoT segmentation", "medium",
+            "IoT endpoint telemetry may be unavailable and unexpected services warrant review.",
+            "Review network segmentation and observed services manually.",
+            ["Confirm device ownership.", "Review its VLAN and allowed flows.", "Investigate unexpected open services."],
+            "device_classification", "medium")
+    elif asset.os_family == "linux":
+        add("linux_ssh_review", "Review Linux SSH exposure", "low",
+            "Linux SSH and database listeners require owner review when observed.",
+            "Review intended SSH and database exposure manually.",
+            ["Check approved SSH access.", "Review patch cadence and agent freshness."],
+            "device_classification", "medium")
+    elif asset.os_family == "windows":
+        add("windows_endpoint_review", "Review Windows endpoint coverage", "low",
+            "Windows firewall, patch status, and SMB/RDP observations need owner review.",
+            "Confirm endpoint agent coverage and Windows security settings manually.",
+            ["Review firewall status.", "Review patch cadence.", "Validate intended SMB/RDP exposure."],
+            "device_classification", "medium")
+    desktop_security = (
+        asset.device_type not in {"mobile", "tablet", "router", "network_device", "iot"}
+        and asset.os_family not in {"android", "ios"}
+    )
     firewall = _metadata_status(latest, "firewall_status")
-    if firewall == "disabled":
+    if desktop_security and firewall == "disabled":
         add(
             "firewall_disabled",
             "Enable endpoint firewall",
@@ -486,7 +520,7 @@ async def _recommendation_specs(
             "endpoint_agent",
         )
     antivirus = _metadata_status(latest, "antivirus_status")
-    if antivirus == "disabled":
+    if desktop_security and antivirus == "disabled":
         add(
             "antivirus_disabled",
             "Restore antivirus protection",
@@ -500,7 +534,7 @@ async def _recommendation_specs(
             ],
             "endpoint_agent",
         )
-    elif latest and antivirus in {None, "unknown", "unavailable"}:
+    elif desktop_security and latest and antivirus in {None, "unknown", "unavailable"}:
         add(
             "antivirus_unknown",
             "Verify endpoint protection status",

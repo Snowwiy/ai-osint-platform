@@ -73,6 +73,7 @@ class LanAssetUpdate(BaseModel):
     hostname: str | None = Field(default=None, max_length=255)
     vendor: str | None = Field(default=None, max_length=255)
     asset_type: str | None = Field(default=None, min_length=1, max_length=40)
+    device_type: Literal["desktop", "laptop", "server", "mobile", "tablet", "router", "network_device", "iot", "virtual_machine", "unknown"] | None = None
     notes: str | None = Field(default=None, max_length=2000)
     is_authorized: bool | None = None
     monitoring_enabled: bool | None = None
@@ -99,6 +100,10 @@ class LanAgentRegistration(BaseModel):
     asset_type: str = Field(default="endpoint", min_length=1, max_length=40)
     os_name: str | None = Field(default=None, max_length=100)
     os_version: str | None = Field(default=None, max_length=100)
+    os_family: Literal["windows", "linux", "macos", "android", "ios", "other", "unknown"] | None = None
+    architecture: str | None = Field(default=None, max_length=40)
+    form_factor: Literal["desktop", "laptop", "server", "mobile", "tablet", "virtual_machine", "unknown"] | None = None
+    agent_mode: Literal["LanEndpoint"] = "LanEndpoint"
     agent_version: str = Field(min_length=1, max_length=40)
     capabilities: list[str] = Field(
         default_factory=lambda: ["basic_telemetry"], max_length=16
@@ -205,6 +210,18 @@ class LanAssetResponse(BaseModel):
     mac_address: str | None
     hostname: str | None
     vendor: str | None
+    vendor_source: str | None = None
+    vendor_confidence: str = "low"
+    os_family: str = "unknown"
+    os_name: str | None = None
+    os_version: str | None = None
+    architecture: str | None = None
+    agent_mode: str | None = None
+    device_type: str = "unknown"
+    manual_device_type: str | None = None
+    classification_source: str = "insufficient_evidence"
+    classification_confidence: str = "low"
+    classification_evidence: list[str] = Field(default_factory=list)
     asset_type: str
     status: LanAssetStatus
     source: str

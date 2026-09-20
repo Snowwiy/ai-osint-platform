@@ -699,3 +699,10 @@ Monitoring Center now exposes live acceptance details for the authorized `192.16
 Safe discovery prefers ServerHost neighbor observations, then known agent and stored manual/router assets, and only uses bounded private reachability checks when explicitly enabled. Docker host-neighbor visibility is not required. Service checks remain configured-port, TCP-connect-only, private-CIDR-only, bounded, unauthenticated, and advisory.
 
 The top-level **LAN Runtime Acceptance** card summarizes backend, native/agent host metrics, authorized LAN configuration, ServerHost and neighbor readiness, and stored asset/service/posture/alert counts. It is diagnostic only: displaying it never launches discovery or a service check. Needs-review and unauthorized counts are intentionally distinct, and an operator-approved gateway leaves the review count while retaining its gateway asset type.
+# Phase 5BG local host and LAN classification
+
+The desktop Monitoring Center > Server adds native Windows service/process
+inventory and confirmed, admin-gated local actions with protected-process
+safeguards. LAN Assets shows evidence-backed OS and device type with confidence.
+See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) and [LAN_MONITORING.md](LAN_MONITORING.md).
+The release identity remains `5.0.0-rc6`; LAN agents remain telemetry-only.

@@ -327,8 +327,6 @@ async def list_agents(db: AsyncSession) -> AgentInventoryResponse:
         agents.append(
             AgentInventoryItem(
                 **response.model_dump(),
-                os_name=sample.os_name if sample else None,
-                os_version=sample.os_version if sample else None,
                 agent_version=sample.agent_version if sample else None,
                 telemetry_fresh=response.agent_connected,
                 enrollment_token_label=token.name if token else "Legacy local token",

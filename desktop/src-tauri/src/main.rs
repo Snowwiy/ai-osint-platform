@@ -10,6 +10,7 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
+mod local_host;
 
 const LOOPBACK: &str = "127.0.0.1:8000";
 const FRONTEND_LOOPBACK: &str = "127.0.0.1:5173";
@@ -54,6 +55,7 @@ struct ServiceSnapshot {
     native_host_metrics: NativeHostMetrics,
     setup: ProjectSetup,
 }
+
 
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -243,6 +245,93 @@ fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String, Option<Stri
             .then(|| value.trim().to_ascii_lowercase())
     });
     Some((status, body.to_owned(), content_type))
+}
+
+fn local_admin_post(token: &str, path: &str, body: &Value) -> bool {
+    if token.len() < 20 || token.len() > 8192 || !token.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')) {
+        return false;
+    }
+    let Ok(address) = LOOPBACK.parse::<SocketAddr>() else { return false; };
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_secs(3)) else { return false; };
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let payload = body.to_string();
+    let request = format!("POST {path} HTTP/1.1\r\nHost: localhost:8000\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}", payload.len());
+    if stream.write_all(request.as_bytes()).is_err() { return false; }
+    let mut bytes = Vec::new();
+    if stream.take(8192).read_to_end(&mut bytes).is_err() { return false; }
+    let response = String::from_utf8_lossy(&bytes);
+    let Some((headers, body)) = response.split_once("\r\n\r\n") else { return false; };
+    if headers.lines().next().and_then(|line| line.split_whitespace().nth(1)) != Some("200") {
+        return false;
+    }
+    let expected = if path.ends_with("/authorize") { "authorized" } else { "recorded" };
+    serde_json::from_str::<Value>(body).ok()
+        .and_then(|value| value.get(expected).and_then(Value::as_bool)) == Some(true)
+}
+
+fn authorize_host(token: &str, action: &str, target: &str, confirmed: bool) -> bool {
+    local_admin_post(token, "/api/v1/monitoring/local-host/authorize", &serde_json::json!({
+        "action": action, "target": target, "confirmed": confirmed,
+    }))
+}
+
+fn audit_host_result(token: &str, action: &str, target: &str, result: &Result<local_host::ActionResult, String>) -> bool {
+    let (previous, resulting) = match result {
+        Ok(value) => (value.previous_state.as_str(), value.resulting_state.as_str()),
+        Err(_) => ("unknown", "failed"),
+    };
+    local_admin_post(token, "/api/v1/monitoring/local-host/result", &serde_json::json!({
+        "action": action, "target": target, "success": result.is_ok(),
+        "previous_state": previous, "resulting_state": resulting,
+    }))
+}
+
+fn require_exact_confirmation(expected: &str, supplied: &str) -> Result<(), String> {
+    if supplied == expected { Ok(()) } else { Err("Target confirmation did not match".to_owned()) }
+}
+
+#[tauri::command]
+async fn get_local_host_inventory(token: String) -> Result<local_host::HostInventory, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if !authorize_host(&token, "service_inventory", "", false) || !authorize_host(&token, "process_inventory", "", false) {
+            return Err("Admin authorization is required for local host inventory".to_owned());
+        }
+        Ok(local_host::inventory())
+    }).await.map_err(|_| "Local inventory was interrupted".to_owned())?
+}
+
+#[tauri::command]
+async fn terminate_local_process(token: String, pid: u32, name: String, creation_ticks: String, confirmation: String) -> Result<local_host::ActionResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = format!("{name} ({pid})");
+        require_exact_confirmation(&target, &confirmation)?;
+        if !authorize_host(&token, "process_terminate", &target, true) { return Err("Admin authorization was denied".to_owned()); }
+        let result = local_host::terminate(pid, &name, &creation_ticks);
+        if !audit_host_result(&token, "process_terminate", &target, &result) {
+            return Err("Action outcome could not be audited; refresh local status".to_owned());
+        }
+        result
+    }).await.map_err(|_| "Local process action was interrupted".to_owned())?
+}
+
+#[tauri::command]
+async fn control_local_service(token: String, name: String, display_name: String, action: String, confirmation: String) -> Result<local_host::ActionResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = format!("{display_name} ({name})");
+        require_exact_confirmation(&target, &confirmation)?;
+        let current = local_host::inventory();
+        if !current.services.iter().any(|item| item.name == name && item.display_name == display_name && item.action_available) {
+            return Err("Service is not in the actionable local inventory".to_owned());
+        }
+        let auth_action = format!("service_{action}");
+        if !authorize_host(&token, &auth_action, &target, true) { return Err("Admin authorization was denied".to_owned()); }
+        let result = local_host::service_action(&name, &action);
+        if !audit_host_result(&token, &auth_action, &target, &result) {
+            return Err("Action outcome could not be audited; refresh local status".to_owned());
+        }
+        result
+    }).await.map_err(|_| "Local service action was interrupted".to_owned())?
 }
 
 fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
@@ -444,6 +533,7 @@ fn docker_cli_detected() -> bool {
         })
         .unwrap_or(false)
 }
+
 
 fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
     let (backend, backend_json) = json_probe("/health");
@@ -1063,6 +1153,19 @@ mod tests {
         assert!(!detail.contains("token="));
         assert!(!detail.contains("password="));
     }
+
+    #[test]
+    fn host_administration_is_bound_to_loopback() {
+        assert_eq!(LOOPBACK, "127.0.0.1:8000");
+        assert!(!local_admin_post("invalid", "/api/v1/monitoring/local-host/authorize", &serde_json::json!({})));
+    }
+
+    #[test]
+    fn host_action_confirmation_is_exact() {
+        assert!(require_exact_confirmation("example.exe (42)", "example.exe (42)").is_ok());
+        assert!(require_exact_confirmation("example.exe (42)", "example.exe (43)").is_err());
+        assert!(require_exact_confirmation("Example (service)", "service").is_err());
+    }
 }
 
 fn main() {
@@ -1070,6 +1173,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             probe_local_services,
             get_native_host_metrics,
+            get_local_host_inventory,
+            terminate_local_process,
+            control_local_service,
             check_platform,
             start_platform,
             stop_platform,

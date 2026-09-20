@@ -13,6 +13,7 @@ const i18n = await readFile(resolve(root, "src/lib/i18n.tsx"), "utf8");
 const native = await readFile(resolve(root, "src/lib/nativeHostMetrics.ts"), "utf8");
 const agents = await readFile(resolve(root, "src/components/AgentManagementPanel.tsx"), "utf8");
 const lan = await readFile(resolve(root, "src/components/LanMonitoringPanel.tsx"), "utf8");
+const localHost = await readFile(resolve(root, "src/components/LocalHostPanel.tsx"), "utf8");
 
 test("authenticated application startup loads and safely polls monitoring summary", () => {
   assert.match(api, /request<MonitoringStartupStatus>\("\/monitoring\/startup"\)/);
@@ -101,6 +102,19 @@ test("automatic LAN registration states remain local, readable, and bilingual", 
     "Activos que requieren revisión",
     "Docker no pudo leer los vecinos LAN del host",
   ]) assert.ok(i18n.includes(phrase), `missing Spanish auto-registration copy: ${phrase}`);
+});
+
+test("Phase 5BG local controls and classification stay bounded and bilingual", () => {
+  for (const phrase of ["Procesos", "Servicios de Windows", "Clasificación del dispositivo", "Confianza de la clasificación", "Tableta", "Contenedores Docker"]) {
+    assert.ok(i18n.includes(phrase), `missing Spanish Phase 5BG label: ${phrase}`);
+  }
+  for (const filter of ["windows", "linux", "android", "ios", "mobile", "tablet", "server", "router", "iot", "unknown"]) {
+    assert.ok(lan.includes(`"${filter}"`), `missing classification filter: ${filter}`);
+  }
+  assert.match(localHost, /window\.confirm/);
+  assert.match(localHost, /creationTicks: item\.creationTicks/);
+  assert.match(localHost, /getAccessToken/);
+  assert.doesNotMatch(localHost, /commandLine|environmentVariables|shell:/);
 });
 
 test("live LAN acceptance exposes trust filters diagnostics and service changes", () => {

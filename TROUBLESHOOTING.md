@@ -488,3 +488,14 @@ and Supabase remain unchanged.
 Confirm the ServerHost agent says `Heartbeat accepted` and `host asset exists: True`, then check **LAN Assets → Host neighbor collector**. Zero raw observations means Windows returned no eligible private neighbors at that moment; it is not platform degradation. Reconnect an approved LAN device or import an observation manually. Rejected/out-of-CIDR counts indicate the backend correctly refused an address outside `192.168.50.0/24`, including network and broadcast addresses.
 
 If a device appears under **Needs review**, this is expected for passive neighbor observations. Authorize it only after matching the IP/MAC to an approved device. `192.168.50.201` is only an example backend address for LanEndpoint commands; use the actual detected/configured server LAN address.
+# Phase 5BG host actions and classification
+
+If local inventory reports unavailable, open the Windows desktop, sign in as a
+platform administrator, and verify the local backend at `/health/ready`.
+If a process action is refused, refresh the inventory: it may have exited,
+reused a PID, be protected by Windows, or require OS elevation. A refused
+service action may depend on another service or exceed the 20-second state
+transition timeout. Do not work around protected-service safeguards.
+If LAN classification is unknown, inspect the evidence in device details and
+provide an explicit operator type only when verified. Agent OS family has
+priority over passive hints; agent form factor is needed for mobile/tablet.
