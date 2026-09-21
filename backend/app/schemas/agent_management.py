@@ -138,8 +138,9 @@ class ServiceBaselineCreate(BaseModel):
     group_id: uuid.UUID | None = None
     expected_ports: list[int] = Field(default_factory=list, max_length=32)
     allowed_ports: list[int] = Field(default_factory=list, max_length=32)
+    critical_ports: list[int] = Field(default_factory=list, max_length=32)
 
-    @field_validator("expected_ports", "allowed_ports")
+    @field_validator("expected_ports", "allowed_ports", "critical_ports")
     @classmethod
     def safe_ports(cls, value: list[int]) -> list[int]:
         if any(port < 1 or port > 65535 for port in value):
@@ -158,8 +159,9 @@ class ServiceBaselineUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=1000)
     expected_ports: list[int] | None = Field(default=None, max_length=32)
     allowed_ports: list[int] | None = Field(default=None, max_length=32)
+    critical_ports: list[int] | None = Field(default=None, max_length=32)
 
-    @field_validator("expected_ports", "allowed_ports")
+    @field_validator("expected_ports", "allowed_ports", "critical_ports")
     @classmethod
     def safe_ports(cls, value: list[int] | None) -> list[int] | None:
         if value is None:
@@ -191,6 +193,7 @@ class ServiceBaselineResponse(BaseModel):
     group_id: uuid.UUID | None
     expected_ports: list[int]
     allowed_ports: list[int]
+    critical_ports: list[int]
     indicators: list[ServiceBaselineIndicator]
     created_by: uuid.UUID | None
     created_at: datetime

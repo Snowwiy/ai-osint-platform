@@ -244,6 +244,12 @@ class LanAssetResponse(BaseModel):
     service_check_eligible: bool
     service_check_reason: str
     observed_services: int = Field(ge=0)
+    observed_service_preview: list[str] = Field(default_factory=list)
+    service_healthy: int = 0
+    service_warnings: int = 0
+    service_critical: int = 0
+    service_expected: int = 0
+    service_unexpected: int = 0
     posture_status: Literal[
         "healthy", "needs_review", "at_risk", "critical", "unknown"
     ] = "unknown"
@@ -329,6 +335,10 @@ class LanServiceResponse(BaseModel):
     previous_status: str | None = None
     changed_from_previous: bool = False
     source: str
+    expectation: Literal["expected", "allowed", "unexpected", "unclassified"] = "unclassified"
+    advisory_severity: Literal["healthy", "warning", "critical", "neutral"] = "neutral"
+    advisory_reason: str = "Insufficient evidence for a service assessment."
+    identification_confidence: Literal["high", "medium", "low"] = "low"
 
 
 class LanServiceListResponse(BaseModel):

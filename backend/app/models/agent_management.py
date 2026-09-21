@@ -109,6 +109,9 @@ class ExpectedServiceBaseline(Base, TimestampMixin):
     allowed_ports: Mapped[list[int]] = mapped_column(
         JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
     )
+    critical_ports: Mapped[list[int]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

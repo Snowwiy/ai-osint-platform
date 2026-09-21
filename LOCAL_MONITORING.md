@@ -359,3 +359,7 @@ environment values. Docker restarts use the existing approved platform controls.
 These actions work only in the primary Windows desktop. The backend cannot
 execute a host action, and endpoint agents cannot receive actions. No remote
 service or process management, shell text, autostart, or router control is added.
+
+## Phase 5BH service health
+
+Local service health is **healthy** (green, expected running), **warning** (amber, transitional/stale/mismatched or optional unavailable), **critical** (red, required stopped or required RavenTech dependency unavailable), or **neutral** (standard color, intentionally stopped or insufficient baseline). Every badge includes an icon, text, and reason. Server health comes from the native Windows inventory and existing local backend health probes. PostgreSQL, Redis, and Celery are classified separately from backend health checks. No service is critical merely because it is stopped; an explicit expected state and required/critical context are needed. Windows expectations are kept in the desktop profile, so set them on each operator profile that needs them.

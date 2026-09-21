@@ -394,3 +394,9 @@ In LAN Assets, filter by OS or device type and open a device for classification
 source, confidence, and evidence. Set an operator device type only with evidence.
 Unknown means insufficient evidence. Agent-provided OS facts take priority;
 passive hints are advisory. Remote service/process control is unavailable.
+
+## Phase 5BH service visibility
+
+In **Monitoring Center > Server**, RavenTech Operations shows component status, health severity, last check, reason, and a manual next step. Windows Services shows the observed state beside an operator configured expected state. Select **running** or **stopped** and mark a service required to classify a mismatch; these local expectations are stored in the desktop profile. An unconfigured Windows service remains neutral. Service actions retain the Phase 5BG admin, confirmation, and protected service gates.
+
+In **LAN Assets**, open a device to see Observed Services, counts, state filters, first and last observation, previous state, identification confidence, expectation, advisory severity, reason, and sanitized source. Configure expected or allowed TCP ports with the existing asset/group service baseline. The optional `critical_ports` baseline field explicitly marks a reachable port critical when it is not expected or allowed. An open port proves only reachability from the authorized LAN, not a vulnerability. All LAN actions are read only TCP connect checks and advisory review; there is no remote service control.

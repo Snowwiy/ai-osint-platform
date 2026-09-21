@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from app.models.audit_log import AuditLog
+from app.models.monitoring_history import MonitoringChangeEvent
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -85,6 +86,7 @@ async def test_inventory_admin_gate_and_sanitized_result(
     assert "command_line" not in str(audit.event_metadata)
 
 
+
 @pytest.mark.parametrize("action", ["service_start", "service_stop", "service_restart"])
 async def test_service_actions_require_admin_confirmation(
     client: AsyncClient,
@@ -142,3 +144,15 @@ async def test_success_events_are_sanitized_without_host_actions(
     )
     assert audit is not None
     assert "command_line" not in str(audit.event_metadata)
+    if action.startswith("service_"):
+        timeline_type = {
+            "service_start": "windows_service_started",
+            "service_stop": "windows_service_stopped",
+            "service_restart": "windows_service_restarted",
+        }[action]
+        rows = list((await db.execute(select(MonitoringChangeEvent).where(
+            MonitoringChangeEvent.event_type == timeline_type,
+        ))).scalars().all())
+        assert len(rows) == 1
+        assert rows[0].old_value == "running"
+        assert rows[0].new_value == "stopped"

@@ -27,6 +27,7 @@ from app.schemas.monitoring_history import (
     ServiceHistoryResponse,
 )
 from app.services.audit import record_event
+from app.services.service_health import assess_lan_service, lan_baseline
 
 ChangeAcknowledgement = Literal["acknowledged", "unacknowledged"]
 _FORBIDDEN_METADATA = (
@@ -578,18 +579,26 @@ async def _record_service_changes(
     observed_at: datetime,
 ) -> None:
     old_status = previous.status if previous else None
-    if current.status == "open" and old_status != "open":
-        risky = (
-            current.port in {23, 445, 3389, 5432, 5900, 6379}
-            or current.non_standard_ssh
+    baseline = await lan_baseline(db, asset.id)
+    def assessment(status: str, name: str | None, non_standard_ssh: bool):
+        return assess_lan_service(
+            port=current.port, status=status, device_type=asset.device_type,
+            os_family=asset.os_family, trust_state="authorized" if asset.is_authorized else "needs_review",
+            service_name=name, non_standard_ssh=non_standard_ssh,
+            expected_ports=set(baseline.expected_ports), allowed_ports=set(baseline.allowed_ports),
+            has_baseline=baseline.configured, critical_ports=set(baseline.critical_ports),
         )
+    current_assessment = assessment(current.status, current.service_name, current.non_standard_ssh)
+    previous_assessment = assessment(previous.status, previous.service_name, previous.non_standard_ssh) if previous else None
+    if current.status == "open" and old_status != "open":
+        risky = current_assessment.severity in {"warning", "critical"}
         await record_change(
             db,
             asset_id=asset.id,
             event_type="port_opened",
-            severity="high" if risky else "medium",
+            severity="critical" if current_assessment.severity == "critical" else "medium" if risky else "info",
             title="New open TCP port observed",
-            description="An authorized TCP connect observation found a newly open port.",
+            description=current_assessment.reason,
             source=source,
             old_value=old_status,
             new_value=f"{current.port}/tcp open",
@@ -598,6 +607,14 @@ async def _record_service_changes(
                 "service_name": current.service_name,
                 "risk_indicator": risky,
             },
+            detected_at=observed_at,
+        )
+        await record_change(
+            db, asset_id=asset.id, event_type="service_opened",
+            severity="critical" if current_assessment.severity == "critical" else "medium" if risky else "info",
+            title="Observed TCP service opened", description=current_assessment.reason,
+            source=source, old_value=old_status, new_value="open",
+            metadata={"port": current.port, "advisory_severity": current_assessment.severity},
             detected_at=observed_at,
         )
     elif old_status == "open" and current.status != "open":
@@ -614,6 +631,34 @@ async def _record_service_changes(
             metadata={"port": current.port},
             detected_at=observed_at,
         )
+        await record_change(
+            db, asset_id=asset.id, event_type="service_closed", severity="info",
+            title="Observed TCP service closed", description=f"TCP/{current.port} is no longer observed open.",
+            source=source, old_value="open", new_value=current.status,
+            metadata={"port": current.port}, detected_at=observed_at,
+        )
+    elif previous and old_status != current.status:
+        await record_change(
+            db, asset_id=asset.id, event_type="service_state_changed", severity="info",
+            title="Observed TCP state changed", description=f"TCP/{current.port} changed from {old_status} to {current.status}.",
+            source=source, old_value=old_status, new_value=current.status,
+            metadata={"port": current.port}, detected_at=observed_at,
+        )
+    if (previous_assessment is None and current_assessment.severity in {"warning", "critical"}) or (previous_assessment and previous_assessment.severity != current_assessment.severity):
+        transition = (
+            "service_became_critical" if current_assessment.severity == "critical" else
+            "service_became_warning" if current_assessment.severity == "warning" else
+            "service_recovered" if previous_assessment and previous_assessment.severity in {"warning", "critical"} else None
+        )
+        if transition:
+            await record_change(
+                db, asset_id=asset.id, event_type=transition,
+                severity="critical" if current_assessment.severity == "critical" else "medium" if current_assessment.severity == "warning" else "info",
+                title="Observed service advisory changed", description=current_assessment.reason,
+                source=source, old_value=previous_assessment.severity if previous_assessment else None,
+                new_value=current_assessment.severity,
+                metadata={"port": current.port}, detected_at=observed_at,
+            )
     if previous and previous.service_name != current.service_name:
         await record_change(
             db,

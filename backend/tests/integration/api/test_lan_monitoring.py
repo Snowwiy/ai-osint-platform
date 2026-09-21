@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import pytest
 from app.core.config import settings
 from app.models.audit_log import AuditLog
+from app.models.agent_management import ExpectedServiceBaseline
 from app.models.lan_monitoring import LanAsset, LanServiceObservation
 from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.notification import Notification
@@ -343,6 +344,51 @@ async def test_current_service_summary_reports_first_last_and_state_change(
     assert item["changed_from_previous"] is True
     assert item["banner_hint"] is None
     assert {"port_opened", "port_closed", "ssh_nonstandard_detected"} <= changes
+    assert {"service_opened", "service_closed", "service_recovered"} <= changes
+
+
+async def test_service_baseline_classification_and_event_dedupe(
+    client: AsyncClient, admin_headers: dict[str, str], db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _enable_lan(monkeypatch)
+    asset = LanAsset(
+        ip_address="192.168.0.82", status="online", source="static",
+        device_type="server", os_family="linux", is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.flush()
+    db.add(ExpectedServiceBaseline(
+        name="Test server baseline", asset_id=asset.id,
+        expected_ports=[443], allowed_ports=[22], critical_ports=[6379],
+    ))
+    await db.flush()
+    for port in (443, 6379):
+        for sample in (1, 2):
+            await record_service_observation(
+                db, asset=asset,
+                observation=LanServiceInput(port=port, status="open", confidence=75),
+                source="test_safe_tcp", observed_at=datetime(2026, 1, sample, tzinfo=UTC),
+            )
+    await db.commit()
+    response = await client.get(f"/api/v1/monitoring/lan/assets/{asset.id}/services", headers=admin_headers)
+    assert response.status_code == 200
+    items = {item["port"]: item for item in response.json()["items"]}
+    assert (items[443]["expectation"], items[443]["advisory_severity"]) == ("expected", "healthy")
+    assert (items[6379]["expectation"], items[6379]["advisory_severity"]) == ("unexpected", "critical")
+    assert "policy explicitly" in items[6379]["advisory_reason"]
+    assert all(item["banner_hint"] is None for item in items.values())
+    events = list((await db.execute(select(MonitoringChangeEvent).where(
+        MonitoringChangeEvent.asset_id == asset.id,
+        MonitoringChangeEvent.event_type == "service_opened",
+    ))).scalars().all())
+    assert len(events) == 2
+    critical_events = list((await db.execute(select(MonitoringChangeEvent).where(
+        MonitoringChangeEvent.asset_id == asset.id,
+        MonitoringChangeEvent.event_type == "service_became_critical",
+    ))).scalars().all())
+    assert len(critical_events) == 1
 
 
 async def test_lan_alerts_are_deduplicated(

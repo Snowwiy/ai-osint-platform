@@ -277,6 +277,35 @@ async def record_local_host_action_result(
         metadata={"action": body.action, "target": body.target[:80],
                   "previous_state": body.previous_state, "resulting_state": body.resulting_state},
     )
+    if body.success and body.action.startswith("service_"):
+        from datetime import UTC, datetime, timedelta
+
+        from sqlalchemy import select
+
+        from app.models.monitoring_history import MonitoringChangeEvent
+        from app.services.monitoring_history import record_change
+
+        event_type = {
+            "service_start": "windows_service_started",
+            "service_stop": "windows_service_stopped",
+            "service_restart": "windows_service_restarted",
+        }[body.action]
+        target = body.target[:80]
+        last = (await db.execute(
+            select(MonitoringChangeEvent.id).where(
+                MonitoringChangeEvent.event_type == event_type,
+                MonitoringChangeEvent.title == target,
+                MonitoringChangeEvent.detected_at >= datetime.now(UTC) - timedelta(minutes=2),
+            ).limit(1)
+        )).scalar_one_or_none()
+        if last is None:
+            await record_change(
+                db, asset_id=None, event_type=event_type, severity="info",
+                title=target, description="Confirmed local Windows service action completed.",
+                source="local_desktop", old_value=body.previous_state,
+                new_value=body.resulting_state,
+                metadata={"action": body.action},
+            )
     return {"recorded": True}
 
 

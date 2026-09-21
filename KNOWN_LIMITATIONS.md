@@ -418,3 +418,7 @@ Docker component CPU/RAM/PID detail is limited to available local health data.
 LAN OS/device classification can remain unknown; passive hints are advisory,
 and mobile/tablet TCP visibility is incomplete. There is no external OUI lookup
 or remote administrative action.
+
+## Phase 5BH service assessment limits
+
+TCP connect only measures reachability at observation time. A port number or sanitized SSH hint can suggest a service, but does not authenticate its identity or prove a vulnerability. Historical observations are bounded in the service details query; an old open sample should not be treated as current if later samples are missing. Agent reported listening ports describe the endpoint view, which may differ from LAN reachability. Windows service expected states are saved in the current desktop profile rather than centrally synchronized. RavenTech dependency uptime and CPU/RAM are shown only when already available from safe local telemetry. No remote administrative actions are supported.

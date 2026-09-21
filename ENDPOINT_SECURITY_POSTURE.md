@@ -179,3 +179,7 @@ tablet devices receive limited-visibility guidance rather than desktop/server
 service assumptions. Routers and network devices receive manual firmware and
 administrator review guidance without agent enrollment or router automation.
 IoT advice covers segmentation and unexpected services. All are advisory.
+
+## Phase 5BH service context
+
+Service recommendations use the expected/allowed baseline before assessing sensitive exposure. Expected Redis, PostgreSQL, or management ports do not receive an exposure warning solely because they are reachable. An unexpected database or RDP service receives an advisory manual review reason; a baseline policy can explicitly mark an unexpected exposure critical. Mobile and tablet listeners receive review advice without assuming a desktop service model. Router and network device observations stay informational unless a baseline or other evidence warrants review. These are observations, not confirmed compromise or vulnerability findings.

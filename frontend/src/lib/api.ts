@@ -1127,7 +1127,7 @@ export async function createAssetGroup(body: { name: string; description?: strin
 export async function updateAssetGroup(id: string, body: Partial<Pick<AssetGroup, "name" | "description" | "asset_ids">>): Promise<AssetGroup> { return request(`/monitoring/asset-groups/${id}`, { method: "PATCH", body: JSON.stringify(body) }); }
 export async function deleteAssetGroup(id: string): Promise<void> { return request(`/monitoring/asset-groups/${id}`, { method: "DELETE" }); }
 export async function listServiceBaselines(): Promise<{ total: number; items: ServiceBaseline[] }> { return request("/monitoring/service-baselines"); }
-export async function createServiceBaseline(body: { name: string; asset_id?: string; group_id?: string; expected_ports: number[]; allowed_ports: number[] }): Promise<ServiceBaseline> { return request("/monitoring/service-baselines", { method: "POST", body: JSON.stringify(body) }); }
+export async function createServiceBaseline(body: { name: string; asset_id?: string; group_id?: string; expected_ports: number[]; allowed_ports: number[]; critical_ports?: number[] }): Promise<ServiceBaseline> { return request("/monitoring/service-baselines", { method: "POST", body: JSON.stringify(body) }); }
 export async function deleteServiceBaseline(id: string): Promise<void> { return request(`/monitoring/service-baselines/${id}`, { method: "DELETE" }); }
 
 export async function listMonitoringTriage(filters: {

@@ -504,6 +504,7 @@ async def create_baseline(
         group_id=body.group_id,
         expected_ports=body.expected_ports,
         allowed_ports=body.allowed_ports,
+        critical_ports=body.critical_ports,
         created_by=user.id,
     )
     db.add(item)
@@ -688,6 +689,7 @@ async def _baseline_response(
         group_id=item.group_id,
         expected_ports=item.expected_ports,
         allowed_ports=item.allowed_ports,
+        critical_ports=item.critical_ports,
         indicators=indicators,
         created_by=item.created_by,
         created_at=item.created_at,

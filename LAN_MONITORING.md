@@ -322,3 +322,7 @@ when already present in safe observation data; no external OUI API is required.
 Vendor alone never produces high-confidence device type. Router, IoT, mobile,
 and tablet recommendations are advisory and account for limited endpoint
 visibility. No remote administrative action is attached to LAN assets.
+
+## Phase 5BH observed TCP services
+
+The authorized LAN inventory previews the latest observed TCP ports per device. Device details provide Open/Closed/Filtered/Timeout/Unknown states, identification confidence, first/last timestamps, previous state, evidence source, expected/allowed/unexpected status, advisory severity, and a reason. Filters cover open, expected, unexpected, warning, critical, and changed observations. Asset and group baselines define expected and allowed ports; `critical_ports` is an explicit policy for a reachable unexpected exposure. Without a baseline, common web, SSH, and router services remain informational unless a contextual rule applies. RDP, LAN visible databases, nonstandard SSH, and mobile listeners receive review advice. TCP connect checks remain bounded to configured ports and authorized private CIDRs. No authentication, protocol command execution, public scanning, or remote administration is performed. An open port is not a confirmed vulnerability.

@@ -306,3 +306,7 @@ Protected core processes/services are refused. Inventory and actions produce
 sanitized audit events. Full command lines, environment variables, files,
 credentials, and browser data are not collected. LAN agents remain telemetry-only;
 there is no remote execution, router control, or arbitrary shell interface.
+
+## Phase 5BH boundary
+
+Service visibility adds read only, bounded TCP connect observations inside the configured authorized private LAN. Classification uses sanitized service names and protocol hints, not raw banners or credentials. LAN endpoint agents remain telemetry only. Service status does not grant remote actions. Local Windows service actions still require the native desktop, an admin role, explicit confirmation, and OS permissions. No arbitrary shell execution, SSH/WinRM/WMI/PsExec execution, router automation, brute force, credential testing, or exploit payloads were added. Open ports should be manually validated against an approved service baseline.

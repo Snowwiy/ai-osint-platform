@@ -706,3 +706,7 @@ inventory and confirmed, admin-gated local actions with protected-process
 safeguards. LAN Assets shows evidence-backed OS and device type with confidence.
 See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) and [LAN_MONITORING.md](LAN_MONITORING.md).
 The release identity remains `5.0.0-rc6`; LAN agents remain telemetry-only.
+
+## Phase 5BH: service exposure and health
+
+Monitoring Center now shows explainable health for RavenTech core components and local Windows services. LAN Assets previews observed TCP services and provides per-device state, expected-service context, confidence, evidence, severity, and history. Existing asset/group baselines supply expected and allowed ports; an optional critical-port policy can mark a specific unexpected exposure critical. An open port indicates reachability, not a confirmed vulnerability. LAN monitoring remains restricted to authorized private ranges and read only bounded TCP checks. Local service actions remain desktop-only with Phase 5BG safeguards.

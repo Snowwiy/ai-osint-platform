@@ -597,3 +597,15 @@ check blocks the current release-freeze commit and push.
 - [ ] LAN asset filters, detail evidence, posture advice, and English/Spanish labels render.
 - [ ] Endpoint agent remains telemetry-only; no remote administrative actions exist.
 - [ ] Version remains `5.0.0-rc6`; no tag or public release is created.
+
+## Phase 5BH service visibility checks
+
+- [ ] Phase 5BG baseline is clean and version remains `5.0.0-rc6`.
+- [ ] Expected open LAN service is healthy; unexpected service has an advisory reason; explicit critical policy takes effect.
+- [ ] Open port is never labeled a confirmed vulnerability; raw banners and secrets are not shown.
+- [ ] LAN details filter open, expected, unexpected, warning, critical, and changed observations; counts and first/last evidence are visible.
+- [ ] Windows service health uses expected state, required flag, stale data, and reason; protected local actions remain gated.
+- [ ] Required backend, PostgreSQL, Redis, and Celery failures show critical status; optional components show warning or neutral as appropriate.
+- [ ] English and Spanish severity labels use icon, text, and accessible contrast.
+- [ ] Timeline events dedupe identical samples; alerts honor existing cooldown, acknowledgement, suppression, and maintenance policy.
+- [ ] No remote control, public scanning, arbitrary shell, or offensive functionality is present.

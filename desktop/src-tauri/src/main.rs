@@ -47,6 +47,7 @@ struct ServiceSnapshot {
     frontend_mode: String,
     release_version: Option<String>,
     docker_services_status: Option<String>,
+    dependency_statuses: std::collections::BTreeMap<String, String>,
     docker_availability: String,
     backend_port_status: String,
     frontend_port_status: String,
@@ -562,6 +563,17 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         });
         if ready { "ready" } else { "degraded" }.to_owned()
     });
+    let dependency_statuses = ["database", "redis", "worker"]
+        .iter()
+        .filter_map(|name| {
+            backend_json.as_ref()?
+                .get("checks")?
+                .get(name)?
+                .get("status")?
+                .as_str()
+                .map(|status| ((*name).to_owned(), status.to_owned()))
+        })
+        .collect();
     let migration_status = readiness_json
         .as_ref()
         .and_then(|json| json.get("checks"))
@@ -597,6 +609,7 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         frontend_mode,
         release_version,
         docker_services_status,
+        dependency_statuses,
         docker_availability,
         backend_port_status,
         frontend_port_status,

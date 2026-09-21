@@ -35,6 +35,7 @@ from app.schemas.endpoint_posture import (
 )
 from app.services.agent_management import list_baselines
 from app.services.audit import record_event
+from app.services.service_health import assess_lan_service, lan_baseline
 
 ACTIVE_FINDING_STATUSES = {"open", "acknowledged", "in_progress"}
 ACTIVE_RECOMMENDATION_STATUSES = {"open", "acknowledged"}
@@ -102,7 +103,7 @@ async def assess_asset_posture(
         "os_version": _os_version(latest),
         "disk_health": _disk_health(latest),
         "agent_freshness": _agent_freshness(latest),
-        "risky_services_count": _risky_service_count(services, latest),
+        "risky_services_count": sum(spec.key.startswith(("risky_service_", "nonstandard_ssh_")) for spec in specs),
         "recommendation_count": sum(
             item.status in ACTIVE_RECOMMENDATION_STATUSES for item in recommendations
         ),
@@ -614,16 +615,26 @@ async def _recommendation_specs(
 
     open_ports = {port for port, item in services.items() if item.status == "open"}
     open_ports.update(_metadata_ports(latest))
+    service_baseline = await lan_baseline(db, asset.id)
     for port, service_name in RISKY_PORTS.items():
         if port not in open_ports:
             continue
-        if port in {3389, 445} and asset.is_authorized:
+        observation = services.get(port)
+        assessment = assess_lan_service(
+            port=port, status="open", device_type=asset.device_type,
+            os_family=asset.os_family, trust_state="authorized" if asset.is_authorized else "needs_review",
+            service_name=observation.service_name if observation else None,
+            non_standard_ssh=False, expected_ports=set(service_baseline.expected_ports),
+            allowed_ports=set(service_baseline.allowed_ports), has_baseline=service_baseline.configured,
+            critical_ports=set(service_baseline.critical_ports),
+        )
+        if assessment.severity not in {"warning", "critical"}:
             continue
         add(
             f"risky_service_{port}",
             f"Review exposed {service_name} service",
-            "critical" if not asset.is_authorized else "high",
-            f"TCP/{port} ({service_name}) is observed listening; this is a risk indicator, not proof of exploitation.",
+            "critical" if assessment.severity == "critical" else "medium",
+            f"{assessment.reason} Evidence: observed TCP/{port} ({service_name}); confidence is advisory, not proof of a vulnerability.",
             "Confirm business need and restrict network exposure manually.",
             [
                 "Validate the service owner and purpose.",
@@ -631,11 +642,11 @@ async def _recommendation_specs(
                 "Recheck the authorized observation after change control.",
             ],
             "service_observation",
-            isolation=not asset.is_authorized,
+            isolation=False,
             metadata={"port": port, "service": service_name},
         )
     for port, observation in services.items():
-        if observation.status == "open" and observation.non_standard_ssh:
+        if observation.status == "open" and observation.non_standard_ssh and port not in (service_baseline.expected_ports | service_baseline.allowed_ports):
             add(
                 f"nonstandard_ssh_{port}",
                 "Review SSH on non-standard port",
@@ -965,20 +976,6 @@ def _disk_health(item: LanAssetTelemetry | None) -> str | None:
     if item.disk_percent >= 80:
         return "needs_review"
     return "healthy"
-
-
-def _risky_service_count(
-    services: dict[int, LanServiceObservation], telemetry: LanAssetTelemetry | None
-) -> int:
-    ports = {port for port, item in services.items() if item.status == "open"}
-    ports.update(_metadata_ports(telemetry))
-    risky = set(RISKY_PORTS) & ports
-    risky.update(
-        port
-        for port, item in services.items()
-        if item.status == "open" and item.non_standard_ssh
-    )
-    return len(risky)
 
 
 def _posture_metadata(

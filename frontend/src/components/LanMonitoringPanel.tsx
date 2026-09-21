@@ -21,6 +21,8 @@ import { useAuth } from "../lib/useAuth";
 import type { LanAsset } from "../types";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
 import { ToastBanner, type ToastState } from "./ToastBanner";
+import { serviceHealthIcon, serviceHealthTone } from "../lib/serviceHealth";
+import type { LanServiceObservation } from "../types";
 
 type AssetFilter = "all" | "authorized" | "needs_review" | "unauthorized" | "agent" | "no_agent" | "online" | "offline" | "windows" | "linux" | "android" | "ios" | "mobile" | "tablet" | "server" | "router" | "iot" | "unknown";
 
@@ -36,6 +38,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   const [businessFunction, setBusinessFunction] = useState("");
   const [assetEnvironment, setAssetEnvironment] = useState("");
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const listing = useQuery({
     queryKey: ["lan-assets"],
     queryFn: listLanAssets,
@@ -136,6 +139,13 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   if (listing.isLoading) return <LoadingBlock label="Loading authorized LAN inventory" />;
   if (listing.error) return <ErrorBlock message={listing.error} onRetry={() => void listing.refetch()} />;
   const config = listing.data;
+  function selectServiceSummary(label: string): void {
+    const filter = label === "Warnings" ? "warning" : label === "Open services" ? "open" : label === "Assets checked" ? "all" : label.toLowerCase();
+    setServiceFilter(filter);
+    const candidate = modeAssets.find((asset) => label === "Warnings" ? asset.service_warnings > 0 : label === "Critical" ? asset.service_critical > 0 : label === "Expected" ? asset.service_expected > 0 : label === "Unexpected" ? asset.service_unexpected > 0 : label === "Open services" ? asset.observed_service_preview.some((item) => item.endsWith(" open")) : asset.observed_services > 0);
+    if (candidate) setSelectedId(candidate.id);
+    window.setTimeout(() => document.getElementById("lan-service-detail")?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
 
   return (
     <div className="space-y-4">
@@ -177,9 +187,10 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
         <Metric label="Assets" value={agentsOnly ? modeAssets.length : safeNumber(config?.total)} />
         <Metric label="Online" value={modeAssets.filter((asset) => asset.status === "online").length} />
         <Metric label="Needs review" value={modeAssets.filter((asset) => asset.trust_state === "needs_review" || asset.trust_state === "gateway").length} />
-        <Metric label="Open services" value={safeNumber(config?.open_service_observations)} />
+        <Metric label={t("Open services")} value={safeNumber(config?.open_service_observations)} />
         <Metric label="Agents connected" value={modeAssets.filter((asset) => asset.agent_connected).length} />
       </section>
+      {!agentsOnly ? <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-3"><h2 className="text-sm font-semibold">{t("LAN services")}</h2><div className="mt-2 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">{[["Assets checked", modeAssets.filter((asset) => asset.observed_services > 0).length], ["Open services", safeNumber(config?.open_service_observations)], ["Expected", modeAssets.reduce((n, asset) => n + asset.service_expected, 0)], ["Unexpected", modeAssets.reduce((n, asset) => n + asset.service_unexpected, 0)], ["Warnings", modeAssets.reduce((n, asset) => n + asset.service_warnings, 0)], ["Critical", modeAssets.reduce((n, asset) => n + asset.service_critical, 0)]].map(([label, value]) => <button key={String(label)} type="button" className="rounded border border-raven-border p-2 text-left text-xs hover:border-raven-cyan" onClick={() => selectServiceSummary(String(label))}>{t(String(label))}: <strong>{value}</strong></button>)}</div></section> : null}
 
       {!assets.length ? (
         <EmptyBlock title={agentsOnly ? "No endpoint agents are reporting" : "No authorized LAN observations yet"} message={agentsOnly ? "No optional host telemetry has registered. Platform health is unaffected; install and manually run the local agent only on an approved host." : t("Docker could not read host LAN neighbors. Start the ServerHost agent to collect read-only host neighbor observations, or import router observations manually.")} nextStep={agentsOnly ? "Use the documented agent registration flow; no credentials or commands are collected." : t("Agent self-registration does not require manual asset creation.")} />
@@ -200,7 +211,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
                 <td className="p-3 capitalize">{safeString(asset.trust_state, "needs_review").replace(/_/g, " ")}<br /><span className="text-xs text-raven-muted">{safeString(asset.source, "unknown")}</span></td>
                 <td className="p-3 capitalize">{safeString(asset.status, "unknown")}<br /><span className="text-xs text-raven-muted">Telemetry {safeString(asset.telemetry_freshness, "missing")}</span></td>
                 <td className="p-3 text-raven-muted">{safeDate(asset.last_seen)?.toLocaleString() ?? "Never"}</td>
-                <td className="p-3">{asset.service_check_eligible ? "Eligible" : "Not eligible"}<br /><span className="text-xs text-raven-muted">{safeNumber(asset.observed_services)} observed</span></td>
+                <td className="p-3">{asset.service_check_eligible ? t("Eligible") : t("Not eligible")}<br /><span className="text-xs text-raven-muted">{safeNumber(asset.observed_services)} {t("Observed service")}</span><ul className="mt-1 space-y-0.5 text-xs">{safeArray(asset.observed_service_preview).map((item) => <li key={item} className="font-mono">{safeString(item)}</li>)}</ul>{asset.service_warnings || asset.service_critical ? <span className="text-xs text-amber-100">! {asset.service_warnings} {t("Warnings")} · × {asset.service_critical} {t("Critical")}</span> : null}</td>
                 <td className="p-3">{asset.agent_connected ? "Connected" : ["agent", "endpoint_agent"].includes(asset.source) ? "Stale" : "No agent"}</td>
                 <td className="p-3 capitalize">{safeString(asset.posture_status, "unknown").replace(/_/g, " ")}<br /><span className="text-xs text-raven-muted">{safeNumber(asset.recommendation_count)} recommendation(s)</span></td>
               </tr>
@@ -235,7 +246,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
           </div>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <div><h3 className="text-sm font-medium">Risk indicators</h3>{safeArray(selected.risk_indicators).length ? <ul className="mt-2 space-y-2">{safeArray(selected.risk_indicators).map((item) => <li key={item.key} className="rounded-md border border-raven-border p-3 text-sm"><span className="font-medium">{safeString(item.label, "Indicator")}</span><p className="mt-1 text-raven-muted">{safeString(item.detail, "Review this asset.")}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No current risk indicators.</p>}</div>
-            <div><h3 className="text-sm font-medium">Observed services</h3>{safeArray(services.data?.items).length ? <ul className="mt-2 space-y-2">{safeArray(services.data?.items).map((item) => <li key={item.id} className="min-w-0 rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{safeNumber(item.port)}/{safeString(item.protocol, "tcp")}</span><span>{safeString(item.service_label, safeString(item.service_name, "unidentified service"))}</span><span className="rounded-full border border-raven-border px-2 py-0.5 text-xs capitalize">{safeString(item.status, "unknown")}</span>{item.changed_from_previous ? <span className="rounded-full border border-amber-300/30 px-2 py-0.5 text-xs text-amber-100">Changed from {safeString(item.previous_status, "unknown")}</span> : null}{item.service_name === "ssh" ? <span className="rounded-full border border-cyan-300/30 bg-cyan-400/10 px-2 py-0.5 text-xs text-cyan-100">SSH indicator</span> : null}{item.non_standard_ssh ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-xs text-amber-100">Non-standard SSH</span> : null}</div><p className="mt-1 break-words text-xs text-raven-muted">Confidence {safeNumber(item.confidence)}% · first {safeDate(item.first_observed_at)?.toLocaleString() ?? "unknown"} · last {safeDate(item.observed_at)?.toLocaleString() ?? "unknown"} · source {safeString(item.source, "unknown")}{item.banner_hint ? ` · ${safeString(item.banner_hint)}` : ""}</p>{[445, 3389, 5432, 6379].includes(item.port) && item.status === "open" ? <p className="mt-1 text-xs text-amber-100">Advisory risk indicator only; manually review intended exposure.</p> : null}</li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">No service observations. Enable authorized checks or provide approved router/static observations.</p>}</div>
+            <ObservedServicesPanel items={safeArray(services.data?.items)} filter={serviceFilter} onFilter={setServiceFilter} t={t} />
           </div>
           <section className="mt-4"><h3 className="text-sm font-medium">{t("Recommendations")}</h3>{safeArray(recommendations.data?.items).length ? <ul className="mt-2 grid gap-2 md:grid-cols-2">{safeArray(recommendations.data?.items).map((item) => <li key={item.id} className="rounded border border-raven-border p-3 text-sm"><p className="font-medium">{item.title} · {t(item.confidence)}</p><p className="mt-1 text-raven-muted">{item.reason}</p><p className="mt-1 text-xs">{item.recommended_action}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">{t("No recommendations available.")}</p>}</section>
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -251,6 +262,24 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
 
 function Metric({ label, value }: { label: string; value: string | number }): JSX.Element {
   return <div className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><p className="text-xs uppercase tracking-wide text-raven-muted">{label}</p><p className="mt-2 text-xl font-semibold">{value}</p></div>;
+}
+
+function ObservedServicesPanel({ items, filter, onFilter, t }: { items: LanServiceObservation[]; filter: string; onFilter: (value: string) => void; t: (key: string) => string }): JSX.Element {
+  const filtered = items.filter((item) => {
+    if (filter === "open") return item.status === "open";
+    if (filter === "expected" || filter === "unexpected") return item.expectation === filter;
+    if (filter === "warning" || filter === "critical") return item.advisory_severity === filter;
+    if (filter === "changed") return item.changed_from_previous && Date.now() - new Date(item.observed_at).getTime() < 24 * 60 * 60 * 1000;
+    return true;
+  });
+  const counts = [
+    ["Observed ports", items.length], ["Open services", items.filter((item) => item.status === "open").length],
+    ["Expected", items.filter((item) => item.expectation === "expected").length],
+    ["Unexpected", items.filter((item) => item.expectation === "unexpected").length],
+    ["Warnings", items.filter((item) => item.advisory_severity === "warning").length],
+    ["Critical", items.filter((item) => item.advisory_severity === "critical").length],
+  ] as const;
+  return <div id="lan-service-detail"><h3 className="text-sm font-medium">{t("Observed Services")}</h3><p className="mt-1 text-xs text-raven-muted">{t("An open port indicates reachability, not a confirmed vulnerability.")} {t("Advisory risk indicator only.")}</p><div className="mt-2 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3">{counts.map(([label, value]) => <button key={label} type="button" onClick={() => onFilter(label === "Open services" ? "open" : label === "Warnings" ? "warning" : label === "Observed ports" ? "all" : label.toLowerCase())} className="rounded border border-raven-border p-1 text-left hover:border-raven-cyan">{t(label)}: {value}</button>)}</div><div className="mt-2 flex flex-wrap gap-1">{["all", "open", "expected", "unexpected", "warning", "critical", "changed"].map((value) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => onFilter(value)} className={`rounded-full border px-2 py-1 text-xs ${filter === value ? "border-raven-cyan text-raven-cyan" : "border-raven-border text-raven-muted"}`}>{t(value === "changed" ? "Changed recently" : value === "open" ? "Open only" : value)}</button>)}</div>{filtered.length ? <ul className="mt-2 space-y-2">{filtered.map((item) => <li key={item.id} className="rounded-md border border-raven-border p-3 text-sm"><div className="flex flex-wrap items-center gap-2"><span className="font-mono">{item.port}/{item.protocol}</span><strong>{safeString(item.service_label, safeString(item.service_name, t("Unknown TCP service")))}</strong><span>{t(item.status)}</span>{item.service_name === "ssh" ? <span className="text-xs text-cyan-100">SSH indicator</span> : null}<span className={`rounded-full border px-2 py-0.5 text-xs ${serviceHealthTone[item.advisory_severity]}`} aria-label={`${t(item.advisory_severity)}: ${item.advisory_reason}`}>{serviceHealthIcon[item.advisory_severity]} {t(item.advisory_severity)}</span><span className="text-xs">{t(item.expectation)}</span></div><p className="mt-1 text-xs text-raven-muted">{item.advisory_reason}</p><p className="mt-1 text-xs text-raven-muted">{t("Confidence")}: {t(item.identification_confidence)} ({item.confidence}%) · {t("First observed")}: {safeDate(item.first_observed_at)?.toLocaleString() ?? t("Unknown")} · {t("Last observed")}: {safeDate(item.observed_at)?.toLocaleString() ?? t("Unknown")}</p><p className="text-xs text-raven-muted">{t("Source")}: {safeString(item.source, t("Unknown"))} · {t("Previous state")}: {safeString(item.previous_status, t("Unknown"))}{item.changed_from_previous ? ` · ${t("Changed recently")}` : ""}</p></li>)}</ul> : <p className="mt-2 text-sm text-raven-muted">{t("No matching service observations.")}</p>}</div>;
 }
 
 function State({ label, active }: { label: string; active: boolean }): JSX.Element {

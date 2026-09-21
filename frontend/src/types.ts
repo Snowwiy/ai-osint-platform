@@ -3351,6 +3351,12 @@ export interface LanAsset {
   service_check_eligible: boolean;
   service_check_reason: string;
   observed_services: number;
+  observed_service_preview: string[];
+  service_healthy: number;
+  service_warnings: number;
+  service_critical: number;
+  service_expected: number;
+  service_unexpected: number;
   posture_status: "healthy" | "needs_review" | "at_risk" | "critical" | "unknown";
   recommendation_count: number;
   response_latency_ms: number | null;
@@ -3378,7 +3384,7 @@ export interface AgentInventoryResponse {
 }
 export interface AssetGroup { id: string; name: string; description: string | null; asset_ids: string[]; total_assets: number; monitored_by_agent: number; stale_agents: number; risk_indicators: number; created_by: string | null; created_at: string; updated_at: string; }
 export interface ServiceBaselineIndicator { asset_id: string; port: number; indicator_type: "missing_expected_service" | "unexpected_open_service"; severity: "warning" | "critical"; detail: string; }
-export interface ServiceBaseline { id: string; name: string; description: string | null; asset_id: string | null; group_id: string | null; expected_ports: number[]; allowed_ports: number[]; indicators: ServiceBaselineIndicator[]; created_by: string | null; created_at: string; updated_at: string; }
+export interface ServiceBaseline { id: string; name: string; description: string | null; asset_id: string | null; group_id: string | null; expected_ports: number[]; allowed_ports: number[]; critical_ports: number[]; indicators: ServiceBaselineIndicator[]; created_by: string | null; created_at: string; updated_at: string; }
 
 export interface LanAssetListResponse {
   generated_at: string;
@@ -3528,6 +3534,10 @@ export interface LanServiceObservation {
   previous_status: string | null;
   changed_from_previous: boolean;
   source: string;
+  expectation: "expected" | "allowed" | "unexpected" | "unclassified";
+  advisory_severity: "healthy" | "warning" | "critical" | "neutral";
+  advisory_reason: string;
+  identification_confidence: "high" | "medium" | "low";
 }
 
 export interface LanServiceCheckResponse {

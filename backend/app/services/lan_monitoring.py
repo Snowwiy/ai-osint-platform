@@ -49,6 +49,7 @@ from app.schemas.lan_monitoring import (
 from app.schemas.monitoring import AgentTelemetryIngest, HostNeighborObservation, MonitoringAlert
 from app.services.audit import record_event
 from app.services.device_classification import classify
+from app.services.service_health import LanServiceBaseline, assess_lan_service, lan_baseline
 from app.services.notification import create_admin_notification
 from app.services.monitoring_history import (
     record_agent_telemetry_changes,
@@ -80,9 +81,7 @@ SERVICE_GUESSES = {
     8080: "http",
     8443: "https",
     3000: "http",
-    5000: "http",
     8000: "http",
-    9000: "http",
 }
 CURRENT_AGENT_VERSION = "1.1.0"
 AGENT_ASSET_SOURCES = {"agent", "endpoint_agent"}
@@ -297,6 +296,7 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
     }
     neighbor_diagnostics = await _latest_neighbor_diagnostics(db)
     now = datetime.now(UTC)
+    baselines = {item.id: await lan_baseline(db, item.id) for item in assets}
     items = [
         _asset_response(
             item,
@@ -304,6 +304,7 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
             services.get(item.id, []),
             now,
             postures.get(item.id),
+            baselines[item.id],
         )
         for item in assets
     ]
@@ -395,6 +396,7 @@ async def get_lan_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAssetRespon
         services.get(asset.id, []),
         datetime.now(UTC),
         posture,
+        await lan_baseline(db, asset_id),
     )
 
 
@@ -907,7 +909,8 @@ async def list_asset_telemetry(
 async def list_asset_services(
     db: AsyncSession, asset_id: uuid.UUID, limit: int
 ) -> LanServiceListResponse:
-    await _require_asset(db, asset_id)
+    asset = await _require_asset(db, asset_id)
+    baseline = await lan_baseline(db, asset_id)
     rows = list(
         (
             await db.execute(
@@ -920,7 +923,7 @@ async def list_asset_services(
         .scalars()
         .all()
     )
-    summaries = _service_summary_responses(list(reversed(rows)))[:limit]
+    summaries = _service_summary_responses(list(reversed(rows)), asset=asset, baseline=baseline)[:limit]
     return LanServiceListResponse(
         total=len(summaries),
         service_checks_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
@@ -1177,7 +1180,7 @@ async def _tcp_service_observation(ip_address: str, port: int) -> LanServiceInpu
 def _classify_service(port: int, banner: bytes) -> LanServiceInput:
     ssh = banner.lstrip().upper().startswith(b"SSH-")
     service = "ssh" if ssh else SERVICE_GUESSES.get(port)
-    label = "possible SSH service" if ssh or port == 22 else service
+    label = "possible SSH service" if ssh or port == 22 else "HTTPS-like" if port == 8443 and service == "https" else service
     confidence = 95 if ssh else 75 if service else 50
     hint = "SSH protocol banner detected" if ssh else None
     return LanServiceInput(
@@ -1272,10 +1275,13 @@ def _asset_response(
     services: list[LanServiceObservation],
     now: datetime,
     posture: EndpointSecurityPosture | None = None,
+    baseline: LanServiceBaseline | None = None,
 ) -> LanAssetResponse:
     connected = _agent_connected(asset, telemetry, now)
     status = _effective_status(asset, telemetry, now)
     agent_asset = asset.source in AGENT_ASSET_SOURCES
+    policy = baseline or LanServiceBaseline()
+    summaries = [_service_response(item, asset=asset, baseline=policy) for item in services]
     service_eligible = bool(
         settings.LAN_MONITORING_ENABLED
         and settings.LAN_SERVICE_CHECK_ENABLED
@@ -1338,13 +1344,19 @@ def _asset_response(
         service_check_eligible=service_eligible,
         service_check_reason=service_reason,
         observed_services=len(services),
+        observed_service_preview=[f"{item.port}/{item.protocol} {item.service_label or item.service_name or 'Unknown TCP service'} {item.status}" for item in sorted(services, key=lambda value: value.port)[:8]],
+        service_healthy=sum(item.advisory_severity == "healthy" for item in summaries),
+        service_warnings=sum(item.advisory_severity == "warning" for item in summaries),
+        service_critical=sum(item.advisory_severity == "critical" for item in summaries),
+        service_expected=sum(item.expectation == "expected" for item in summaries),
+        service_unexpected=sum(item.expectation == "unexpected" for item in summaries),
         posture_status=cast(
             Literal["healthy", "needs_review", "at_risk", "critical", "unknown"],
             posture.posture_status if posture else "unknown",
         ),
         recommendation_count=posture.recommendation_count if posture else 0,
         response_latency_ms=asset.response_latency_ms,
-        risk_indicators=_risk_indicators(asset, telemetry, services, status, connected),
+        risk_indicators=_risk_indicators(asset, telemetry, services, status, connected, policy),
         created_at=asset.created_at,
         updated_at=asset.updated_at,
     )
@@ -1391,6 +1403,7 @@ def _risk_indicators(
     services: list[LanServiceObservation],
     status: str,
     connected: bool,
+    baseline: LanServiceBaseline | None = None,
 ) -> list[LanRiskIndicator]:
     indicators: list[LanRiskIndicator] = []
     if not asset.is_authorized:
@@ -1460,22 +1473,21 @@ def _risk_indicators(
     for service in services:
         if service.status != "open":
             continue
-        if service.non_standard_ssh:
+        policy = baseline or LanServiceBaseline()
+        assessment = assess_lan_service(
+            port=service.port, status=service.status, device_type=asset.device_type,
+            os_family=asset.os_family, trust_state=_trust_state(asset),
+            service_name=service.service_name, non_standard_ssh=service.non_standard_ssh,
+            expected_ports=set(policy.expected_ports), allowed_ports=set(policy.allowed_ports),
+            has_baseline=policy.configured, critical_ports=set(policy.critical_ports),
+        )
+        if assessment.severity in {"warning", "critical"}:
             indicators.append(
                 _indicator(
-                    f"ssh_nonstandard_{service.port}",
-                    "warning",
-                    "SSH on non-standard port",
-                    f"A minimal SSH protocol banner was observed on TCP/{service.port}; no authentication was attempted.",
-                )
-            )
-        if service.port in RISKY_PORTS:
-            indicators.append(
-                _indicator(
-                    f"risky_service_{service.port}",
-                    "warning",
-                    f"{RISKY_PORTS[service.port]} observed",
-                    f"{RISKY_PORTS[service.port]} on TCP/{service.port} was observed. This is a risk indicator, not a confirmed vulnerability.",
+                    f"risky_service_{service.port}" if service.port in RISKY_PORTS else f"service_exposure_{service.port}",
+                    assessment.severity,
+                    f"TCP/{service.port} requires review",
+                    assessment.reason,
                 )
             )
         if not asset.is_authorized:
@@ -1914,7 +1926,22 @@ def _service_response(
     *,
     first_observed_at: datetime | None = None,
     previous_status: str | None = None,
+    asset: LanAsset | None = None,
+    baseline: LanServiceBaseline | None = None,
 ) -> LanServiceResponse:
+    policy = baseline or LanServiceBaseline()
+    assessment = assess_lan_service(
+        port=item.port, status=item.status,
+        device_type=asset.device_type if asset else "unknown",
+        os_family=asset.os_family if asset else "unknown",
+        trust_state=_trust_state(asset) if asset else "needs_review",
+        service_name=item.service_name,
+        non_standard_ssh=item.non_standard_ssh,
+        expected_ports=set(policy.expected_ports),
+        allowed_ports=set(policy.allowed_ports),
+        has_baseline=policy.configured,
+        critical_ports=set(policy.critical_ports),
+    )
     return LanServiceResponse(
         id=item.id,
         lan_asset_id=item.lan_asset_id,
@@ -1934,11 +1961,16 @@ def _service_response(
             previous_status is not None and previous_status != item.status
         ),
         source=item.source,
+        expectation=assessment.expectation,
+        advisory_severity=assessment.severity,
+        advisory_reason=assessment.reason,
+        identification_confidence="high" if item.confidence >= 85 else "medium" if item.confidence >= 60 else "low",
     )
 
 
 def _service_summary_responses(
     rows: list[LanServiceObservation],
+    *, asset: LanAsset | None = None, baseline: LanServiceBaseline | None = None,
 ) -> list[LanServiceResponse]:
     grouped: dict[tuple[int, str], list[LanServiceObservation]] = {}
     for item in rows:
@@ -1948,6 +1980,7 @@ def _service_summary_responses(
             history[-1],
             first_observed_at=history[0].observed_at,
             previous_status=history[-2].status if len(history) > 1 else None,
+            asset=asset, baseline=baseline,
         )
         for history in grouped.values()
     ]
