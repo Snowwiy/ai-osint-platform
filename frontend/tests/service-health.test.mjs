@@ -29,3 +29,14 @@ test("service UI does not expose raw banners or command lines", () => {
   const local = read("src/components/LocalHostPanel.tsx");
   assert.doesNotMatch(local, /\.commandLine|\.environment|\.arguments/);
 });
+
+test("native desktop labels Redis and Celery as optional", () => {
+  const panel = read("src/components/LocalHostPanel.tsx");
+  const health = read("src/lib/serviceHealth.ts");
+  const dictionary = read("src/lib/i18n.tsx");
+  assert.match(panel, /name: "Celery", status: "optional"/);
+  assert.match(panel, /name: "Redis".*"optional"/);
+  assert.match(health, /!required && status === "optional"/);
+  for (const label of ["Worker health", "Queue depth", "Oldest queued", "Priority"])
+    assert.ok(dictionary.includes(`"${label}":`), label);
+});

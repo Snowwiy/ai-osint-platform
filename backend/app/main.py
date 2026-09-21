@@ -26,6 +26,7 @@ from app.core.middleware import (
 from app.core.rate_limit import limiter
 from app.db.session import AsyncSessionLocal
 from app.models.user import User
+from app.services.background_jobs import QueueFullError
 from app.services.demo import set_demo_workspace_enabled
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("configuration warning: %s", warning)
     await _connect_database()
     await _bootstrap_demo_mode()
-    if settings.BACKGROUND_JOB_BACKEND == "native":
+    if settings.background_engine == "native":
         from app.services.native_auth_state import PostgresAuthState
 
         app.state.redis = PostgresAuthState()
@@ -61,6 +62,19 @@ def create_app() -> FastAPI:
     )
 
     app.state.limiter = limiter
+
+    @app.exception_handler(QueueFullError)
+    async def job_queue_full_handler(
+        request: Request, _exc: QueueFullError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content=error_payload(
+                code="JOB_QUEUE_FULL",
+                message="Background job queue is at capacity; retry later.",
+                request=request,
+            ),
+        )
 
     @app.exception_handler(RateLimitExceeded)
     async def rate_limit_handler(

@@ -617,3 +617,12 @@ check blocks the current release-freeze commit and push.
 - [ ] In native mode, process an allowlisted PostgreSQL job with Redis/Celery stopped; verify heartbeat, retry bounds, dedupe, cancellation, recovery, RBAC, and audit.
 - [ ] Confirm Operations Center and desktop show native engine, queue counts, and worker health; readiness depends on PostgreSQL and native worker, not Redis.
 - [ ] Confirm no secrets or executable payloads in jobs, no arbitrary command path, and unchanged version 5.0.0-rc6.
+
+## Phase 5BJ native desktop acceptance
+
+- [ ] Confirm desktop profile selects native jobs and PostgreSQL auth with Redis/Celery stopped.
+- [ ] Confirm Docker/Celery profile still requires Redis and existing Compose services remain.
+- [ ] Confirm queue depth, per-type cap, timeout, scheduler dedupe, and safe cancellation.
+- [ ] Confirm health/readiness label required versus optional dependencies, Operations Center filters, and bilingual desktop status.
+- [ ] Confirm full backend/frontend/desktop/package validation and Ruff/mypy baseline delta before commit.
+- [ ] Confirm version 5.0.0-rc6, one Alembic head, no tag, and no Knowledge ingestion or FastAPI executable.

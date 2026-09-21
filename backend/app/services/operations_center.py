@@ -58,7 +58,8 @@ async def get_operations_status(
     status = _overall_status(components)
     return OperationsStatusResponse(
         generated_at=datetime.now(UTC),
-        background_job_backend=settings.BACKGROUND_JOB_BACKEND,
+        runtime_profile=settings.RUNTIME_PROFILE,
+        background_job_backend=settings.background_engine,
         status=status,
         uptime_seconds=max(0, int((datetime.now(UTC) - STARTED_AT).total_seconds())),
         release=release,
@@ -82,12 +83,12 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
         _configured(
             "REDIS_URL",
             "backend",
-            bool(settings.REDIS_URL) or settings.BACKGROUND_JOB_BACKEND == "native",
+            bool(settings.REDIS_URL) or settings.background_engine == "native",
             "Redis is optional in native mode."
-            if settings.BACKGROUND_JOB_BACKEND == "native"
+            if settings.background_engine == "native"
             else "Redis connection string is present.",
             "REDIS_URL is required in Celery compatibility mode only.",
-            required=settings.BACKGROUND_JOB_BACKEND == "celery",
+            required=settings.background_engine == "celery",
             misconfigured=bool(settings.REDIS_URL)
             and not settings.REDIS_URL.startswith("redis://"),
             misconfigured_detail="REDIS_URL should use redis://.",
@@ -443,9 +444,9 @@ def _components_from_health(
 def _overall_status(
     components: dict[str, OperationsComponentStatus],
 ) -> OperationalStatus:
-    optional = {"redis"} if settings.BACKGROUND_JOB_BACKEND == "native" else set()
+    optional = {"redis"} if settings.background_engine == "native" else set()
     if (
-        settings.BACKGROUND_JOB_BACKEND == "native"
+        settings.background_engine == "native"
         and not settings.NATIVE_WORKER_ENABLED
     ):
         optional.add("worker")

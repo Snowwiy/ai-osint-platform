@@ -157,3 +157,7 @@ launcher's five-script boundary.
 ## Phase 5BI desktop runtime
 
 The desktop still uses the Docker backend and PostgreSQL in this phase. It can display `BACKGROUND_JOB_BACKEND=native` and native worker status; Redis/Celery are not required desktop dependencies in that mode. Run `python -m app.worker` separately after applying Alembic 0040. Packaging and supervision of a native backend/PostgreSQL are planned for later phases only. See `NATIVE_BACKGROUND_JOBS.md`.
+
+## Phase 5BJ job dependency
+
+The desktop profile no longer requires Redis or Celery for authentication, monitoring jobs, or readiness. It still requires a separately running FastAPI backend, PostgreSQL, migrations, and native worker; the current distribution commonly runs the backend/database through Docker. Native backend packaging and local PostgreSQL installation are future phases. See `DESKTOP_NATIVE_RUNTIME.md`.

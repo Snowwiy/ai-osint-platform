@@ -13,7 +13,14 @@ from app.models.background_job import NativeWorkerHeartbeat
 
 
 async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
-    native = settings.BACKGROUND_JOB_BACKEND == "native"
+    native = settings.background_engine == "native"
+    required = ["database", "migrations", "storage"]
+    if native and (
+        settings.NATIVE_WORKER_ENABLED or settings.RUNTIME_PROFILE == "desktop"
+    ):
+        required.append("worker")
+    elif not native:
+        required.append("redis")
     checks = {
         "database": await _database_check(),
         "redis": {"status": "not_required", "detail": "Native mode uses PostgreSQL."}
@@ -24,13 +31,20 @@ async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
         "worker": await _native_worker_check()
         if native
         else await _worker_check(redis),
+        "celery": {"status": "not_required", "detail": "Compatibility only."}
+        if native
+        else {"status": "optional", "detail": "Celery remains available."},
         "ai_provider": _ai_provider_check(),
     }
     status = _overall_status(checks, include_ready=include_ready)
     return {
         "status": status,
         "environment": settings.APP_ENVIRONMENT,
-        "background_job_backend": settings.BACKGROUND_JOB_BACKEND,
+        "runtime_profile": settings.RUNTIME_PROFILE,
+        "background_job_backend": settings.background_engine,
+        "background_engine": settings.background_engine,
+        "required_dependencies": required,
+        "optional_dependencies": ["redis", "celery"] if native else ["celery"],
         "checks": checks,
     }
 
@@ -114,6 +128,7 @@ async def _native_worker_check() -> dict[str, Any]:
     if not settings.NATIVE_WORKER_ENABLED:
         return {
             "status": "not_required",
+            "health": "stopped",
             "detail": "Native worker is disabled by configuration.",
         }
     try:
@@ -131,15 +146,31 @@ async def _native_worker_check() -> dict[str, Any]:
                     )
                 )
             ).scalar_one()
+            latest = (
+                await db.execute(
+                    select(NativeWorkerHeartbeat)
+                    .order_by(NativeWorkerHeartbeat.heartbeat_at.desc())
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+        worker_health = (
+            "healthy" if count else "stopped"
+            if latest is None or latest.stopping else "stale"
+        )
         return {
             "status": "ok" if count else "error",
+            "health": worker_health,
             "active_workers": count,
             "detail": "Native PostgreSQL worker heartbeat is current."
             if count
             else "Native worker is not running or its heartbeat is stale.",
         }
     except Exception:
-        return {"status": "error", "detail": "Native worker status is unavailable."}
+        return {
+            "status": "error",
+            "health": "degraded",
+            "detail": "Native worker status is unavailable.",
+        }
 
 
 def _ai_provider_check() -> dict[str, Any]:
@@ -162,9 +193,9 @@ def _overall_status(
     include_ready: bool,
 ) -> str:
     required: tuple[str, ...] = ("database", "migrations", "storage")
-    if settings.BACKGROUND_JOB_BACKEND == "celery":
+    if settings.background_engine == "celery":
         required += ("redis",)
-    elif settings.NATIVE_WORKER_ENABLED:
+    elif settings.NATIVE_WORKER_ENABLED or settings.RUNTIME_PROFILE == "desktop":
         required += ("worker",)
     relevant = (
         {key: checks[key] for key in required}

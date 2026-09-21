@@ -31,7 +31,7 @@ import {
 import { LocalOperatorConsole } from "../components/LocalOperatorConsole";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import type { FileDownloadResult } from "../lib/api";
-import type { BackgroundJobsResponse } from "../lib/api";
+import type { BackgroundJobFilters, BackgroundJobsResponse } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import type {
   EnvironmentValidationItem,
@@ -51,6 +51,7 @@ export function OperationsCenterPage(): JSX.Element {
   const [restoreText, setRestoreText] = useState("");
   const [restoreArchiveBase64, setRestoreArchiveBase64] = useState<string | null>(null);
   const [restoreFileName, setRestoreFileName] = useState("");
+  const [jobFilters, setJobFilters] = useState<BackgroundJobFilters>({});
   const status = useQuery({
     queryKey: ["operations-status"],
     queryFn: getOperationsStatus,
@@ -74,7 +75,7 @@ export function OperationsCenterPage(): JSX.Element {
     queryFn: listEndpointAgents,
     retry: 1,
   });
-  const jobs = useQuery({ queryKey: ["background-jobs"], queryFn: getBackgroundJobs, refetchInterval: 15000 });
+  const jobs = useQuery({ queryKey: ["background-jobs", jobFilters], queryFn: () => getBackgroundJobs(jobFilters), refetchInterval: 15000 });
   const jobAction = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "cancel" | "retry" }) => changeBackgroundJob(id, action),
     onSuccess: () => { void jobs.refetch(); },
@@ -200,7 +201,7 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
 
       <section className="mt-5">
-        <BackgroundJobsPanel data={jobs.data} loading={jobs.isLoading} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
+        <BackgroundJobsPanel data={jobs.data} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
       </section>
 
       <section className="mt-5">
@@ -266,9 +267,11 @@ export function OperationsCenterPage(): JSX.Element {
   );
 }
 
-function BackgroundJobsPanel({ data, loading, onAction, t }: {
+function BackgroundJobsPanel({ data, loading, filters, onFilters, onAction, t }: {
   data: BackgroundJobsResponse | undefined;
   loading: boolean;
+  filters: BackgroundJobFilters;
+  onFilters: (filters: BackgroundJobFilters) => void;
   onAction: (id: string, action: "cancel" | "retry") => void;
   t: (value: string) => string;
 }): JSX.Element {
@@ -278,12 +281,17 @@ function BackgroundJobsPanel({ data, loading, onAction, t }: {
   };
   return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("Background Jobs")}>
     <h2 className="text-lg font-semibold">{t("Background Jobs")}</h2>
-    <p className="text-sm text-raven-muted">{t("Engine")}: {data?.backend === "native" ? "Native PostgreSQL" : "Celery compatibility"}</p>
+    <p className="text-sm text-raven-muted">{t("Engine")}: {data?.backend === "native" ? "Native PostgreSQL" : "Celery compatibility"} · {t("Worker health")}: {t(data?.worker_health ?? "unavailable")} · {t("Queue depth")}: {data?.queue_depth ?? 0} · {t("Oldest queued")}: {safeDate(data?.oldest_queued_at)?.toLocaleString() ?? "—"}</p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {(["job_type", "status", "priority", "worker", "investigation_id", "asset_id", "requested_by_user_id"] as const).map(key => <label key={key} className="text-xs text-raven-muted">{t(key === "job_type" ? "Type" : key === "requested_by_user_id" ? "Requested by" : key === "investigation_id" ? "Investigation" : key === "asset_id" ? "Asset" : key === "priority" ? "Priority" : key === "worker" ? "Worker" : "Status")}
+        <input aria-label={key} value={filters[key] ?? ""} onChange={event => onFilters({ ...filters, [key]: event.target.value })} className="mt-1 w-full rounded border border-raven-border bg-raven-bg px-2 py-1 text-raven-text" />
+      </label>)}
+    </div>
     {loading ? <p>{t("Loading jobs")}</p> : <>
       <div className="mt-3 flex flex-wrap gap-3">{Object.entries(states).map(([state, label]) => <span key={state} className="rounded border border-raven-border px-2 py-1 text-sm">{t(label)}: {data?.counts[state] ?? 0}</span>)}</div>
-      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["Type", "Status", "Progress", "Created", "Started", "Duration", "Attempts", "Requested by", "Investigation", "Asset", "Worker", "Last safe error", "Next retry", "Actions"].map(label => <th key={label} className="p-2">{t(label)}</th>)}</tr></thead>
+      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["Type", "Status", "Priority", "Progress", "Created", "Started", "Duration", "Attempts", "Requested by", "Investigation", "Asset", "Worker", "Last safe error", "Next retry", "Actions"].map(label => <th key={label} className="p-2">{t(label)}</th>)}</tr></thead>
       <tbody>{data?.jobs.map(job => <tr key={job.id} className="border-t border-raven-border">
-        <td className="p-2">{job.type}</td><td className="p-2">{t(job.status)}</td><td className="p-2">{job.progress}%</td>
+        <td className="p-2">{job.type}</td><td className="p-2">{t(job.status)}</td><td className="p-2">{t(({ 20: "low", 50: "normal", 70: "high", 90: "critical" } as Record<number, string>)[job.priority] ?? "normal")}</td><td className="p-2">{job.progress}%</td>
         <td className="p-2">{safeDate(job.created_at)?.toLocaleString() ?? "—"}</td><td className="p-2">{safeDate(job.started_at)?.toLocaleString() ?? "—"}</td>
         <td className="p-2">{job.started_at ? Math.max(0, Math.round((new Date(job.finished_at ?? Date.now()).getTime() - new Date(job.started_at).getTime()) / 1000)) + "s" : "—"}</td>
         <td className="p-2">{job.attempts}/{job.max_attempts}</td><td className="p-2">{job.requested_by ?? "—"}</td>

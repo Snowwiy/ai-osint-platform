@@ -85,6 +85,6 @@ class CeleryJobDispatcher:
 def dispatcher() -> NativeJobDispatcher | CeleryJobDispatcher:
     return (
         NativeJobDispatcher()
-        if settings.BACKGROUND_JOB_BACKEND == "native"
+        if settings.background_engine == "native"
         else CeleryJobDispatcher()
     )

@@ -507,3 +507,7 @@ If a Windows service shows Neutral, configure its expected state in Monitoring C
 ## Native background worker
 
 If native readiness reports a stale or missing worker, verify the `0040_phase5bi_native_jobs` migration, PostgreSQL connectivity, `BACKGROUND_JOB_BACKEND=native`, and a running `python -m app.worker` process. Inspect Operations Center for retry time, attempts, and sanitized error summary. Restart the worker; abandoned jobs recover after `NATIVE_WORKER_STALE_SECONDS`. Do not run a second handler manually against the same job. Redis is not required in native mode.
+
+## Phase 5BJ desktop worker checks
+
+If desktop readiness is unhealthy, verify PostgreSQL, migration alignment, report storage, and the native worker heartbeat. Inspect Operations Center for queue depth, oldest queued job, retry time, and safe error code. Redis/Celery being stopped is normal in `RUNTIME_PROFILE=desktop`; in `docker`/Celery mode check Redis as before. A full queue rejects new jobs safely; reduce load or resolve stuck jobs rather than raising limits without review.

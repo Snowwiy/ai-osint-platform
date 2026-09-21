@@ -11,6 +11,7 @@ export function localServiceHealth(state: string, expectation?: LocalServiceExpe
 }
 
 export function coreServiceHealth(status: string, required: boolean, stale = false): { health: ServiceHealth; reason: string } {
+  if (!required && status === "optional") return { health: "neutral", reason: "Compatibility component is not required in this runtime." };
   if (stale) return { health: "warning", reason: "Telemetry has not been refreshed within the expected interval." };
   if (["healthy", "running", "connected"].includes(status)) return { health: "healthy", reason: "Component is reporting healthy." };
   if (["down", "unavailable", "stopped", "offline"].includes(status)) return { health: required ? "critical" : "warning", reason: required ? "Required component is unavailable." : "Optional component is unavailable." };

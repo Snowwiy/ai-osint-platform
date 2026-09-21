@@ -7,5 +7,9 @@ from app.core.config import settings
 
 limiter = Limiter(
     key_func=get_remote_address,
-    storage_uri=settings.REDIS_URL,
+    # Auth throttling is PostgreSQL-backed in native mode. SlowAPI has no
+    # decorated routes today; keep its optional store off Redis for desktop.
+    storage_uri=(
+        "memory://" if settings.background_engine == "native" else settings.REDIS_URL
+    ),
 )

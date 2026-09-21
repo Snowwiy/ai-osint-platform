@@ -426,3 +426,7 @@ TCP connect only measures reachability at observation time. A port number or san
 ## Phase 5BI background jobs
 
 Only posture/recommendation recomputation and monitoring summary refresh have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, evidence processing, and Knowledge ingestion remain on their current paths. Celery configuration and Redis remain for compatibility. Docker and PostgreSQL remain required for the current desktop backend. Cancellation is cooperative and long-running future handlers need explicit safe checkpoints.
+
+## Phase 5BJ limits
+
+Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. FastAPI and PostgreSQL remain separately managed, commonly with Docker, until future packaging/bootstrap phases. The native scheduler currently covers monitoring summary refresh only; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge/Obsidian ingestion is not implemented. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.

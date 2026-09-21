@@ -695,6 +695,7 @@ export interface RecentOperationEvent {
 export interface OperationsStatusResponse {
   generated_at: string;
   background_job_backend?: "celery" | "native";
+  runtime_profile?: "desktop" | "docker" | "development";
   status: OperationalStatus;
   uptime_seconds: number;
   release: ReleaseInfo;

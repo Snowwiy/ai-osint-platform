@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.ai_analysis import AiAnalysis
 from app.models.finding import Finding
 from app.models.investigation import Investigation
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 async def get_health_status(db: AsyncSession, redis: Any) -> dict[str, str]:
     db_status = "ok"
-    redis_status = "ok"
+    redis_status = "not_required" if settings.background_engine == "native" else "ok"
 
     try:
         await db.execute(text("SELECT 1"))
@@ -27,15 +28,16 @@ async def get_health_status(db: AsyncSession, redis: Any) -> dict[str, str]:
         logger.exception("Health check database ping failed")
         db_status = "error"
 
-    try:
-        await redis.ping()
-    except Exception:
-        logger.exception("Health check Redis ping failed")
-        redis_status = "error"
+    if settings.background_engine == "celery":
+        try:
+            await redis.ping()
+        except Exception:
+            logger.exception("Health check Redis ping failed")
+            redis_status = "error"
 
     return {
         "status": "healthy"
-        if db_status == "ok" and redis_status == "ok"
+        if db_status == "ok" and redis_status in {"ok", "not_required"}
         else "unhealthy",
         "database": db_status,
         "redis": redis_status,

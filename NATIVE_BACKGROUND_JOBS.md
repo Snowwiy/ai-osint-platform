@@ -1,6 +1,6 @@
-# Native background jobs (Phase 5BI)
+# Native background jobs (Phases 5BI–5BJ)
 
-RavenTech now has an **opt-in** PostgreSQL job engine. Set `BACKGROUND_JOB_BACKEND=native` and run `python -m app.worker` from `backend` to process allowlisted jobs. The default remains `celery` for existing Docker installations. PostgreSQL and the FastAPI backend remain required; this phase does **not** remove Docker, Redis, or Celery.
+RavenTech has a PostgreSQL job engine. Set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` from `backend` to process allowlisted jobs without Redis or Celery. Docker installations retain their `celery` default; development may set `BACKGROUND_JOB_BACKEND=native` directly. PostgreSQL and the FastAPI backend remain required; Redis, Celery, and Docker support are retained.
 
 ## Current work inventory
 
@@ -8,13 +8,13 @@ RavenTech now has an **opt-in** PostgreSQL job engine. Set `BACKGROUND_JOB_BACKE
 | --- | --- | --- | --- |
 | Endpoint posture and recommendations after LAN telemetry | Synchronous | Migrated with compatibility fallback | Required, retryable, idempotent, bounded |
 | Monitoring summary refresh | Request polling | Native handler available | Optional, retryable, idempotent |
-| Data quality scan | Synchronous admin request | Deferred | Optional, retryable, idempotent |
-| Reports | Synchronous | Deferred | Long running; validate idempotent output first |
-| Recon and enrichment | Synchronous | Deferred | Scope and rate limits require review |
-| Alert/notification maintenance | Synchronous/admin operations | Deferred | Scheduled candidate; operator policy review needed |
-| Threat intelligence | Synchronous | Deferred | External provider limits apply |
-| Evidence processing | Synchronous | Deferred | Preserve evidence provenance and transaction boundaries |
-| Demo jobs | Synchronous | Deferred | Optional |
+| Data quality scan | Synchronous admin request | Retained synchronous | Admin-initiated; no Celery dependency |
+| Reports | Synchronous | Retained synchronous | Keep authorization and download contract |
+| Recon and enrichment | Synchronous | Retained synchronous | Keep scope, rate limits, partial results |
+| Alert/notification maintenance | Synchronous/admin operations | Retained synchronous | Keep explicit operator policy and transaction boundaries |
+| Threat intelligence | Synchronous | Retained synchronous | Keep provider limits and immediate results |
+| Evidence processing | Synchronous | Retained synchronous | Preserve evidence provenance and transactions |
+| Demo jobs | Synchronous | Retained synchronous | Optional; no Celery task |
 | Knowledge ingestion | No background implementation | Reserved for future phase only | No handler or executable payload accepted |
 | Celery task module | Registered module has no task definitions | Compatibility retained | Redis broker/result settings remain |
 
@@ -44,4 +44,8 @@ If a worker stops, restart it and inspect its heartbeat and failed jobs in Opera
 
 ## Docker decoupling roadmap
 
-5BI: Native PostgreSQL worker (this phase). 5BJ: Finish Celery/Redis task migration. 5BK: Package FastAPI as a backend executable. 5BL: Tauri supervisor for native backend. 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Clean machine native desktop acceptance. These later phases are documentation only and are not implemented here.
+5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Package FastAPI as a backend executable. 5BL: Tauri supervisor for native backend and worker. 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Clean machine native desktop acceptance. 5BP+: Knowledge/Obsidian ingestion. Phases after 5BJ are documentation only here.
+
+## Phase 5BJ desktop profile
+
+`RUNTIME_PROFILE=desktop` selects the native PostgreSQL engine and authentication state; Redis/Celery are compatibility-only. The native worker now schedules bounded monitoring summary cycles and enforces queue depth, per-type concurrency, fixed priorities, and handler timeouts. Reports, recon, evidence, notifications, data quality, and other request flows remain synchronous because they have no registered Celery task and need their current authorization and transaction semantics. See `DESKTOP_NATIVE_RUNTIME.md` for the full dependency inventory and revised roadmap.

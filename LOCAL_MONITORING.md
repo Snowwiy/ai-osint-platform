@@ -367,3 +367,7 @@ Local service health is **healthy** (green, expected running), **warning** (ambe
 ## Background job runtime
 
 The health and readiness response reports `background_job_backend`. In native mode a fresh PostgreSQL worker heartbeat is required when `NATIVE_WORKER_ENABLED=true`; Redis and Celery are informational/optional. Monitoring summary refresh and LAN posture recomputation use the selected dispatcher. The Celery compatibility path retains existing synchronous behavior. See `NATIVE_BACKGROUND_JOBS.md`.
+
+## Phase 5BJ monitoring runtime
+
+The desktop profile uses PostgreSQL jobs for bounded monitoring summary refresh and posture/recommendation recomputation. A native worker schedules at most one summary refresh per configured interval and does not start LAN discovery or service checks. Redis/Celery outages do not degrade desktop readiness. Host and LAN telemetry authorization and maintenance policies remain in force.

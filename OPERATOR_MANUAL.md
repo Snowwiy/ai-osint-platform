@@ -404,3 +404,7 @@ In **LAN Assets**, open a device to see Observed Services, counts, state filters
 ## Background jobs (Phase 5BI)
 
 Existing Docker installs stay in Celery compatibility mode by default. After Alembic upgrade, set `BACKGROUND_JOB_BACKEND=native` and run `python -m app.worker` from `backend` to use the PostgreSQL queue. Operations Center lists jobs and lets admins cancel or retry eligible jobs. Running cancellation takes effect at a safe handler boundary. PostgreSQL and the backend remain required; Redis/Celery are optional only in native mode. See `NATIVE_BACKGROUND_JOBS.md`.
+
+## Phase 5BJ desktop runtime
+
+Set `RUNTIME_PROFILE=desktop` on the backend and native worker, apply Alembic migrations, and run `python -m app.worker` from `backend`. PostgreSQL and the backend are required; Redis and Celery are not required in this profile. Check `/health/ready` and Operations Center for worker health, queue age, and safe errors. Docker/Celery mode remains available. The desktop still relies on separately operated FastAPI/PostgreSQL services in this phase.

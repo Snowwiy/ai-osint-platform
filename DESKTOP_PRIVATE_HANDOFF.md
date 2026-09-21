@@ -144,3 +144,7 @@ activity times, asset/agent coverage, and posture status. Enrollment tokens are
 revealed once and entered only at the manual helper prompt. The portable/installer
 artifacts do not include agents, persistence, backend services, databases, secrets,
 or router integration.
+
+## Phase 5BJ private handoff note
+
+For a private desktop handoff, set `RUNTIME_PROFILE=desktop` only when PostgreSQL, migrations, the backend, and a separately operated native worker are ready. Redis/Celery are optional in that profile; Docker compatibility remains. The installer does not yet package FastAPI or PostgreSQL. No public release or signing is implied. See `DESKTOP_NATIVE_RUNTIME.md`.

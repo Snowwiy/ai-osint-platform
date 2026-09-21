@@ -69,13 +69,18 @@ async def get_monitoring_overview(
     redis: Any,
     user: User,
 ) -> MonitoringOverviewResponse:
-    if settings.BACKGROUND_JOB_BACKEND == "native":
+    if settings.background_engine == "native":
+        from app.services.background_jobs import QueueFullError
         from app.services.job_dispatch import dispatcher
 
-        await dispatcher().dispatch_job(
-            db, "monitoring.refresh", {}, dedupe_key="monitoring:summary",
-            requested_by_user_id=user.id,
-        )
+        try:
+            await dispatcher().dispatch_job(
+                db, "monitoring.refresh", {}, dedupe_key="monitoring:summary",
+                requested_by_user_id=user.id,
+            )
+        except QueueFullError:
+            # A full optional summary queue must not break a read-only view.
+            pass
     services = await get_service_status(redis)
     system = get_system_metrics()
     assets = await get_asset_watch(db, user)
@@ -133,13 +138,13 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
         _health_service(
             "redis",
             "Redis (optional in native mode)"
-            if settings.BACKGROUND_JOB_BACKEND == "native" else "Redis",
+            if settings.background_engine == "native" else "Redis",
             checks,
         ),
         _health_service(
             "worker",
             "Native PostgreSQL worker"
-            if settings.BACKGROUND_JOB_BACKEND == "native" else "Celery worker",
+            if settings.background_engine == "native" else "Celery worker",
             checks,
         ),
         MonitoringServiceStatus(
@@ -169,7 +174,7 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
         _docker_service_status(),
     ]
     optional = {"docker"}
-    if settings.BACKGROUND_JOB_BACKEND == "native":
+    if settings.background_engine == "native":
         optional.add("redis")
         if not settings.NATIVE_WORKER_ENABLED:
             optional.add("worker")

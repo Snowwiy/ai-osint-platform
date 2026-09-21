@@ -714,3 +714,7 @@ Monitoring Center now shows explainable health for RavenTech core components and
 ## Phase 5BI: native background jobs
 
 An opt-in PostgreSQL worker processes allowlisted posture/recommendation and monitoring summary jobs. The default remains Celery compatibility mode. Docker, Redis, Celery, and PostgreSQL support remain. See `NATIVE_BACKGROUND_JOBS.md` for setup, retries, Operations Center controls, and the future Docker decoupling roadmap.
+
+## Phase 5BJ: desktop background runtime
+
+The `desktop` runtime profile uses the PostgreSQL native worker and PostgreSQL auth state without Redis or Celery. Docker/Celery mode remains supported and is still the default for existing installations. The current desktop distribution still needs its separately operated FastAPI backend and PostgreSQL, commonly through Docker. See `DESKTOP_NATIVE_RUNTIME.md`; FastAPI packaging, local PostgreSQL bootstrap, and Knowledge ingestion belong to later phases.

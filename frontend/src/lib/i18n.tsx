@@ -15,6 +15,13 @@ export const LANGUAGE_STORAGE_KEY = "raventech.language";
 
 const spanish: Record<string, string> = {
   "Background Jobs": "Trabajos en segundo plano",
+  "Worker health": "Salud del trabajador",
+  "Queue depth": "Trabajos en cola",
+  "Oldest queued": "Trabajo en cola más antiguo",
+  "Priority": "Prioridad",
+  "normal": "normal",
+  "optional": "opcional",
+  "compatibility": "compatibilidad",
   "Background engine": "Motor de trabajos en segundo plano",
   "Native worker": "Trabajador nativo",
   "Redis / Celery": "Redis / Celery",

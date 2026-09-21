@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -17,7 +17,11 @@ from app.core.dependencies import (
     require_feature,
     require_role,
 )
-from app.models.background_job import BackgroundJob, BackgroundJobEvent
+from app.models.background_job import (
+    BackgroundJob,
+    BackgroundJobEvent,
+    NativeWorkerHeartbeat,
+)
 from app.models.user import User
 from app.schemas.investigation import InvestigationPriority
 from app.schemas.operations import (
@@ -77,14 +81,16 @@ def _job_view(job: BackgroundJob) -> dict[str, Any]:
         job.status == "failed"
         and job.attempt_count < job.max_attempts
         and job.last_error_code not in {
-            "invalid_payload", "validation", "unsupported_job", "authorization",
-            "configuration",
+            "invalid_payload", "validation", "validation_error",
+            "unsupported_job", "authorization", "authorization_error",
+            "configuration", "configuration_error", "permanent_failure",
         }
     )
     return {
         "id": str(job.id),
         "type": job.job_type,
         "status": job.status,
+        "priority": job.priority,
         "progress": job.progress,
         "created_at": job.created_at,
         "started_at": job.started_at,
@@ -108,23 +114,75 @@ def _job_view(job: BackgroundJob) -> dict[str, Any]:
 
 @router.get("/operations/background-jobs")
 async def background_jobs_endpoint(
+    job_type: str | None = Query(default=None, max_length=80),
+    status: str | None = Query(default=None, max_length=24),
+    priority: int | None = Query(default=None, ge=0, le=100),
+    worker: str | None = Query(default=None, max_length=100),
+    investigation_id: uuid.UUID | None = None,
+    asset_id: uuid.UUID | None = None,
+    requested_by_user_id: uuid.UUID | None = None,
     _current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    query = select(BackgroundJob)
+    if job_type:
+        query = query.where(BackgroundJob.job_type == job_type)
+    if status:
+        query = query.where(BackgroundJob.status == status)
+    if priority is not None:
+        query = query.where(BackgroundJob.priority == priority)
+    if worker:
+        query = query.where(BackgroundJob.worker_id == worker)
+    if investigation_id:
+        query = query.where(BackgroundJob.investigation_id == investigation_id)
+    if asset_id:
+        query = query.where(BackgroundJob.asset_id == asset_id)
+    if requested_by_user_id:
+        query = query.where(BackgroundJob.requested_by_user_id == requested_by_user_id)
     jobs = (
         (
             await db.execute(
-                select(BackgroundJob)
-                .order_by(BackgroundJob.created_at.desc())
-                .limit(100)
+                query.order_by(BackgroundJob.created_at.desc()).limit(100)
             )
         )
         .scalars()
         .all()
     )
+    counts = await queue_counts(db)
+    oldest = (
+        await db.execute(
+            select(func.min(BackgroundJob.created_at)).where(
+                BackgroundJob.status == "queued"
+            )
+        )
+    ).scalar_one()
+    recent_worker = (
+        await db.execute(
+            select(NativeWorkerHeartbeat)
+            .order_by(NativeWorkerHeartbeat.heartbeat_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    worker_health = "stopped"
+    if recent_worker is not None and not recent_worker.stopping:
+        worker_health = (
+            "healthy"
+            if recent_worker.heartbeat_at >= datetime.now(UTC) - timedelta(
+                seconds=settings.NATIVE_WORKER_STALE_SECONDS
+            )
+            else "stale"
+        )
     return {
-        "backend": settings.BACKGROUND_JOB_BACKEND,
-        "counts": await queue_counts(db),
+        "backend": settings.background_engine,
+        "runtime_profile": settings.RUNTIME_PROFILE,
+        "worker_health": (
+            worker_health if settings.background_engine == "native" else "compatibility"
+        ),
+        "queue_depth": sum(
+            counts.get(item, 0) for item in ("queued", "scheduled", "retry_wait")
+        ),
+        "oldest_queued_at": oldest,
+        "counts": counts,
         "jobs": [_job_view(job) for job in jobs],
     }
 

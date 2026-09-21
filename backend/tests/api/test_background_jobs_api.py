@@ -29,6 +29,17 @@ async def test_jobs_are_admin_only_and_cancellable(
     row = next(item for item in listed.json()["jobs"] if item["id"] == str(job.id))
     assert row["can_cancel"] is True
     assert row["can_retry"] is False
+    assert listed.json()["queue_depth"] >= 1
+    assert listed.json()["oldest_queued_at"] is not None
+    assert listed.json()["worker_health"] in {
+        "compatibility", "stopped", "stale", "healthy"
+    }
+    filtered = await client.get(
+        "/api/v1/operations/background-jobs?job_type=unknown.type",
+        headers=admin_headers,
+    )
+    assert filtered.status_code == 200
+    assert filtered.json()["jobs"] == []
     cancelled = await client.post(
         f"/api/v1/operations/background-jobs/{job.id}/cancel", headers=admin_headers
     )

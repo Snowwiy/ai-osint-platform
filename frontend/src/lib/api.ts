@@ -1109,7 +1109,7 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
 }
 
 export type BackgroundJobView = {
-  id: string; type: string; status: string; progress: number;
+  id: string; type: string; status: string; priority: number; progress: number;
   created_at: string; started_at: string | null; finished_at: string | null;
   scheduled_at: string; next_retry_at: string | null;
   attempts: number; max_attempts: number; requested_by: string | null;
@@ -1119,11 +1119,24 @@ export type BackgroundJobView = {
 };
 export type BackgroundJobsResponse = {
   backend: "native" | "celery";
+  runtime_profile: "desktop" | "docker" | "development";
+  worker_health: string;
+  queue_depth: number;
+  oldest_queued_at: string | null;
   counts: Record<string, number>;
   jobs: BackgroundJobView[];
 };
-export async function getBackgroundJobs(): Promise<BackgroundJobsResponse> {
-  return request<BackgroundJobsResponse>("/operations/background-jobs");
+export type BackgroundJobFilters = Partial<Record<"job_type" | "status" | "priority" | "worker" | "investigation_id" | "asset_id" | "requested_by_user_id", string>>;
+export async function getBackgroundJobs(filters: BackgroundJobFilters = {}): Promise<BackgroundJobsResponse> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (!value) continue;
+    if (["investigation_id", "asset_id", "requested_by_user_id"].includes(key) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) continue;
+    if (key === "priority" && !["20", "50", "70", "90"].includes(value)) continue;
+    params.set(key, value);
+  }
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return request<BackgroundJobsResponse>(`/operations/background-jobs${suffix}`);
 }
 export async function changeBackgroundJob(id: string, action: "cancel" | "retry"): Promise<BackgroundJobView> {
   return request<BackgroundJobView>(`/operations/background-jobs/${encodeURIComponent(id)}/${action}`, { method: "POST" });

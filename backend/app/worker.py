@@ -20,12 +20,14 @@ from app.db.session import AsyncSessionLocal, engine
 from app.models.background_job import BackgroundJob, NativeWorkerHeartbeat
 from app.services.background_jobs import (
     JobValidationError,
+    QueueFullError,
     cancel_running_job,
     claim_job,
     complete_job,
     fail_job,
     mark_progress,
     recover_stale_jobs,
+    schedule_native_cycle,
     validate_payload,
 )
 from app.services.endpoint_posture import EndpointPostureNotFoundError
@@ -54,6 +56,11 @@ HANDLERS: dict[str, Handler] = {
     "posture.recompute": _posture,
     "recommendations.recompute": _posture,
     "monitoring.refresh": _monitoring,
+}
+HANDLER_TIMEOUT_SECONDS = {
+    "monitoring.refresh": 30,
+    "posture.recompute": 90,
+    "recommendations.recompute": 90,
 }
 
 
@@ -146,7 +153,9 @@ async def process_one(worker_id: str) -> bool:
                 await cancel_running_job(db, job)
                 await db.commit()
                 return True
-            result = await handler(db, clean)
+            result = await asyncio.wait_for(
+                handler(db, clean), timeout=HANDLER_TIMEOUT_SECONDS[job_type]
+            )
             # Lock final state before deciding whether handler writes may commit.
             await db.refresh(job, with_for_update=True)
             if job.cancel_requested:
@@ -165,20 +174,29 @@ async def process_one(worker_id: str) -> bool:
         async with AsyncSessionLocal() as db:
             job = await db.get(BackgroundJob, job_id)
             if job:
-                await fail_job(db, job, "invalid_payload", retryable=False)
+                await fail_job(db, job, "validation_error", retryable=False)
                 await db.commit()
     except (ValueError, EndpointPostureNotFoundError):
         async with AsyncSessionLocal() as db:
             job = await db.get(BackgroundJob, job_id)
             if job:
-                await fail_job(db, job, "validation", retryable=False)
+                await fail_job(db, job, "validation_error", retryable=False)
+                await db.commit()
+    except TimeoutError:
+        async with AsyncSessionLocal() as db:
+            job = await db.get(BackgroundJob, job_id)
+            if job:
+                if job.cancel_requested:
+                    await cancel_running_job(db, job)
+                else:
+                    await fail_job(db, job, "timeout", retryable=True)
                 await db.commit()
     except Exception:
         logger.warning("Native job failed: type=%s id=%s", job_type, job_id)
         async with AsyncSessionLocal() as db:
             job = await db.get(BackgroundJob, job_id)
             if job:
-                await fail_job(db, job, "handler_failure", retryable=True)
+                await fail_job(db, job, "temporary_failure", retryable=True)
                 await db.commit()
     finally:
         beat_stop.set()
@@ -188,7 +206,7 @@ async def process_one(worker_id: str) -> bool:
 
 async def run_worker() -> None:
     if (
-        settings.BACKGROUND_JOB_BACKEND != "native"
+        settings.background_engine != "native"
         or not settings.NATIVE_WORKER_ENABLED
     ):
         raise RuntimeError("Native worker mode is not enabled.")
@@ -217,6 +235,10 @@ async def run_worker() -> None:
             await _heartbeat(worker_id)
             async with AsyncSessionLocal() as db:
                 await recover_stale_jobs(db)
+                try:
+                    await schedule_native_cycle(db)
+                except QueueFullError:
+                    logger.debug("Native scheduler deferred: queue is full.")
                 await db.commit()
             while not stop.is_set() and not sem.locked():
                 await sem.acquire()

@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,8 @@ from app.models.background_job import BackgroundJob, BackgroundJobEvent
 from app.services.audit import record_event
 
 ACTIVE = ("queued", "scheduled", "running", "retry_wait", "cancel_requested")
+WAITING = ("queued", "scheduled", "retry_wait")
+PRIORITIES = {"low": 20, "normal": 50, "high": 70, "critical": 90}
 ALLOWED_TYPES = {
     "posture.recompute": {"asset_id"},
     "recommendations.recompute": {"asset_id"},
@@ -35,6 +37,10 @@ FORBIDDEN_KEYS = (
 
 
 class JobValidationError(ValueError):
+    pass
+
+
+class QueueFullError(JobValidationError):
     pass
 
 
@@ -78,7 +84,7 @@ async def enqueue_job(
 ) -> BackgroundJob:
     clean = validate_payload(job_type, payload)
     if (
-        not 0 <= priority <= 100
+        priority not in PRIORITIES.values()
         or dedupe_key is not None
         and (not dedupe_key or len(dedupe_key) > 160)
     ):
@@ -117,6 +123,28 @@ async def enqueue_job(
             ).scalar_one_or_none()
             if recent is not None:
                 return recent
+    # Serialize admission across API processes so the queue bound is real.
+    await db.execute(text("SELECT pg_advisory_xact_lock(50210, 1)"))
+    if dedupe_key:
+        concurrent = (
+            await db.execute(
+                select(BackgroundJob).where(
+                    BackgroundJob.dedupe_key == dedupe_key,
+                    BackgroundJob.status.in_(ACTIVE),
+                )
+            )
+        ).scalar_one_or_none()
+        if concurrent is not None:
+            return concurrent
+    depth = (
+        await db.execute(
+            select(func.count()).select_from(BackgroundJob).where(
+                BackgroundJob.status.in_(WAITING)
+            )
+        )
+    ).scalar_one()
+    if depth >= settings.NATIVE_WORKER_MAX_QUEUE_DEPTH:
+        raise QueueFullError("Native job queue is at its configured limit.")
     now = datetime.now(UTC)
     job = BackgroundJob(
         job_type=job_type,
@@ -160,7 +188,7 @@ async def enqueue_job(
 
 async def claim_job(db: AsyncSession, worker_id: str) -> BackgroundJob | None:
     now = datetime.now(UTC)
-    job = (
+    candidates = (
         await db.execute(
             select(BackgroundJob)
             .where(
@@ -177,9 +205,30 @@ async def claim_job(db: AsyncSession, worker_id: str) -> BackgroundJob | None:
                 BackgroundJob.created_at,
             )
             .with_for_update(skip_locked=True)
-            .limit(1)
+            .limit(20)
         )
-    ).scalar_one_or_none()
+    ).scalars().all()
+    job = None
+    for candidate in candidates:
+        type_lock = (
+            await db.execute(
+                text("SELECT pg_try_advisory_xact_lock(50210, hashtext(:kind))"),
+                {"kind": candidate.job_type},
+            )
+        ).scalar_one()
+        if not type_lock:
+            continue
+        running = (
+            await db.execute(
+                select(func.count()).select_from(BackgroundJob).where(
+                    BackgroundJob.job_type == candidate.job_type,
+                    BackgroundJob.status.in_(("running", "cancel_requested")),
+                )
+            )
+        ).scalar_one()
+        if running < settings.NATIVE_WORKER_MAX_RUNNING_PER_TYPE:
+            job = candidate
+            break
     if job is None:
         return None
     job.status = "running"
@@ -336,3 +385,36 @@ async def queue_counts(db: AsyncSession) -> dict[str, int]:
         )
     ).all()
     return {status: count for status, count in rows}
+
+
+async def schedule_native_cycle(db: AsyncSession) -> BackgroundJob | None:
+    """One bounded monitoring summary cycle; missed intervals never fan out."""
+    if not settings.MONITORING_AUTO_REFRESH_ENABLED:
+        return None
+    locked = (
+        await db.execute(text("SELECT pg_try_advisory_xact_lock(50211, 1)"))
+    ).scalar_one()
+    if not locked:
+        return None
+    last = (
+        await db.execute(
+            select(BackgroundJob.created_at)
+            .where(
+                BackgroundJob.job_type == "monitoring.refresh",
+                BackgroundJob.dedupe_key == "scheduler:monitoring",
+            )
+            .order_by(BackgroundJob.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    interval = settings.MONITORING_AUTO_REFRESH_SECONDS
+    if last is not None and last > datetime.now(UTC) - timedelta(seconds=interval):
+        return None
+    return await enqueue_job(
+        db,
+        "monitoring.refresh",
+        {},
+        priority=PRIORITIES["low"],
+        dedupe_key="scheduler:monitoring",
+        cooldown_seconds=interval,
+    )

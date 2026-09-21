@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     DATABASE_STATEMENT_TIMEOUT_MS: int = 30_000
 
     REDIS_URL: str = "redis://localhost:6379/0"
+    RUNTIME_PROFILE: Literal["desktop", "docker", "development"] = "docker"
     BACKGROUND_JOB_BACKEND: Literal["celery", "native"] = "celery"
     NATIVE_WORKER_ENABLED: bool = True
     NATIVE_WORKER_POLL_SECONDS: float = 2.0
@@ -63,6 +64,8 @@ class Settings(BaseSettings):
     NATIVE_WORKER_HEARTBEAT_SECONDS: int = 15
     NATIVE_WORKER_STALE_SECONDS: int = 90
     NATIVE_WORKER_MAX_RETRIES: int = 3
+    NATIVE_WORKER_MAX_QUEUE_DEPTH: int = 1000
+    NATIVE_WORKER_MAX_RUNNING_PER_TYPE: int = 2
     REDIS_CONNECT_RETRIES: int = 5
     REDIS_CONNECT_RETRY_SECONDS: float = 1.0
     CELERY_TASK_MAX_RETRIES: int = 3
@@ -169,6 +172,13 @@ class Settings(BaseSettings):
         return self.DATABASE_URL.replace("+asyncpg", "+psycopg2")
 
     @property
+    def background_engine(self) -> Literal["celery", "native"]:
+        # An explicit desktop profile takes precedence over the legacy Docker default.
+        if self.RUNTIME_PROFILE == "desktop":
+            return "native"
+        return self.BACKGROUND_JOB_BACKEND
+
+    @property
     def async_test_database_url(self) -> str:
         return self.TEST_DATABASE_URL or self.DATABASE_URL
 
@@ -187,8 +197,10 @@ class Settings(BaseSettings):
         for name, value in required_values.items():
             if not value.strip():
                 errors.append(f"{name} is required.")
-        if self.BACKGROUND_JOB_BACKEND == "celery" and not self.REDIS_URL.strip():
+        if self.background_engine == "celery" and not self.REDIS_URL.strip():
             errors.append("REDIS_URL is required in celery mode.")
+        if self.RUNTIME_PROFILE == "desktop" and not self.NATIVE_WORKER_ENABLED:
+            errors.append("NATIVE_WORKER_ENABLED is required in desktop profile.")
         if not 0.2 <= self.NATIVE_WORKER_POLL_SECONDS <= 60:
             errors.append("NATIVE_WORKER_POLL_SECONDS must be between 0.2 and 60.")
         if not 1 <= self.NATIVE_WORKER_CONCURRENCY <= 16:
@@ -202,6 +214,12 @@ class Settings(BaseSettings):
             )
         if not 0 <= self.NATIVE_WORKER_MAX_RETRIES <= 10:
             errors.append("NATIVE_WORKER_MAX_RETRIES must be between 0 and 10.")
+        if not 1 <= self.NATIVE_WORKER_MAX_QUEUE_DEPTH <= 10000:
+            errors.append("NATIVE_WORKER_MAX_QUEUE_DEPTH must be between 1 and 10000.")
+        if not 1 <= self.NATIVE_WORKER_MAX_RUNNING_PER_TYPE <= 16:
+            errors.append(
+                "NATIVE_WORKER_MAX_RUNNING_PER_TYPE must be between 1 and 16."
+            )
         if self.ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
             errors.append("ACCESS_TOKEN_EXPIRE_MINUTES must be greater than zero.")
         if self.MAX_REQUEST_BODY_BYTES < 64_000:
