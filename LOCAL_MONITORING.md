@@ -363,3 +363,7 @@ service or process management, shell text, autostart, or router control is added
 ## Phase 5BH service health
 
 Local service health is **healthy** (green, expected running), **warning** (amber, transitional/stale/mismatched or optional unavailable), **critical** (red, required stopped or required RavenTech dependency unavailable), or **neutral** (standard color, intentionally stopped or insufficient baseline). Every badge includes an icon, text, and reason. Server health comes from the native Windows inventory and existing local backend health probes. PostgreSQL, Redis, and Celery are classified separately from backend health checks. No service is critical merely because it is stopped; an explicit expected state and required/critical context are needed. Windows expectations are kept in the desktop profile, so set them on each operator profile that needs them.
+
+## Background job runtime
+
+The health and readiness response reports `background_job_backend`. In native mode a fresh PostgreSQL worker heartbeat is required when `NATIVE_WORKER_ENABLED=true`; Redis and Celery are informational/optional. Monitoring summary refresh and LAN posture recomputation use the selected dispatcher. The Celery compatibility path retains existing synchronous behavior. See `NATIVE_BACKGROUND_JOBS.md`.

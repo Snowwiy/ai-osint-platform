@@ -609,3 +609,11 @@ check blocks the current release-freeze commit and push.
 - [ ] English and Spanish severity labels use icon, text, and accessible contrast.
 - [ ] Timeline events dedupe identical samples; alerts honor existing cooldown, acknowledgement, suppression, and maintenance policy.
 - [ ] No remote control, public scanning, arbitrary shell, or offensive functionality is present.
+
+## Phase 5BI native background jobs
+
+- [ ] Confirm default Celery mode still uses Redis and preserves existing work.
+- [ ] Apply Alembic 0040; confirm one head and no schema drift.
+- [ ] In native mode, process an allowlisted PostgreSQL job with Redis/Celery stopped; verify heartbeat, retry bounds, dedupe, cancellation, recovery, RBAC, and audit.
+- [ ] Confirm Operations Center and desktop show native engine, queue counts, and worker health; readiness depends on PostgreSQL and native worker, not Redis.
+- [ ] Confirm no secrets or executable payloads in jobs, no arbitrary command path, and unchanged version 5.0.0-rc6.

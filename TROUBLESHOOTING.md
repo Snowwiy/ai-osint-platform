@@ -503,3 +503,7 @@ priority over passive hints; agent form factor is needed for mobile/tablet.
 ## Phase 5BH service status
 
 If a Windows service shows Neutral, configure its expected state in Monitoring Center > Server; unconfigured services have insufficient evidence for a health grade. If a RavenTech dependency is Unknown, check the local `/health` response and Docker availability, then refresh. If LAN services are absent, verify that the asset is authorized, monitoring and bounded service checks are enabled, the port is in the configured check list, and the latest observation is fresh. Closed or timeout observations do not prove a service is absent. If an expected port shows Unexpected, confirm the asset/group baseline matches the device and check whether the port is listed under allowed ports. If a critical badge appears, inspect its stated policy and evidence before taking manual action.
+
+## Native background worker
+
+If native readiness reports a stale or missing worker, verify the `0040_phase5bi_native_jobs` migration, PostgreSQL connectivity, `BACKGROUND_JOB_BACKEND=native`, and a running `python -m app.worker` process. Inspect Operations Center for retry time, attempts, and sanitized error summary. Restart the worker; abandoned jobs recover after `NATIVE_WORKER_STALE_SECONDS`. Do not run a second handler manually against the same job. Redis is not required in native mode.

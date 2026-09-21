@@ -3,6 +3,12 @@ from app.models.agent_management import AgentEnrollmentToken, AssetGroup, AssetG
 from app.models.admin_settings import AdminSettings
 from app.models.audit_log import AuditLog
 from app.models.base import Base
+from app.models.background_job import (
+    BackgroundJob,
+    BackgroundJobEvent,
+    NativeAuthState,
+    NativeWorkerHeartbeat,
+)
 from app.models.case_closure import (
     CaseClosure,
     CaseClosureChecklistItem,
@@ -82,6 +88,10 @@ __all__ = [
     "AdminSettings",
     "AuditLog",
     "Base",
+    "BackgroundJob",
+    "BackgroundJobEvent",
+    "NativeAuthState",
+    "NativeWorkerHeartbeat",
     "CaseClosure",
     "CaseClosureChecklistItem",
     "CaseDeliverable",

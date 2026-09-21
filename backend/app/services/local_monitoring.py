@@ -69,6 +69,13 @@ async def get_monitoring_overview(
     redis: Any,
     user: User,
 ) -> MonitoringOverviewResponse:
+    if settings.BACKGROUND_JOB_BACKEND == "native":
+        from app.services.job_dispatch import dispatcher
+
+        await dispatcher().dispatch_job(
+            db, "monitoring.refresh", {}, dedupe_key="monitoring:summary",
+            requested_by_user_id=user.id,
+        )
     services = await get_service_status(redis)
     system = get_system_metrics()
     assets = await get_asset_watch(db, user)
@@ -123,8 +130,18 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
             metadata={"version": settings.APP_VERSION},
         ),
         _health_service("database", "PostgreSQL", checks),
-        _health_service("redis", "Redis", checks),
-        _health_service("worker", "Celery worker", checks),
+        _health_service(
+            "redis",
+            "Redis (optional in native mode)"
+            if settings.BACKGROUND_JOB_BACKEND == "native" else "Redis",
+            checks,
+        ),
+        _health_service(
+            "worker",
+            "Native PostgreSQL worker"
+            if settings.BACKGROUND_JOB_BACKEND == "native" else "Celery worker",
+            checks,
+        ),
         MonitoringServiceStatus(
             key="migrations",
             label="Database migrations",
@@ -151,7 +168,12 @@ async def get_service_status(redis: Any) -> MonitoringServicesResponse:
         ),
         _docker_service_status(),
     ]
-    required = [item for item in items if item.key != "docker"]
+    optional = {"docker"}
+    if settings.BACKGROUND_JOB_BACKEND == "native":
+        optional.add("redis")
+        if not settings.NATIVE_WORKER_ENABLED:
+            optional.add("worker")
+    required = [item for item in items if item.key not in optional]
     status: MonitoringStatus = "healthy"
     if any(item.status == "unavailable" for item in required):
         status = "unavailable"

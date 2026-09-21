@@ -49,6 +49,7 @@ class RecentOperationEvent(BaseModel):
 
 class OperationsStatusResponse(BaseModel):
     generated_at: datetime
+    background_job_backend: Literal["celery", "native"] = "celery"
     status: OperationalStatus
     uptime_seconds: int = Field(ge=0)
     release: ReleaseInfo

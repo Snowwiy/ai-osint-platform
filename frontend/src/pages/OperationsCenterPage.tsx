@@ -21,6 +21,8 @@ import {
   downloadOperationsDiagnostics,
   getOperationsEnvironment,
   getOperationsStatus,
+  getBackgroundJobs,
+  changeBackgroundJob,
   getDataQualityOverview,
   getMonitoringActivation,
   listEndpointAgents,
@@ -29,6 +31,8 @@ import {
 import { LocalOperatorConsole } from "../components/LocalOperatorConsole";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import type { FileDownloadResult } from "../lib/api";
+import type { BackgroundJobsResponse } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import type {
   EnvironmentValidationItem,
   DataQualityOverviewResponse,
@@ -41,6 +45,7 @@ import type {
 type ToastState = { kind: "success" | "error"; message: string } | null;
 
 export function OperationsCenterPage(): JSX.Element {
+  const { t } = useI18n();
   const [toast, setToast] = useState<ToastState>(null);
   const [downloadKey, setDownloadKey] = useState<string | null>(null);
   const [restoreText, setRestoreText] = useState("");
@@ -68,6 +73,12 @@ export function OperationsCenterPage(): JSX.Element {
     queryKey: ["endpoint-agents"],
     queryFn: listEndpointAgents,
     retry: 1,
+  });
+  const jobs = useQuery({ queryKey: ["background-jobs"], queryFn: getBackgroundJobs, refetchInterval: 15000 });
+  const jobAction = useMutation({
+    mutationFn: ({ id, action }: { id: string; action: "cancel" | "retry" }) => changeBackgroundJob(id, action),
+    onSuccess: () => { void jobs.refetch(); },
+    onError: () => { setToast({ kind: "error", message: "Background job action could not be completed." }); },
   });
   const restore = useMutation({
     mutationFn: validateRestoreBackup,
@@ -172,6 +183,7 @@ export function OperationsCenterPage(): JSX.Element {
               void quality.refetch();
               void activation.refetch();
               void agents.refetch();
+              void jobs.refetch();
             }}
             className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted hover:border-raven-violet hover:text-raven-text"
           >
@@ -185,6 +197,10 @@ export function OperationsCenterPage(): JSX.Element {
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <PlatformHealthPanel data={status.data} />
         <ReleasePanel data={status.data} />
+      </section>
+
+      <section className="mt-5">
+        <BackgroundJobsPanel data={jobs.data} loading={jobs.isLoading} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
       </section>
 
       <section className="mt-5">
@@ -248,6 +264,35 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
     </>
   );
+}
+
+function BackgroundJobsPanel({ data, loading, onAction, t }: {
+  data: BackgroundJobsResponse | undefined;
+  loading: boolean;
+  onAction: (id: string, action: "cancel" | "retry") => void;
+  t: (value: string) => string;
+}): JSX.Element {
+  const states: Record<string, string> = {
+    queued: "Queue", running: "Running", scheduled: "Scheduled",
+    retry_wait: "Retrying", failed: "Failed", completed: "Completed",
+  };
+  return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("Background Jobs")}>
+    <h2 className="text-lg font-semibold">{t("Background Jobs")}</h2>
+    <p className="text-sm text-raven-muted">{t("Engine")}: {data?.backend === "native" ? "Native PostgreSQL" : "Celery compatibility"}</p>
+    {loading ? <p>{t("Loading jobs")}</p> : <>
+      <div className="mt-3 flex flex-wrap gap-3">{Object.entries(states).map(([state, label]) => <span key={state} className="rounded border border-raven-border px-2 py-1 text-sm">{t(label)}: {data?.counts[state] ?? 0}</span>)}</div>
+      <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["Type", "Status", "Progress", "Created", "Started", "Duration", "Attempts", "Requested by", "Investigation", "Asset", "Worker", "Last safe error", "Next retry", "Actions"].map(label => <th key={label} className="p-2">{t(label)}</th>)}</tr></thead>
+      <tbody>{data?.jobs.map(job => <tr key={job.id} className="border-t border-raven-border">
+        <td className="p-2">{job.type}</td><td className="p-2">{t(job.status)}</td><td className="p-2">{job.progress}%</td>
+        <td className="p-2">{safeDate(job.created_at)?.toLocaleString() ?? "—"}</td><td className="p-2">{safeDate(job.started_at)?.toLocaleString() ?? "—"}</td>
+        <td className="p-2">{job.started_at ? Math.max(0, Math.round((new Date(job.finished_at ?? Date.now()).getTime() - new Date(job.started_at).getTime()) / 1000)) + "s" : "—"}</td>
+        <td className="p-2">{job.attempts}/{job.max_attempts}</td><td className="p-2">{job.requested_by ?? "—"}</td>
+        <td className="p-2">{job.investigation_id ?? "—"}</td><td className="p-2">{job.asset_id ?? "—"}</td><td className="p-2">{job.worker ?? "—"}</td>
+        <td className="p-2">{job.last_safe_error ?? "—"}</td><td className="p-2">{safeDate(job.next_retry_at)?.toLocaleString() ?? "—"}</td>
+        <td className="p-2">{job.can_cancel ? <button type="button" onClick={() => onAction(job.id, "cancel")} className="underline">{t("Cancel")}</button> : job.can_retry ? <button type="button" onClick={() => onAction(job.id, "retry")} className="underline">{t("Retry")}</button> : "—"}</td>
+      </tr>)}</tbody></table></div>
+    </>}
+  </section>;
 }
 
 function DataQualitySummaryPanel({

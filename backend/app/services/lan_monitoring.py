@@ -706,9 +706,12 @@ async def ingest_agent_telemetry(
         },
     )
     await db.flush()
-    from app.services.endpoint_posture import refresh_asset_posture_if_due
+    from app.services.job_dispatch import dispatcher
 
-    await refresh_asset_posture_if_due(db, asset.id)
+    await dispatcher().dispatch_job(
+        db, "posture.recompute", {"asset_id": str(asset.id)},
+        dedupe_key=f"posture:{asset.id}",
+    )
     return LanAgentTelemetryResponse(
         accepted=True,
         asset_id=asset.id,
@@ -877,10 +880,13 @@ async def ingest_server_host_observations(
         },
     )
     await db.flush()
-    from app.services.endpoint_posture import refresh_asset_posture_if_due
+    from app.services.job_dispatch import dispatcher
 
     for asset_id in touched:
-        await refresh_asset_posture_if_due(db, asset_id)
+        await dispatcher().dispatch_job(
+            db, "posture.recompute", {"asset_id": str(asset_id)},
+            dedupe_key=f"posture:{asset_id}",
+        )
     return server_asset, accepted, rejected
 
 

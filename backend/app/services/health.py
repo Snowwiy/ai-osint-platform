@@ -1,28 +1,36 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from alembic.script import ScriptDirectory
-from sqlalchemy import text
+from sqlalchemy import func, select, text
 
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
+from app.models.background_job import NativeWorkerHeartbeat
 
 
 async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
+    native = settings.BACKGROUND_JOB_BACKEND == "native"
     checks = {
         "database": await _database_check(),
-        "redis": await _redis_check(redis),
+        "redis": {"status": "not_required", "detail": "Native mode uses PostgreSQL."}
+        if native
+        else await _redis_check(redis),
         "migrations": await _migration_check(),
         "storage": _storage_check(),
-        "worker": await _worker_check(redis),
+        "worker": await _native_worker_check()
+        if native
+        else await _worker_check(redis),
         "ai_provider": _ai_provider_check(),
     }
     status = _overall_status(checks, include_ready=include_ready)
     return {
         "status": status,
         "environment": settings.APP_ENVIRONMENT,
+        "background_job_backend": settings.BACKGROUND_JOB_BACKEND,
         "checks": checks,
     }
 
@@ -99,10 +107,39 @@ async def _worker_check(redis: Any) -> dict[str, Any]:
             "detail": "Redis broker reachable; Celery worker should be supervised.",
         }
     except Exception:
+        return {"status": "error", "detail": "Redis broker connectivity check failed."}
+
+
+async def _native_worker_check() -> dict[str, Any]:
+    if not settings.NATIVE_WORKER_ENABLED:
         return {
-            "status": "error",
-            "detail": "Redis broker connectivity check failed.",
+            "status": "not_required",
+            "detail": "Native worker is disabled by configuration.",
         }
+    try:
+        cutoff = datetime.now(UTC) - timedelta(
+            seconds=settings.NATIVE_WORKER_STALE_SECONDS
+        )
+        async with AsyncSessionLocal() as db:
+            count = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(NativeWorkerHeartbeat)
+                    .where(
+                        NativeWorkerHeartbeat.heartbeat_at >= cutoff,
+                        NativeWorkerHeartbeat.stopping.is_(False),
+                    )
+                )
+            ).scalar_one()
+        return {
+            "status": "ok" if count else "error",
+            "active_workers": count,
+            "detail": "Native PostgreSQL worker heartbeat is current."
+            if count
+            else "Native worker is not running or its heartbeat is stale.",
+        }
+    except Exception:
+        return {"status": "error", "detail": "Native worker status is unavailable."}
 
 
 def _ai_provider_check() -> dict[str, Any]:
@@ -124,8 +161,16 @@ def _overall_status(
     *,
     include_ready: bool,
 ) -> str:
-    required = ("database", "redis", "migrations", "storage")
-    relevant = checks if include_ready else {key: checks[key] for key in ("database",)}
+    required: tuple[str, ...] = ("database", "migrations", "storage")
+    if settings.BACKGROUND_JOB_BACKEND == "celery":
+        required += ("redis",)
+    elif settings.NATIVE_WORKER_ENABLED:
+        required += ("worker",)
+    relevant = (
+        {key: checks[key] for key in required}
+        if include_ready
+        else {"database": checks["database"]}
+    )
     if any(check.get("status") == "error" for check in relevant.values()):
         return "error"
     if include_ready and any(checks[key].get("status") != "ok" for key in required):

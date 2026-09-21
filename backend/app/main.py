@@ -38,7 +38,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("configuration warning: %s", warning)
     await _connect_database()
     await _bootstrap_demo_mode()
-    app.state.redis = await _connect_redis()
+    if settings.BACKGROUND_JOB_BACKEND == "native":
+        from app.services.native_auth_state import PostgresAuthState
+
+        app.state.redis = PostgresAuthState()
+    else:
+        app.state.redis = await _connect_redis()
     yield
     await app.state.redis.aclose()
 

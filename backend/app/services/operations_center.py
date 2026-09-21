@@ -58,6 +58,7 @@ async def get_operations_status(
     status = _overall_status(components)
     return OperationsStatusResponse(
         generated_at=datetime.now(UTC),
+        background_job_backend=settings.BACKGROUND_JOB_BACKEND,
         status=status,
         uptime_seconds=max(0, int((datetime.now(UTC) - STARTED_AT).total_seconds())),
         release=release,
@@ -81,10 +82,14 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
         _configured(
             "REDIS_URL",
             "backend",
-            bool(settings.REDIS_URL),
-            "Redis connection string is present.",
-            "REDIS_URL is required for cache, rate limiting, and workers.",
-            misconfigured=not settings.REDIS_URL.startswith("redis://"),
+            bool(settings.REDIS_URL) or settings.BACKGROUND_JOB_BACKEND == "native",
+            "Redis is optional in native mode."
+            if settings.BACKGROUND_JOB_BACKEND == "native"
+            else "Redis connection string is present.",
+            "REDIS_URL is required in Celery compatibility mode only.",
+            required=settings.BACKGROUND_JOB_BACKEND == "celery",
+            misconfigured=bool(settings.REDIS_URL)
+            and not settings.REDIS_URL.startswith("redis://"),
             misconfigured_detail="REDIS_URL should use redis://.",
         ),
         _configured(
@@ -438,7 +443,17 @@ def _components_from_health(
 def _overall_status(
     components: dict[str, OperationsComponentStatus],
 ) -> OperationalStatus:
-    statuses = [component.status for component in components.values()]
+    optional = {"redis"} if settings.BACKGROUND_JOB_BACKEND == "native" else set()
+    if (
+        settings.BACKGROUND_JOB_BACKEND == "native"
+        and not settings.NATIVE_WORKER_ENABLED
+    ):
+        optional.add("worker")
+    statuses = [
+        component.status
+        for name, component in components.items()
+        if name not in optional
+    ]
     if "unavailable" in statuses:
         return "unavailable"
     if "degraded" in statuses:
@@ -449,7 +464,7 @@ def _overall_status(
 def _status_from_health(status: object) -> OperationalStatus:
     if status == "ok":
         return "healthy"
-    if status == "degraded":
+    if status in ("degraded", "not_required"):
         return "degraded"
     return "unavailable"
 

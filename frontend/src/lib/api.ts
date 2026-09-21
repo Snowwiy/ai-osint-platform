@@ -1108,6 +1108,27 @@ export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
   return request<OperationsStatusResponse>("/operations/status");
 }
 
+export type BackgroundJobView = {
+  id: string; type: string; status: string; progress: number;
+  created_at: string; started_at: string | null; finished_at: string | null;
+  scheduled_at: string; next_retry_at: string | null;
+  attempts: number; max_attempts: number; requested_by: string | null;
+  investigation_id: string | null; asset_id: string | null;
+  worker: string | null; last_safe_error: string | null; result_summary: string | null;
+  can_retry: boolean; can_cancel: boolean;
+};
+export type BackgroundJobsResponse = {
+  backend: "native" | "celery";
+  counts: Record<string, number>;
+  jobs: BackgroundJobView[];
+};
+export async function getBackgroundJobs(): Promise<BackgroundJobsResponse> {
+  return request<BackgroundJobsResponse>("/operations/background-jobs");
+}
+export async function changeBackgroundJob(id: string, action: "cancel" | "retry"): Promise<BackgroundJobView> {
+  return request<BackgroundJobView>(`/operations/background-jobs/${encodeURIComponent(id)}/${action}`, { method: "POST" });
+}
+
 export async function getMonitoringOverview(): Promise<MonitoringOverviewResponse> {
   return request<MonitoringOverviewResponse>("/monitoring/overview");
 }

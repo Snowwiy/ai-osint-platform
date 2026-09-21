@@ -2,6 +2,7 @@ import { Check, Clipboard, ExternalLink, RefreshCw, ShieldCheck } from "lucide-r
 import { useState } from "react";
 
 import { safeArray, safeNumber, safeString } from "../lib/safe";
+import { useI18n } from "../lib/i18n";
 import type {
   AgentInventoryResponse,
   MonitoringActivationStatus,
@@ -27,6 +28,7 @@ export function LocalOperatorConsole({
   refreshing: boolean;
   onRefresh: () => void;
 }): JSX.Element {
+  const { t } = useI18n();
   const [copied, setCopied] = useState<CopyKey | null>(null);
   const components = status.components ?? {};
   const coverage = agents?.coverage;
@@ -76,7 +78,7 @@ export function LocalOperatorConsole({
         <StatusCard label="Backend health" value={statusLabel(status.status)} />
         <StatusCard label="Readiness" value={statusLabel(components.migrations?.status ?? status.status)} />
         <StatusCard label="Database" value={statusLabel(components.database?.status)} />
-        <StatusCard label="Redis / worker" value={`${statusLabel(components.redis?.status)} / ${statusLabel(components.worker?.status)}`} />
+        <StatusCard label={status.background_job_backend === "native" ? "Native worker" : "Redis / Celery"} value={status.background_job_backend === "native" ? statusLabel(components.worker?.status) : `${statusLabel(components.redis?.status)} / ${statusLabel(components.worker?.status)}`} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
@@ -93,7 +95,7 @@ export function LocalOperatorConsole({
           </dl>
           {activation?.discovery_disabled_reason ? <p className="mt-3 break-words rounded border border-amber-300/20 bg-amber-400/5 p-2 text-xs text-amber-100">{activation.discovery_disabled_reason}</p> : null}
           {activation?.service_check_disabled_reason ? <p className="mt-2 break-words rounded border border-amber-300/20 bg-amber-400/5 p-2 text-xs text-amber-100">{activation.service_check_disabled_reason}</p> : null}
-          <p className="mt-3 text-xs text-raven-muted">Database, Redis, and worker values are status-only; connection strings and secrets are never returned.</p>
+          <p className="mt-3 text-xs text-raven-muted">{t("Background engine")}: {status.background_job_backend ?? t("unavailable")}. {t("Database and worker values are status-only; connection strings and secrets are never returned.")} {t("Redis is optional in native mode.")}</p>
         </div>
 
         <div className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-4">

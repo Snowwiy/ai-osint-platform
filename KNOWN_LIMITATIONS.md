@@ -422,3 +422,7 @@ or remote administrative action.
 ## Phase 5BH service assessment limits
 
 TCP connect only measures reachability at observation time. A port number or sanitized SSH hint can suggest a service, but does not authenticate its identity or prove a vulnerability. Historical observations are bounded in the service details query; an old open sample should not be treated as current if later samples are missing. Agent reported listening ports describe the endpoint view, which may differ from LAN reachability. Windows service expected states are saved in the current desktop profile rather than centrally synchronized. RavenTech dependency uptime and CPU/RAM are shown only when already available from safe local telemetry. No remote administrative actions are supported.
+
+## Phase 5BI background jobs
+
+Only posture/recommendation recomputation and monitoring summary refresh have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, evidence processing, and Knowledge ingestion remain on their current paths. Celery configuration and Redis remain for compatibility. Docker and PostgreSQL remain required for the current desktop backend. Cancellation is cooperative and long-running future handlers need explicit safe checkpoints.

@@ -153,3 +153,7 @@ hosting, deployment, DNS, Supabase migration, and production support remain defe
 The complete local operating guide is `OPERATOR_MANUAL.md`. It preserves the
 browser/Docker recovery path and keeps backup/restore outside the desktop
 launcher's five-script boundary.
+
+## Phase 5BI desktop runtime
+
+The desktop still uses the Docker backend and PostgreSQL in this phase. It can display `BACKGROUND_JOB_BACKEND=native` and native worker status; Redis/Celery are not required desktop dependencies in that mode. Run `python -m app.worker` separately after applying Alembic 0040. Packaging and supervision of a native backend/PostgreSQL are planned for later phases only. See `NATIVE_BACKGROUND_JOBS.md`.

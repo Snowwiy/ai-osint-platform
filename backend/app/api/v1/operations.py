@@ -2,14 +2,22 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db, require_feature, require_role
+from app.core.config import settings
+from app.core.dependencies import (
+    get_current_user,
+    get_db,
+    require_feature,
+    require_role,
+)
+from app.models.background_job import BackgroundJob, BackgroundJobEvent
 from app.models.user import User
 from app.schemas.investigation import InvestigationPriority
 from app.schemas.operations import (
@@ -35,6 +43,11 @@ from app.schemas.operations_center import (
     RestoreValidationResponse,
 )
 from app.services.audit import record_event
+from app.services.background_jobs import (
+    JobValidationError,
+    queue_counts,
+    request_cancellation,
+)
 from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.operations import (
     OperationsValidationError,
@@ -57,6 +70,119 @@ from app.services.operations_center import (
 )
 
 router = APIRouter(tags=["operations"])
+
+
+def _job_view(job: BackgroundJob) -> dict[str, Any]:
+    retryable = (
+        job.status == "failed"
+        and job.attempt_count < job.max_attempts
+        and job.last_error_code not in {
+            "invalid_payload", "validation", "unsupported_job", "authorization",
+            "configuration",
+        }
+    )
+    return {
+        "id": str(job.id),
+        "type": job.job_type,
+        "status": job.status,
+        "progress": job.progress,
+        "created_at": job.created_at,
+        "started_at": job.started_at,
+        "finished_at": job.finished_at,
+        "scheduled_at": job.scheduled_at,
+        "next_retry_at": job.next_retry_at,
+        "attempts": job.attempt_count,
+        "max_attempts": job.max_attempts,
+        "requested_by": str(job.requested_by_user_id)
+        if job.requested_by_user_id
+        else None,
+        "investigation_id": str(job.investigation_id) if job.investigation_id else None,
+        "asset_id": str(job.asset_id) if job.asset_id else None,
+        "worker": job.worker_id,
+        "last_safe_error": job.last_error_summary,
+        "result_summary": job.result_summary,
+        "can_retry": retryable,
+        "can_cancel": job.status in {"queued", "scheduled", "retry_wait", "running"},
+    }
+
+
+@router.get("/operations/background-jobs")
+async def background_jobs_endpoint(
+    _current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    jobs = (
+        (
+            await db.execute(
+                select(BackgroundJob)
+                .order_by(BackgroundJob.created_at.desc())
+                .limit(100)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return {
+        "backend": settings.BACKGROUND_JOB_BACKEND,
+        "counts": await queue_counts(db),
+        "jobs": [_job_view(job) for job in jobs],
+    }
+
+
+@router.post("/operations/background-jobs/{job_id}/cancel")
+async def cancel_background_job_endpoint(
+    job_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    job = (
+        await db.execute(
+            select(BackgroundJob).where(BackgroundJob.id == job_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    try:
+        await request_cancellation(db, job, current_user.id)
+    except JobValidationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _job_view(job)
+
+
+@router.post("/operations/background-jobs/{job_id}/retry")
+async def retry_background_job_endpoint(
+    job_id: uuid.UUID,
+    current_user: User = Depends(require_role("admin")),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    job = (
+        await db.execute(
+            select(BackgroundJob).where(BackgroundJob.id == job_id).with_for_update()
+        )
+    ).scalar_one_or_none()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    if not _job_view(job)["can_retry"]:
+        raise HTTPException(status_code=409, detail="Job is not eligible for retry.")
+    job.status = "queued"
+    job.scheduled_at = datetime.now(UTC)
+    job.next_retry_at = None
+    db.add(
+        BackgroundJobEvent(
+            job_id=job.id,
+            event_type="retry_scheduled",
+            detail="Operator queued a bounded retry.",
+        )
+    )
+    await record_event(
+        db,
+        action="background_job.retry",
+        actor_id=current_user.id,
+        resource_type="background_job",
+        resource_id=job.id,
+        metadata={"job_type": job.job_type},
+    )
+    return _job_view(job)
 
 
 @router.get("/operations/status", response_model=OperationsStatusResponse)

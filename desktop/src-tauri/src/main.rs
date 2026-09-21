@@ -48,6 +48,7 @@ struct ServiceSnapshot {
     release_version: Option<String>,
     docker_services_status: Option<String>,
     dependency_statuses: std::collections::BTreeMap<String, String>,
+    background_job_backend: String,
     docker_availability: String,
     backend_port_status: String,
     frontend_port_status: String,
@@ -554,7 +555,20 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
     };
     let docker_services_status = backend_json.as_ref().map(|json| {
         let checks = json.get("checks");
-        let ready = ["database", "redis", "worker"].iter().all(|name| {
+        let native = json.get("background_job_backend").and_then(Value::as_str) == Some("native");
+        let worker_required = checks
+            .and_then(|value| value.get("worker"))
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str)
+            != Some("not_required");
+        let required: &[&str] = if native && !worker_required {
+            &["database"]
+        } else if native {
+            &["database", "worker"]
+        } else {
+            &["database", "redis", "worker"]
+        };
+        let ready = required.iter().all(|name| {
             checks
                 .and_then(|value| value.get(name))
                 .and_then(|value| value.get("status"))
@@ -574,6 +588,11 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
                 .map(|status| ((*name).to_owned(), status.to_owned()))
         })
         .collect();
+    let background_job_backend = backend_json.as_ref()
+        .and_then(|json| json.get("background_job_backend"))
+        .and_then(Value::as_str)
+        .unwrap_or("unavailable")
+        .to_owned();
     let migration_status = readiness_json
         .as_ref()
         .and_then(|json| json.get("checks"))
@@ -610,6 +629,7 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
         release_version,
         docker_services_status,
         dependency_statuses,
+        background_job_backend,
         docker_availability,
         backend_port_status,
         frontend_port_status,

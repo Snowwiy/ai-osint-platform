@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     DATABASE_STATEMENT_TIMEOUT_MS: int = 30_000
 
     REDIS_URL: str = "redis://localhost:6379/0"
+    BACKGROUND_JOB_BACKEND: Literal["celery", "native"] = "celery"
+    NATIVE_WORKER_ENABLED: bool = True
+    NATIVE_WORKER_POLL_SECONDS: float = 2.0
+    NATIVE_WORKER_CONCURRENCY: int = 2
+    NATIVE_WORKER_HEARTBEAT_SECONDS: int = 15
+    NATIVE_WORKER_STALE_SECONDS: int = 90
+    NATIVE_WORKER_MAX_RETRIES: int = 3
     REDIS_CONNECT_RETRIES: int = 5
     REDIS_CONNECT_RETRY_SECONDS: float = 1.0
     CELERY_TASK_MAX_RETRIES: int = 3
@@ -174,13 +181,27 @@ class Settings(BaseSettings):
         required_values = {
             "SECRET_KEY/APP_SECRET_KEY": self.APP_SECRET_KEY,
             "DATABASE_URL": self.DATABASE_URL,
-            "REDIS_URL": self.REDIS_URL,
             "FRONTEND_URL": self.FRONTEND_URL,
             "CORS_ORIGINS/APP_ALLOWED_ORIGINS": self.APP_ALLOWED_ORIGINS,
         }
         for name, value in required_values.items():
             if not value.strip():
                 errors.append(f"{name} is required.")
+        if self.BACKGROUND_JOB_BACKEND == "celery" and not self.REDIS_URL.strip():
+            errors.append("REDIS_URL is required in celery mode.")
+        if not 0.2 <= self.NATIVE_WORKER_POLL_SECONDS <= 60:
+            errors.append("NATIVE_WORKER_POLL_SECONDS must be between 0.2 and 60.")
+        if not 1 <= self.NATIVE_WORKER_CONCURRENCY <= 16:
+            errors.append("NATIVE_WORKER_CONCURRENCY must be between 1 and 16.")
+        if not (
+            2 <= self.NATIVE_WORKER_HEARTBEAT_SECONDS < self.NATIVE_WORKER_STALE_SECONDS
+        ):
+            errors.append(
+                "Native worker heartbeat must be at least 2 seconds "
+                "and below stale threshold."
+            )
+        if not 0 <= self.NATIVE_WORKER_MAX_RETRIES <= 10:
+            errors.append("NATIVE_WORKER_MAX_RETRIES must be between 0 and 10.")
         if self.ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
             errors.append("ACCESS_TOKEN_EXPIRE_MINUTES must be greater than zero.")
         if self.MAX_REQUEST_BODY_BYTES < 64_000:

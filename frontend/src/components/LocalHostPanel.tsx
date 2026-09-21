@@ -9,7 +9,7 @@ type Service = { name: string; displayName: string; state: string; startType: st
 type Inventory = { available: boolean; processes: Process[]; services: Service[]; detail: string };
 type Result = { success: boolean; previousState: string; resultingState: string; message: string };
 type Core = { invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
-type Snapshot = { dockerAvailability: string; frontendMode: string; frontend: { healthy: boolean }; backend: { healthy: boolean }; readiness: { healthy: boolean }; dockerServicesStatus: string | null; dependencyStatuses: Record<string, string> };
+type Snapshot = { dockerAvailability: string; frontendMode: string; frontend: { healthy: boolean }; backend: { healthy: boolean }; readiness: { healthy: boolean }; dockerServicesStatus: string | null; dependencyStatuses: Record<string, string>; backgroundJobBackend?: string };
 const BASELINE_KEY = "raventech.local-service-expectations.v1";
 function readExpectations(): Record<string, LocalServiceExpectation> {
   try {
@@ -64,8 +64,8 @@ export function LocalHostPanel({ platformServices, serverHostConnected }: { plat
     { name: "RavenTech Desktop", status: desktopProcess ? "running" : core ? "running" : "unknown", required: true, detail: desktopProcess ? `PID ${desktopProcess.pid} · ${bytes(desktopProcess.memoryBytes)} · ${elapsed(desktopProcess.runtimeSeconds)}` : "" },
     { name: t("Backend"), status: snapshot.data?.backend.healthy ? "healthy" : snapshot.data?.backend ? "down" : "unknown", required: true, detail: "" },
     { name: "PostgreSQL", status: snapshot.data?.dependencyStatuses?.database === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.database ? "down" : "unknown", required: true, detail: "" },
-    { name: "Redis", status: snapshot.data?.dependencyStatuses?.redis === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.redis ? "down" : "unknown", required: true, detail: "" },
-    { name: "Celery Worker", status: snapshot.data?.dependencyStatuses?.worker === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.worker ? "down" : "unknown", required: true, detail: "" },
+    { name: "Redis", status: snapshot.data?.dependencyStatuses?.redis === "ok" ? "healthy" : snapshot.data?.backgroundJobBackend === "native" ? "unknown" : snapshot.data?.dependencyStatuses?.redis ? "down" : "unknown", required: snapshot.data?.backgroundJobBackend !== "native", detail: "" },
+    { name: snapshot.data?.backgroundJobBackend === "native" ? "Native Worker" : "Celery Worker", status: snapshot.data?.dependencyStatuses?.worker === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.worker ? "down" : "unknown", required: true, detail: "" },
     { name: "ServerHost Agent", status: serverHostConnected ? "connected" : "unavailable", required: false, detail: "" },
     { name: "Docker Desktop", status: snapshot.data?.dockerAvailability === "running" ? "running" : snapshot.data?.dockerAvailability === "installed" ? "unavailable" : "unknown", required: false, detail: "" },
     { name: "Embedded Frontend", status: snapshot.data?.frontend.healthy ? "healthy" : snapshot.data?.frontend ? "down" : "unknown", required: true, detail: snapshot.data?.frontendMode ?? "" },
