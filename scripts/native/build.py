@@ -72,6 +72,13 @@ def manifest(component: str, binary: Path) -> dict[str, object]:
     except (OSError, subprocess.SubprocessError):
         commit = "unavailable"
     try:
+        worktree_dirty = bool(subprocess.run(
+            ["git", "status", "--porcelain"], cwd=ROOT, check=True,
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        worktree_dirty = True
+    try:
         version = subprocess.run(
             [sys.executable, "-m", "PyInstaller", "--version"],
             check=True, capture_output=True, text=True, timeout=15,
@@ -83,6 +90,7 @@ def manifest(component: str, binary: Path) -> dict[str, object]:
         "component": component,
         "version": Settings().APP_VERSION,
         "git_commit": commit,
+        "git_worktree_dirty": worktree_dirty,
         "build_timestamp_utc": datetime.now(UTC).isoformat(),
         "os": platform.system().lower(),
         "architecture": "x86_64",

@@ -1,6 +1,6 @@
 # Endpoint Security Posture
 
-Phase 5BK preserves normalized Windows/Linux endpoint OS identity, listening-port metadata, posture, service exposure and advisory recommendations through shared backend schemas. Linux ServerHost neighbor observations are read-only; unsupported local features must show unavailable rather than a fabricated health result. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phase 5BK preserves normalized Windows/Linux endpoint OS identity, listening-port metadata, posture, service exposure and advisory recommendations through shared backend schemas. Phase 5BL supervises only the local packaged backend and worker; LanEndpoint remains telemetry-only. Linux ServerHost neighbor observations are read-only; unsupported local features must show unavailable rather than a fabricated health result. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
 
 Endpoint Security Posture is a deterministic, local, advisory assessment of
 stored authorized LAN observations and optional endpoint-agent telemetry. It

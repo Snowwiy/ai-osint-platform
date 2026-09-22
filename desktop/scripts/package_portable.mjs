@@ -1,7 +1,8 @@
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateNativeRuntime } from "./native_runtime_package.mjs";
 
 const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
@@ -18,6 +19,7 @@ if (!output.startsWith(`${portableRoot}\\`) || output === portableRoot) {
 }
 
 await readFile(sourceExecutable);
+const nativeRuntime = await validateNativeRuntime({ desktop });
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
@@ -27,6 +29,9 @@ const copies = [
   [resolve(repository, "LICENSE"), "LICENSE"],
 ];
 for (const [source, name] of copies) await copyFile(source, resolve(output, name));
+await mkdir(resolve(output, "native-runtime"), { recursive: true });
+await cp(nativeRuntime.backend, resolve(output, "native-runtime", "backend"), { recursive: true, errorOnExist: true });
+await cp(nativeRuntime.worker, resolve(output, "native-runtime", "worker"), { recursive: true, errorOnExist: true });
 
 async function sha256(name) {
   return createHash("sha256").update(await readFile(resolve(output, name))).digest("hex");
@@ -41,6 +46,12 @@ const manifest = {
   kind: "windows-portable-local-test",
   executable: EXECUTABLE,
   files,
+  nativeRuntime: {
+    packagingEngine: nativeRuntime.packagingEngine,
+    requiredExternalDependencies: nativeRuntime.requiredExternalDependencies,
+    backend: { binary: nativeRuntime.components.backend.binary, sha256: nativeRuntime.components.backend.sha256, sizeBytes: nativeRuntime.components.backend.sizeBytes, fileCount: nativeRuntime.components.backend.fileCount },
+    worker: { binary: nativeRuntime.components.worker.binary, sha256: nativeRuntime.components.worker.sha256, sizeBytes: nativeRuntime.components.worker.sizeBytes, fileCount: nativeRuntime.components.worker.fileCount },
+  },
   boundaries: {
     installer: false,
     signing: false,
@@ -49,7 +60,7 @@ const manifest = {
     safeProjectPathBinding: true,
     embeddedFrontend: true,
     arbitraryCommandExecution: false,
-    embeddedBackend: false,
+    embeddedBackend: true,
     embeddedDatabase: false,
     hosting: false,
     deployment: false,

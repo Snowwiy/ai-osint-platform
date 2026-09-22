@@ -1,8 +1,8 @@
-# Desktop native background runtime (Phase 5BJ)
+# Desktop native background runtime (Phases 5BJ–5BL)
 
-Phase 5BK adds separately launched Windows and Linux standalone backend/worker builds. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md). Tauri does not supervise them yet, and PostgreSQL remains external.
+Phase 5BK adds Windows and Linux standalone backend/worker builds; Phase 5BL adds Tauri lifecycle supervision for those packaged components. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md). PostgreSQL remains external.
 
-Set `RUNTIME_PROFILE=desktop` for the desktop backend process and run `python -m app.worker` with the same PostgreSQL connection. The profile selects the native PostgreSQL job engine and PostgreSQL authentication state even if an older `.env` still says `BACKGROUND_JOB_BACKEND=celery`. PostgreSQL, Alembic migrations, report storage, the FastAPI backend, and a live native worker remain required. Redis and Celery are optional compatibility services in this profile. This phase does not package or supervise FastAPI or PostgreSQL; the current desktop distribution still uses the separately operated backend and database, commonly through Docker.
+Tauri starts the fixed native FastAPI backend and worker in release desktop mode. For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` with the same PostgreSQL connection. The profile selects PostgreSQL-backed jobs and authentication even if an older `.env` says `BACKGROUND_JOB_BACKEND=celery`. PostgreSQL, Alembic migrations, and report storage remain required. Redis and Celery are optional compatibility services. PostgreSQL is not packaged and remains externally operated, commonly through Docker.
 
 `RUNTIME_PROFILE=docker` is the default and retains the existing Celery/Redis behavior. `RUNTIME_PROFILE=development` honors `BACKGROUND_JOB_BACKEND=celery|native`. No existing Docker installation is silently switched.
 
@@ -33,4 +33,10 @@ Operations Center shows worker health, queue depth and age, counts, safe errors,
 
 Only fixed application handlers execute. Payloads have exact schemas and contain no passwords, JWTs, API keys, enrollment tokens, executable paths, commands, or raw banners. The worker does not use dynamic imports, `eval`, `exec`, subprocesses, or shell execution. Cancellation is cooperative. Remote commands, public scanning, brute force, credential testing, exploitation, and autostart are outside this runtime.
 
-Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires Redis. PostgreSQL remains required in every profile. Phase 5BK packages separate Windows and Linux backend/worker artifacts. The remaining documented phases are 5BL desktop backend/worker supervision, 5BM local PostgreSQL bootstrap, 5BN fully Docker-optional desktop operation, 5BO clean-machine acceptance, and 5BP+ Knowledge/Obsidian ingestion. Those later phases are not implemented here.
+Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires Redis. PostgreSQL remains required in every profile. Phase 5BK packages separate Windows and Linux backend/worker artifacts, and Phase 5BL supervises those artifacts from Tauri. Remaining documented phases are 5BM local PostgreSQL bootstrap, 5BN Docker-optional complete desktop operation, 5BO Windows clean-machine acceptance, 5BP Linux clean-machine acceptance, and 5BQ Knowledge/Obsidian ingestion. Those later phases are not implemented here.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

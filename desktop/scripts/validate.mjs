@@ -26,15 +26,20 @@ const required = [
   "scripts/smoke_desktop.mjs",
   "scripts/package_local_release.mjs",
   "scripts/validate_local_release.mjs",
+  "scripts/native_runtime_package.mjs",
+  "scripts/package_linux_desktop.mjs",
+  "scripts/validate_linux_desktop.mjs",
   "PORTABLE_BUILD_README.md",
   "INSTALLER_BUILD_README.md",
   "LOCAL_RELEASE_README.md",
   "LOCAL_STARTUP_INSTRUCTIONS.md",
+  "LINUX_NATIVE_PACKAGE_README.md",
   "src-tauri/Cargo.toml",
   "src-tauri/tauri.conf.json",
   "src-tauri/tauri.installer.conf.json",
   "src-tauri/capabilities/default.json",
   "src-tauri/src/main.rs",
+  "src-tauri/src/runtime_supervisor.rs",
   "assets/raventech-osint-icon.svg",
   "src-tauri/icons/icon.ico",
   "src-tauri/icons/icon.png",
@@ -45,6 +50,7 @@ const config = JSON.parse(await readFile(resolve(desktop, "src-tauri/tauri.conf.
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri/capabilities/default.json"), "utf8"));
 const cargo = await readFile(resolve(desktop, "src-tauri/Cargo.toml"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
+const supervisor = await readFile(resolve(desktop, "src-tauri/src/runtime_supervisor.rs"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
@@ -86,6 +92,12 @@ if (!app.includes('invoke("bind_project_path", { projectPath: input.value })') |
 const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")') || !rust.includes('var_os("SystemRoot")')) {
   throw new Error("Only the fixed Windows PowerShell launcher is allowed.");
+}
+if (!supervisor.includes('"--serve"') || !supervisor.includes('"--run"') || !supervisor.includes('fn validate_artifact') || !supervisor.includes("CreateMutexW") || !supervisor.includes("flock")) {
+  throw new Error("Native runtime supervision must use fixed, validated, single-instance child processes.");
+}
+if (/taskkill|systemctl|bash\s+-c|sh\s+-c|eval\s*\(|exec\s*\(/i.test(supervisor)) {
+  throw new Error("Native runtime supervisor contains an unsafe process or command execution path.");
 }
 for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"]) {
   if (!rust.includes(script)) throw new Error(`Missing approved launcher script: ${script}`);

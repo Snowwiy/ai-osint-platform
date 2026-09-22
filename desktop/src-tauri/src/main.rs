@@ -11,6 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 mod local_host;
+mod runtime_supervisor;
 
 const LOOPBACK: &str = "127.0.0.1:8000";
 const FRONTEND_LOOPBACK: &str = "127.0.0.1:5173";
@@ -1269,7 +1270,12 @@ mod tests {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .setup(|app| {
+            let supervisor = runtime_supervisor::NativeRuntimeSupervisor::start(app.handle().clone());
+            app.manage(supervisor);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             probe_local_services,
             get_native_host_metrics,
@@ -1284,8 +1290,18 @@ fn main() {
             apply_lan_monitoring_config,
             get_project_setup,
             bind_project_path,
-            clear_project_path
+            clear_project_path,
+            runtime_supervisor::get_native_runtime_status,
+            runtime_supervisor::control_native_runtime_component
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("RavenTech OSINT desktop shell failed to start");
+    let handle = app.handle().clone();
+    app.run(move |_app_handle, event| {
+        if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
+            if let Some(supervisor) = handle.try_state::<runtime_supervisor::NativeRuntimeSupervisor>() {
+                supervisor.shutdown();
+            }
+        }
+    });
 }

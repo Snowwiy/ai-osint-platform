@@ -513,3 +513,9 @@ If native readiness reports a stale or missing worker, verify the `0040_phase5bi
 ## Phase 5BJ desktop worker checks
 
 If desktop readiness is unhealthy, verify PostgreSQL, migration alignment, report storage, and the native worker heartbeat. Inspect Operations Center for queue depth, oldest queued job, retry time, and safe error code. Redis/Celery being stopped is normal in `RUNTIME_PROFILE=desktop`; in `docker`/Celery mode check Redis as before. A full queue rejects new jobs safely; reduce load or resolve stuck jobs rather than raising limits without review.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

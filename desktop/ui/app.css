@@ -60,6 +60,14 @@ h2 { margin-top: 0; font-size: 1rem; }
 .guidance h2 { margin-bottom: .35rem; color: #e7eef7; }
 .guidance p { margin: 0; line-height: 1.55; }
 .panel { margin-top: 1rem; padding: 1.2rem; }
+.runtime-components { display: grid; gap: .55rem; }
+.runtime-row { display: grid; grid-template-columns: minmax(10rem, .8fr) minmax(12rem, 1fr) auto; align-items: center; gap: .75rem; padding: .75rem; border: 1px solid #1b3544; border-radius: .45rem; background: #07131b; }
+.runtime-row strong { color: #cce0eb; }
+.runtime-row span, .runtime-row small, .runtime-optionals { color: #91a7b5; overflow-wrap: anywhere; }
+.runtime-row small { grid-column: 1 / -1; }
+.runtime-actions { display: flex; gap: .35rem; }
+.runtime-actions button { padding: .4rem .6rem; }
+.runtime-optionals { margin-bottom: 0; font-size: .82rem; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .panel-heading .eyebrow { margin: 0 0 .4rem; }
 .setup-panel strong.ok, .runtime-checklist strong.ok { color: #65e6c4; }
@@ -109,6 +117,8 @@ dialog::backdrop { background: rgb(2 8 12 / .78); }
   #status-view { padding: 2rem 0; }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
   .command { grid-template-columns: 1fr; }
+  .runtime-row { grid-template-columns: 1fr; }
+  .runtime-actions { flex-wrap: wrap; }
   .path-entry, .project-details, .runtime-checklist ul, .setup-steps { grid-template-columns: 1fr; }
   .panel-heading { flex-direction: column; }
   .topbar span { display: none; }

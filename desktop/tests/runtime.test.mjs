@@ -8,6 +8,7 @@ const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
+const supervisor = await readFile(resolve(desktop, "src-tauri/src/runtime_supervisor.rs"), "utf8");
 const config = JSON.parse(await readFile(resolve(desktop, "src-tauri/tauri.conf.json"), "utf8"));
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri/capabilities/default.json"), "utf8"));
 const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
@@ -90,4 +91,26 @@ test("native host metrics use fixed read-only Windows APIs", () => {
   assert.match(html, /host-metrics-status/);
   assert.doesNotMatch(rust, /wmic|powershell.*metric|Get-CimInstance/);
   assert.deepEqual(capability.permissions, []);
+});
+
+test("native supervisor uses fixed artifacts, profiles, and versioned identity checks", () => {
+  for (const marker of ["native-runtime", "dist-native/windows-x86_64", "dist-native/linux-x86_64", "RavenTechBackend.exe", "RavenTechWorker.exe", "raventech-backend", "raventech-worker", "5.0.0-rc6", "RUNTIME_PROFILE", "BACKGROUND_JOB_BACKEND", "--serve", "--run", "/health", "/health/ready", "/api/v1/release", "app_name", "OtherProfile", "port_conflict"]) {
+    assert.ok(supervisor.includes(marker), `missing supervisor contract: ${marker}`);
+  }
+  assert.match(supervisor, /fn validate_artifact/);
+  assert.match(supervisor, /binary_sha256/);
+  assert.match(supervisor, /packaging_engine/);
+  assert.match(supervisor, /STARTUP_LIMIT/);
+  assert.match(supervisor, /RESTART_DELAYS/);
+});
+
+test("native supervisor controls only leased child handles and shuts down cooperatively", () => {
+  for (const marker of ["CreateMutexW", "flock", "owns_lease", "children.backend", "children.worker", "RAVENTECH_DESKTOP_STOP_FILE", "backend.stop", "worker.stop", "worker_stopped", "runtime-audit.jsonl", "WORKER_STOP_LIMIT", "BACKEND_STOP_LIMIT"]) {
+    assert.ok(supervisor.includes(marker), `missing ownership or shutdown contract: ${marker}`);
+  }
+  assert.match(supervisor, /action != "start" && \(component_status\.ownership != "owned"/);
+  assert.match(supervisor, /if action == "start" && !self\.can_spawn\(\)/);
+  assert.doesNotMatch(supervisor, /taskkill|systemctl|powershell|bash -c|sh -c|eval\(|exec\(/i);
+  assert.match(app, /raventech-native-runtime-status/);
+  assert.match(html, /runtimeTitle/);
 });

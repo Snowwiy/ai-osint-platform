@@ -18,6 +18,7 @@ const installer = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri", "capabilities", "default.json"), "utf8"));
 const cargo = await readFile(resolve(desktop, "src-tauri", "Cargo.toml"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
+const supervisor = await readFile(resolve(desktop, "src-tauri", "src", "runtime_supervisor.rs"), "utf8");
 
 if (packageJson.version !== VERSION || base.version !== VERSION) {
   throw new Error("npm and Tauri versions must remain 5.0.0-rc6.");
@@ -64,6 +65,9 @@ if (/tauri-plugin-(shell|fs)|shell:|fs:/i.test(`${cargo}\n${JSON.stringify(capab
 const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
   throw new Error("Desktop runtime must use only its fixed Windows PowerShell launcher.");
+}
+if (!supervisor.includes('"--serve"') || !supervisor.includes('"--run"') || !supervisor.includes("fn validate_artifact") || !supervisor.includes("owns_lease") || /taskkill|systemctl|bash\s+-c|sh\s+-c|eval\s*\(|exec\s*\(/i.test(supervisor)) {
+  throw new Error("Native supervisor artifact/process boundary is invalid.");
 }
 for (const marker of ["validate_repository_root", "PROJECT_PATH_FILE", "frontend/package.json", "backend/app", "REQUIRED_SCRIPTS", "trusted_script_bytes", "include_bytes!"]) {
   if (!rust.includes(marker)) throw new Error(`Missing safe first-run binding marker: ${marker}`);
@@ -122,16 +126,19 @@ const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.j
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
   throw new Error("Installer manifest does not describe the expected unsigned RC6 local build.");
 }
-const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden installer capability is enabled in the manifest.");
+}
+if (manifest.nativeRuntime?.packagingEngine !== "PyInstaller" || !manifest.nativeRuntime.backendSha256 || !manifest.nativeRuntime.workerSha256 || JSON.stringify(manifest.nativeRuntime.requiredExternalDependencies) !== JSON.stringify(["PostgreSQL", "external configuration"])) {
+  throw new Error("Installer is missing validated native runtime and external PostgreSQL metadata.");
 }
 for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
   const digest = createHash("sha256").update(await readFile(resolve(output, name))).digest("hex");
   if (manifest.files[name]?.sha256 !== digest) throw new Error(`Checksum mismatch: ${name}`);
 }
 const readme = await readFile(resolve(output, "README.md"), "utf8");
-for (const required of ["unsigned", "SmartScreen", "Docker Desktop", "http://localhost:5173", "http://localhost:8000", "never starts services automatically", "repository root"]) {
+for (const required of ["unsigned", "SmartScreen", "PostgreSQL remains external", "automatically supervises", "http://localhost:5173", "http://localhost:8000"]) {
   if (!readme.includes(required)) throw new Error(`Installer README is missing: ${required}`);
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {

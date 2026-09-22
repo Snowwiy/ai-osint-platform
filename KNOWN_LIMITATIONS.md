@@ -1,6 +1,6 @@
 # RavenTech OSINT Known Limitations
 
-Phase 5BK produces separate backend and worker binaries but does not add Tauri supervision, bundle PostgreSQL, or make the final installer Docker-optional. Linux service actions require systemd D-Bus and OS permission; unavailable facilities remain visible as unavailable. Target-OS live validation must be reported separately. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phase 5BL adds cross-platform Tauri supervision for packaged backend and worker processes. PostgreSQL remains external, the desktop installer is not yet Docker-optional, and Linux clean-machine acceptance remains outstanding. Linux service actions require systemd D-Bus and OS permission; unavailable facilities remain visible as unavailable. Target-OS live validation must be reported separately. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
 The completed validated mode for `5.0.0-rc6` includes the local web application
 and private Tauri artifacts. Browser/development mode uses local Vite; portable
@@ -427,8 +427,14 @@ TCP connect only measures reachability at observation time. A port number or san
 
 ## Phase 5BI background jobs
 
-Only posture/recommendation recomputation and monitoring summary refresh have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, evidence processing, and Knowledge ingestion remain on their current paths. Celery configuration and Redis remain for compatibility. Docker and PostgreSQL remain required for the current desktop backend. Cancellation is cooperative and long-running future handlers need explicit safe checkpoints.
+Only posture/recommendation recomputation and monitoring summary refresh have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, evidence processing, and Knowledge ingestion remain on their current paths. Celery configuration and Redis remain for compatibility. PostgreSQL remains required; Docker is still supported but is not required by the packaged desktop runtime when a host-reachable PostgreSQL service is configured. Cancellation is cooperative and long-running future handlers need explicit safe checkpoints.
 
 ## Phase 5BJ limits
 
-Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. FastAPI and PostgreSQL remain separately managed, commonly with Docker, until future packaging/bootstrap phases. The native scheduler currently covers monitoring summary refresh only; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge/Obsidian ingestion is not implemented. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.
+Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. Phase 5BL packages and supervises the fixed FastAPI backend and worker; PostgreSQL remains separately managed, commonly with Docker. The native scheduler currently covers monitoring summary refresh only; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge/Obsidian ingestion is not implemented. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

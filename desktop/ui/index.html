@@ -21,6 +21,16 @@
     </header>
 
     <main id="status-view">
+      <section class="panel" aria-live="polite">
+        <div class="panel-heading">
+          <div><p class="eyebrow" data-copy="runtimeEyebrow">NATIVE APPLICATION LIFECYCLE</p><h2 data-copy="runtimeTitle">Local Runtime</h2></div>
+          <strong id="runtime-profile">—</strong>
+        </div>
+        <p data-copy="runtimeIntro">The desktop owns only the native child processes it starts. PostgreSQL remains an external requirement.</p>
+        <div id="native-runtime" class="runtime-components"><p data-copy="checking">Checking…</p></div>
+        <p id="runtime-message" role="status" aria-live="polite"></p>
+      </section>
+
       <section class="hero">
         <p class="eyebrow" data-copy="eyebrow">LOCAL SERVICE STATUS</p>
         <h1 data-copy="title">Preparing the local workspace</h1>

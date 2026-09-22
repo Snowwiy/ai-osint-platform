@@ -4,6 +4,9 @@ const EMBEDDED_FRONTEND_URL = "./app/";
 
 const translations = {
   en: {
+    runtimeEyebrow: "NATIVE APPLICATION LIFECYCLE", runtimeTitle: "Local Runtime", runtimeIntro: "The desktop owns only the native child processes it starts. PostgreSQL remains an external requirement.",
+    postgresRequiredAction: "Start or configure host-reachable PostgreSQL. Setup will be automated in a later phase.", runtimeStartingAction: "The desktop is starting the native backend and worker.", nativeBackendMessage: "The native backend is starting or unavailable. Review Local Runtime for the safe reason and next step.",
+    runtimeBackend: "Native Backend", runtimeWorker: "Background Worker", runtimePostgres: "PostgreSQL", runtimeFrontend: "Embedded Frontend", runtimeMode: "Runtime profile", ownershipOwned: "Owned by this desktop", ownershipExternal: "Externally managed", ownershipNone: "Not started", runtimeHealthy: "Healthy", runtimeWaiting: "Waiting", runtimeStarting: "Starting", runtimeRunning: "Running", runtimeFailed: "Failed", runtimeStopped: "Stopped", runtimeUnavailable: "Unavailable", runtimeOptional: "Not required", runtimeRestart: "Restart", runtimeStop: "Stop", runtimeStart: "Start", runtimeRetry: "Retry", runtimeConfirm: "Confirm stopping/restarting this local component? Active requests or jobs may be interrupted.", runtimeControlFailed: "The requested action was not accepted. Only components owned by this desktop can be stopped.", runtimePid: "PID", runtimeError: "Reason", runtimeRedis: "Redis (optional)", runtimeCelery: "Celery (compatibility only)",
     prototype: "RC6 local setup assistant", refresh: "Check again", eyebrow: "LOCAL SERVICE STATUS",
     title: "Local operator workspace", intro: "Validate the project once, then check and control only the approved local services.",
     setupEyebrow: "FIRST-RUN SETUP", setupTitle: "Bind the local RavenTech project", setupBody: "Enter the repository root manually. The desktop validates fixed markers and stores only the validated path.",
@@ -26,6 +29,9 @@ const translations = {
     readyMessage: "Project, backend, dependencies, and frontend are ready.", setupMessage: "Complete first-run project binding to make installed and portable launches reliable.", backendMessage: "Backend is not accessible. Review Docker and port 8000 below.", readinessMessage: "Backend is accessible, but a required dependency or migration needs action.", frontendMessage: "Backend is ready. Start Vite only for development/browser mode.", platformHealthy: "Backend ready", platformDegraded: "Service problem detected; returning to status."
   },
   es: {
+    runtimeEyebrow: "CICLO DE VIDA NATIVO DE LA APLICACIÓN", runtimeTitle: "Entorno local", runtimeIntro: "El escritorio solo controla los procesos nativos que inicia. PostgreSQL sigue siendo un requisito externo.",
+    postgresRequiredAction: "Inicia o configura PostgreSQL accesible desde el host. La configuración automática llegará en una fase posterior.", runtimeStartingAction: "El escritorio está iniciando el backend y el worker nativos.", nativeBackendMessage: "El backend nativo está iniciando o no está disponible. Consulta Entorno local para conocer el motivo y el siguiente paso.",
+    runtimeBackend: "Backend nativo", runtimeWorker: "Worker en segundo plano", runtimePostgres: "PostgreSQL", runtimeFrontend: "Frontend integrado", runtimeMode: "Perfil del entorno", ownershipOwned: "Controlado por este escritorio", ownershipExternal: "Administrado externamente", ownershipNone: "Sin iniciar", runtimeHealthy: "Saludable", runtimeWaiting: "En espera", runtimeStarting: "Iniciando", runtimeRunning: "En ejecución", runtimeFailed: "Error", runtimeStopped: "Detenido", runtimeUnavailable: "No disponible", runtimeOptional: "No requerido", runtimeRestart: "Reiniciar", runtimeStop: "Detener", runtimeStart: "Iniciar", runtimeRetry: "Reintentar", runtimeConfirm: "¿Confirmas detener o reiniciar este componente local? Las solicitudes o tareas activas pueden interrumpirse.", runtimeControlFailed: "No se aceptó la acción. Solo se pueden detener componentes controlados por este escritorio.", runtimePid: "PID", runtimeError: "Motivo", runtimeRedis: "Redis (opcional)", runtimeCelery: "Celery (solo compatibilidad)",
     prototype: "Asistente de configuración local RC6", refresh: "Comprobar de nuevo", eyebrow: "ESTADO DE SERVICIOS LOCALES",
     title: "Espacio de trabajo del operador", intro: "Valida el proyecto una vez y después comprueba y controla solo los servicios locales aprobados.",
     setupEyebrow: "CONFIGURACIÓN INICIAL", setupTitle: "Vincular el proyecto local de RavenTech", setupBody: "Introduce manualmente la raíz del repositorio. El escritorio valida marcadores fijos y guarda solo la ruta validada.",
@@ -65,6 +71,8 @@ let checking = false, platformOpen = false, statusPinned = false, previouslyRead
 let lastCommandKey = null, lastResultKey = "notRun", currentSetup = null;
 let currentFrontendMode = "embedded";
 let currentSnapshot = null;
+let currentNativeRuntime = null;
+let runtimeActionBusy = false;
 
 function copy(key) { return translations[language][key] ?? translations.en[key] ?? key; }
 function setState(node, text, good) { node.textContent = text; node.className = good === true ? "ok" : good === false ? "offline" : ""; }
@@ -82,6 +90,67 @@ function renderHostMetrics(metrics) {
   const available = metrics?.available === true;
   setState(document.querySelector("#host-metrics-status"), copy(available ? "hostNative" : "serverAgentRecommended"), available ? true : null);
   document.querySelector("#host-metrics-detail").textContent = available ? `${metrics.hostname ?? copy("unknown")} · ${Math.round(metrics.cpuPercent ?? 0)}% CPU · ${Math.round(metrics.memoryPercent ?? 0)}% RAM` : copy("hostMetricsUnavailable");
+}
+
+function runtimeLabel(value) {
+  const key = ({ healthy: "runtimeHealthy", ready: "runtimeHealthy", running: "runtimeRunning", starting: "runtimeStarting", waiting: "runtimeWaiting", failed: "runtimeFailed", stopped: "runtimeStopped", unavailable: "runtimeUnavailable", none: "ownershipNone", owned: "ownershipOwned", external: "ownershipExternal", not_required: "runtimeOptional" })[value];
+  return key ? copy(key) : value ?? copy("unknown");
+}
+
+function renderNativeRuntime(status) {
+  if (!status) return;
+  currentNativeRuntime = status;
+  document.querySelector("#runtime-profile").textContent = `${copy("runtimeMode")}: ${runtimeLabel(status.runtimeMode)}`;
+  document.querySelector("#runtime-message").textContent = status.lastMessages?.at(-1) ?? "";
+  const root = document.querySelector("#native-runtime");
+  const components = [
+    ["runtimeBackend", "backend", status.backend], ["runtimeWorker", "worker", status.worker],
+    ["runtimePostgres", "postgres", { state: status.postgresql?.state, ownership: "external", actionsAvailable: false }],
+    ["runtimeFrontend", "frontend", { state: status.embeddedFrontend, ownership: "none", actionsAvailable: false }],
+  ];
+  root.replaceChildren(...components.map(([label, name, item]) => {
+    const row = document.createElement("article"); row.className = "runtime-row";
+    const heading = document.createElement("strong"); heading.textContent = copy(label);
+    const facts = document.createElement("span"); facts.textContent = `${runtimeLabel(item?.state)} · ${runtimeLabel(item?.ownership)}${item?.pid ? ` · ${copy("runtimePid")} ${item.pid}` : ""}`;
+    row.append(heading, facts);
+    if (item?.lastError) { const error = document.createElement("small"); error.textContent = `${copy("runtimeError")}: ${item.lastError}`; row.append(error); }
+    if (name === "backend" || name === "worker") {
+      const actions = document.createElement("div"); actions.className = "runtime-actions";
+      for (const action of ["start", "restart", "stop"]) {
+        const button = document.createElement("button"); button.type = "button"; button.textContent = copy(`runtime${action[0].toUpperCase()}${action.slice(1)}`);
+        button.disabled = runtimeActionBusy || (action !== "start" && !(item?.ownership === "owned" && item?.actionsAvailable)) || (action === "start" && ["running", "healthy", "starting"].includes(item?.state));
+        button.addEventListener("click", () => requestRuntimeAction(name, action)); actions.append(button);
+      }
+      row.append(actions);
+    }
+    return row;
+  }));
+  const optionals = document.createElement("p"); optionals.className = "runtime-optionals";
+  optionals.textContent = `${copy("runtimeRedis")}: ${runtimeLabel(status.redis?.state)} · ${copy("runtimeCelery")}: ${runtimeLabel(status.celery?.state)}`;
+  root.append(optionals);
+  publishNativeRuntime(status);
+}
+
+function publishNativeRuntime(status) {
+  const frame = document.querySelector("#platform-frame");
+  if (!frame?.contentWindow || !status) return;
+  const origin = currentFrontendMode === "development" ? new URL(FRONTEND_URL).origin : window.location.origin;
+  if (!origin || origin === "null") return;
+  try { frame.contentWindow.postMessage({ type: "raventech-native-runtime-status", payload: status }, origin); } catch { /* Runtime status remains available in the shell. */ }
+}
+
+async function requestRuntimeAction(component, action) {
+  if (runtimeActionBusy) return;
+  if (action !== "start") {
+    const dialog = document.querySelector("#confirm-dialog"); document.querySelector("#confirm-message").textContent = copy("runtimeConfirm"); dialog.showModal();
+    const confirmed = await new Promise((resolve) => dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), { once: true }));
+    if (!confirmed) return;
+  }
+  runtimeActionBusy = true;
+  try { await window.__TAURI__.core.invoke("control_native_runtime_component", { component, action, confirmed: action !== "start" }); document.querySelector("#runtime-message").textContent = ""; }
+  catch { document.querySelector("#runtime-message").textContent = copy("runtimeControlFailed"); }
+  finally { runtimeActionBusy = false; }
+  await refresh();
 }
 
 function publishNativeMetrics(metrics) {
@@ -122,6 +191,12 @@ function renderSetup(setup) {
 }
 
 function nextRuntimeAction(snapshot) {
+  if (currentNativeRuntime?.runtimeMode === "desktop") {
+    if (currentNativeRuntime.postgresql?.state !== "healthy") return "postgresRequiredAction";
+    if (currentNativeRuntime.backend?.state === "failed") return currentNativeRuntime.backend.lastError ?? "backendHelpBody";
+    if (currentNativeRuntime.worker?.state === "failed") return currentNativeRuntime.worker.lastError ?? "workerHelpBody";
+    return currentNativeRuntime.backend?.state === "healthy" && currentNativeRuntime.worker?.state === "running" ? "runtimeReady" : "runtimeStartingAction";
+  }
   if (snapshot.setup.nextAction !== "checkRuntime") return snapshot.setup.nextAction;
   if (snapshot.dockerAvailability === "notDetected") return "installDocker";
   if (!snapshot.backend.reachable && snapshot.backendPortStatus === "occupied") return "backendPortConflict";
@@ -134,8 +209,9 @@ function nextRuntimeAction(snapshot) {
 }
 
 function renderWizard(snapshot) {
-  const projectReady = snapshot.setup.configuredPathValid;
-  const prerequisitesReady = snapshot.setup.scriptsAvailable && snapshot.dockerAvailability !== "notDetected" && snapshot.backendPortStatus !== "occupied" && (snapshot.frontendMode !== "development" || snapshot.frontendPortStatus !== "occupied");
+  const nativeMode = currentNativeRuntime?.runtimeMode === "desktop";
+  const projectReady = nativeMode || snapshot.setup.configuredPathValid;
+  const prerequisitesReady = nativeMode ? currentNativeRuntime.postgresql?.state === "healthy" : snapshot.setup.scriptsAvailable && snapshot.dockerAvailability !== "notDetected" && snapshot.backendPortStatus !== "occupied" && (snapshot.frontendMode !== "development" || snapshot.frontendPortStatus !== "occupied");
   const servicesReady = snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   for (const [step, ready] of [["project", projectReady], ["prerequisites", prerequisitesReady], ["services", servicesReady]]) {
     const item = document.querySelector(`#step-${step}`); item.classList.toggle("complete", ready); item.classList.toggle("attention", !ready);
@@ -193,6 +269,8 @@ function renderChecklist(snapshot) {
 function renderSnapshot(snapshot) {
   currentSnapshot = snapshot;
   currentFrontendMode = snapshot.frontendMode === "development" ? "development" : "embedded"; renderFrontendSource(); renderCommands();
+  const nativeMode = currentNativeRuntime?.runtimeMode === "desktop";
+  document.querySelector("#setup-panel").hidden = nativeMode;
   renderSetup(snapshot.setup); renderChecklist(snapshot); renderWizard(snapshot); document.querySelector("#next-action").textContent = copy(nextRuntimeAction(snapshot));
   const backendState = !snapshot.backend.reachable ? "unreachable" : snapshot.backend.healthy ? "reachable" : "degraded";
   const readinessState = !snapshot.readiness.reachable ? "unreachable" : snapshot.readiness.healthy ? "ready" : "degraded";
@@ -203,11 +281,11 @@ function renderSnapshot(snapshot) {
   paint("#frontend-status", frontendState, currentFrontendMode === "embedded" ? copy("bundledAssets") : snapshot.frontend.httpStatus ? `HTTP ${snapshot.frontend.httpStatus}` : "");
   const dockerState = snapshot.dockerServicesStatus ?? (!snapshot.backend.reachable ? "unknown" : "degraded"); paint("#docker-status", dockerState, snapshot.dockerServicesStatus ? copy(dockerState) : copy("unknown"));
   renderHostMetrics(snapshot.nativeHostMetrics); publishNativeMetrics(snapshot.nativeHostMetrics);
-  const allReady = snapshot.setup.configuredPathValid && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
+  const allReady = (nativeMode || snapshot.setup.configuredPathValid) && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   const summary = document.querySelector("#summary"), summaryText = document.querySelector("#summary-text"), openButton = document.querySelector("#open-platform"); openButton.hidden = !allReady;
-  if (!snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
-  else if (!snapshot.backend.reachable) { summary.className = "summary error"; summaryText.textContent = copy("backendMessage"); setGuidance("backend"); }
-  else if (!snapshot.backend.healthy || !snapshot.readiness.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("readinessMessage"); setGuidance("readiness"); }
+  if (!nativeMode && !snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
+  else if (!snapshot.backend.reachable) { summary.className = "summary error"; summaryText.textContent = copy(nativeMode ? "nativeBackendMessage" : "backendMessage"); setGuidance(nativeMode ? "" : "backend"); }
+  else if (!snapshot.backend.healthy || !snapshot.readiness.healthy) { summary.className = "summary warning"; summaryText.textContent = copy(nativeMode ? "nativeBackendMessage" : "readinessMessage"); setGuidance(nativeMode ? "" : "readiness"); }
   else if (currentFrontendMode === "development" && !snapshot.frontend.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("frontendMessage"); setGuidance("frontend"); }
   else { summary.className = "summary success"; summaryText.textContent = copy("readyMessage"); setGuidance(""); }
   document.querySelector("#platform-summary").textContent = snapshot.releaseVersion ? `${copy("platformHealthy")} · ${snapshot.releaseVersion}` : copy("platformHealthy");
@@ -216,7 +294,7 @@ function renderSnapshot(snapshot) {
 
 async function refresh() {
   if (checking) return; checking = true; ["#backend-status", "#ready-status", "#release-status", "#frontend-status", "#docker-status"].forEach((id) => paint(id, "checking"));
-  try { renderSnapshot(await window.__TAURI__.core.invoke("probe_local_services")); }
+  try { const [snapshot, runtime] = await Promise.all([window.__TAURI__.core.invoke("probe_local_services"), window.__TAURI__.core.invoke("get_native_runtime_status")]); renderNativeRuntime(runtime); renderSnapshot(snapshot); }
   catch { renderSnapshot({ backend: { reachable: false, healthy: false }, readiness: { reachable: false, healthy: false }, release: { reachable: false, healthy: false }, frontend: { reachable: true, healthy: true, status: "embedded" }, frontendMode: "embedded", releaseVersion: null, dockerServicesStatus: null, dockerAvailability: "notDetected", backendPortStatus: "available", frontendPortStatus: "notRequired", releaseMatches: null, migrationStatus: null, setup: { configured: false, configuredPath: null, configuredPathValid: false, repositoryFound: false, repositoryPath: null, resolutionSource: "copyOnly", composeAvailable: false, frontendAvailable: false, backendAvailable: false, scriptsAvailable: false, nextAction: "bindProjectPath" } }); }
   finally { checking = false; }
 }
@@ -225,5 +303,5 @@ document.querySelector("#language").addEventListener("click", () => { language =
 document.querySelector("#refresh").addEventListener("click", refresh); document.querySelector("#show-status").addEventListener("click", () => showStatus(true)); document.querySelector("#open-platform").addEventListener("click", showPlatform);
 document.querySelector("#project-form").addEventListener("submit", saveProjectPath); document.querySelector("#clear-project-path").addEventListener("click", clearProjectPath);
 document.querySelector("#project-path").addEventListener("input", (event) => event.currentTarget.removeAttribute("aria-invalid"));
-document.querySelector("#platform-frame").addEventListener("load", () => publishNativeMetrics(currentSnapshot?.nativeHostMetrics));
+document.querySelector("#platform-frame").addEventListener("load", () => { publishNativeMetrics(currentSnapshot?.nativeHostMetrics); publishNativeRuntime(currentNativeRuntime); });
 renderLanguage(); refresh(); window.setInterval(refresh, 15_000);

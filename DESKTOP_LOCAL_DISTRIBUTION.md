@@ -1,6 +1,6 @@
 # RavenTech OSINT Desktop — Local Distribution
 
-Phase 5BK standalone backend/worker outputs live in ignored `desktop/dist-native/windows-x86_64/` or `desktop/dist-native/linux-x86_64/`. They are not included in the current portable or installer artifacts. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) for target-native builds and validation; PostgreSQL is still external.
+Phase 5BK standalone backend/worker outputs live in ignored `desktop/dist-native/windows-x86_64/` or `desktop/dist-native/linux-x86_64/`. Phase 5BL includes the target-matching PyInstaller directories in portable and installer artifacts. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) for target-native builds and validation; PostgreSQL is still external.
 
 The current local Windows test bundle is RavenTech OSINT Desktop `5.0.0-rc6`.
 
@@ -49,7 +49,7 @@ manual, non-destructive recovery.
 
 The corrected RC6 artifact build embeds the existing React production assets.
 Portable and installed runs do not require Vite or port 5173; that URL is only
-for browser/development testing. Backend/Docker services remain required.
+for browser/development testing. PostgreSQL remains required and external; Docker is an alternative compatibility runtime.
 
 ## Local artifacts
 
@@ -163,3 +163,9 @@ The desktop still uses the Docker backend and PostgreSQL in this phase. It can d
 ## Phase 5BJ job dependency
 
 The desktop profile no longer requires Redis or Celery for authentication, monitoring jobs, or readiness. It still requires a separately running FastAPI backend, PostgreSQL, migrations, and native worker; the current distribution commonly runs the backend/database through Docker. Native backend packaging and local PostgreSQL installation are future phases. See `DESKTOP_NATIVE_RUNTIME.md`.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

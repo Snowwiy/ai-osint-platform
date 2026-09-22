@@ -1,9 +1,11 @@
-"""Fixed native backend launcher; the desktop supervisor arrives in 5BL."""
+"""Fixed native backend launcher managed by the desktop runtime supervisor."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+import threading
 
 from app.native_runtime import configure_native_environment
 
@@ -75,7 +77,26 @@ def main(argv: list[str] | None = None) -> int:
                 create_app(), host=args.host, port=args.port, log_config=None
             )
         )
+        stop_file = os.getenv("RAVENTECH_DESKTOP_STOP_FILE")
+        watcher_stop = threading.Event()
+        watcher = None
+        if stop_file:
+            def watch_desktop_shutdown() -> None:
+                while not watcher_stop.wait(0.5):
+                    if os.path.isfile(stop_file):
+                        server.should_exit = True
+                        return
+
+            watcher = threading.Thread(
+                target=watch_desktop_shutdown,
+                name="raventech-desktop-shutdown",
+                daemon=True,
+            )
+            watcher.start()
         server.run(sockets=[listener])
+        watcher_stop.set()
+        if watcher is not None:
+            watcher.join(timeout=1.0)
         return 0 if server.started else 2
     except Exception:
         print("Native backend could not start; see sanitized log.", file=sys.stderr)

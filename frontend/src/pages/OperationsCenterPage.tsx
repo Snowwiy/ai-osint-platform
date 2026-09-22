@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -44,6 +44,19 @@ import type {
 
 type ToastState = { kind: "success" | "error"; message: string } | null;
 
+type NativeRuntimePayload = {
+  runtimeMode: string;
+  backend: { state: string; ownership: string; pid: number | null; lastError: string | null };
+  worker: { state: string; ownership: string; pid: number | null; lastError: string | null };
+  postgresql: { required: boolean; state: string };
+};
+
+function isNativeRuntimePayload(value: unknown): value is NativeRuntimePayload {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as Partial<NativeRuntimePayload>;
+  return typeof payload.runtimeMode === "string" && typeof payload.backend?.state === "string" && typeof payload.backend?.ownership === "string" && typeof payload.worker?.state === "string" && typeof payload.worker?.ownership === "string" && typeof payload.postgresql?.state === "string";
+}
+
 export function OperationsCenterPage(): JSX.Element {
   const { t } = useI18n();
   const [toast, setToast] = useState<ToastState>(null);
@@ -52,6 +65,16 @@ export function OperationsCenterPage(): JSX.Element {
   const [restoreArchiveBase64, setRestoreArchiveBase64] = useState<string | null>(null);
   const [restoreFileName, setRestoreFileName] = useState("");
   const [jobFilters, setJobFilters] = useState<BackgroundJobFilters>({});
+  const [nativeRuntime, setNativeRuntime] = useState<NativeRuntimePayload | null>(null);
+  useEffect(() => {
+    const receive = (event: MessageEvent<unknown>) => {
+      if (event.source !== window.parent || !event.data || typeof event.data !== "object") return;
+      const message = event.data as { type?: unknown; payload?: unknown };
+      if (message.type === "raventech-native-runtime-status" && isNativeRuntimePayload(message.payload)) setNativeRuntime(message.payload);
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, []);
   const status = useQuery({
     queryKey: ["operations-status"],
     queryFn: getOperationsStatus,
@@ -201,6 +224,10 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
 
       <section className="mt-5">
+        <ApplicationRuntimePanel status={nativeRuntime} t={t} />
+      </section>
+
+      <section className="mt-5">
         <BackgroundJobsPanel data={jobs.data} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
       </section>
 
@@ -265,6 +292,21 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
     </>
   );
+}
+
+function ApplicationRuntimePanel({ status, t }: { status: NativeRuntimePayload | null; t: (value: string) => string }): JSX.Element {
+  const components = status ? [
+    [t("Backend"), status.backend], [t("Native worker"), status.worker], [t("PostgreSQL dependency"), { state: status.postgresql.state, ownership: "external", pid: null, lastError: null }],
+  ] as const : [];
+  return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("Application Runtime")}>
+    <h2 className="text-lg font-semibold">{t("Application Runtime")}</h2>
+    <p className="text-sm text-raven-muted">{t("Runtime profile")}: {status?.runtimeMode ?? t("Not available in browser mode")}</p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-3">{components.map(([name, item]) => <article key={name} className="rounded border border-raven-border p-3">
+      <strong>{name}</strong><p className="mt-1 text-sm text-raven-muted">{t("State")}: {t(item.state)} · {t("Ownership")}: {t(item.ownership)}{item.pid ? ` · PID ${item.pid}` : ""}</p>
+      {item.lastError ? <p className="text-sm text-amber-300">{item.lastError}</p> : null}
+    </article>)}</div>
+    <p className="mt-3 text-xs text-raven-muted">{t("Runtime actions are available in the desktop Local Runtime panel.")}</p>
+  </section>;
 }
 
 function BackgroundJobsPanel({ data, loading, filters, onFilters, onAction, t }: {

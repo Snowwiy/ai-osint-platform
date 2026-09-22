@@ -35,6 +35,7 @@ desktop/dist-portable/
 desktop/dist-installer/
 desktop/dist-local-release/
 desktop/dist-native/
+desktop/dist-linux/
 
 # IDE
 .idea/

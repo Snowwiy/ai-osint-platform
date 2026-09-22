@@ -1,8 +1,8 @@
-# Native background jobs (Phases 5BI–5BK)
+# Native background jobs (Phases 5BI–5BL)
 
-Phase 5BK packages the fixed PostgreSQL worker as a standalone Windows or Linux component. It still requires external PostgreSQL and is not yet supervised by Tauri. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phase 5BK packages the fixed PostgreSQL worker as a standalone Windows or Linux component; Phase 5BL makes Tauri start and supervise the packaged worker with its backend in release desktop mode. PostgreSQL remains external. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
-RavenTech has a PostgreSQL job engine. Set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` from `backend` to process allowlisted jobs without Redis or Celery. Docker installations retain their `celery` default; development may set `BACKGROUND_JOB_BACKEND=native` directly. PostgreSQL and the FastAPI backend remain required; Redis, Celery, and Docker support are retained.
+RavenTech has a PostgreSQL job engine. In desktop runtime, Tauri starts the fixed native backend and worker, which process allowlisted jobs without Redis or Celery. For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` from `backend`. Docker installations retain their `celery` default; development may set `BACKGROUND_JOB_BACKEND=native` directly. PostgreSQL and the FastAPI backend remain required; Redis, Celery, and Docker support are retained.
 
 ## Current work inventory
 
@@ -46,8 +46,14 @@ If a worker stops, restart it and inspect its heartbeat and failed jobs in Opera
 
 ## Docker decoupling roadmap
 
-5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker. 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Clean machine native desktop acceptance. 5BP+: Knowledge/Obsidian ingestion. Phases after 5BK remain documentation only here.
+5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker (complete). 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Windows clean-machine acceptance. 5BP: Linux clean-machine acceptance. 5BQ: Knowledge/Obsidian ingestion. Future phases remain documentation only here.
 
 ## Phase 5BJ desktop profile
 
 `RUNTIME_PROFILE=desktop` selects the native PostgreSQL engine and authentication state; Redis/Celery are compatibility-only. The native worker now schedules bounded monitoring summary cycles and enforces queue depth, per-type concurrency, fixed priorities, and handler timeouts. Reports, recon, evidence, notifications, data quality, and other request flows remain synchronous because they have no registered Celery task and need their current authorization and transaction semantics. See `DESKTOP_NATIVE_RUNTIME.md` for the full dependency inventory and revised roadmap.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

@@ -1,6 +1,6 @@
 # RavenTech OSINT Final QA Checklist
 
-Phase 5BK: validate Windows and Linux standalone artifacts on their actual target OS; run `--version`, `--check`, migration-resource checks, health/readiness/release, native worker jobs, platform host inventory, and manifest SHA-256 checks. Report Windows and Linux live status separately. Confirm version `5.0.0-rc6`, no tag, external PostgreSQL, and no Tauri backend supervision. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phase 5BL: validate Windows and Linux standalone artifacts and Tauri supervision on their target OS; run fixed `--version`/`--check`, health/readiness/release, native worker jobs, process ownership and graceful shutdown, platform host inventory, and manifest SHA-256 checks. Report Windows and Linux live status separately. Confirm version `5.0.0-rc6`, no tag, external PostgreSQL, and no OS autostart. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
 ## Phase 5AA — monitoring policies
 
@@ -627,4 +627,10 @@ check blocks the current release-freeze commit and push.
 - [ ] Confirm queue depth, per-type cap, timeout, scheduler dedupe, and safe cancellation.
 - [ ] Confirm health/readiness label required versus optional dependencies, Operations Center filters, and bilingual desktop status.
 - [ ] Confirm full backend/frontend/desktop/package validation and Ruff/mypy baseline delta before commit.
-- [ ] Confirm version 5.0.0-rc6, one Alembic head, no tag, and no Knowledge ingestion or FastAPI executable.
+- [ ] Confirm version 5.0.0-rc6, one Alembic head, no tag, no Knowledge ingestion, and no bundled PostgreSQL.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

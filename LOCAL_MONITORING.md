@@ -1,6 +1,6 @@
 # Local Monitoring Center
 
-Phase 5BK keeps normalized local-monitoring APIs for Windows and Linux. Tauri uses native Windows metrics or Linux sysinfo; local Linux process inventory uses `/proc`, and systemd service inventory uses system D-Bus where available. The native backend defaults to loopback. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) for platform limits and validation.
+Phase 5BK keeps normalized local-monitoring APIs for Windows and Linux. Tauri uses native Windows metrics or Linux sysinfo; local Linux process inventory uses `/proc`, and systemd service inventory uses system D-Bus where available. Phase 5BL's runtime panel reports the owned backend/worker lifecycle separately from host monitoring. The native backend defaults to loopback. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) for platform limits and validation.
 
 ## Phase 5AA policy tuning
 

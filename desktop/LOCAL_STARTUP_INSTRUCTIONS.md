@@ -1,14 +1,9 @@
 # Local startup instructions
 
-RavenTech OSINT Desktop 5.0.0-rc6 wraps the existing local web platform. It
-bundles the built React frontend but does not bundle or automatically start
-Docker, PostgreSQL, Redis, or the backend.
-
-From the RavenTech OSINT repository root in PowerShell:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
-```
+RavenTech OSINT Desktop 5.0.0-rc6 bundles the React frontend and fixed native
+backend/worker artifacts. It automatically starts and supervises only the
+children it owns. PostgreSQL remains external; Redis and Celery are not required
+in native desktop mode.
 
 Expected endpoints:
 
@@ -19,10 +14,15 @@ Expected endpoints:
 - Readiness: `http://localhost:8000/health/ready`
 - Release: `http://localhost:8000/api/v1/release`
 
-The first-run screen accepts manual project-path input only. A valid path must
-contain the expected Compose file, frontend, backend application, and all five
-approved `scripts/local/*.ps1` launchers. Commands entered by the operator are
-never executed. Start, stop, and restart require explicit confirmation.
+Windows configuration is `%LOCALAPPDATA%\RavenTech OSINT\config\.env`;
+Linux configuration is `$XDG_CONFIG_HOME/raventech-osint/.env` or its standard
+home-directory fallback. Set `DATABASE_URL` to a PostgreSQL endpoint reachable
+from the host OS. The Docker-only hostname `postgres` is not a host endpoint.
+PostgreSQL bootstrap is deferred to Phase 5BM.
+
+The Local Runtime panel distinguishes processes owned by this desktop from
+external processes. Stop/restart requires confirmation and is unavailable for
+external services. An unrelated service on port 8000 is never killed.
 
 Run `npm run dev` from `frontend/` only for browser/development testing. It is
 not a runtime prerequisite for a portable or installed build.

@@ -10,6 +10,7 @@ import socket
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -232,6 +233,10 @@ async def run_worker() -> None:
 
     try:
         while not stop.is_set():
+            stop_file = os.getenv("RAVENTECH_DESKTOP_STOP_FILE")
+            if stop_file and Path(stop_file).is_file():
+                stop.set()
+                break
             await _heartbeat(worker_id)
             async with AsyncSessionLocal() as db:
                 await recover_stale_jobs(db)
@@ -254,7 +259,8 @@ async def run_worker() -> None:
                     stop.wait(), timeout=settings.NATIVE_WORKER_POLL_SECONDS
                 )
             except TimeoutError:
-                pass
+                if stop_file and Path(stop_file).is_file():
+                    stop.set()
     finally:
         if active:
             await asyncio.gather(*active, return_exceptions=True)

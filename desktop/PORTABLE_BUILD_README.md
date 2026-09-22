@@ -1,36 +1,26 @@
 # RavenTech OSINT Desktop 5.0.0-rc6 — Windows Portable Build
 
-This folder is a local-test portable build. A separate Phase 5AO unsigned local
-installer workflow exists, but this portable folder has no installer, signing,
-updater, backend service, database, Docker runtime, or production deployment.
+This folder is a private local-test portable build. It contains the Tauri shell
+and fixed PyInstaller backend/worker runtime folders; it does not contain an
+installer, signing, updater, database, credentials, or public deployment.
+This copy-only package has no installer.
 
 ## Prerequisites
 
 - supported Windows with Microsoft Edge WebView2 Runtime
-- Docker Desktop with Docker Compose
-- the RavenTech OSINT repository and local `.env` configuration retained
-  separately; never copy `.env` into this portable folder
+- a host-reachable PostgreSQL instance and a local RavenTech configuration
+  file under the platform-native application config directory
+- Docker Desktop only when choosing the Docker compatibility profile
 - Node.js/npm only when rebuilding or running browser/development mode
 
-## Start the platform first
-
-From the repository root, start the Docker/backend services yourself:
-
-```powershell
-./scripts/local/start_platform.ps1
-```
-
-The portable executable contains the built React frontend. For optional browser
-or desktop-development testing only, run `npm run dev` from `frontend/`.
-
-The portable application never starts services automatically. When it can
-discover the repository above its executable, it can run only six fixed local
-scripts; start, stop, restart, and LAN configuration require confirmation. Copy remains available
-for every action, and Vite/Docker direct commands remain copy-only.
+The desktop starts and supervises only its fixed native backend and worker
+children. PostgreSQL remains external; configure its host-reachable URL in the
+native runtime config. Redis/Celery are not required in the native desktop
+profile. Docker remains available as a separate compatibility profile.
 
 ## Run the portable application
 
-Double-click `RavenTech OSINT Desktop.exe` after the local services are running.
+Double-click `RavenTech OSINT Desktop.exe` after PostgreSQL is available.
 The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc6`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
 repository-owned local-candidate asset; public brand approval remains deferred.
@@ -42,8 +32,8 @@ The release shell loads its packaged frontend and checks these local endpoints:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-When the backend is ready, the existing web application opens from bundled
-assets inside the desktop shell. Browser mode remains optionally available at
+The desktop verifies the backend identity, readiness, and RC6 release before
+starting the worker and opening the embedded React workspace. Browser mode remains optionally available at
 `http://localhost:5173` when Vite is started separately.
 
 On first launch, manually enter the repository root in the setup card. The path
@@ -54,11 +44,12 @@ there is no broad folder browser or arbitrary command input.
 
 ## Troubleshooting
 
-- **Backend unreachable:** confirm Docker Desktop is running, then use
-  `./scripts/local/start_platform.ps1` and
-  `./scripts/local/check_platform.ps1` from the repository root.
-- **Readiness degraded:** inspect `docker compose ps` and backend logs. The
-  portable application displays status only and performs no repair.
+- **PostgreSQL unavailable:** start or configure the external PostgreSQL
+  service; automatic PostgreSQL setup is deferred to Phase 5BM.
+- **Backend port conflict:** review the application using loopback port 8000.
+  RavenTech does not stop or reconfigure unrelated processes.
+- **Readiness degraded:** use Local Runtime status and the platform-native
+  runtime logs. A component can be retried only when this desktop owns it.
 - **Frontend unavailable in development:** run `npm run dev` from `frontend/`.
   In a portable release, **Frontend: Embedded** is expected and port 5173 is
   not required.
@@ -71,11 +62,11 @@ the folder between local test locations.
 
 ## Limitations and security boundary
 
-- Windows local testing only; no installer, public release, or support SLA
+- Windows x86_64 portable local testing; Linux x86_64 packaging is documented
+  separately; no public release or support SLA
 - unsigned executable with the repository-owned RavenTech local-candidate icon
-- Docker and the backend remain separate operator-managed dependencies; Vite
-  is optional for browser/development testing
-- no service autostart or automatic command execution
+- PostgreSQL remains external; Docker is an alternative compatibility runtime
+- no OS startup persistence/autostart; child processes stop with this desktop
 - no arbitrary command input, shell/filesystem plugin, secret collection,
   remote administration, router
   automation, scanning, exploitation, hosting, deployment, DNS, or Supabase

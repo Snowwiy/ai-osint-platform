@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,15 +51,31 @@ await mkdir(output, { recursive: true });
 
 const copies = [
   [resolve(desktop, "dist-portable", PRODUCT_DIRECTORY, PORTABLE_EXE), PORTABLE_EXE],
+  [resolve(desktop, "dist-portable", PRODUCT_DIRECTORY, "native-runtime"), "native-runtime"],
   [resolve(desktop, "dist-installer", PRODUCT_DIRECTORY, INSTALLER_EXE), INSTALLER_EXE],
   [resolve(desktop, "LOCAL_RELEASE_README.md"), "README.md"],
   [resolve(desktop, "LOCAL_STARTUP_INSTRUCTIONS.md"), "LOCAL_STARTUP_INSTRUCTIONS.md"],
   [resolve(repository, "KNOWN_LIMITATIONS.md"), "KNOWN_LIMITATIONS.md"],
 ];
-for (const [source, name] of copies) await copyFile(source, resolve(output, name));
+for (const [source, name] of copies) {
+  if (name === "native-runtime") await cp(source, resolve(output, name), { recursive: true });
+  else await copyFile(source, resolve(output, name));
+}
 
 async function sha256(name) {
-  return createHash("sha256").update(await readFile(resolve(output, name))).digest("hex");
+  const target = resolve(output, name);
+  const digest = createHash("sha256");
+  const addTree = async (directory, prefix = "") => {
+    for (const entry of (await import("node:fs/promises").then(({ readdir }) => readdir(directory, { withFileTypes: true }))).sort((a, b) => a.name.localeCompare(b.name))) {
+      const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const child = resolve(directory, entry.name);
+      if (entry.isDirectory()) await addTree(child, relative);
+      else digest.update(`${relative}\0`).update(await readFile(child));
+    }
+  };
+  if (name === "native-runtime") await addTree(target);
+  else digest.update(await readFile(target));
+  return digest.digest("hex");
 }
 
 const files = {};
@@ -79,14 +95,15 @@ const manifest = {
   installerArtifact: INSTALLER_EXE,
   signed: false,
   localOnly: true,
-  dockerRequired: true,
+  dockerRequired: false,
+  postgresqlRequired: true,
   files,
   boundaries: {
     publicRelease: false,
     autoUpdate: false,
     serviceAutostart: false,
     embeddedFrontend: true,
-    bundledBackend: false,
+    bundledBackend: true,
     bundledDatabase: false,
     bundledRedis: false,
     bundledCredentials: false,

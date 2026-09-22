@@ -13,6 +13,8 @@
     "installer:validate": "node scripts/validate_installer.mjs",
     "local-release:package": "node scripts/package_local_release.mjs",
     "local-release:validate": "node scripts/validate_local_release.mjs",
+    "linux:package": "node scripts/package_linux_desktop.mjs",
+    "linux:validate": "node scripts/validate_linux_desktop.mjs",
     "smoke": "node scripts/smoke_desktop.mjs",
     "tauri:check": "npm run build && cargo check --manifest-path src-tauri/Cargo.toml",
     "tauri:dev": "npm run build && cargo run --manifest-path src-tauri/Cargo.toml"

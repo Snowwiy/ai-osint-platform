@@ -11,10 +11,11 @@ code-signing certificate is configured.
 - Rust/Cargo with the locked desktop dependencies already available
 - Tauri NSIS bundler tools already cached by a separately approved setup step;
   the build intentionally fails instead of downloading missing tools
-- Docker Desktop for PostgreSQL, Redis, and the FastAPI backend
+- a host-reachable PostgreSQL instance and a local runtime configuration file
 
-The installer contains only the Tauri desktop shell. It does not contain Docker,
-PostgreSQL, Redis, the backend, `.env`, credentials, backups, reports, or logs.
+The installer contains the Tauri shell and validated Windows x86_64 PyInstaller
+backend/worker resources. It does not contain PostgreSQL, `.env`, credentials,
+backups, reports, logs, Redis, or Celery.
 
 ## Build and validate
 
@@ -36,13 +37,11 @@ license, and `installer-manifest.json` with SHA-256 checksums. Do not publish it
 The exact installer name is
 `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe`.
 
-## Start the platform before launching
+## PostgreSQL prerequisite
 
-From the repository root, start the required Docker/backend services:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
-```
+PostgreSQL remains external in Phase 5BL. Configure a host-reachable database
+URL in `%LOCALAPPDATA%\RavenTech OSINT\config\.env`. Docker mode remains
+supported, but the native desktop profile does not require Redis or Celery.
 
 Expected URLs:
 
@@ -53,12 +52,11 @@ Expected URLs:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-The desktop shell never starts services automatically. On first launch, enter
-the local repository root manually. The shell saves it only after canonical
-validation of the compose, backend, frontend, desktop, Python, and six approved
-script markers. It never accepts a script name, command argument, or arbitrary
-PowerShell command. The six script contents must match this desktop build;
-invalid, altered, or missing paths retain copy-only guidance.
+On launch the desktop automatically supervises the packaged backend, waits for
+PostgreSQL, migrations, and storage readiness, and then starts the packaged worker. It
+controls only children started by this desktop session. Existing external
+backends/workers are observed but never stopped or restarted. No repository
+path is needed for the native runtime.
 
 The installer contains the production React assets, so `npm run dev` and port
 5173 are not required to display the installed UI.
@@ -67,7 +65,7 @@ The installer contains the production React assets, so `npm run dev` and port
 
 Run the `-unsigned-setup.exe` file and accept the local-test warning only after
 verifying its checksum. Launch **RavenTech OSINT Desktop** from the Start menu.
-If the services are offline, the shell shows local startup guidance.
+If PostgreSQL is unavailable, Local Runtime shows it as required and waiting.
 The window title is **RavenTech OSINT Desktop — Local Workspace**. The current
 icon is the repository-owned RavenTech local-candidate asset; public brand
 approval remains deferred.
@@ -87,10 +85,10 @@ generic command input is enabled.
 
 - A SmartScreen warning is expected for this unsigned build.
 - Install WebView2 Runtime separately if Windows does not already provide it.
-- Start Docker Desktop and the platform before opening the local application.
+- Start or configure host-reachable PostgreSQL before opening the application.
 - Port 8000 must be available on loopback. Port 5173 is needed only for optional
   Vite browser/development mode.
-- The first-run checklist reports port conflicts, Docker detection, release
+- The first-run checklist reports port conflicts, runtime identity, release
   mismatch, and migration degradation without modifying the machine.
 - There is no signing, auto-update, service autostart, database bundle, hosting,
   deployment, DNS, Supabase migration, or public support channel in this phase.

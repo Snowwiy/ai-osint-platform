@@ -17,6 +17,7 @@ const installerConfig = JSON.parse(await readFile(resolve(desktop, "src-tauri", 
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri", "capabilities", "default.json"), "utf8"));
 const cargo = await readFile(resolve(desktop, "src-tauri", "Cargo.toml"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
+const supervisor = await readFile(resolve(desktop, "src-tauri", "src", "runtime_supervisor.rs"), "utf8");
 const app = await readFile(resolve(desktop, "ui", "app.js"), "utf8");
 const gitignore = await readFile(resolve(repository, ".gitignore"), "utf8");
 
@@ -43,6 +44,9 @@ if (/tauri-plugin-(shell|fs|updater)|shell:|fs:|updater:/i.test(`${cargo}\n${JSO
 const commandPrograms = [...rust.matchAll(/Command::new\(([^)]+)\)/g)].map((match) => match[1]);
 if (JSON.stringify(commandPrograms) !== JSON.stringify(["&powershell"]) || !rust.includes('join("System32")')) {
   throw new Error("Desktop launcher is not constrained to fixed Windows PowerShell execution.");
+}
+if (!supervisor.includes('"--serve"') || !supervisor.includes('"--run"') || !supervisor.includes("fn validate_artifact") || !supervisor.includes("owns_lease") || /taskkill|systemctl|bash\s+-c|sh\s+-c|eval\s*\(|exec\s*\(/i.test(supervisor)) {
+  throw new Error("Native supervisor artifact/process boundary is invalid.");
 }
 for (const marker of ["validate_repository_root", "PROJECT_PATH_FILE", "REQUIRED_SCRIPTS", "trusted_script_bytes", "include_bytes!"]) {
   if (!rust.includes(marker)) throw new Error(`Missing safe project-path validation marker: ${marker}`);
@@ -86,19 +90,27 @@ async function verifyArtifact({ directory, allowed, manifestName, binaryName, ki
   }
   for (const name of entries) {
     if (forbiddenName.test(name)) throw new Error(`Forbidden ${kind} artifact filename: ${name}`);
-    if (!(await stat(resolve(directory, name))).isFile()) throw new Error(`${kind} artifact contains a directory: ${name}`);
+    const info = await stat(resolve(directory, name));
+    if (name === "native-runtime" && kind === "portable") {
+      if (!info.isDirectory()) throw new Error("Portable native runtime must be a directory.");
+      continue;
+    }
+    if (!info.isFile()) throw new Error(`${kind} artifact contains an unexpected directory: ${name}`);
   }
   const binary = await readFile(resolve(directory, binaryName));
   if (binary[0] !== 0x4d || binary[1] !== 0x5a) throw new Error(`${kind} binary is not a Windows PE file.`);
   const manifest = JSON.parse(await readFile(resolve(directory, manifestName), "utf8"));
-  const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, ...forbiddenBoundaries } = manifest.boundaries;
-  if (manifest.version !== VERSION || controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+  const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, ...forbiddenBoundaries } = manifest.boundaries;
+  if (manifest.version !== VERSION || controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || (kind === "portable" && embeddedBackend !== true) || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
     throw new Error(`${kind} manifest version or security boundaries are invalid.`);
   }
   if (kind === "installer" && (manifest.signed !== false || manifest.publicRelease !== false)) {
     throw new Error("Installer manifest must remain unsigned and private.");
   }
-  const expectedPayload = allowed.filter((name) => name !== manifestName).sort();
+  if (kind === "portable" && manifest.nativeRuntime?.packagingEngine !== "PyInstaller") {
+    throw new Error("Portable artifact is missing its native runtime manifest.");
+  }
+  const expectedPayload = allowed.filter((name) => name !== manifestName && !(kind === "portable" && name === "native-runtime")).sort();
   if (JSON.stringify(Object.keys(manifest.files).sort()) !== JSON.stringify(expectedPayload)) {
     throw new Error(`${kind} manifest file map violates the payload allowlist.`);
   }
@@ -110,7 +122,7 @@ async function verifyArtifact({ directory, allowed, manifestName, binaryName, ki
 
 await verifyArtifact({
   directory: resolve(desktop, "dist-portable", PRODUCT_DIRECTORY),
-  allowed: [PORTABLE_EXE, "LICENSE", "README.md", "portable-manifest.json"],
+  allowed: [PORTABLE_EXE, "LICENSE", "README.md", "portable-manifest.json", "native-runtime"],
   manifestName: "portable-manifest.json",
   binaryName: PORTABLE_EXE,
   kind: "portable",

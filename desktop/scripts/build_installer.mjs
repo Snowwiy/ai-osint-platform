@@ -3,6 +3,8 @@ import { access, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promis
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { relative, sep } from "node:path";
+import { validateNativeRuntime } from "./native_runtime_package.mjs";
 
 const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
@@ -35,6 +37,7 @@ function run(command, args, cwd) {
   }
 }
 
+const generatedConfig = resolve(desktop, "src-tauri", "tauri.runtime.generated.conf.json");
 try {
   await access(tauriCli);
   await access(nsisCompiler);
@@ -52,6 +55,7 @@ run(process.execPath, ["--test", ...[
   "portable-scripts.test.mjs", "runtime.test.mjs", "smoke-script.test.mjs",
 ].map((name) => resolve(desktop, "tests", name))], desktop);
 run(process.execPath, [resolve(desktop, "scripts", "validate_installer.mjs"), "--config-only"], desktop);
+const nativeRuntime = await validateNativeRuntime({ desktop });
 try {
   await access(resolve(desktop, "dist-portable", PRODUCT_DIRECTORY, "portable-manifest.json"));
   run(process.execPath, [resolve(desktop, "scripts", "validate_portable.mjs")], desktop);
@@ -66,15 +70,34 @@ run(process.execPath, [resolve(frontend, "node_modules", "typescript", "bin", "t
 run(process.execPath, [resolve(frontend, "node_modules", "vite", "bin", "vite.js"), "build"], frontend);
 
 console.log("Building an unsigned, current-user NSIS installer...");
+const configBase = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.conf.json"), "utf8"));
+const installerOverride = JSON.parse(await readFile(resolve(desktop, "src-tauri", "tauri.installer.conf.json"), "utf8"));
+const resourceRoot = resolve(desktop, "src-tauri");
+const resourceMap = {};
+for (const name of ["backend", "worker"]) {
+  const source = nativeRuntime[name];
+  const relativeSource = relative(resourceRoot, source).split(sep).join("/");
+  resourceMap[`${relativeSource}/**/*`] = `native-runtime/${name}/`;
+}
+const mergedConfig = {
+  ...configBase,
+  ...installerOverride,
+  bundle: { ...configBase.bundle, ...installerOverride.bundle, resources: resourceMap },
+};
+await writeFile(generatedConfig, `${JSON.stringify(mergedConfig, null, 2)}\n`, "utf8");
+try {
 run(process.execPath, [
   tauriCli,
   "build",
   "--ci",
   "--no-sign",
   "--bundles", "nsis",
-  "--config", resolve(desktop, "src-tauri", "tauri.installer.conf.json"),
+  "--config", generatedConfig,
   "--", "--locked", "--offline",
 ], desktop);
+} finally {
+  await rm(generatedConfig, { force: true });
+}
 
 await access(expectedBundle);
 
@@ -101,6 +124,12 @@ const manifest = {
   signed: false,
   publicRelease: false,
   files,
+  nativeRuntime: {
+    packagingEngine: nativeRuntime.packagingEngine,
+    backendSha256: nativeRuntime.components.backend.sha256,
+    workerSha256: nativeRuntime.components.worker.sha256,
+    requiredExternalDependencies: nativeRuntime.requiredExternalDependencies,
+  },
   boundaries: {
     autoUpdate: false,
     serviceAutostart: false,
@@ -108,7 +137,7 @@ const manifest = {
     safeProjectPathBinding: true,
     embeddedFrontend: true,
     arbitraryCommandExecution: false,
-    embeddedBackend: false,
+    embeddedBackend: true,
     embeddedDatabase: false,
     bundledCredentials: false,
     hosting: false,

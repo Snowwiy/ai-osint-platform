@@ -1,6 +1,6 @@
 # Authorized LAN Monitoring
 
-The manual Linux ServerHost agent can report existing `/proc/net/arp` neighbors within its private local /24. It does not probe hosts, alter router configuration, or expand the authorized LAN boundary. Native backend binaries default to loopback; private-LAN binding and host firewall policy require an explicit operator choice. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+The manual Linux ServerHost agent can report existing `/proc/net/arp` neighbors within its private local /24. It does not probe hosts, alter router configuration, or expand the authorized LAN boundary. The Tauri supervisor manages only its fixed local backend/worker children; it does not add remote agent commands. Native backend binaries default to loopback; private-LAN binding and host firewall policy require an explicit operator choice. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
 
 ## RC3 freeze boundary
 

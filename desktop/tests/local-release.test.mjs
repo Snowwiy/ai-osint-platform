@@ -45,5 +45,6 @@ test("local release scripts cannot publish, sign, or download", () => {
   assert.doesNotMatch(source, /shell:\s*true/);
   assert.match(build, /signed:\s*false/);
   assert.match(build, /localOnly:\s*true/);
-  assert.match(build, /dockerRequired:\s*true/);
+  assert.match(build, /dockerRequired:\s*false/);
+  assert.match(build, /bundledBackend:\s*true/);
 });

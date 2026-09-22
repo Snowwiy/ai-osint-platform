@@ -1,6 +1,6 @@
 # RavenTech OSINT Desktop Private Handoff
 
-Phase 5BK adds private, target-native Windows/Linux backend and worker artifact layouts under `desktop/dist-native/`. No artifact is published or added to the Tauri installer in this phase. Validate the matching OS artifact before handoff; see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phase 5BK adds private, target-native Windows/Linux backend and worker artifact layouts under `desktop/dist-native/`; Phase 5BL packages the matching runtime beside the desktop and supervises its owned child processes. No artifact is published. Validate the matching OS package before handoff; see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
 
 Candidate: `5.0.0-rc6`
 
@@ -150,3 +150,9 @@ or router integration.
 ## Phase 5BJ private handoff note
 
 For a private desktop handoff, set `RUNTIME_PROFILE=desktop` only when PostgreSQL, migrations, the backend, and a separately operated native worker are ready. Redis/Celery are optional in that profile; Docker compatibility remains. The installer does not yet package FastAPI or PostgreSQL. No public release or signing is implied. See `DESKTOP_NATIVE_RUNTIME.md`.
+
+## Phase 5BL — Tauri native runtime supervision
+
+Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
+
+Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.

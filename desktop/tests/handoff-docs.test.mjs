@@ -90,9 +90,9 @@ test("external-machine checklist covers transfer prerequisites and recovery", as
 
 test("present desktop artifacts keep strict allowlists", async () => {
   const expected = {
-    "dist-portable": ["LICENSE", "portable-manifest.json", "RavenTech OSINT Desktop.exe", "README.md"],
+    "dist-portable": ["LICENSE", "native-runtime", "portable-manifest.json", "RavenTech OSINT Desktop.exe", "README.md"],
     "dist-installer": ["installer-manifest.json", "LICENSE", `RavenTech-OSINT-Desktop-${version}-unsigned-setup.exe`, "README.md"],
-    "dist-local-release": ["KNOWN_LIMITATIONS.md", "LOCAL_STARTUP_INSTRUCTIONS.md", "local-release-manifest.json", "RavenTech OSINT Desktop.exe", `RavenTech-OSINT-Desktop-${version}-unsigned-setup.exe`, "README.md", "SHA256SUMS.txt"],
+    "dist-local-release": ["KNOWN_LIMITATIONS.md", "LOCAL_STARTUP_INSTRUCTIONS.md", "local-release-manifest.json", "native-runtime", "RavenTech OSINT Desktop.exe", `RavenTech-OSINT-Desktop-${version}-unsigned-setup.exe`, "README.md", "SHA256SUMS.txt"],
   };
   for (const [directory, allowlist] of Object.entries(expected)) {
     const root = resolve(desktop, directory, artifactRoot);
@@ -103,8 +103,15 @@ test("present desktop artifacts keep strict allowlists", async () => {
       if (error?.code === "ENOENT") continue;
       throw error;
     }
-    assert.deepEqual(entries, allowlist.sort());
-    for (const entry of entries) assert.equal((await stat(resolve(root, entry))).isFile(), true);
+    let expectedEntries = allowlist;
+    if (directory === "dist-portable" && !(JSON.parse(await readFile(resolve(root, "portable-manifest.json"), "utf8")).nativeRuntime)) {
+      expectedEntries = allowlist.filter((name) => name !== "native-runtime");
+    }
+    if (directory === "dist-local-release" && !JSON.parse(await readFile(resolve(root, "local-release-manifest.json"), "utf8")).postgresqlRequired) {
+      expectedEntries = allowlist.filter((name) => name !== "native-runtime");
+    }
+    assert.deepEqual(entries, expectedEntries.sort());
+    for (const entry of entries) assert.equal((await stat(resolve(root, entry))).isFile(), entry !== "native-runtime");
   }
 });
 
