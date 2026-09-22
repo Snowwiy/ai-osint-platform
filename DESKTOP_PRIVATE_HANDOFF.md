@@ -1,5 +1,7 @@
 # RavenTech OSINT Desktop Private Handoff
 
+Phase 5BK adds private, target-native Windows/Linux backend and worker artifact layouts under `desktop/dist-native/`. No artifact is published or added to the Tauri installer in this phase. Validate the matching OS artifact before handoff; see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+
 Candidate: `5.0.0-rc6`
 
 After an operator signs in and the backend is ready, RC6 automatically loads the

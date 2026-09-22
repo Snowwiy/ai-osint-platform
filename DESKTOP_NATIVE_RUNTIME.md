@@ -1,5 +1,7 @@
 # Desktop native background runtime (Phase 5BJ)
 
+Phase 5BK adds separately launched Windows and Linux standalone backend/worker builds. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md). Tauri does not supervise them yet, and PostgreSQL remains external.
+
 Set `RUNTIME_PROFILE=desktop` for the desktop backend process and run `python -m app.worker` with the same PostgreSQL connection. The profile selects the native PostgreSQL job engine and PostgreSQL authentication state even if an older `.env` still says `BACKGROUND_JOB_BACKEND=celery`. PostgreSQL, Alembic migrations, report storage, the FastAPI backend, and a live native worker remain required. Redis and Celery are optional compatibility services in this profile. This phase does not package or supervise FastAPI or PostgreSQL; the current desktop distribution still uses the separately operated backend and database, commonly through Docker.
 
 `RUNTIME_PROFILE=docker` is the default and retains the existing Celery/Redis behavior. `RUNTIME_PROFILE=development` honors `BACKGROUND_JOB_BACKEND=celery|native`. No existing Docker installation is silently switched.
@@ -31,4 +33,4 @@ Operations Center shows worker health, queue depth and age, counts, safe errors,
 
 Only fixed application handlers execute. Payloads have exact schemas and contain no passwords, JWTs, API keys, enrollment tokens, executable paths, commands, or raw banners. The worker does not use dynamic imports, `eval`, `exec`, subprocesses, or shell execution. Cancellation is cooperative. Remote commands, public scanning, brute force, credential testing, exploitation, and autostart are outside this runtime.
 
-Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires Redis. PostgreSQL remains required in every profile. The next documented phases are 5BK FastAPI executable packaging, 5BL desktop backend/worker supervision, 5BM local PostgreSQL bootstrap, 5BN fully Docker-optional desktop operation, 5BO clean-machine acceptance, and 5BP+ Knowledge/Obsidian ingestion. None is implemented in 5BJ.
+Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires Redis. PostgreSQL remains required in every profile. Phase 5BK packages separate Windows and Linux backend/worker artifacts. The remaining documented phases are 5BL desktop backend/worker supervision, 5BM local PostgreSQL bootstrap, 5BN fully Docker-optional desktop operation, 5BO clean-machine acceptance, and 5BP+ Knowledge/Obsidian ingestion. Those later phases are not implemented here.

@@ -6,7 +6,6 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from html import escape as escape_html
-from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -17,14 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import AsyncSessionLocal
 from app.models.audit_log import AuditLog
 from app.models.case_review import CaseReview
+from app.models.endpoint_posture import (
+    EndpointRemediationRecommendation,
+    EndpointSecurityPosture,
+)
 from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
     EngagementScopeItem,
-)
-from app.models.endpoint_posture import (
-    EndpointRemediationRecommendation,
-    EndpointSecurityPosture,
 )
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
@@ -48,8 +47,8 @@ from app.models.playbook import (
 from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
-from app.models.threat_finding import ThreatFinding
 from app.models.target import Target
+from app.models.threat_finding import ThreatFinding
 from app.models.user import User
 from app.schemas.ioc import (
     InvestigationPrioritizationResponse,
@@ -610,7 +609,9 @@ async def get_report(
 
 
 def render_html_report(context: ReportContext) -> str:
-    template_dir = Path(__file__).resolve().parents[1] / "templates" / "reports"
+    from app.native_runtime import resource_path
+
+    template_dir = resource_path("app", "templates", "reports")
     environment = Environment(
         loader=FileSystemLoader(template_dir),
         autoescape=select_autoescape(("html", "xml")),

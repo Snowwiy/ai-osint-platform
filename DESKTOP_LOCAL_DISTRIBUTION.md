@@ -1,5 +1,7 @@
 # RavenTech OSINT Desktop — Local Distribution
 
+Phase 5BK standalone backend/worker outputs live in ignored `desktop/dist-native/windows-x86_64/` or `desktop/dist-native/linux-x86_64/`. They are not included in the current portable or installer artifacts. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) for target-native builds and validation; PostgreSQL is still external.
+
 The current local Windows test bundle is RavenTech OSINT Desktop `5.0.0-rc6`.
 
 On authenticated startup the embedded client loads a read-only monitoring

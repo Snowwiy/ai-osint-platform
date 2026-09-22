@@ -1,5 +1,7 @@
 # RavenTech OSINT Known Limitations
 
+Phase 5BK produces separate backend and worker binaries but does not add Tauri supervision, bundle PostgreSQL, or make the final installer Docker-optional. Linux service actions require systemd D-Bus and OS permission; unavailable facilities remain visible as unavailable. Target-OS live validation must be reported separately. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+
 The completed validated mode for `5.0.0-rc6` includes the local web application
 and private Tauri artifacts. Browser/development mode uses local Vite; portable
 and installed builds embed the same React production assets. Portable and unsigned

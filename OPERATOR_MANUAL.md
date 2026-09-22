@@ -1,5 +1,7 @@
 # RavenTech OSINT Desktop Operator Manual
 
+For Phase 5BK native Windows/Linux backend and worker builds, fixed CLI checks, external configuration, and loopback binding, see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md). Start backend and worker separately; Tauri supervision and PostgreSQL bundling are future phases. Redis/Celery are optional in desktop mode; Docker compatibility remains.
+
 Version: `5.0.0-rc6`
 Audience: authorized local operators and private desktop testers
 

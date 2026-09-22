@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from sqlalchemy import func, select, text
 from app.core.config import settings
 from app.db.session import AsyncSessionLocal
 from app.models.background_job import NativeWorkerHeartbeat
+from app.native_runtime import is_native_package, native_paths, resource_path
 
 
 async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
@@ -45,6 +47,10 @@ async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
         "background_engine": settings.background_engine,
         "required_dependencies": required,
         "optional_dependencies": ["redis", "celery"] if native else ["celery"],
+        "platform": (
+            "windows" if sys.platform == "win32"
+            else "linux" if sys.platform.startswith("linux") else "other"
+        ),
         "checks": checks,
     }
 
@@ -96,7 +102,9 @@ async def _migration_check() -> dict[str, Any]:
 
 def _storage_check() -> dict[str, Any]:
     paths = {
-        "reports": Path("/data/reports"),
+        "reports": (
+            native_paths().reports if is_native_package() else Path("/data/reports")
+        ),
         "chroma": Path(settings.CHROMA_DATA_PATH),
     }
     details: dict[str, str] = {}
@@ -182,8 +190,7 @@ def _ai_provider_check() -> dict[str, Any]:
 
 
 def _migration_head() -> str:
-    backend_root = Path(__file__).resolve().parents[2]
-    script = ScriptDirectory(str(backend_root / "alembic"))
+    script = ScriptDirectory(str(resource_path("alembic")))
     return str(script.get_current_head())
 
 

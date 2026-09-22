@@ -72,8 +72,21 @@ struct NativeHostMetrics {
     os_version: Option<String>,
     os_build: Option<String>,
     hostname: Option<String>,
+    network_interfaces: Vec<String>,
     sampled_at_unix_ms: u128,
     detail: String,
+}
+
+fn local_network_interfaces() -> Vec<String> {
+    let mut items: Vec<String> = if_addrs::get_if_addrs()
+        .map(|interfaces| interfaces.into_iter()
+            .filter(|item| !item.is_loopback())
+            .map(|item| format!("{}: {}", item.name, item.ip()))
+            .take(64).collect())
+        .unwrap_or_default();
+    items.sort();
+    items.dedup();
+    items
 }
 
 #[cfg(target_os = "windows")]
@@ -490,6 +503,7 @@ fn collect_native_host_metrics() -> NativeHostMetrics {
         os_version: version_available.then(|| format!("{}.{}", version.major, version.minor)),
         os_build: version_available.then(|| version.build.to_string()),
         hostname,
+        network_interfaces: local_network_interfaces(),
         sampled_at_unix_ms: sampled_at_unix_ms(),
         detail: if available {
             "Read-only native Windows host metrics; no files, commands, environment values, or secrets were collected."
@@ -500,12 +514,51 @@ fn collect_native_host_metrics() -> NativeHostMetrics {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "linux")]
+fn collect_native_host_metrics() -> NativeHostMetrics {
+    use sysinfo::{Disks, System};
+
+    let mut system = System::new_all();
+    thread::sleep(Duration::from_millis(120));
+    system.refresh_cpu();
+    system.refresh_memory();
+    let disks = Disks::new_with_refreshed_list();
+    let disk_percent = disks.iter().find(|disk| disk.mount_point() == Path::new("/"))
+        .and_then(|disk| {
+            let total = disk.total_space();
+            (total > 0).then(||
+                ((total - disk.available_space()) as f64 / total as f64 * 100.0)
+                    .clamp(0.0, 100.0)
+            )
+        });
+    let memory_percent = (system.total_memory() > 0).then(||
+        (system.used_memory() as f64 / system.total_memory() as f64 * 100.0)
+            .clamp(0.0, 100.0)
+    );
+    NativeHostMetrics {
+        available: true,
+        source: "native_desktop".to_owned(),
+        cpu_percent: Some(f64::from(system.global_cpu_info().cpu_usage())),
+        memory_percent,
+        disk_percent,
+        uptime_seconds: Some(System::uptime()),
+        os_name: System::name(),
+        os_version: System::os_version(),
+        os_build: System::kernel_version(),
+        hostname: System::host_name(),
+        network_interfaces: local_network_interfaces(),
+        sampled_at_unix_ms: sampled_at_unix_ms(),
+        detail: "Read-only Linux host metrics from the native system provider.".to_owned(),
+        ..NativeHostMetrics::default()
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 fn collect_native_host_metrics() -> NativeHostMetrics {
     NativeHostMetrics {
         source: "unavailable".to_owned(),
         sampled_at_unix_ms: sampled_at_unix_ms(),
-        detail: "Native desktop host metrics are currently implemented only for Windows.".to_owned(),
+        detail: "Native host metrics are unavailable on this platform.".to_owned(),
         ..NativeHostMetrics::default()
     }
 }
@@ -1181,6 +1234,20 @@ mod tests {
             assert_eq!(sample.source, "native_desktop");
             assert!(sample.uptime_seconds.is_some());
             assert!(sample.hostname.is_some());
+            assert!(sample.os_version.is_some());
+            assert!(sample.memory_percent.is_some());
+            assert!(sample.disk_percent.is_some());
+            assert!(!sample.network_interfaces.is_empty());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            assert!(sample.available);
+            assert_eq!(sample.source, "native_desktop");
+            assert!(sample.uptime_seconds.is_some());
+            assert!(sample.hostname.is_some());
+            assert!(sample.os_name.is_some());
+            assert!(sample.memory_percent.is_some());
+            assert!(!sample.network_interfaces.is_empty());
         }
         let detail = sample.detail.to_ascii_lowercase();
         assert!(!detail.contains("token="));

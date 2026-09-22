@@ -182,7 +182,9 @@ def retrieve_context(
 
 
 def default_dataset_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "data" / "knowledge"
+    from app.native_runtime import resource_path
+
+    return resource_path("data", "knowledge")
 
 
 def _document_from_file(path: Path) -> KnowledgeDocument | None:

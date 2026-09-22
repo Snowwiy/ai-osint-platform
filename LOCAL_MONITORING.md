@@ -1,5 +1,7 @@
 # Local Monitoring Center
 
+Phase 5BK keeps normalized local-monitoring APIs for Windows and Linux. Tauri uses native Windows metrics or Linux sysinfo; local Linux process inventory uses `/proc`, and systemd service inventory uses system D-Bus where available. The native backend defaults to loopback. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) for platform limits and validation.
+
 ## Phase 5AA policy tuning
 
 The Monitoring Center exposes administrator-managed policies for CPU, memory, disk, stale agents, offline or unauthorized assets, risky observed services, weak coverage, high/critical findings, and overdue remediation. Safe defaults start resource alerts at 90%, apply multi-hour cooldowns and dedupe keys, and cap daily notifications. Analysts may read policy state; only administrators may change it.

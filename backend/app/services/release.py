@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -8,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.native_runtime import is_native_package, resource_path
 from app.schemas.release import ReleaseMetadataResponse
 
 
@@ -38,6 +40,14 @@ async def _migration_version(db: AsyncSession) -> str:
 def _git_commit() -> str:
     if settings.APP_GIT_COMMIT.strip():
         return settings.APP_GIT_COMMIT.strip()
+    if is_native_package():
+        try:
+            metadata = json.loads(
+                (resource_path().parent / "manifest.json").read_text(encoding="utf-8")
+            )
+            return str(metadata.get("git_commit", "unavailable"))[:40]
+        except (OSError, ValueError, TypeError):
+            return "unavailable"
     repo_root = Path(__file__).resolve().parents[3]
     try:
         result = subprocess.run(

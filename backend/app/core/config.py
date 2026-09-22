@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import os
 from typing import Literal
 
 from pydantic import AliasChoices, Field
@@ -371,7 +372,7 @@ class Settings(BaseSettings):
         return "analyst"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=os.getenv("RAVENTECH_CONFIG_FILE", ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

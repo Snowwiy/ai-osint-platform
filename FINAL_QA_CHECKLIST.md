@@ -1,5 +1,7 @@
 # RavenTech OSINT Final QA Checklist
 
+Phase 5BK: validate Windows and Linux standalone artifacts on their actual target OS; run `--version`, `--check`, migration-resource checks, health/readiness/release, native worker jobs, platform host inventory, and manifest SHA-256 checks. Report Windows and Linux live status separately. Confirm version `5.0.0-rc6`, no tag, external PostgreSQL, and no Tauri backend supervision. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+
 ## Phase 5AA — monitoring policies
 
 - [ ] Analyst can read policies and maintenance windows; unauthenticated access returns 401.

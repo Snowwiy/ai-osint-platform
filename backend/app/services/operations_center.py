@@ -19,6 +19,7 @@ from app.models.investigation import Investigation
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
+from app.native_runtime import resource_path
 from app.schemas.operations_center import (
     BackupPackageResponse,
     DiagnosticsPackageResponse,
@@ -605,8 +606,7 @@ async def _current_migration(db: AsyncSession) -> str:
 
 
 def _head_migration() -> str:
-    backend_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    script = ScriptDirectory(os.path.join(backend_root, "alembic"))
+    script = ScriptDirectory(str(resource_path("alembic")))
     return str(script.get_current_head())
 
 

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+For native backend/worker artifacts, run `--version` and read-only `--check`, then verify external PostgreSQL and applied Alembic migrations. A busy port 8000 causes a clean startup failure; the launcher never kills the owner or chooses another port. Linux systemd inventory requires local system D-Bus. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+
 For private transfer to a second Windows machine, start with
 `EXTERNAL_MACHINE_TEST_CHECKLIST.md`. Its recovery section covers missing or
 stopped Docker, fixed-port conflicts, backend/frontend reachability, project

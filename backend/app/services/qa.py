@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from alembic.script import ScriptDirectory
@@ -12,6 +11,7 @@ from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.investigation import Investigation
 from app.models.report_template import ReportTemplate
+from app.native_runtime import resource_path
 from app.schemas.qa import AdminQaStatusResponse, QaComponentStatus
 from app.services.demo import DEMO_INVESTIGATION_ID, demo_workspace_ready
 from app.services.governance import get_feature_flags
@@ -83,8 +83,7 @@ async def _current_migration(db: AsyncSession) -> str:
 
 
 def _head_migration() -> str:
-    backend_root = Path(__file__).resolve().parents[2]
-    script = ScriptDirectory(str(backend_root / "alembic"))
+    script = ScriptDirectory(str(resource_path("alembic")))
     return str(script.get_current_head())
 
 

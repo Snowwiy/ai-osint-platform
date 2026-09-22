@@ -26,6 +26,9 @@ pub struct ServiceItem {
     pub start_type: Option<String>,
     pub pid: Option<u32>,
     pub description: Option<String>,
+    pub sub_state: Option<String>,
+    pub enabled: Option<bool>,
+    pub started_at_unix: Option<u64>,
     pub action_available: bool,
     pub action_reason: String,
 }
@@ -87,13 +90,17 @@ fn process_items() -> Vec<ProcessItem> {
         let name = process.name().to_string();
         #[cfg(target_os = "windows")]
         let creation_ticks = windows::process_creation_ticks(pid).map(|value| value.to_string());
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "linux")]
+        let creation_ticks = linux::process_creation_ticks(pid);
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
         let creation_ticks = None;
         let reason = process_protection_reason(&name, pid).or_else(|| {
             #[cfg(target_os = "windows")]
             { if creation_ticks.is_none() { Some("Windows did not permit process identity verification") } else { windows::critical_process_reason(pid) } }
-            #[cfg(not(target_os = "windows"))]
-            { None }
+            #[cfg(target_os = "linux")]
+            { linux::process_protection_reason(pid, creation_ticks.as_deref()) }
+            #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+            { Some("Local process control is unavailable on this platform") }
         });
         ProcessItem {
             pid,
@@ -124,10 +131,19 @@ pub fn inventory() -> HostInventory {
             },
         }
     }
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "linux")]
+    {
+        match linux::services() {
+            Ok(services) => HostInventory { available: true, processes: process_items(), services,
+                detail: "Local Linux process and systemd D-Bus service inventory.".to_owned() },
+            Err(_) => HostInventory { available: true, processes: process_items(), services: vec![],
+                detail: "Local processes are available; systemd D-Bus inventory is unavailable.".to_owned() },
+        }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     {
         HostInventory { available: false, processes: vec![], services: vec![],
-            detail: "Local administrative inventory is available on Windows desktop only.".to_owned() }
+            detail: "Local inventory is unavailable on this platform.".to_owned() }
     }
 }
 
@@ -138,8 +154,10 @@ pub fn terminate(pid: u32, name: &str, creation_ticks: &str) -> Result<ActionRes
     validate_process_identity(&found, name, creation_ticks)?;
     #[cfg(target_os = "windows")]
     { windows::terminate(pid, creation_ticks.parse::<u64>().map_err(|_| "Invalid process identity".to_owned())?) }
-    #[cfg(not(target_os = "windows"))]
-    { Err("Local process termination is available on Windows desktop only".to_owned()) }
+    #[cfg(target_os = "linux")]
+    { linux::terminate(pid, creation_ticks) }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    { Err("Local process termination is unavailable on this platform".to_owned()) }
 }
 
 fn validate_process_identity(found: &ProcessItem, name: &str, creation_ticks: &str) -> Result<(), String> {
@@ -154,8 +172,121 @@ pub fn service_action(name: &str, action: &str) -> Result<ActionResult, String> 
     if let Some(reason) = service_protection_reason(name) { return Err(reason.to_owned()); }
     #[cfg(target_os = "windows")]
     { windows::service_action(name, action) }
-    #[cfg(not(target_os = "windows"))]
-    { let _ = name; Err("Windows service control is unavailable here".to_owned()) }
+    #[cfg(target_os = "linux")]
+    { linux::service_action(name, action) }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    { let _ = name; Err("Local service control is unavailable here".to_owned()) }
+}
+
+#[cfg(target_os = "linux")]
+mod linux {
+    use super::{ActionResult, ServiceItem};
+    use std::fs;
+    use zbus::blocking::{Connection, Proxy};
+    use zbus::zvariant::OwnedObjectPath;
+
+    type Unit = (String, String, String, String, String, String,
+        OwnedObjectPath, u32, String, OwnedObjectPath);
+
+    fn manager<'a>(connection: &'a Connection) -> Result<Proxy<'a>, String> {
+        Proxy::new(connection, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager")
+            .map_err(|_| "systemd D-Bus is unavailable".to_owned())
+    }
+
+    pub fn process_creation_ticks(pid: u32) -> Option<String> {
+        let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        let after_name = stat.rsplit_once(')')?.1;
+        after_name.split_whitespace().nth(19).map(str::to_owned)
+    }
+
+    pub fn process_protection_reason(pid: u32, identity: Option<&str>) -> Option<&'static str> {
+        if identity.is_none() { return Some("Process identity is unavailable"); }
+        let status = match fs::read_to_string(format!("/proc/{pid}/status")) {
+            Ok(value) => value, Err(_) => return Some("Process owner is unavailable"),
+        };
+        let uid = status.lines().find_map(|line| line.strip_prefix("Uid:"))
+            .and_then(|value| value.split_whitespace().next())
+            .and_then(|value| value.parse::<u32>().ok());
+        let Some(uid) = uid else { return Some("Process owner is unavailable"); };
+        if uid == 0 { Some("Root-owned process is protected") } else { None }
+    }
+
+    pub fn services() -> Result<Vec<ServiceItem>, String> {
+        let connection = Connection::system().map_err(|_| "systemd D-Bus is unavailable".to_owned())?;
+        let proxy = manager(&connection)?;
+        let units: Vec<Unit> = proxy.call("ListUnits", &())
+            .map_err(|_| "systemd service inventory is unavailable".to_owned())?;
+        let unit_files: Vec<(String, String)> = proxy.call("ListUnitFiles", &())
+            .unwrap_or_default();
+        let enabled: std::collections::HashMap<String, String> = unit_files.into_iter()
+            .filter_map(|(path, state)| std::path::Path::new(&path).file_name()
+                .map(|name| (name.to_string_lossy().into_owned(), state)))
+            .collect();
+        Ok(units.into_iter().filter(|unit| unit.0.ends_with(".service"))
+            .take(2048).map(|unit| {
+                let protected = ["systemd-", "dbus", "polkit", "network", "NetworkManager"]
+                    .iter().any(|prefix| unit.0.starts_with(prefix))
+                    || matches!(unit.0.as_str(), "ssh.service" | "sshd.service"
+                        | "systemd-resolved.service" | "getty@tty1.service");
+                let main_pid = Proxy::new(&connection, "org.freedesktop.systemd1",
+                    unit.6.clone(), "org.freedesktop.systemd1.Service")
+                    .ok().and_then(|service| service.get_property::<u32>("MainPID").ok());
+                let started_at_unix = Proxy::new(&connection, "org.freedesktop.systemd1",
+                    unit.6.clone(), "org.freedesktop.systemd1.Unit")
+                    .ok().and_then(|service| service.get_property::<u64>("ActiveEnterTimestamp").ok())
+                    .filter(|value| *value > 0).map(|value| value / 1_000_000);
+                let unit_state = enabled.get(&unit.0).cloned();
+                ServiceItem { name: unit.0, display_name: unit.1,
+                    state: match unit.3.as_str() {
+                        "active" => "running", "inactive" => "stopped",
+                        "activating" => "starting", "deactivating" => "stopping",
+                        "failed" => "stopped", _ => "unknown",
+                    }.to_owned(),
+                    start_type: unit_state.clone(), pid: main_pid.filter(|pid| *pid > 0),
+                    description: Some(format!("systemd sub-state: {}", unit.4)),
+                    sub_state: Some(unit.4),
+                    enabled: unit_state.as_deref().map(|state| state == "enabled"),
+                    started_at_unix,
+                    action_available: !protected,
+                    action_reason: if protected { "Protected systemd service" }
+                        else { "OS permission required" }.to_owned(),
+                }
+            }).collect())
+    }
+
+    pub fn terminate(pid: u32, creation_ticks: &str) -> Result<ActionResult, String> {
+        if process_creation_ticks(pid).as_deref() != Some(creation_ticks) {
+            return Err("Process identity changed; refresh before retrying".to_owned());
+        }
+        if process_protection_reason(pid, Some(creation_ticks)).is_some() {
+            return Err("Protected or unverifiable process".to_owned());
+        }
+        unsafe extern "C" { fn kill(pid: i32, signal: i32) -> i32; }
+        let pid = i32::try_from(pid).map_err(|_| "Invalid process ID".to_owned())?;
+        if unsafe { kill(pid, 15) } != 0 {
+            return Err("OS denied local process termination".to_owned());
+        }
+        Ok(ActionResult { success: true, previous_state: "running".to_owned(),
+            resulting_state: "stopping".to_owned(),
+            message: "Local SIGTERM requested".to_owned() })
+    }
+
+    pub fn service_action(name: &str, action: &str) -> Result<ActionResult, String> {
+        let previous = services()?.into_iter().find(|item| item.name == name)
+            .ok_or("Service is not in the local inventory")?;
+        if !previous.action_available { return Err(previous.action_reason); }
+        let connection = Connection::system().map_err(|_| "systemd D-Bus is unavailable".to_owned())?;
+        let proxy = manager(&connection)?;
+        let method = match action { "start" => "StartUnit", "stop" => "StopUnit",
+            "restart" => "RestartUnit", _ => return Err("Unsupported service action".to_owned()) };
+        let _: OwnedObjectPath = proxy.call(method, &(name, "replace"))
+            .map_err(|_| "OS denied local systemd action".to_owned())?;
+        let resulting = services()?.into_iter().find(|item| item.name == name)
+            .map(|item| item.state).unwrap_or_else(|| "unknown".to_owned());
+        Ok(ActionResult { success: true, previous_state: previous.state,
+            resulting_state: resulting, message: "Local systemd action requested".to_owned() })
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -282,6 +413,7 @@ mod windows {
             });
             items.push(ServiceItem { name, display_name, state: state(entry.status.state), start_type,
                 pid: (entry.status.process_id > 0).then_some(entry.status.process_id), description,
+                sub_state: None, enabled: None, started_at_unix: None,
                 action_available: reason.is_none(), action_reason: reason.unwrap_or("OS permissions and dependencies apply").to_owned() });
         }
         items.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
@@ -376,6 +508,24 @@ mod tests {
         let keys = value.as_object().unwrap();
         for forbidden in ["commandLine", "environment", "openedFiles", "credential"] {
             assert!(!keys.contains_key(forbidden));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_process_identity_and_local_inventory() {
+        let pid = std::process::id();
+        assert!(linux::process_creation_ticks(pid).is_some());
+        let sample = inventory();
+        assert!(sample.available);
+        assert!(sample.processes.iter().any(|item| item.pid == pid));
+        let json = serde_json::to_string(&sample).unwrap();
+        assert!(!json.contains("commandLine"));
+        assert!(!json.contains("environment"));
+        if std::env::var_os("RAVENTECH_EXPECT_SYSTEMD_TEST").is_some() {
+            let services = linux::services().expect("systemd D-Bus inventory must be available");
+            assert!(!services.is_empty());
+            assert!(services.iter().all(|item| item.name.ends_with(".service")));
+            assert!(services.iter().any(|item| item.sub_state.is_some()));
         }
     }
 }

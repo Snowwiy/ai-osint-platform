@@ -9,6 +9,7 @@ import ipaddress
 import json
 import os
 import platform
+import re
 import shutil
 import socket
 import time
@@ -18,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 AGENT_VERSION = "1.1.0"
+_AGENT_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
 
 def linux_form_factor() -> str | None:
@@ -121,6 +123,43 @@ def telemetry() -> dict[str, object | None]:
     }
 
 
+def host_neighbor_observations(host_ip: str) -> list[dict[str, str | None]]:
+    """Read the existing kernel ARP table; never probe or expand scope."""
+    host = ipaddress.IPv4Address(host_ip)
+    network = ipaddress.ip_network(f"{host}/24", strict=False)
+    observed_at = datetime.now(UTC).isoformat()
+    items: list[dict[str, str | None]] = []
+    try:
+        with open("/proc/net/arp", encoding="ascii") as handle:
+            lines = handle.readlines()[1:]
+    except OSError:
+        return items
+    for line in lines:
+        fields = line.split()
+        if len(fields) < 6:
+            continue
+        try:
+            address = ipaddress.IPv4Address(fields[0])
+        except ipaddress.AddressValueError:
+            continue
+        if address not in network or address == host or not address.is_private:
+            continue
+        if address.packed[-1] in (0, 255):
+            continue
+        mac: str | None = fields[3].upper()
+        if not re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", mac):
+            mac = None
+        items.append({
+            "ip_address": str(address), "mac_address": mac,
+            "interface_name": fields[5][:100],
+            "state": "reachable" if fields[2] == "0x2" else "unknown",
+            "observed_at": observed_at, "source": "host_neighbor_table",
+        })
+        if len(items) == 256:
+            break
+    return items
+
+
 def post(url: str, token: str, payload: dict[str, object | None]) -> dict[str, object]:
     request = urllib.request.Request(
         url,
@@ -138,6 +177,10 @@ def main() -> int:
     parser.add_argument("--asset-ip")
     parser.add_argument("--interval-seconds", type=int, default=30)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument(
+        "--mode", choices=("LanEndpoint", "ServerHost"), default="LanEndpoint"
+    )
+    parser.add_argument("--agent-id", default="linux-server-host")
     args = parser.parse_args()
     parsed = urlparse(args.backend_url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -151,10 +194,39 @@ def main() -> int:
             raise SystemExit("backend host must be localhost or a private IP") from None
     if not 10 <= args.interval_seconds <= 3600:
         raise SystemExit("interval must be between 10 and 3600 seconds")
+    if not _AGENT_ID.fullmatch(args.agent_id):
+        raise SystemExit("agent ID is invalid")
     address = private_ip(parsed.hostname, args.asset_ip)
     token = getpass.getpass("Paste the one-time endpoint enrollment token: ")
     base = args.backend_url.rstrip("/")
     try:
+        if args.mode == "ServerHost":
+            print("Sending read-only Linux ServerHost telemetry; press Ctrl+C to stop.")
+            while True:
+                sample = telemetry()
+                payload = {
+                    "agent_id": args.agent_id, "platform": "linux",
+                    "agent_role": "server_host", "hostname": socket.gethostname(),
+                    "ip_address": address, "os_name": sample["os_name"],
+                    "os_version": sample["os_version"],
+                    "os_build": sample["os_build"],
+                    "collected_at": sample["collected_at"],
+                    "cpu_percent": sample["cpu_percent"],
+                    "memory_percent": sample["memory_percent"],
+                    "disk_percent": sample["disk_percent"],
+                    "uptime_seconds": sample["uptime_seconds"],
+                    "process_count": sum(name.isdigit() for name in os.listdir("/proc")),
+                    "listening_tcp_ports": sample["listening_tcp_ports"],
+                    "neighbor_observations": host_neighbor_observations(address),
+                }
+                try:
+                    post(f"{base}/api/v1/monitoring/agent/ingest", token, payload)
+                    print(f"ServerHost telemetry accepted at {sample['collected_at']}.")
+                except (urllib.error.URLError, ValueError, KeyError):
+                    print("ServerHost telemetry was not accepted; check local policy and token.")
+                if args.once:
+                    return 0
+                time.sleep(args.interval_seconds)
         registered = post(f"{base}/api/v1/monitoring/agent/register", token, {
             "ip_address": address, "hostname": socket.gethostname(), "asset_type": "endpoint",
             "os_name": platform.system(), "os_version": platform.release(),

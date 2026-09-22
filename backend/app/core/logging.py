@@ -5,9 +5,11 @@ import logging
 import re
 from contextvars import ContextVar, Token
 from datetime import UTC, datetime
-from typing import Any
+from logging.handlers import RotatingFileHandler
+from typing import Any, Literal
 
 from app.core.config import settings
+from app.native_runtime import is_native_package, native_paths
 
 _request_id: ContextVar[str] = ContextVar("request_id", default="")
 _SENSITIVE_KEYS = {
@@ -66,9 +68,17 @@ def get_request_id() -> str:
     return _request_id.get()
 
 
-def configure_logging() -> None:
+def configure_logging(component: Literal["backend", "worker"] = "backend") -> None:
     level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
-    handler = logging.StreamHandler()
+    if is_native_package():
+        path = native_paths().logs
+        path.mkdir(parents=True, exist_ok=True)
+        handler: logging.Handler = RotatingFileHandler(
+            path / f"{component}.log", maxBytes=2_000_000, backupCount=3,
+            encoding="utf-8",
+        )
+    else:
+        handler = logging.StreamHandler()
     handler.setFormatter(JsonLogFormatter())
     root_logger = logging.getLogger()
     root_logger.handlers = [handler]

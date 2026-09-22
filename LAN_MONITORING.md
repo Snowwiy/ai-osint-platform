@@ -1,5 +1,7 @@
 # Authorized LAN Monitoring
 
+The manual Linux ServerHost agent can report existing `/proc/net/arp` neighbors within its private local /24. It does not probe hosts, alter router configuration, or expand the authorized LAN boundary. Native backend binaries default to loopback; private-LAN binding and host firewall policy require an explicit operator choice. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+
 ## RC3 freeze boundary
 
 The `5.0.0-rc6` validated mode is local Docker Compose. LAN monitoring and TCP

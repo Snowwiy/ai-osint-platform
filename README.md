@@ -1,5 +1,7 @@
 # RavenTech OSINT
 
+Phase 5BK adds separate standalone Windows and Linux backend/worker build scripts. The native desktop profile uses PostgreSQL jobs without Redis or Celery; PostgreSQL remains external, and Tauri does not yet supervise these processes. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md). Docker and Python development modes remain supported.
+
 ## Phase 5AA monitoring controls
 
 Monitoring Center includes safe policy tuning and maintenance windows for existing local, LAN, endpoint-agent, and vulnerability-baseline signals. Administrators manage thresholds, severity overrides, cooldowns, dedupe keys, daily caps, and audited suppression; analysts can review configuration under existing RBAC. Maintenance never deletes alerts or pauses collection.

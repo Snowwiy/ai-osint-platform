@@ -34,6 +34,7 @@ desktop/src-tauri/gen/
 desktop/dist-portable/
 desktop/dist-installer/
 desktop/dist-local-release/
+desktop/dist-native/
 
 # IDE
 .idea/

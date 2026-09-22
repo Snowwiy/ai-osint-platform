@@ -1,4 +1,6 @@
-# Native background jobs (Phases 5BI–5BJ)
+# Native background jobs (Phases 5BI–5BK)
+
+Phase 5BK packages the fixed PostgreSQL worker as a standalone Windows or Linux component. It still requires external PostgreSQL and is not yet supervised by Tauri. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
 RavenTech has a PostgreSQL job engine. Set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` from `backend` to process allowlisted jobs without Redis or Celery. Docker installations retain their `celery` default; development may set `BACKGROUND_JOB_BACKEND=native` directly. PostgreSQL and the FastAPI backend remain required; Redis, Celery, and Docker support are retained.
 
@@ -44,7 +46,7 @@ If a worker stops, restart it and inspect its heartbeat and failed jobs in Opera
 
 ## Docker decoupling roadmap
 
-5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Package FastAPI as a backend executable. 5BL: Tauri supervisor for native backend and worker. 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Clean machine native desktop acceptance. 5BP+: Knowledge/Obsidian ingestion. Phases after 5BJ are documentation only here.
+5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker. 5BM: Local PostgreSQL bootstrap. 5BN: Docker optional desktop runtime. 5BO: Clean machine native desktop acceptance. 5BP+: Knowledge/Obsidian ingestion. Phases after 5BK remain documentation only here.
 
 ## Phase 5BJ desktop profile
 
