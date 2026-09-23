@@ -103,14 +103,18 @@ test("present desktop artifacts keep strict allowlists", async () => {
       if (error?.code === "ENOENT") continue;
       throw error;
     }
-    let expectedEntries = allowlist;
-    if (directory === "dist-portable" && !(JSON.parse(await readFile(resolve(root, "portable-manifest.json"), "utf8")).nativeRuntime)) {
-      expectedEntries = allowlist.filter((name) => name !== "native-runtime");
+    if (directory === "dist-portable") {
+      const manifest = JSON.parse(await readFile(resolve(root, "portable-manifest.json"), "utf8"));
+      assert.equal(manifest.nativeRuntime?.postgresql?.major, 16);
     }
-    if (directory === "dist-local-release" && !JSON.parse(await readFile(resolve(root, "local-release-manifest.json"), "utf8")).postgresqlRequired) {
-      expectedEntries = allowlist.filter((name) => name !== "native-runtime");
+    if (directory === "dist-local-release") {
+      const manifest = JSON.parse(await readFile(resolve(root, "local-release-manifest.json"), "utf8"));
+      assert.equal(manifest.postgresqlRequired, false);
+      assert.equal(manifest.managedPostgresql?.major, 16);
+      assert.equal(manifest.boundaries?.managedPostgresqlRuntime, true);
+      assert.equal(manifest.boundaries?.initializedDatabase, false);
     }
-    assert.deepEqual(entries, expectedEntries.sort());
+    assert.deepEqual(entries, allowlist.sort());
     for (const entry of entries) assert.equal((await stat(resolve(root, entry))).isFile(), entry !== "native-runtime");
   }
 });

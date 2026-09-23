@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--version", action="store_true")
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--migration-status", action="store_true")
+    mode.add_argument("--upgrade-database", action="store_true")
     mode.add_argument("--serve", action="store_true")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -56,6 +57,25 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             print("Migration status is unavailable.", file=sys.stderr)
             return 2
+    if args.upgrade_database:
+        try:
+            from alembic import command
+            from alembic.config import Config
+
+            from app.native_runtime import resource_path
+
+            config = Config()
+            config.set_main_option("script_location", str(resource_path("alembic")))
+            command.upgrade(config, "head")
+            print("Database migrations are current.")
+            return 0
+        except Exception:
+            print(
+                "Database migration failed. Existing data was preserved; "
+                "review the sanitized runtime status.",
+                file=sys.stderr,
+            )
+            return 2
     from app.native_runtime import prepare_native_directories
 
     try:
@@ -81,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
         watcher_stop = threading.Event()
         watcher = None
         if stop_file:
+
             def watch_desktop_shutdown() -> None:
                 while not watcher_stop.wait(0.5):
                     if os.path.isfile(stop_file):

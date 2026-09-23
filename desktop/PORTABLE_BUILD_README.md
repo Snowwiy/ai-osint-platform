@@ -1,26 +1,29 @@
 # RavenTech OSINT Desktop 5.0.0-rc6 — Windows Portable Build
 
-This folder is a private local-test portable build. It contains the Tauri shell
-and fixed PyInstaller backend/worker runtime folders; it does not contain an
-installer, signing, updater, database, credentials, or public deployment.
+This folder is a private local-test portable build. Managed PostgreSQL 16 is included.
+It contains the Tauri shell, fixed PyInstaller backend/worker runtime folders,
+and the PostgreSQL runtime; it
+does not contain an installer, signing, updater, user database, credentials,
+or public deployment.
 This copy-only package has no installer.
 
 ## Prerequisites
 
 - supported Windows with Microsoft Edge WebView2 Runtime
-- a host-reachable PostgreSQL instance and a local RavenTech configuration
-  file under the platform-native application config directory
+- a local RavenTech configuration file under the platform-native application
+  config directory; fresh native installs use managed PostgreSQL
 - Docker Desktop only when choosing the Docker compatibility profile
 - Node.js/npm only when rebuilding or running browser/development mode
 
-The desktop starts and supervises only its fixed native backend and worker
-children. PostgreSQL remains external; configure its host-reachable URL in the
-native runtime config. Redis/Celery are not required in the native desktop
-profile. Docker remains available as a separate compatibility profile.
+Fresh native installs start and supervise managed PostgreSQL, backend, and
+worker children. Existing external database configuration remains supported.
+Redis/Celery are not required in the native desktop profile. Docker remains
+available as a separate compatibility profile.
 
 ## Run the portable application
 
-Double-click `RavenTech OSINT Desktop.exe` after PostgreSQL is available.
+Double-click `RavenTech OSINT Desktop.exe`; first launch initializes managed
+PostgreSQL 16 on loopback port 55432.
 The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc6`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
 repository-owned local-candidate asset; public brand approval remains deferred.
@@ -44,8 +47,8 @@ there is no broad folder browser or arbitrary command input.
 
 ## Troubleshooting
 
-- **PostgreSQL unavailable:** start or configure the external PostgreSQL
-  service; automatic PostgreSQL setup is deferred to Phase 5BM.
+- **PostgreSQL unavailable:** Local Runtime shows a sanitized reason. A port
+  conflict is not taken over, and existing data is preserved.
 - **Backend port conflict:** review the application using loopback port 8000.
   RavenTech does not stop or reconfigure unrelated processes.
 - **Readiness degraded:** use Local Runtime status and the platform-native
@@ -65,7 +68,8 @@ the folder between local test locations.
 - Windows x86_64 portable local testing; Linux x86_64 packaging is documented
   separately; no public release or support SLA
 - unsigned executable with the repository-owned RavenTech local-candidate icon
-- PostgreSQL remains external; Docker is an alternative compatibility runtime
+- Fresh native installs use managed PostgreSQL; external PostgreSQL and Docker
+  remain supported compatibility options
 - no OS startup persistence/autostart; child processes stop with this desktop
 - no arbitrary command input, shell/filesystem plugin, secret collection,
   remote administration, router

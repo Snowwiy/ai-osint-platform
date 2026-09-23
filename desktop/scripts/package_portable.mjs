@@ -32,6 +32,7 @@ for (const [source, name] of copies) await copyFile(source, resolve(output, name
 await mkdir(resolve(output, "native-runtime"), { recursive: true });
 await cp(nativeRuntime.backend, resolve(output, "native-runtime", "backend"), { recursive: true, errorOnExist: true });
 await cp(nativeRuntime.worker, resolve(output, "native-runtime", "worker"), { recursive: true, errorOnExist: true });
+await cp(nativeRuntime.postgresql.directory, resolve(output, "native-runtime", "postgresql"), { recursive: true, errorOnExist: true });
 
 async function sha256(name) {
   return createHash("sha256").update(await readFile(resolve(output, name))).digest("hex");
@@ -51,6 +52,7 @@ const manifest = {
     requiredExternalDependencies: nativeRuntime.requiredExternalDependencies,
     backend: { binary: nativeRuntime.components.backend.binary, sha256: nativeRuntime.components.backend.sha256, sizeBytes: nativeRuntime.components.backend.sizeBytes, fileCount: nativeRuntime.components.backend.fileCount },
     worker: { binary: nativeRuntime.components.worker.binary, sha256: nativeRuntime.components.worker.sha256, sizeBytes: nativeRuntime.components.worker.sizeBytes, fileCount: nativeRuntime.components.worker.fileCount },
+    postgresql: { version: nativeRuntime.postgresql.version, major: 16, totalBytes: nativeRuntime.postgresql.totalBytes },
   },
   boundaries: {
     installer: false,
@@ -62,6 +64,8 @@ const manifest = {
     arbitraryCommandExecution: false,
     embeddedBackend: true,
     embeddedDatabase: false,
+    managedPostgresqlRuntime: true,
+    initializedDatabase: false,
     hosting: false,
     deployment: false,
     dns: false,

@@ -48,7 +48,7 @@ type NativeRuntimePayload = {
   runtimeMode: string;
   backend: { state: string; ownership: string; pid: number | null; lastError: string | null };
   worker: { state: string; ownership: string; pid: number | null; lastError: string | null };
-  postgresql: { required: boolean; state: string };
+  postgresql: { required: boolean; state: string; mode?: string; ownership?: string; version?: string | null; port?: number | null; localOnly?: boolean; migrationState?: string; restartCount?: number; lastErrorCode?: string | null; lastError?: string | null };
 };
 
 function isNativeRuntimePayload(value: unknown): value is NativeRuntimePayload {
@@ -296,7 +296,7 @@ export function OperationsCenterPage(): JSX.Element {
 
 function ApplicationRuntimePanel({ status, t }: { status: NativeRuntimePayload | null; t: (value: string) => string }): JSX.Element {
   const components = status ? [
-    [t("Backend"), status.backend], [t("Native worker"), status.worker], [t("PostgreSQL dependency"), { state: status.postgresql.state, ownership: "external", pid: null, lastError: null }],
+    [t("Backend"), status.backend], [t("Native worker"), status.worker], [t("PostgreSQL dependency"), { state: status.postgresql.state, ownership: status.postgresql.ownership ?? "external", pid: null, lastError: status.postgresql.lastError ?? null }],
   ] as const : [];
   return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("Application Runtime")}>
     <h2 className="text-lg font-semibold">{t("Application Runtime")}</h2>

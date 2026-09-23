@@ -6,7 +6,7 @@ The Tauri application owns the native runtime lifecycle. On release builds, it r
 
 The supervisor acquires an application-wide lease (a per-user named mutex on Windows and an OS file lock on Linux) before it can start children. This prevents a second desktop instance from starting another worker. It probes loopback port 8000 and validates the health contract, release metadata, expected version `5.0.0-rc6`, `RUNTIME_PROFILE=desktop`, and native PostgreSQL job engine. A healthy compatible pre-existing backend is marked external. An incompatible or unrelated service is reported as a version mismatch or port conflict; RavenTech does not terminate it or choose another port.
 
-The backend is launched with fixed `--serve` arguments. The supervisor waits for database, migration, and storage checks before starting the worker with fixed `--run` arguments. Worker readiness comes from the existing PostgreSQL heartbeat, not a second worker-state store. PostgreSQL is external and required. Redis and Celery are optional in native mode. Package version and platform are checked before execution.
+The backend is launched with fixed `--serve` arguments. The supervisor waits for database, migration, and storage checks before starting the worker with fixed `--run` arguments. Worker readiness comes from the existing PostgreSQL heartbeat, not a second worker-state store. For a fresh native desktop installation, PostgreSQL 16 is managed as a local child; configured external databases remain external. Redis and Celery are optional in native mode. Package version and platform are checked before execution. See [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
 
 ## Monitoring and recovery
 
@@ -28,4 +28,4 @@ The runtime's Windows configuration remains under `%LOCALAPPDATA%\RavenTech OSIN
 
 ## Validation limits and roadmap
 
-This phase targets Windows x86_64 and Linux x86_64. Linux WSL execution is Linux runtime evidence, not clean-machine acceptance. A Linux GUI result must be reported separately from Linux supervisor-core tests. PostgreSQL bootstrapping remains Phase 5BM; full Docker-optional desktop operation, clean-machine acceptance, and Knowledge ingestion remain future phases. Knowledge imports must later use the fixed PostgreSQL job abstraction, not a direct Celery call.
+This phase targets Windows x86_64 and Linux x86_64. Linux WSL execution is Linux runtime evidence, not clean-machine acceptance. A Linux GUI result must be reported separately from Linux supervisor-core tests. Phase 5BM adds the managed PostgreSQL child; Docker-optional finalization, clean-machine acceptance, and Knowledge ingestion remain future phases. Knowledge imports must later use the fixed PostgreSQL job abstraction, not a direct Celery call.

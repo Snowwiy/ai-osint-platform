@@ -43,6 +43,7 @@ async def health_snapshot(redis: Any, *, include_ready: bool) -> dict[str, Any]:
         "status": status,
         "environment": settings.APP_ENVIRONMENT,
         "runtime_profile": settings.RUNTIME_PROFILE,
+        "database_runtime": settings.DATABASE_RUNTIME,
         "background_job_backend": settings.background_engine,
         "background_engine": settings.background_engine,
         "required_dependencies": required,

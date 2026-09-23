@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     DATABASE_CONNECT_RETRIES: int = 5
     DATABASE_CONNECT_RETRY_SECONDS: float = 1.0
     DATABASE_STATEMENT_TIMEOUT_MS: int = 30_000
+    DATABASE_RUNTIME: Literal["managed", "external"] = "external"
 
     REDIS_URL: str = "redis://localhost:6379/0"
     RUNTIME_PROFILE: Literal["desktop", "docker", "development"] = "docker"

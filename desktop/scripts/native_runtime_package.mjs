@@ -23,8 +23,19 @@ export function nativeSourceRoots(desktop = DESKTOP, platform = process.platform
   throw new Error("Native runtime packaging supports x86_64 Windows and Linux only.");
 }
 
-async function validateTree(root) {
+async function validateTree(root, { postgresqlRuntime = false } = {}) {
   const prohibited = /(^|\/)(\.env(?:\..*)?|backups?|uploads?|logs?)(\/|$)/i;
+  const postgresDataFiles = new Set([
+    "pg_version", "pg_control", "postmaster.pid", "postmaster.opts",
+    "postgresql.conf", "postgresql.auto.conf", "pg_hba.conf", "pg_ident.conf",
+    "pgpass", ".pgpass", "pgpass.conf", "database.secret", "ownership.json",
+  ]);
+  const postgresDataDirectories = new Set([
+    "base", "global", "pg_commit_ts", "pg_dynshmem", "pg_logical",
+    "pg_multixact", "pg_notify", "pg_replslot", "pg_serial", "pg_snapshots",
+    "pg_stat", "pg_stat_tmp", "pg_subtrans", "pg_tblspc", "pg_twophase",
+    "pg_wal", "pg_xact",
+  ]);
   const rootPath = resolve(root);
   const isWithinRoot = (path) => {
     const fromRoot = pathRelative(rootPath, path);
@@ -34,6 +45,11 @@ async function validateTree(root) {
     const output = [];
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const childRelative = relative ? `${relative}/${entry.name}` : entry.name;
+      const loweredName = entry.name.toLowerCase();
+      if (postgresqlRuntime && (
+        postgresDataFiles.has(loweredName)
+        || postgresDataDirectories.has(loweredName)
+      )) throw new Error(`PostgreSQL data, credentials, or cluster configuration is prohibited: ${childRelative}`);
       if (prohibited.test(childRelative) || /\.(key|pfx|p12|db|sqlite|dump|log)$/i.test(childRelative)) throw new Error(`Forbidden native runtime resource: ${childRelative}`);
       const path = resolve(directory, entry.name);
       if (entry.isSymbolicLink()) {
@@ -56,6 +72,10 @@ async function validateTree(root) {
     return output;
   };
   return walk(root);
+}
+
+export async function validatePostgresqlRuntimeTree(root) {
+  return validateTree(root, { postgresqlRuntime: true });
 }
 
 export async function validateNativeRuntime({ desktop = DESKTOP, platform = process.platform } = {}) {
@@ -81,5 +101,36 @@ export async function validateNativeRuntime({ desktop = DESKTOP, platform = proc
     const files = await validateTree(directory);
     components[name] = { directory, binary: binaryName, sha256, sizeBytes: bytes.length, fileCount: files.length, totalBytes: files.reduce((sum, file) => sum + file.size, 0) };
   }
-  return { ...paths, components, packagingEngine: "PyInstaller", requiredExternalDependencies: ["PostgreSQL", "external configuration"] };
+  const postgresDirectory = resolve(desktop, "dist-native", `${paths.os}-x86_64`, "postgresql");
+  const postgresManifest = JSON.parse(await readFile(resolve(postgresDirectory, "manifest.json"), "utf8"));
+  if (postgresManifest.component !== "postgresql" || postgresManifest.major_version !== 16 || postgresManifest.os !== paths.os || postgresManifest.architecture !== "x86_64" || postgresManifest.compatible_raventech_version !== VERSION) {
+    throw new Error("The managed PostgreSQL manifest does not match this desktop target.");
+  }
+  const postgresFiles = {};
+  for (const name of [paths.os === "windows" ? "postgres.exe" : "postgres", paths.os === "windows" ? "initdb.exe" : "initdb", paths.os === "windows" ? "psql.exe" : "psql", paths.os === "windows" ? "pg_isready.exe" : "pg_isready", paths.os === "windows" ? "pg_ctl.exe" : "pg_ctl"]) {
+    const path = resolve(postgresDirectory, "bin", name);
+    const bytes = await readFile(path);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const relativePath = `bin/${name}`;
+    if (postgresManifest.files?.[relativePath]?.sha256 !== sha256 || postgresManifest.files?.[relativePath]?.size_bytes !== bytes.length) throw new Error(`PostgreSQL runtime checksum mismatch: ${name}`);
+    postgresFiles[name] = { sha256, sizeBytes: bytes.length };
+  }
+  const postgresVersion = spawnSync(resolve(postgresDirectory, "bin", paths.os === "windows" ? "postgres.exe" : "postgres"), ["--version"], { cwd: postgresDirectory, shell: false, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  if (postgresVersion.error || postgresVersion.status !== 0 || !postgresVersion.stdout.includes("PostgreSQL) 16.")) throw new Error("The bundled PostgreSQL executable failed its version check.");
+  const sharePath = resolve(postgresDirectory, "share");
+  if (!(await stat(sharePath)).isDirectory() || (await readdir(sharePath)).length === 0) throw new Error("The bundled PostgreSQL share resources are missing.");
+  const moduleName = paths.os === "windows" ? "dict_snowball.dll" : "dict_snowball.so";
+  const modulePath = resolve(postgresDirectory, "lib", moduleName);
+  const moduleBytes = await readFile(modulePath);
+  const moduleManifest = postgresManifest.files?.[`lib/${moduleName}`];
+  if (!moduleManifest || moduleManifest.sha256 !== createHash("sha256").update(moduleBytes).digest("hex") || moduleManifest.size_bytes !== moduleBytes.length) throw new Error("The PostgreSQL runtime shared-module resource is missing or invalid.");
+  const postgresTree = await validatePostgresqlRuntimeTree(postgresDirectory);
+  for (const file of postgresTree) {
+    if (file.path === "manifest.json") continue;
+    const bytes = await readFile(resolve(postgresDirectory, file.path));
+    const expected = postgresManifest.files?.[file.path];
+    if (!expected || expected.sha256 !== createHash("sha256").update(bytes).digest("hex") || expected.size_bytes !== bytes.length) throw new Error(`PostgreSQL runtime resource checksum mismatch: ${file.path}`);
+  }
+  const postgresTotalBytes = postgresTree.reduce((sum, file) => sum + file.size, 0);
+  return { ...paths, components, postgresql: { directory: postgresDirectory, version: postgresVersion.stdout.trim(), manifest: postgresManifest, files: postgresFiles, totalBytes: postgresTotalBytes }, packagingEngine: "PyInstaller", requiredExternalDependencies: paths.os === "linux" ? ["Linux shared libraries listed in the PostgreSQL runtime manifest"] : [] };
 }

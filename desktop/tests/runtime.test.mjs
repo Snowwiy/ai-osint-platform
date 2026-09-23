@@ -9,6 +9,8 @@ const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
 const supervisor = await readFile(resolve(desktop, "src-tauri/src/runtime_supervisor.rs"), "utf8");
+const managedPostgres = await readFile(resolve(desktop, "src-tauri/src/managed_postgres.rs"), "utf8");
+const postgresDocs = await readFile(resolve(desktop, "../MANAGED_POSTGRESQL_RUNTIME.md"), "utf8");
 const config = JSON.parse(await readFile(resolve(desktop, "src-tauri/tauri.conf.json"), "utf8"));
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri/capabilities/default.json"), "utf8"));
 const build = await readFile(resolve(desktop, "scripts/build.mjs"), "utf8");
@@ -108,9 +110,23 @@ test("native supervisor controls only leased child handles and shuts down cooper
   for (const marker of ["CreateMutexW", "flock", "owns_lease", "children.backend", "children.worker", "RAVENTECH_DESKTOP_STOP_FILE", "backend.stop", "worker.stop", "worker_stopped", "runtime-audit.jsonl", "WORKER_STOP_LIMIT", "BACKEND_STOP_LIMIT"]) {
     assert.ok(supervisor.includes(marker), `missing ownership or shutdown contract: ${marker}`);
   }
-  assert.match(supervisor, /action != "start" && \(component_status\.ownership != "owned"/);
+  assert.match(supervisor, /action != "start"\s*&&\s*\(component_status\.ownership != "owned"/);
   assert.match(supervisor, /if action == "start" && !self\.can_spawn\(\)/);
   assert.doesNotMatch(supervisor, /taskkill|systemctl|powershell|bash -c|sh -c|eval\(|exec\(/i);
   assert.match(app, /raventech-native-runtime-status/);
   assert.match(html, /runtimeTitle/);
+});
+
+test("managed PostgreSQL is fixed, loopback-only, data-preserving, and cross-platform", () => {
+  for (const marker of ["POSTGRES_MAJOR: u32 = 16", "MANAGED_PORT: u16 = 55432", "initdb", "pg_ctl", "scram-sha-256", "127.0.0.1", "ownership.json", "ExistingClusterWithoutMarker", "UnknownDataDirectory", "runtime_format", "installation_id", "NOLOGIN"]) {
+    assert.ok(managedPostgres.includes(marker), `missing managed PostgreSQL safeguard: ${marker}`);
+  }
+  assert.match(managedPostgres, /target_os = "linux"[\s\S]*?LD_LIBRARY_PATH/);
+  assert.match(managedPostgres, /target_os = "windows"[\s\S]*?creation_flags/);
+  assert.doesNotMatch(managedPostgres, /0\.0\.0\.0\/0|Command::new\(\s*\w+\s*\)\.arg\("-c"\)/);
+  for (const marker of ["PostgreSQL 16", "55432", "SCRAM-SHA-256", "Existing-managed-database migration backup", "WSL result is not a clean Linux machine result"]) {
+    assert.ok(postgresDocs.includes(marker), `missing managed PostgreSQL operator documentation: ${marker}`);
+  }
+  assert.ok(app.includes("dbManaged") && app.includes("dbExternal") && app.includes("dbLocalOnly"));
+  assert.ok(app.includes("El puerto 55432 está ocupado"));
 });

@@ -2,16 +2,16 @@
 
 This private Windows package contains the RC6 portable desktop executable and
 the unsigned NSIS installer. It is for local operator testing only. It is not a
-signed or public release. It includes the fixed native backend/worker runtime;
-PostgreSQL remains external; project data, reports, credentials, and secrets
+signed or public release. It includes the fixed native backend, worker, and
+managed PostgreSQL 16 runtime; project data, reports, credentials, and secrets
 remain outside the package.
 
-## PostgreSQL prerequisite
+## PostgreSQL runtime
 
-Start or configure a host-reachable PostgreSQL instance and create the
-platform-native runtime config. Windows configuration is stored at
-`%LOCALAPPDATA%\RavenTech OSINT\config\.env`. Docker remains an optional
-compatibility profile.
+Fresh native installs bootstrap PostgreSQL locally on loopback port 55432.
+Existing external database configuration remains supported. Windows
+configuration is stored at `%LOCALAPPDATA%\RavenTech OSINT\config\.env`.
+Persistent managed database files live outside this package. Docker remains an optional compatibility profile.
 
 The desktop includes the built React frontend and expects the backend at
 `http://localhost:8000`. `http://localhost:5173` and `npm run dev` are optional
@@ -23,7 +23,7 @@ children owned by this desktop.
 ## Portable app
 
 Run `RavenTech OSINT Desktop.exe` directly. No installation is performed. Keep
-PostgreSQL available; Vite is not required.
+the managed database files; Vite is not required.
 
 ## Unsigned installer
 
@@ -31,7 +31,7 @@ Run `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe`. Windows SmartScreen
 may warn because this local candidate is unsigned. Review the filename and
 SHA-256 checksum before choosing to continue. The current-user installer adds
 the desktop shell and native backend/worker runtime resources; it does not
-install PostgreSQL or add operating-system startup persistence.
+install an external PostgreSQL server or add operating-system startup persistence.
 
 To uninstall, use **Settings > Apps > Installed apps > RavenTech OSINT Desktop**
 or the uninstall shortcut created by NSIS. Project files and Docker data are
@@ -45,10 +45,11 @@ time, unsigned/local-only status, and explicit runtime boundaries.
 
 ## Limitations and release boundary
 
-- PostgreSQL remains an external local prerequisite. Redis/Celery are not
-  required in native desktop mode; Docker compatibility remains available.
-- There is no code signing, auto-update, public release, operating-system
-  autostart, or bundled database.
+- Managed PostgreSQL 16 is included for fresh native desktop installs. External
+  PostgreSQL and Docker compatibility remain supported; Redis/Celery are not
+  required in native desktop mode.
+- There is no code signing, auto-update, public release, or operating-system
+  autostart.
 - There are no hosting, deployment, DNS, or Supabase migration changes.
 - There is no router automation, arbitrary or remote command execution, remote
   administration, scanning addition, or offensive functionality.

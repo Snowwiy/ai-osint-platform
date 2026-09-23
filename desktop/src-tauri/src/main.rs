@@ -11,6 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 mod local_host;
+mod managed_postgres;
 mod runtime_supervisor;
 
 const LOOPBACK: &str = "127.0.0.1:8000";
@@ -59,7 +60,6 @@ struct ServiceSnapshot {
     setup: ProjectSetup,
 }
 
-
 #[derive(Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct NativeHostMetrics {
@@ -80,10 +80,14 @@ struct NativeHostMetrics {
 
 fn local_network_interfaces() -> Vec<String> {
     let mut items: Vec<String> = if_addrs::get_if_addrs()
-        .map(|interfaces| interfaces.into_iter()
-            .filter(|item| !item.is_loopback())
-            .map(|item| format!("{}: {}", item.name, item.ip()))
-            .take(64).collect())
+        .map(|interfaces| {
+            interfaces
+                .into_iter()
+                .filter(|item| !item.is_loopback())
+                .map(|item| format!("{}: {}", item.name, item.ip()))
+                .take(64)
+                .collect()
+        })
         .unwrap_or_default();
     items.sort();
     items.dedup();
@@ -264,90 +268,162 @@ fn fixed_http_get(address: &str, path: &str) -> Option<(u16, String, Option<Stri
 }
 
 fn local_admin_post(token: &str, path: &str, body: &Value) -> bool {
-    if token.len() < 20 || token.len() > 8192 || !token.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')) {
+    if token.len() < 20
+        || token.len() > 8192
+        || !token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+    {
         return false;
     }
-    let Ok(address) = LOOPBACK.parse::<SocketAddr>() else { return false; };
-    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_secs(3)) else { return false; };
+    let Ok(address) = LOOPBACK.parse::<SocketAddr>() else {
+        return false;
+    };
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_secs(3)) else {
+        return false;
+    };
     let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
     let payload = body.to_string();
     let request = format!("POST {path} HTTP/1.1\r\nHost: localhost:8000\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}", payload.len());
-    if stream.write_all(request.as_bytes()).is_err() { return false; }
-    let mut bytes = Vec::new();
-    if stream.take(8192).read_to_end(&mut bytes).is_err() { return false; }
-    let response = String::from_utf8_lossy(&bytes);
-    let Some((headers, body)) = response.split_once("\r\n\r\n") else { return false; };
-    if headers.lines().next().and_then(|line| line.split_whitespace().nth(1)) != Some("200") {
+    if stream.write_all(request.as_bytes()).is_err() {
         return false;
     }
-    let expected = if path.ends_with("/authorize") { "authorized" } else { "recorded" };
-    serde_json::from_str::<Value>(body).ok()
-        .and_then(|value| value.get(expected).and_then(Value::as_bool)) == Some(true)
+    let mut bytes = Vec::new();
+    if stream.take(8192).read_to_end(&mut bytes).is_err() {
+        return false;
+    }
+    let response = String::from_utf8_lossy(&bytes);
+    let Some((headers, body)) = response.split_once("\r\n\r\n") else {
+        return false;
+    };
+    if headers
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        != Some("200")
+    {
+        return false;
+    }
+    let expected = if path.ends_with("/authorize") {
+        "authorized"
+    } else {
+        "recorded"
+    };
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|value| value.get(expected).and_then(Value::as_bool))
+        == Some(true)
 }
 
 fn authorize_host(token: &str, action: &str, target: &str, confirmed: bool) -> bool {
-    local_admin_post(token, "/api/v1/monitoring/local-host/authorize", &serde_json::json!({
-        "action": action, "target": target, "confirmed": confirmed,
-    }))
+    local_admin_post(
+        token,
+        "/api/v1/monitoring/local-host/authorize",
+        &serde_json::json!({
+            "action": action, "target": target, "confirmed": confirmed,
+        }),
+    )
 }
 
-fn audit_host_result(token: &str, action: &str, target: &str, result: &Result<local_host::ActionResult, String>) -> bool {
+fn audit_host_result(
+    token: &str,
+    action: &str,
+    target: &str,
+    result: &Result<local_host::ActionResult, String>,
+) -> bool {
     let (previous, resulting) = match result {
-        Ok(value) => (value.previous_state.as_str(), value.resulting_state.as_str()),
+        Ok(value) => (
+            value.previous_state.as_str(),
+            value.resulting_state.as_str(),
+        ),
         Err(_) => ("unknown", "failed"),
     };
-    local_admin_post(token, "/api/v1/monitoring/local-host/result", &serde_json::json!({
-        "action": action, "target": target, "success": result.is_ok(),
-        "previous_state": previous, "resulting_state": resulting,
-    }))
+    local_admin_post(
+        token,
+        "/api/v1/monitoring/local-host/result",
+        &serde_json::json!({
+            "action": action, "target": target, "success": result.is_ok(),
+            "previous_state": previous, "resulting_state": resulting,
+        }),
+    )
 }
 
 fn require_exact_confirmation(expected: &str, supplied: &str) -> Result<(), String> {
-    if supplied == expected { Ok(()) } else { Err("Target confirmation did not match".to_owned()) }
+    if supplied == expected {
+        Ok(())
+    } else {
+        Err("Target confirmation did not match".to_owned())
+    }
 }
 
 #[tauri::command]
 async fn get_local_host_inventory(token: String) -> Result<local_host::HostInventory, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        if !authorize_host(&token, "service_inventory", "", false) || !authorize_host(&token, "process_inventory", "", false) {
+        if !authorize_host(&token, "service_inventory", "", false)
+            || !authorize_host(&token, "process_inventory", "", false)
+        {
             return Err("Admin authorization is required for local host inventory".to_owned());
         }
         Ok(local_host::inventory())
-    }).await.map_err(|_| "Local inventory was interrupted".to_owned())?
+    })
+    .await
+    .map_err(|_| "Local inventory was interrupted".to_owned())?
 }
 
 #[tauri::command]
-async fn terminate_local_process(token: String, pid: u32, name: String, creation_ticks: String, confirmation: String) -> Result<local_host::ActionResult, String> {
+async fn terminate_local_process(
+    token: String,
+    pid: u32,
+    name: String,
+    creation_ticks: String,
+    confirmation: String,
+) -> Result<local_host::ActionResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let target = format!("{name} ({pid})");
         require_exact_confirmation(&target, &confirmation)?;
-        if !authorize_host(&token, "process_terminate", &target, true) { return Err("Admin authorization was denied".to_owned()); }
+        if !authorize_host(&token, "process_terminate", &target, true) {
+            return Err("Admin authorization was denied".to_owned());
+        }
         let result = local_host::terminate(pid, &name, &creation_ticks);
         if !audit_host_result(&token, "process_terminate", &target, &result) {
             return Err("Action outcome could not be audited; refresh local status".to_owned());
         }
         result
-    }).await.map_err(|_| "Local process action was interrupted".to_owned())?
+    })
+    .await
+    .map_err(|_| "Local process action was interrupted".to_owned())?
 }
 
 #[tauri::command]
-async fn control_local_service(token: String, name: String, display_name: String, action: String, confirmation: String) -> Result<local_host::ActionResult, String> {
+async fn control_local_service(
+    token: String,
+    name: String,
+    display_name: String,
+    action: String,
+    confirmation: String,
+) -> Result<local_host::ActionResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let target = format!("{display_name} ({name})");
         require_exact_confirmation(&target, &confirmation)?;
         let current = local_host::inventory();
-        if !current.services.iter().any(|item| item.name == name && item.display_name == display_name && item.action_available) {
+        if !current.services.iter().any(|item| {
+            item.name == name && item.display_name == display_name && item.action_available
+        }) {
             return Err("Service is not in the actionable local inventory".to_owned());
         }
         let auth_action = format!("service_{action}");
-        if !authorize_host(&token, &auth_action, &target, true) { return Err("Admin authorization was denied".to_owned()); }
+        if !authorize_host(&token, &auth_action, &target, true) {
+            return Err("Admin authorization was denied".to_owned());
+        }
         let result = local_host::service_action(&name, &action);
         if !audit_host_result(&token, &auth_action, &target, &result) {
             return Err("Action outcome could not be audited; refresh local status".to_owned());
         }
         result
-    }).await.map_err(|_| "Local service action was interrupted".to_owned())?
+    })
+    .await
+    .map_err(|_| "Local service action was interrupted".to_owned())?
 }
 
 fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
@@ -362,8 +438,7 @@ fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
             (
                 ProbeResult {
                     reachable: true,
-                    healthy: (200..300).contains(&code)
-                        && status.as_deref() == Some("ok"),
+                    healthy: (200..300).contains(&code) && status.as_deref() == Some("ok"),
                     http_status: Some(code),
                     status,
                 },
@@ -445,17 +520,15 @@ fn collect_native_host_metrics() -> NativeHostMetrics {
     let before = cpu_times();
     thread::sleep(Duration::from_millis(120));
     let after = cpu_times();
-    let cpu_percent =
-        before
-            .zip(after)
-            .and_then(|((idle_a, total_a), (idle_b, total_b))| {
-                let idle = idle_b.saturating_sub(idle_a);
-                let total = total_b.saturating_sub(total_a);
-                (total > 0).then(|| {
-                    (((total.saturating_sub(idle)) as f64 / total as f64) * 100.0)
-                        .clamp(0.0, 100.0)
-                })
-            });
+    let cpu_percent = before
+        .zip(after)
+        .and_then(|((idle_a, total_a), (idle_b, total_b))| {
+            let idle = idle_b.saturating_sub(idle_a);
+            let total = total_b.saturating_sub(total_a);
+            (total > 0).then(|| {
+                (((total.saturating_sub(idle)) as f64 / total as f64) * 100.0).clamp(0.0, 100.0)
+            })
+        });
 
     let mut memory = WinMemoryStatus {
         length: std::mem::size_of::<WinMemoryStatus>() as u32,
@@ -473,10 +546,11 @@ fn collect_native_host_metrics() -> NativeHostMetrics {
 
     let disk_path: Vec<u16> = "C:\\".encode_utf16().chain(std::iter::once(0)).collect();
     let (mut available, mut total, mut free) = (0_u64, 0_u64, 0_u64);
-    let disk_percent = (unsafe {
-        GetDiskFreeSpaceExW(disk_path.as_ptr(), &mut available, &mut total, &mut free)
-    } != 0 && total > 0)
-        .then(|| (((total - free) as f64 / total as f64) * 100.0).clamp(0.0, 100.0));
+    let disk_percent =
+        (unsafe { GetDiskFreeSpaceExW(disk_path.as_ptr(), &mut available, &mut total, &mut free) }
+            != 0
+            && total > 0)
+            .then(|| (((total - free) as f64 / total as f64) * 100.0).clamp(0.0, 100.0));
 
     let mut host_buffer = [0_u16; 256];
     let mut host_length = host_buffer.len() as u32;
@@ -524,18 +598,18 @@ fn collect_native_host_metrics() -> NativeHostMetrics {
     system.refresh_cpu();
     system.refresh_memory();
     let disks = Disks::new_with_refreshed_list();
-    let disk_percent = disks.iter().find(|disk| disk.mount_point() == Path::new("/"))
+    let disk_percent = disks
+        .iter()
+        .find(|disk| disk.mount_point() == Path::new("/"))
         .and_then(|disk| {
             let total = disk.total_space();
-            (total > 0).then(||
-                ((total - disk.available_space()) as f64 / total as f64 * 100.0)
-                    .clamp(0.0, 100.0)
-            )
+            (total > 0).then(|| {
+                ((total - disk.available_space()) as f64 / total as f64 * 100.0).clamp(0.0, 100.0)
+            })
         });
-    let memory_percent = (system.total_memory() > 0).then(||
-        (system.used_memory() as f64 / system.total_memory() as f64 * 100.0)
-            .clamp(0.0, 100.0)
-    );
+    let memory_percent = (system.total_memory() > 0).then(|| {
+        (system.used_memory() as f64 / system.total_memory() as f64 * 100.0).clamp(0.0, 100.0)
+    });
     NativeHostMetrics {
         available: true,
         source: "native_desktop".to_owned(),
@@ -590,7 +664,6 @@ fn docker_cli_detected() -> bool {
         .unwrap_or(false)
 }
 
-
 fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
     let (backend, backend_json) = json_probe("/health");
     let (readiness, readiness_json) = json_probe("/health/ready");
@@ -634,7 +707,8 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
     let dependency_statuses = ["database", "redis", "worker"]
         .iter()
         .filter_map(|name| {
-            backend_json.as_ref()?
+            backend_json
+                .as_ref()?
                 .get("checks")?
                 .get(name)?
                 .get("status")?
@@ -642,7 +716,8 @@ fn collect_snapshot(app: &tauri::AppHandle) -> ServiceSnapshot {
                 .map(|status| ((*name).to_owned(), status.to_owned()))
         })
         .collect();
-    let background_job_backend = backend_json.as_ref()
+    let background_job_backend = backend_json
+        .as_ref()
         .and_then(|json| json.get("background_job_backend"))
         .and_then(Value::as_str)
         .unwrap_or("unavailable")
@@ -724,10 +799,14 @@ fn trusted_script_bytes(name: &str) -> Option<&'static [u8]> {
     match name {
         "start_platform.ps1" => Some(include_bytes!("../../../scripts/local/start_platform.ps1")),
         "stop_platform.ps1" => Some(include_bytes!("../../../scripts/local/stop_platform.ps1")),
-        "restart_platform.ps1" => Some(include_bytes!("../../../scripts/local/restart_platform.ps1")),
+        "restart_platform.ps1" => Some(include_bytes!(
+            "../../../scripts/local/restart_platform.ps1"
+        )),
         "check_platform.ps1" => Some(include_bytes!("../../../scripts/local/check_platform.ps1")),
         "open_platform.ps1" => Some(include_bytes!("../../../scripts/local/open_platform.ps1")),
-        "apply_lan_monitoring_config.ps1" => Some(include_bytes!("../../../scripts/local/apply_lan_monitoring_config.ps1")),
+        "apply_lan_monitoring_config.ps1" => Some(include_bytes!(
+            "../../../scripts/local/apply_lan_monitoring_config.ps1"
+        )),
         _ => None,
     }
 }
@@ -810,7 +889,9 @@ fn project_setup(app: &tauri::AppHandle) -> ProjectSetup {
         .map(|(_, source)| *source)
         .unwrap_or("copyOnly");
     let scripts_available = repository.is_some_and(|root| {
-        REQUIRED_SCRIPTS.iter().all(|name| trusted_script(root, name))
+        REQUIRED_SCRIPTS
+            .iter()
+            .all(|name| trusted_script(root, name))
     });
     let next_action = if configured_path.is_some() && !configured_path_valid {
         "correctProjectPath"
@@ -828,9 +909,12 @@ fn project_setup(app: &tauri::AppHandle) -> ProjectSetup {
         repository_found: repository.is_some(),
         repository_path: repository.map(|path| path.to_string_lossy().to_string()),
         resolution_source: resolution_source.to_owned(),
-        compose_available: repository.is_some_and(|root| canonical_child(root, Path::new("docker-compose.yml"), true)),
-        frontend_available: repository.is_some_and(|root| canonical_child(root, Path::new("frontend/package.json"), true)),
-        backend_available: repository.is_some_and(|root| canonical_child(root, Path::new("backend/app"), false)),
+        compose_available: repository
+            .is_some_and(|root| canonical_child(root, Path::new("docker-compose.yml"), true)),
+        frontend_available: repository
+            .is_some_and(|root| canonical_child(root, Path::new("frontend/package.json"), true)),
+        backend_available: repository
+            .is_some_and(|root| canonical_child(root, Path::new("backend/app"), false)),
         scripts_available,
         next_action: next_action.to_owned(),
     }
@@ -881,8 +965,16 @@ fn sanitize_output(bytes: &[u8], repository: &Path) -> String {
         .replace(&repository.to_string_lossy().to_string(), "[repository]")
         .replace('\0', "");
     let sensitive = [
-        "api_key", "api-key", "access_token", "access-token", "password", "secret",
-        "credential", "database_url", "redis_url", "supabase",
+        "api_key",
+        "api-key",
+        "access_token",
+        "access-token",
+        "password",
+        "secret",
+        "credential",
+        "database_url",
+        "redis_url",
+        "supabase",
     ];
     let mut lines = Vec::new();
     for line in raw.lines().take(40) {
@@ -891,7 +983,10 @@ fn sanitize_output(bytes: &[u8], repository: &Path) -> String {
             .filter(|character| !character.is_control() || *character == '\t')
             .take(300)
             .collect();
-        if sensitive.iter().any(|marker| cleaned.to_lowercase().contains(marker)) {
+        if sensitive
+            .iter()
+            .any(|marker| cleaned.to_lowercase().contains(marker))
+        {
             lines.push("[sensitive output removed]".to_owned());
         } else if !cleaned.trim().is_empty() {
             lines.push(cleaned);
@@ -928,7 +1023,14 @@ fn run_whitelisted(app: &tauri::AppHandle, action: LocalAction) -> LauncherResul
         };
     };
     let mut child = match Command::new(&powershell)
-        .args(["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"])
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+        ])
         .arg(&script)
         .current_dir(&repository)
         .env("RAVENTECH_VALIDATED_PROJECT_ROOT", &repository)
@@ -945,21 +1047,30 @@ fn run_whitelisted(app: &tauri::AppHandle, action: LocalAction) -> LauncherResul
                 script_available: true,
                 timed_out: false,
                 exit_code: None,
-                message: "Windows PowerShell could not be started. Use the copy-only fallback.".to_owned(),
+                message: "Windows PowerShell could not be started. Use the copy-only fallback."
+                    .to_owned(),
                 output: String::new(),
             };
         }
     };
 
-    let stdout = child.stdout.take().map(|pipe| thread::spawn(move || read_capped(pipe)));
-    let stderr = child.stderr.take().map(|pipe| thread::spawn(move || read_capped(pipe)));
+    let stdout = child
+        .stdout
+        .take()
+        .map(|pipe| thread::spawn(move || read_capped(pipe)));
+    let stderr = child
+        .stderr
+        .take()
+        .map(|pipe| thread::spawn(move || read_capped(pipe)));
     let started = Instant::now();
     let mut timed_out = false;
     let mut wait_failed = false;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break Some(status),
-            Ok(None) if started.elapsed() < action.timeout() => thread::sleep(Duration::from_millis(100)),
+            Ok(None) if started.elapsed() < action.timeout() => {
+                thread::sleep(Duration::from_millis(100))
+            }
             Ok(None) => {
                 timed_out = true;
                 let _ = child.kill();
@@ -979,15 +1090,22 @@ fn run_whitelisted(app: &tauri::AppHandle, action: LocalAction) -> LauncherResul
         (Vec::new(), Vec::new())
     } else {
         (
-            stdout.and_then(|handle| handle.join().ok()).unwrap_or_default(),
-            stderr.and_then(|handle| handle.join().ok()).unwrap_or_default(),
+            stdout
+                .and_then(|handle| handle.join().ok())
+                .unwrap_or_default(),
+            stderr
+                .and_then(|handle| handle.join().ok())
+                .unwrap_or_default(),
         )
     };
     if !combined.is_empty() && !stderr.is_empty() {
         combined.push(b'\n');
     }
     combined.extend(stderr);
-    let success = !timed_out && status.as_ref().is_some_and(std::process::ExitStatus::success);
+    let success = !timed_out
+        && status
+            .as_ref()
+            .is_some_and(std::process::ExitStatus::success);
     let message = if timed_out {
         "The approved script exceeded its time limit. Check platform status before retrying."
     } else if success {
@@ -1015,7 +1133,8 @@ async fn run_action(app: tauri::AppHandle, action: LocalAction) -> LauncherResul
             script_available: true,
             timed_out: false,
             exit_code: None,
-            message: "The controlled launcher was interrupted. Use the copy-only fallback.".to_owned(),
+            message: "The controlled launcher was interrupted. Use the copy-only fallback."
+                .to_owned(),
             output: String::new(),
         })
 }
@@ -1046,10 +1165,7 @@ async fn open_local_frontend(app: tauri::AppHandle) -> LauncherResult {
 }
 
 #[tauri::command]
-async fn apply_lan_monitoring_config(
-    app: tauri::AppHandle,
-    confirmed: bool,
-) -> LauncherResult {
+async fn apply_lan_monitoring_config(app: tauri::AppHandle, confirmed: bool) -> LauncherResult {
     if !confirmed {
         return LauncherResult {
             action: LocalAction::ApplyLanConfig.name(),
@@ -1089,10 +1205,7 @@ async fn get_project_setup(app: tauri::AppHandle) -> ProjectSetup {
 }
 
 #[tauri::command]
-async fn bind_project_path(
-    app: tauri::AppHandle,
-    project_path: String,
-) -> ProjectBindingResult {
+async fn bind_project_path(app: tauri::AppHandle, project_path: String) -> ProjectBindingResult {
     let value = project_path.trim();
     if value.is_empty() || value.chars().count() > MAX_PROJECT_PATH_CHARS || value.contains('\0') {
         return ProjectBindingResult {
@@ -1138,8 +1251,8 @@ async fn bind_project_path(
 
 #[tauri::command]
 async fn clear_project_path(app: tauri::AppHandle) -> ProjectBindingResult {
-    let success = preference_path(&app)
-        .map_or(true, |path| !path.exists() || fs::remove_file(path).is_ok());
+    let success =
+        preference_path(&app).map_or(true, |path| !path.exists() || fs::remove_file(path).is_ok());
     ProjectBindingResult {
         success,
         message: if success {
@@ -1158,10 +1271,21 @@ mod tests {
 
     #[test]
     fn launcher_resolves_only_the_expected_repository_script() {
-        let root = validate_repository_root(Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").as_path())
-            .expect("repository root");
-        let scripts = root.join("scripts").join("local").canonicalize().expect("scripts");
-        let script = scripts.join(LocalAction::Check.script()).canonicalize().expect("check script");
+        let root = validate_repository_root(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../..")
+                .as_path(),
+        )
+        .expect("repository root");
+        let scripts = root
+            .join("scripts")
+            .join("local")
+            .canonicalize()
+            .expect("scripts");
+        let script = scripts
+            .join(LocalAction::Check.script())
+            .canonicalize()
+            .expect("check script");
         assert_eq!(
             script.file_name().and_then(|name| name.to_str()),
             Some("check_platform.ps1")
@@ -1200,7 +1324,10 @@ mod tests {
             204,
             Some("text/html; charset=utf-8")
         ));
-        assert!(!frontend_html_response_is_healthy(200, Some("application/json")));
+        assert!(!frontend_html_response_is_healthy(
+            200,
+            Some("application/json")
+        ));
         assert!(!frontend_html_response_is_healthy(404, Some("text/html")));
         assert!(!frontend_html_response_is_healthy(200, None));
     }
@@ -1208,7 +1335,10 @@ mod tests {
     #[test]
     fn release_build_uses_embedded_frontend() {
         if !cfg!(debug_assertions) {
-            assert_eq!(embedded_frontend_probe().status.as_deref(), Some("embedded"));
+            assert_eq!(
+                embedded_frontend_probe().status.as_deref(),
+                Some("embedded")
+            );
             assert!(embedded_frontend_probe().healthy);
         }
     }
@@ -1258,7 +1388,11 @@ mod tests {
     #[test]
     fn host_administration_is_bound_to_loopback() {
         assert_eq!(LOOPBACK, "127.0.0.1:8000");
-        assert!(!local_admin_post("invalid", "/api/v1/monitoring/local-host/authorize", &serde_json::json!({})));
+        assert!(!local_admin_post(
+            "invalid",
+            "/api/v1/monitoring/local-host/authorize",
+            &serde_json::json!({})
+        ));
     }
 
     #[test]
@@ -1272,7 +1406,8 @@ mod tests {
 fn main() {
     let app = tauri::Builder::default()
         .setup(|app| {
-            let supervisor = runtime_supervisor::NativeRuntimeSupervisor::start(app.handle().clone());
+            let supervisor =
+                runtime_supervisor::NativeRuntimeSupervisor::start(app.handle().clone());
             app.manage(supervisor);
             Ok(())
         })
@@ -1298,8 +1433,13 @@ fn main() {
         .expect("RavenTech OSINT desktop shell failed to start");
     let handle = app.handle().clone();
     app.run(move |_app_handle, event| {
-        if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
-            if let Some(supervisor) = handle.try_state::<runtime_supervisor::NativeRuntimeSupervisor>() {
+        if matches!(
+            event,
+            tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+        ) {
+            if let Some(supervisor) =
+                handle.try_state::<runtime_supervisor::NativeRuntimeSupervisor>()
+            {
                 supervisor.shutdown();
             }
         }

@@ -126,19 +126,19 @@ const manifest = JSON.parse(await readFile(resolve(output, "installer-manifest.j
 if (manifest.version !== VERSION || manifest.installer !== INSTALLER_NAME || manifest.signed !== false || manifest.publicRelease !== false) {
   throw new Error("Installer manifest does not describe the expected unsigned RC6 local build.");
 }
-const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, embeddedDatabase, managedPostgresqlRuntime, initializedDatabase, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || embeddedDatabase !== false || managedPostgresqlRuntime !== true || initializedDatabase !== false || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden installer capability is enabled in the manifest.");
 }
-if (manifest.nativeRuntime?.packagingEngine !== "PyInstaller" || !manifest.nativeRuntime.backendSha256 || !manifest.nativeRuntime.workerSha256 || JSON.stringify(manifest.nativeRuntime.requiredExternalDependencies) !== JSON.stringify(["PostgreSQL", "external configuration"])) {
-  throw new Error("Installer is missing validated native runtime and external PostgreSQL metadata.");
+if (manifest.nativeRuntime?.packagingEngine !== "PyInstaller" || !manifest.nativeRuntime.backendSha256 || !manifest.nativeRuntime.workerSha256 || manifest.nativeRuntime.postgresql?.major !== 16 || manifest.nativeRuntime.requiredExternalDependencies?.includes("PostgreSQL")) {
+  throw new Error("Installer is missing validated native PostgreSQL runtime metadata.");
 }
 for (const name of [INSTALLER_NAME, "README.md", "LICENSE"]) {
   const digest = createHash("sha256").update(await readFile(resolve(output, name))).digest("hex");
   if (manifest.files[name]?.sha256 !== digest) throw new Error(`Checksum mismatch: ${name}`);
 }
 const readme = await readFile(resolve(output, "README.md"), "utf8");
-for (const required of ["unsigned", "SmartScreen", "PostgreSQL remains external", "automatically supervises", "http://localhost:5173", "http://localhost:8000"]) {
+for (const required of ["unsigned", "SmartScreen", "Managed PostgreSQL 16 is included", "automatically supervises", "http://localhost:5173", "http://localhost:8000"]) {
   if (!readme.includes(required)) throw new Error(`Installer README is missing: ${required}`);
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {

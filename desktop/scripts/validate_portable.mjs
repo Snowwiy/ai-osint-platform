@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validatePostgresqlRuntimeTree } from "./native_runtime_package.mjs";
 
 const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
@@ -41,8 +42,8 @@ const manifest = JSON.parse(await readFile(resolve(output, "portable-manifest.js
 if (manifest.version !== VERSION || manifest.executable !== EXECUTABLE) {
   throw new Error("Portable manifest metadata does not match the RC6 build.");
 }
-const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, ...forbiddenBoundaries } = manifest.boundaries;
-if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, embeddedDatabase, managedPostgresqlRuntime, initializedDatabase, ...forbiddenBoundaries } = manifest.boundaries;
+if (controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || embeddedDatabase !== false || managedPostgresqlRuntime !== true || initializedDatabase !== false || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
   throw new Error("A forbidden portable capability is enabled in the manifest.");
 }
 for (const name of [EXECUTABLE, "LICENSE", "README.md"]) {
@@ -51,8 +52,8 @@ for (const name of [EXECUTABLE, "LICENSE", "README.md"]) {
 }
 
 const runtimeRoot = resolve(output, "native-runtime");
-if (JSON.stringify((await readdir(runtimeRoot)).sort()) !== JSON.stringify(["backend", "worker"])) {
-  throw new Error("Portable native runtime must contain only the fixed backend and worker directories.");
+if (JSON.stringify((await readdir(runtimeRoot)).sort()) !== JSON.stringify(["backend", "postgresql", "worker"])) {
+  throw new Error("Portable native runtime must contain the fixed backend, worker, and PostgreSQL 16 runtime.");
 }
 for (const [component, binaryName] of [["backend", "RavenTechBackend.exe"], ["worker", "RavenTechWorker.exe"]]) {
   const componentRoot = resolve(runtimeRoot, component);
@@ -83,12 +84,26 @@ for (const [component, binaryName] of [["backend", "RavenTechBackend.exe"], ["wo
   const versionResult = await import("node:child_process").then(({ spawnSync }) => spawnSync(resolve(componentRoot, binaryName), ["--version"], { cwd: componentRoot, shell: false, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
   if (versionResult.error || versionResult.status !== 0 || versionResult.stdout.trim() !== VERSION) throw new Error(`Packaged ${component} executable reports an incompatible version.`);
 }
-if (manifest.nativeRuntime?.packagingEngine !== "PyInstaller" || JSON.stringify(manifest.nativeRuntime.requiredExternalDependencies) !== JSON.stringify(["PostgreSQL", "external configuration"])) throw new Error("Portable native runtime metadata is invalid.");
+if (manifest.nativeRuntime?.packagingEngine !== "PyInstaller" || manifest.nativeRuntime.postgresql?.major !== 16 || !manifest.nativeRuntime.postgresql.version || manifest.nativeRuntime.requiredExternalDependencies?.includes("PostgreSQL")) throw new Error("Portable native runtime metadata is invalid.");
+
+const postgresRoot = resolve(runtimeRoot, "postgresql");
+const postgresManifest = JSON.parse(await readFile(resolve(postgresRoot, "manifest.json"), "utf8"));
+if (postgresManifest.major_version !== 16 || postgresManifest.os !== "windows" || postgresManifest.architecture !== "x86_64" || !postgresManifest.files) throw new Error("Bundled PostgreSQL manifest metadata is invalid.");
+await validatePostgresqlRuntimeTree(postgresRoot);
+for (const binary of ["postgres.exe", "initdb.exe", "psql.exe", "pg_isready.exe", "pg_ctl.exe"]) {
+  const path = resolve(postgresRoot, "bin", binary);
+  const bytes = await readFile(path);
+  const file = postgresManifest.files[`bin/${binary}`];
+  if (!file || file.size_bytes !== bytes.length || file.sha256 !== createHash("sha256").update(bytes).digest("hex")) throw new Error(`Bundled PostgreSQL checksum is invalid: ${binary}`);
+}
+if ((await readdir(resolve(postgresRoot, "share"))).length === 0) throw new Error("Bundled PostgreSQL share resources are missing.");
+const postgresVersion = await import("node:child_process").then(({ spawnSync }) => spawnSync(resolve(postgresRoot, "bin", "postgres.exe"), ["--version"], { cwd: resolve(postgresRoot, "bin"), shell: false, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+if (postgresVersion.error || postgresVersion.status !== 0 || !postgresVersion.stdout.includes("PostgreSQL) 16.")) throw new Error("Bundled PostgreSQL failed its version check.");
 
 const readme = await readFile(resolve(output, "README.md"), "utf8");
 for (const required of [
-  "http://localhost:5173", "http://localhost:8000", "PostgreSQL remains external",
-  "desktop starts and supervises only its fixed native backend and worker", "no installer", "copy-only", "repository root"
+  "http://localhost:5173", "http://localhost:8000", "Managed PostgreSQL 16 is included",
+  "Fresh native installs start and supervise managed PostgreSQL", "no installer", "copy-only", "repository root"
 ]) if (!readme.includes(required)) throw new Error(`Portable README is missing: ${required}`);
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {
   throw new Error("Potential secret assignment detected in portable README.");

@@ -1,7 +1,9 @@
 # RavenTech OSINT Desktop 5.0.0-rc6 — Unsigned Local Installer
 
 This workflow creates an **unsigned** NSIS installer for local Windows testing.
-It is not a trusted or public release. Windows SmartScreen may warn because no
+Managed PostgreSQL 16 is included. The installer packages the native backend,
+worker, and database runtime. It is
+not a trusted or public release. Windows SmartScreen may warn because no
 code-signing certificate is configured.
 
 ## Prerequisites
@@ -11,11 +13,11 @@ code-signing certificate is configured.
 - Rust/Cargo with the locked desktop dependencies already available
 - Tauri NSIS bundler tools already cached by a separately approved setup step;
   the build intentionally fails instead of downloading missing tools
-- a host-reachable PostgreSQL instance and a local runtime configuration file
+- a local runtime configuration file; external mode requires a host-reachable PostgreSQL instance
 
-The installer contains the Tauri shell and validated Windows x86_64 PyInstaller
-backend/worker resources. It does not contain PostgreSQL, `.env`, credentials,
-backups, reports, logs, Redis, or Celery.
+The installer contains the Tauri shell, validated Windows x86_64 PyInstaller
+backend/worker resources, and managed PostgreSQL 16 runtime. It does not contain
+`.env`, credentials, backups, reports, logs, Redis, or Celery.
 
 ## Build and validate
 
@@ -37,10 +39,11 @@ license, and `installer-manifest.json` with SHA-256 checksums. Do not publish it
 The exact installer name is
 `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe`.
 
-## PostgreSQL prerequisite
+## PostgreSQL runtime
 
-PostgreSQL remains external in Phase 5BL. Configure a host-reachable database
-URL in `%LOCALAPPDATA%\RavenTech OSINT\config\.env`. Docker mode remains
+Fresh native installs include a managed PostgreSQL 16 runtime that listens on
+loopback port 55432. Existing configured external database URLs remain
+supported at `%LOCALAPPDATA%\RavenTech OSINT\config\.env`. Docker mode remains
 supported, but the native desktop profile does not require Redis or Celery.
 
 Expected URLs:
@@ -52,9 +55,10 @@ Expected URLs:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-On launch the desktop automatically supervises the packaged backend, waits for
-PostgreSQL, migrations, and storage readiness, and then starts the packaged worker. It
-controls only children started by this desktop session. Existing external
+On launch the desktop automatically supervises its managed PostgreSQL when
+selected, waits for PostgreSQL, migrations, and storage readiness, and then
+starts the packaged backend and worker. It controls only children started by
+this desktop session. Existing external
 backends/workers are observed but never stopped or restarted. No repository
 path is needed for the native runtime.
 
@@ -65,13 +69,14 @@ The installer contains the production React assets, so `npm run dev` and port
 
 Run the `-unsigned-setup.exe` file and accept the local-test warning only after
 verifying its checksum. Launch **RavenTech OSINT Desktop** from the Start menu.
-If PostgreSQL is unavailable, Local Runtime shows it as required and waiting.
+If PostgreSQL cannot start, Local Runtime shows a sanitized reason and preserves
+the managed data directory.
 The window title is **RavenTech OSINT Desktop — Local Workspace**. The current
 icon is the repository-owned RavenTech local-candidate asset; public brand
 approval remains deferred.
 
 Uninstall from **Settings > Apps > Installed apps > RavenTech OSINT Desktop**.
-The current-user installer does not install backend services or remove Docker data.
+The current-user installer does not install OS services or remove managed PostgreSQL or Docker data.
 
 ## Controlled launcher behavior
 
@@ -85,12 +90,13 @@ generic command input is enabled.
 
 - A SmartScreen warning is expected for this unsigned build.
 - Install WebView2 Runtime separately if Windows does not already provide it.
-- Start or configure host-reachable PostgreSQL before opening the application.
+- Configure a host-reachable database only when selecting external mode; fresh
+  native installs use the included managed PostgreSQL runtime.
 - Port 8000 must be available on loopback. Port 5173 is needed only for optional
   Vite browser/development mode.
 - The first-run checklist reports port conflicts, runtime identity, release
   mismatch, and migration degradation without modifying the machine.
-- There is no signing, auto-update, service autostart, database bundle, hosting,
+- There is no signing, auto-update, service autostart, hosting,
   deployment, DNS, Supabase migration, or public support channel in this phase.
 - Signing and production distribution remain deferred.
 - Run `npm run smoke -- --require-artifacts` after building both local artifacts.

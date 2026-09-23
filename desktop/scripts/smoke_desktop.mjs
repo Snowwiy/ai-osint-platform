@@ -100,8 +100,8 @@ async function verifyArtifact({ directory, allowed, manifestName, binaryName, ki
   const binary = await readFile(resolve(directory, binaryName));
   if (binary[0] !== 0x4d || binary[1] !== 0x5a) throw new Error(`${kind} binary is not a Windows PE file.`);
   const manifest = JSON.parse(await readFile(resolve(directory, manifestName), "utf8"));
-  const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, ...forbiddenBoundaries } = manifest.boundaries;
-  if (manifest.version !== VERSION || controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || (kind === "portable" && embeddedBackend !== true) || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
+  const { controlledLocalLauncher, safeProjectPathBinding, embeddedFrontend, embeddedBackend, embeddedDatabase, managedPostgresqlRuntime, initializedDatabase, ...forbiddenBoundaries } = manifest.boundaries;
+  if (manifest.version !== VERSION || controlledLocalLauncher !== true || safeProjectPathBinding !== true || embeddedFrontend !== true || embeddedBackend !== true || embeddedDatabase !== false || managedPostgresqlRuntime !== true || initializedDatabase !== false || Object.values(forbiddenBoundaries).some((value) => value !== false)) {
     throw new Error(`${kind} manifest version or security boundaries are invalid.`);
   }
   if (kind === "installer" && (manifest.signed !== false || manifest.publicRelease !== false)) {

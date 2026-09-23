@@ -79,6 +79,11 @@ for (const name of ["backend", "worker"]) {
   const relativeSource = relative(resourceRoot, source).split(sep).join("/");
   resourceMap[`${relativeSource}/**/*`] = `native-runtime/${name}/`;
 }
+{
+  const source = nativeRuntime.postgresql.directory;
+  const relativeSource = relative(resourceRoot, source).split(sep).join("/");
+  resourceMap[`${relativeSource}/**/*`] = "native-runtime/postgresql/";
+}
 const mergedConfig = {
   ...configBase,
   ...installerOverride,
@@ -128,6 +133,7 @@ const manifest = {
     packagingEngine: nativeRuntime.packagingEngine,
     backendSha256: nativeRuntime.components.backend.sha256,
     workerSha256: nativeRuntime.components.worker.sha256,
+    postgresql: { version: nativeRuntime.postgresql.version, major: 16, totalBytes: nativeRuntime.postgresql.totalBytes },
     requiredExternalDependencies: nativeRuntime.requiredExternalDependencies,
   },
   boundaries: {
@@ -139,6 +145,8 @@ const manifest = {
     arbitraryCommandExecution: false,
     embeddedBackend: true,
     embeddedDatabase: false,
+    managedPostgresqlRuntime: true,
+    initializedDatabase: false,
     bundledCredentials: false,
     hosting: false,
     deployment: false,

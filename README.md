@@ -1,6 +1,6 @@
 # RavenTech OSINT
 
-Phases 5BK–5BL provide standalone Windows/Linux backend and worker builds and Tauri lifecycle supervision for the fixed native components. Native desktop uses PostgreSQL jobs without Redis or Celery; PostgreSQL remains external. Docker and Python development modes remain supported. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+Phases 5BK–5BM provide standalone Windows/Linux backend and worker builds, Tauri lifecycle supervision, and a managed PostgreSQL 16 runtime for native desktop. Existing configured external databases remain supported. Docker and Python development modes remain supported. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
 
 ## Phase 5AA monitoring controls
 
@@ -719,10 +719,10 @@ An opt-in PostgreSQL worker processes allowlisted posture/recommendation and mon
 
 ## Phase 5BJ: desktop background runtime
 
-The `desktop` runtime profile uses the PostgreSQL native worker and PostgreSQL auth state without Redis or Celery. Tauri starts the packaged native FastAPI backend and worker; PostgreSQL remains external. Docker/Celery mode remains supported and is still the default for existing installations. See `DESKTOP_NATIVE_RUNTIME.md`; local PostgreSQL bootstrap and Knowledge ingestion belong to later phases.
+The `desktop` runtime profile uses PostgreSQL-backed jobs and auth state without Redis or Celery. A fresh desktop install uses Tauri-managed PostgreSQL 16 on loopback; an existing configured `DATABASE_URL` remains external. Tauri starts and supervises the packaged PostgreSQL, FastAPI backend, and worker. Docker/Celery and Python development modes remain supported. See `DESKTOP_NATIVE_RUNTIME.md` and `MANAGED_POSTGRESQL_RUNTIME.md`; Knowledge ingestion belongs to a later phase.
 
 ## Phase 5BL — Tauri native runtime supervision
 
 Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
 
-Windows portable/installer packages include Windows x86_64 backend and worker resources; Linux x86_64 packaging includes Linux runtime directories. PostgreSQL remains external and required. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` for ownership and shutdown details. Linux WSL evidence is not clean-machine Linux acceptance.
+Windows portable/installer packages include Windows x86_64 backend, worker, and managed PostgreSQL resources; Linux x86_64 packaging includes corresponding Linux runtime resources. Fresh native desktop mode manages PostgreSQL locally; external PostgreSQL remains supported. Redis/Celery are not required in native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` and `MANAGED_POSTGRESQL_RUNTIME.md`. Linux WSL evidence is not clean-machine Linux acceptance.
