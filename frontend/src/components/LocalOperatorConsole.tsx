@@ -21,12 +21,14 @@ export function LocalOperatorConsole({
   agents,
   refreshing,
   onRefresh,
+  isNativeDesktop,
 }: {
   status: OperationsStatusResponse;
   activation?: MonitoringActivationStatus;
   agents?: AgentInventoryResponse;
   refreshing: boolean;
   onRefresh: () => void;
+  isNativeDesktop: boolean;
 }): JSX.Element {
   const { t } = useI18n();
   const [copied, setCopied] = useState<CopyKey | null>(null);
@@ -59,7 +61,9 @@ export function LocalOperatorConsole({
             <h2 className="text-lg font-semibold">Local Operator Console</h2>
           </div>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-raven-muted">
-            Read-only local status and copy-ready operator commands. The browser never executes host commands or changes Docker state.
+            {isNativeDesktop
+              ? t("Native desktop manages startup. Docker, Redis, Celery, Python, and a terminal are not required.")
+              : "Read-only local status and copy-ready operator commands. The browser never executes host commands or changes Docker state."}
           </p>
         </div>
         <button
@@ -86,7 +90,7 @@ export function LocalOperatorConsole({
           <h3 className="font-medium">Local mode</h3>
           <dl className="mt-3 space-y-2 text-sm">
             <InfoRow label="Release" value={safeString(status.release?.version, "unknown")} />
-            <InfoRow label="Frontend URL" value={frontendUrl} link={frontendUrl} />
+            <InfoRow label="Frontend" value={isNativeDesktop ? t("Embedded") : frontendUrl} link={isNativeDesktop ? undefined : frontendUrl} />
             <InfoRow label="Backend URL" value={backendUrl} link={backendUrl} />
             <InfoRow label="LAN monitoring" value={activation ? (activation.lan_monitoring_enabled ? "enabled" : "disabled") : "unavailable"} />
             <InfoRow label="TCP service checks" value={activation ? (activation.service_check_enabled ? "enabled" : "disabled") : "unavailable"} />
@@ -95,7 +99,7 @@ export function LocalOperatorConsole({
           </dl>
           {activation?.discovery_disabled_reason ? <p className="mt-3 break-words rounded border border-amber-300/20 bg-amber-400/5 p-2 text-xs text-amber-100">{activation.discovery_disabled_reason}</p> : null}
           {activation?.service_check_disabled_reason ? <p className="mt-2 break-words rounded border border-amber-300/20 bg-amber-400/5 p-2 text-xs text-amber-100">{activation.service_check_disabled_reason}</p> : null}
-          <p className="mt-3 text-xs text-raven-muted">{t("Background engine")}: {status.background_job_backend ?? t("unavailable")}. {t("Database and worker values are status-only; connection strings and secrets are never returned.")} {t("Redis is optional in native mode.")}</p>
+          <p className="mt-3 text-xs text-raven-muted">{t("Background engine")}: {status.background_job_backend ?? t("unavailable")}. {t("Database and worker values are status-only; connection strings and secrets are never returned.")} {isNativeDesktop ? t("Docker, Redis, and Celery are optional compatibility components.") : t("Redis is optional in native mode.")}</p>
         </div>
 
         <div className="min-w-0 rounded-md border border-raven-border bg-raven-panelSoft p-4">
@@ -114,7 +118,7 @@ export function LocalOperatorConsole({
         </div>
       </div>
 
-      <div className="mt-4">
+      {!isNativeDesktop ? <div className="mt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-medium">Local operator commands</h3>
           <span className="text-xs text-raven-muted">Copy only; run manually in PowerShell from the repository root.</span>
@@ -131,7 +135,7 @@ export function LocalOperatorConsole({
             </div>
           ))}
         </div>
-      </div>
+      </div> : <p className="mt-4 rounded border border-raven-border p-3 text-sm text-raven-muted">{t("The desktop starts the backend, worker, and database automatically. No manual service commands are needed.")}</p>}
 
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-raven-muted">
         <a className="inline-flex items-center gap-1 hover:text-raven-cyan" href={`${docsBaseUrl}/LOCAL_BACKUP_RESTORE.md`} target="_blank" rel="noreferrer">

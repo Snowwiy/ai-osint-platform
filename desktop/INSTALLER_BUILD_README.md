@@ -13,7 +13,7 @@ code-signing certificate is configured.
 - Rust/Cargo with the locked desktop dependencies already available
 - Tauri NSIS bundler tools already cached by a separately approved setup step;
   the build intentionally fails instead of downloading missing tools
-- a local runtime configuration file; external mode requires a host-reachable PostgreSQL instance
+- no repository checkout or runtime configuration is needed for a fresh managed install; an explicitly configured external database must be reachable from the host
 
 The installer contains the Tauri shell, validated Windows x86_64 PyInstaller
 backend/worker resources, and managed PostgreSQL 16 runtime. It does not contain
@@ -78,13 +78,13 @@ approval remains deferred.
 Uninstall from **Settings > Apps > Installed apps > RavenTech OSINT Desktop**.
 The current-user installer does not install OS services or remove managed PostgreSQL or Docker data.
 
-## Controlled launcher behavior
+## Compatibility and development tools
 
-Only six fixed repository scripts are eligible: start, stop, restart, check,
-open frontend, and apply the bounded LAN configuration profile.
-Start/stop/restart/configuration require confirmation. Output is sanitized
-and capped, and every action has a timeout. No shell/filesystem Tauri plugin or
-generic command input is enabled.
+The packaged desktop profile starts PostgreSQL, backend, and worker itself and
+does not ask the operator to bind a repository, open PowerShell, or run helper
+scripts. Docker, Python, and Vite workflows remain available for development
+and compatibility profiles only. The separate compatibility launcher remains
+fixed-script-only and does not accept generic command input.
 
 ## Troubleshooting and limitations
 

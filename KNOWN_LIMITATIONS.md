@@ -2,6 +2,28 @@
 
 Phase 5BM adds a managed PostgreSQL 16 runtime for fresh native desktop installs while retaining configured external PostgreSQL. Clean-machine Windows/Linux acceptance remains outstanding; Linux service actions require systemd D-Bus and OS permission, with unavailable facilities reported as unavailable. Linux shared-library requirements vary by distribution. Native-safe backup/restore integration for managed PostgreSQL remains partial. See [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md), [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
+## Current packaged desktop profile (Phase 5BN)
+
+Fresh packaged Windows/Linux desktop mode is Docker-optional and uses a
+Tauri-managed PostgreSQL 16 runtime, native backend/worker, embedded frontend,
+and native host monitoring. PostgreSQL remains required. Docker, Redis, Celery,
+Python, Node/Vite, external PostgreSQL, CLI tools from `PATH`, and manual shell
+startup are not normal packaged runtime dependencies. Docker and source
+development remain supported. Full clean-machine install acceptance is still
+outstanding: Windows in 5BO and Linux in 5BP. WSL results are not clean-machine
+acceptance. Managed-native backup/restore is still partial, and Knowledge or
+Obsidian ingestion remains unimplemented for 5BQ.
+
+The Phase 5BN packaged Windows zero-Docker test previously failed in `initdb`
+before backend readiness. That build did not retain an initdb diagnostic, so the
+initial exit cause is not known. The isolated data was preserved. Current source
+reports only a sanitized failure category/exit code and permits retry only for a
+valid uninitialized RavenTech marker with an empty expected data directory;
+unknown or nonempty data is still refused. The PostgreSQL runtime passes direct
+isolated tests from the Windows portable package, but the packaged Tauri launch
+path has not yet passed again. Do not treat this as resolved until the rebuilt
+packaged app completes zero-Docker acceptance.
+
 The completed validated mode for `5.0.0-rc6` includes the local web application
 and private Tauri artifacts. Browser/development mode uses local Vite; portable
 and installed builds embed the same React production assets. Portable and unsigned
@@ -432,6 +454,21 @@ Only posture/recommendation recomputation and monitoring summary refresh have na
 ## Phase 5BJ limits
 
 Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. Phase 5BL packages and supervises the fixed FastAPI backend and worker; PostgreSQL remains separately managed, commonly with Docker. The native scheduler currently covers monitoring summary refresh only; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge/Obsidian ingestion is not implemented. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.
+
+## Native desktop acceptance limits
+
+Packaged startup, managed PostgreSQL initialization/reuse, native backend and
+worker health, authentication API rotation/revocation, and authenticated read
+APIs have been exercised on an isolated Windows profile. Interactive dashboard,
+report-generation, passive-recon, and visual embedded-frontend workflows still
+require a complete operator-facing acceptance run. Debian/WSL validates Linux
+runtime components but is not clean-machine Linux acceptance; Linux Tauri GUI
+acceptance remains separate.
+
+The Windows PostgreSQL resource lookup now normalizes Tauri extended-length
+resource paths for `initdb` sibling discovery. Unknown or data-bearing database
+directories remain fail-closed and are never deleted or reinitialized
+automatically.
 
 ## Phase 5BL — Tauri native runtime supervision
 

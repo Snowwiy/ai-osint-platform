@@ -1,5 +1,20 @@
 # RavenTech OSINT Final QA Checklist
 
+## Phase 5BN packaged PostgreSQL startup recovery
+
+- [ ] Rebuild Windows portable, unsigned installer, local-release, and Linux
+  packages from the current source after the initdb diagnostic/state-machine
+  change; run each strict validator.
+- [ ] Reproduce packaged Windows zero-Docker startup using a newly marked
+  isolated data root, record only sanitized initdb failure category/exit code,
+  then verify initialization, backend readiness, worker heartbeat, embedded UI,
+  shutdown, relaunch, and persistence.
+- [ ] Confirm a valid uninitialized RavenTech marker plus an empty expected data
+  directory can retry; any nonempty, symlinked, unmarked, or initialized cluster
+  remains protected and is never recursively deleted or reinitialized.
+- [ ] Do not report Phase 5BN complete or commit until the packaged Windows
+  zero-Docker acceptance passes. An unavailable GUI launch is NOT RUN, not PASS.
+
 Phase 5BL: validate Windows and Linux standalone artifacts and Tauri supervision on their target OS; run fixed `--version`/`--check`, health/readiness/release, native worker jobs, process ownership and graceful shutdown, platform host inventory, and manifest SHA-256 checks. Report Windows and Linux live status separately. Confirm version `5.0.0-rc6`, no tag, external PostgreSQL, and no OS autostart. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
 ## Phase 5AA — monitoring policies
@@ -640,3 +655,15 @@ Windows portable/installer packages include Windows x86_64 backend, worker, and 
 - Windows portable, local-release, and unsigned NSIS packages were rebuilt from Phase 5BM sources and passed strict validation; package manifests explicitly distinguish included PostgreSQL runtime binaries from initialized database data.
 - Windows Tauri managed PostgreSQL smoke passed with an isolated marked cluster, including auth/refresh/logout, health/readiness/release, Monitoring and Operations APIs, worker heartbeat, a completed allowlisted job, graceful shutdown, and persistence after relaunch.
 - Linux x86_64 package and managed PostgreSQL core tests passed in Debian/WSL. Linux Tauri GUI and clean-machine Linux installation acceptance were not run; WSL is not represented as clean-machine Linux acceptance.
+
+## Phase 5BN packaged runtime follow-up (2026-09-23)
+
+- [x] Rebuilt Windows portable, unsigned NSIS installer, local-release, and Linux x86_64 packages after the PostgreSQL resource-path and runtime-status fixes; strict validators pass.
+- [x] Packaged Windows Tauri fresh-profile startup initializes managed PostgreSQL, starts backend/worker, binds PostgreSQL to loopback, and passes health/readiness/release checks.
+- [x] Same-profile relaunch preserves the initialized cluster and ownership marker; health/readiness/release and a native worker heartbeat recover.
+- [x] Live native-auth API login, profile, refresh rotation, logout, and revoked-token rejection pass in the isolated profile; public registration remains disabled.
+- [x] Authenticated Monitoring, host/service inventory, Operations, posture, timeline, notifications, and report-list read APIs pass.
+- [x] Full backend suite 368/368; Alembic current/head `0040_phase5bi_native_jobs`, one head, no drift; Windows Cargo 28 passed/1 ignored; Debian/WSL Cargo 26 passed/1 ignored.
+- [x] Current package validators pass; Windows startup failure was traced to extended-length Tauri resource paths and fixed by normalizing the immutable resource root. Initialization retry protections remain unchanged.
+- [ ] Complete visible embedded-UI/dashboard workflow, report generation/download, and passive recon smoke. Do not claim full Windows zero-Docker acceptance or commit until these are verified.
+- [ ] Windows and Linux clean-machine acceptance remain separate future tests; WSL is not clean-machine Linux acceptance.

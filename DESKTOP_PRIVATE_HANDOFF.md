@@ -1,6 +1,6 @@
 # RavenTech OSINT Desktop Private Handoff
 
-Phase 5BK adds private, target-native Windows/Linux backend and worker artifact layouts under `desktop/dist-native/`; Phase 5BL packages the matching runtime beside the desktop and supervises its owned child processes. No artifact is published. Validate the matching OS package before handoff; see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
+Phase 5BN freezes the Docker-optional native desktop flow for private Windows/Linux testing. The packaged application supervises its managed PostgreSQL, native backend, and native worker and opens the embedded React UI. No artifact is published. See [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md), [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
 
 Candidate: `5.0.0-rc6`
 
@@ -10,15 +10,16 @@ seconds by default. LAN discovery and TCP checks remain off unless their separat
 local configuration flags and existing authorization boundaries are enabled. A
 disabled optional signal is informational, not a failed platform. Portable and
 installed runs use embedded frontend assets and do not need Vite or port 5173.
-Distribution: private local Windows testing only
+Distribution: private local Windows/Linux testing only
 Signature: unsigned
 
 This handoff accompanies RavenTech OSINT Desktop RC6. It does not authorize a
 public upload, production deployment, signing claim, or hosted environment.
-For a new checkout, complete `FRESH_SETUP_CHECKLIST.md` before this handoff's
-artifact and receiving-host steps.
-On the receiving Windows machine, use `EXTERNAL_MACHINE_TEST_CHECKLIST.md` for
-prerequisites, transfer integrity, project setup, recovery, and uninstall QA.
+Packaged native use does not require the repository, Docker, Redis, Celery,
+Python, Node/Vite, external PostgreSQL, PostgreSQL CLI tools from `PATH`,
+PowerShell, Bash, or manual terminal commands. PostgreSQL remains required and
+is managed locally by default. Use the separate development/Docker workflow
+only when that compatibility profile is intentionally selected.
 
 ## Artifact locations
 
@@ -43,9 +44,10 @@ The combined package contains exactly:
 
 Portable and installer subpackages contain their own manifest and SHA-256
 metadata. The combined manifest records the source commit, UTC build time,
-unsigned/local-only state, Docker requirement, filenames, and checksums.
-Each executable includes the React production assets. Neither portable nor
-installed use requires Vite or port 5173; the backend remains external.
+unsigned/local-only state, Docker optionality, managed PostgreSQL inclusion,
+filenames, and checksums. Each executable includes the React production assets
+and native backend, worker, and PostgreSQL runtime. No initialized database is
+packaged.
 
 ## Verify before transfer
 
@@ -65,16 +67,15 @@ binaries to Git.
 
 ## Install and launch
 
-1. Confirm Windows WebView2 Runtime and Docker Desktop are installed.
-2. Keep the RavenTech repository and its reviewed local `.env` outside the
-   distribution package.
-3. Verify the installer checksum.
-4. Run `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe` as the current
+1. Confirm Windows WebView2 Runtime, or the Linux shared-library prerequisites
+   listed in the matching package manifest.
+2. Verify the installer or package checksum.
+3. Run `RavenTech-OSINT-Desktop-5.0.0-rc6-unsigned-setup.exe` as the current
    user and follow the NSIS prompts.
-5. Launch **RavenTech OSINT Desktop** from the Start menu.
-6. Bind the repository root in the first-run Project stage.
-7. Start Docker/backend services using the approved flow in
-   `OPERATOR_MANUAL.md`. Start Vite only for optional browser/development QA.
+4. Launch **RavenTech OSINT Desktop** from the Start menu or open the Linux
+   desktop binary from the package.
+5. Wait for native runtime status to reach Ready, then open RavenTech and sign
+   in. No repository path binding or manual service startup is needed.
 
 Windows SmartScreen may warn because the installer is unsigned. Verify the
 checksum and follow organizational policy. This package must not be represented
@@ -86,36 +87,35 @@ service registration occurs.
 
 ## Smoke test
 
-1. Open the shell and verify the three-stage English/Spanish setup screen.
-2. Reject an invalid path, bind the valid repository root, and verify scripts.
-3. With services offline, verify clear Docker/backend/frontend guidance and
-   copy-only fallback.
-4. Start the existing local platform; verify `/health`, `/health/ready`, and
-   `/api/v1/release` report a ready RC6 service.
-5. Open the embedded UI, sign in, and switch English/Spanish.
-   Confirm the status reads **Frontend: Embedded** with Vite stopped.
-6. Exercise the approved demo flow, Monitoring Center, endpoint-agent
+1. Launch the packaged app with Docker, Redis, and Celery unavailable; verify
+   the native status stages and optional compatibility labels.
+2. Confirm managed PostgreSQL, backend, worker, embedded UI, host monitoring,
+   migrations, and native jobs reach Ready without repository setup.
+3. Open the embedded UI, sign in, and switch English/Spanish with Vite stopped.
+4. Exercise the approved demo flow, Monitoring Center, endpoint-agent
    instructions, advisory posture, and a benign report export.
-7. Confirm start, stop, and restart require confirmation; verify check output is
+5. Confirm start, stop, and restart require confirmation; verify check output is
    bounded and contains no secret.
-8. Restart services and confirm recovery, then stop them cleanly.
-9. Complete `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` and retain the results in
+6. Close and relaunch the desktop; confirm recovery and database persistence.
+7. Complete `DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md` and retain the results in
    an approved private QA record, not in the artifact folder.
 
 ## Uninstall
 
 Open **Settings > Apps > Installed apps**, select **RavenTech OSINT Desktop**,
 and choose **Uninstall**. Confirm its installation directory and Start-menu
-shortcut are removed. Uninstalling the shell intentionally leaves the repository,
-Docker services/volumes, database, Redis data, reports, saved project-path
-preference, and operator-created data outside the installer boundary. Review and
-remove any per-user preference only under the tester's local cleanup policy.
+shortcut are removed. Uninstalling the shell intentionally preserves managed
+PostgreSQL data and other per-user data outside the installer boundary. It also
+does not modify repository files, Docker services/volumes, Redis data, reports,
+or operator-created data. Review and remove retained data only under the tester's
+local cleanup policy.
 
 ## What is not included
 
 The package excludes `.env`, secrets, credentials, tokens, database dumps,
-backups, generated reports, logs, source credentials, the backend, PostgreSQL,
-Redis, Docker, and project data. It also includes no signing certificate,
+backups, generated reports, logs, initialized PostgreSQL data, Redis, Docker,
+and project data. It includes the native backend, worker, and PostgreSQL runtime
+resources. It also includes no signing certificate,
 auto-updater, service autostart, public release integration, hosting, deployment,
 DNS, Supabase migration, router automation, arbitrary/remote command execution,
 remote administration, new scanning, or offensive functionality.
@@ -147,9 +147,9 @@ revealed once and entered only at the manual helper prompt. The portable/install
 artifacts do not include agents, persistence, backend services, databases, secrets,
 or router integration.
 
-## Phase 5BJ private handoff note
+## Historical Phase 5BJ source-run note (superseded)
 
-For a private desktop handoff, set `RUNTIME_PROFILE=desktop` only when PostgreSQL, migrations, the backend, and a separately operated native worker are ready. Redis/Celery are optional in that profile; Docker compatibility remains. The installer does not yet package FastAPI or PostgreSQL. No public release or signing is implied. See `DESKTOP_NATIVE_RUNTIME.md`.
+This source-run instruction was superseded by Phases 5BK–5BM. Packaged desktop runs now contain the native backend, worker, and managed PostgreSQL runtime. PostgreSQL remains required as a supervised local runtime; Redis/Celery are compatibility-only in desktop mode. No public release or signing is implied. See `DESKTOP_NATIVE_RUNTIME.md`.
 
 ## Phase 5BL — Tauri native runtime supervision
 

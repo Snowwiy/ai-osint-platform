@@ -18,7 +18,8 @@ The desktop includes the built React frontend and expects the backend at
 for browser/development testing only. The desktop automatically supervises its
 fixed backend and worker children. Existing external processes are observed, not
 stopped; runtime stop/restart actions require confirmation and apply only to
-children owned by this desktop.
+children owned by this desktop. Normal native use needs no repository binding.
+It requires no terminal, Docker, Redis, Celery, Python, Node, or Vite.
 
 ## Portable app
 

@@ -86,7 +86,7 @@ if (!/^\d{4}-\d{2}-\d{2}T/.test(manifest.buildTime) || !/^[0-9a-f]{40}$/.test(ma
   throw new Error("Local release build time or commit metadata is invalid.");
 }
 const { embeddedFrontend, bundledBackend, managedPostgresqlRuntime, initializedDatabase, ...disabledBoundaries } = manifest.boundaries;
-if (manifest.signed !== false || manifest.localOnly !== true || manifest.dockerRequired !== false || manifest.postgresqlRequired !== false || manifest.managedPostgresql?.major !== 16 || embeddedFrontend !== true || bundledBackend !== true || managedPostgresqlRuntime !== true || initializedDatabase !== false || Object.values(disabledBoundaries).some((value) => value !== false)) {
+if (manifest.signed !== false || manifest.localOnly !== true || manifest.dockerRequired !== false || manifest.postgresqlRequired !== true || manifest.externalPostgresqlRequired !== false || manifest.managedPostgresqlRuntimeIncluded !== true || manifest.managedPostgresql?.major !== 16 || embeddedFrontend !== true || bundledBackend !== true || managedPostgresqlRuntime !== true || initializedDatabase !== false || Object.values(disabledBoundaries).some((value) => value !== false)) {
   throw new Error("Local-only release security boundaries are invalid.");
 }
 if (JSON.stringify(Object.keys(manifest.files).sort()) !== JSON.stringify(payloadFiles)) {
@@ -117,8 +117,11 @@ const actualChecksums = (await readFile(resolve(output, "SHA256SUMS.txt"), "utf8
 if (JSON.stringify(actualChecksums) !== JSON.stringify(expectedChecksums.sort())) throw new Error("SHA256SUMS.txt is invalid.");
 
 const docs = `${await readFile(resolve(output, "README.md"), "utf8")}\n${await readFile(resolve(output, "LOCAL_STARTUP_INSTRUCTIONS.md"), "utf8")}`;
-for (const marker of [PRODUCT, VERSION, "managed PostgreSQL 16 runtime", "Docker remains an optional", "http://localhost:5173", "http://localhost:8000", "SmartScreen", "unsigned", "no code signing"]) {
+for (const marker of [PRODUCT, VERSION, "managed PostgreSQL 16 runtime", "Docker remains an optional", "no repository binding", "no terminal", "http://localhost:5173", "http://localhost:8000", "SmartScreen", "unsigned", "no code signing"]) {
   if (!docs.includes(marker)) throw new Error(`Local release guidance is missing: ${marker}`);
+}
+if (/Docker Desktop.*installed|bind the repository root|run manually in PowerShell/i.test(docs)) {
+  throw new Error("Local release guidance contains stale native-desktop setup instructions.");
 }
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(docs)) throw new Error("Potential secret assignment found in release guidance.");
 console.log(`Local release package validation passed: ${output}`);

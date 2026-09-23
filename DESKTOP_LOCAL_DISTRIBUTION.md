@@ -4,6 +4,21 @@ Phase 5BK standalone backend/worker outputs live in ignored `desktop/dist-native
 
 The current local Windows test bundle is RavenTech OSINT Desktop `5.0.0-rc6`.
 
+## Current normal desktop use (Phase 5BN)
+
+The packaged Windows/Linux app starts the managed PostgreSQL 16 runtime,
+native backend, and native worker, verifies readiness, and opens its embedded
+React frontend. It provides native host monitoring and a read-only startup
+acceptance card. A fresh install needs no repository path, `.env`, Docker,
+Redis, Celery, Python, Node/Vite, external PostgreSQL, PostgreSQL CLI from
+`PATH`, PowerShell, Bash, or manual terminal action. PostgreSQL remains
+required and runs on loopback; user data remains outside package directories.
+
+The Project-binding, Docker launcher, and Vite instructions in older phase
+notes below describe historical compatibility workflows. They are not current
+packaged-desktop setup steps. See `NATIVE_DESKTOP_ACCEPTANCE.md` for the frozen
+normal workflow and future clean-machine procedures.
+
 On authenticated startup the embedded client loads a read-only monitoring
 summary from the local backend and refreshes it on the configured safe interval.
 This is dashboard polling, not service autostart or network discovery. LAN
@@ -47,9 +62,10 @@ Windows machine. It keeps the repository and aggregate package as separate
 inputs, distinguishes runtime from rebuild prerequisites, and documents only
 manual, non-destructive recovery.
 
-The corrected RC6 artifact build embeds the existing React production assets.
-Portable and installed runs do not require Vite or port 5173; that URL is only
-for browser/development testing. PostgreSQL remains required and external; Docker is an alternative compatibility runtime.
+The RC6 artifact embeds the React production assets and native runtime. Vite at
+port 5173 is only for browser/development testing. Docker Compose, Redis, Celery,
+Python development, and configured external PostgreSQL remain compatibility
+workflows; none is required for a fresh packaged desktop install.
 
 ## Local artifacts
 
@@ -63,19 +79,21 @@ All three folders are Git-ignored. Never commit or publish their binaries from
 this phase. The local candidate uses the repository-owned RavenTech icon;
 code-signing and public brand/release approval remain deferred.
 
-## Prerequisites
+## Runtime prerequisites
 
 - Windows 10 or 11 with Microsoft Edge WebView2 Runtime already installed
-- Docker Desktop with Docker Compose
-- RavenTech OSINT repository and local configuration kept outside artifacts
-- Node.js/npm only for rebuilding or browser/development mode
-- Rust/Cargo and pinned Tauri/NSIS build tools already available locally
+- Supported Linux x86_64 distribution with the shared libraries listed in its
+  package manifest
+- Loopback ports 8000 and 55432 available for the managed runtime
 
-No backend, PostgreSQL, Redis, Docker runtime, database, or credentials are
-bundled. There is no service autostart, arbitrary command input, or remote
-command execution.
+Build-only requirements are Node/npm, Rust/Cargo, Tauri/NSIS tools, and the
+target-native package workflow. These are not runtime requirements. Packages
+include the backend, worker, PostgreSQL runtime binaries, and embedded frontend;
+they exclude initialized databases, credentials, reports, backups, and user
+data. There is no service autostart, arbitrary command input, or remote command
+execution.
 
-## Controlled launcher
+## Development/Docker compatibility launcher
 
 The desktop can run only `start_platform.ps1`, `stop_platform.ps1`,
 `restart_platform.ps1`, `check_platform.ps1`, and `open_platform.ps1` from the
@@ -85,8 +103,8 @@ confirmation dialog. Output is capped, sanitized, and time-bounded.
 Portable/dev builds can discover scripts from the repository directory tree.
 An installed build outside that tree uses the manually entered, canonicalized
 project root only after every fixed marker and pinned script-content check
-passes. An unvalidated path cannot select or execute a script; the UI explains
-that launchers are unavailable and leaves the copy button active.
+passes. The legacy launcher is hidden in native desktop mode; this workflow is
+for source development and Docker compatibility only.
 
 ## Build
 
@@ -101,7 +119,7 @@ npm run local-release:package
 npm run local-release:validate -- --require-artifact
 ```
 
-## Start local services
+## Start local services in Docker compatibility mode
 
 From the repository root:
 
@@ -109,10 +127,9 @@ From the repository root:
 powershell -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
 ```
 
-The installed/portable frontend is embedded. Optional Vite browser/development
-mode uses `http://localhost:5173`; the required backend is
-`http://localhost:8000`. Health, readiness, and release checks
-use `/health`, `/health/ready`, and `/api/v1/release`.
+This command is for development/Docker compatibility mode. Native packaged
+desktop starts its components without it. Vite at `http://localhost:5173` is
+optional; the native embedded frontend uses the local backend on port 8000.
 
 ## Install or run
 
@@ -127,14 +144,12 @@ security policy merely to run the test.
 
 ## Smoke test
 
-1. Confirm the local status screen opens and identifies frontend/backend state.
-2. Reject a non-repository path, then bind the valid project root and confirm all
-   fixed markers and approved scripts report available.
-3. With services stopped, confirm readable English/Spanish Docker, port, release,
-   migration, backend, frontend, and script guidance.
-4. Start Docker/backend services through the approved workflow; confirm health
-   and readiness become ready. In a release build confirm **Frontend: Embedded**.
-5. Open the embedded frontend and switch the desktop/web UI between English and Spanish.
+1. Open the packaged desktop and verify the native startup stages in English and Spanish.
+2. Verify Database, Backend, Worker, Embedded UI, Monitoring, Migrations, and
+   Native Jobs status; no project path or terminal is needed.
+3. Start with Docker/Redis/Celery unavailable and confirm the native app becomes
+   Ready using the managed database and native worker.
+4. Open the embedded frontend and switch the desktop/web UI between English and Spanish.
 6. Export one benign report and confirm existing browser behavior is unchanged.
 7. Run `npm run portable:validate`, `npm run installer:validate -- --require-artifact`,
    and `npm run smoke -- --require-artifacts`.

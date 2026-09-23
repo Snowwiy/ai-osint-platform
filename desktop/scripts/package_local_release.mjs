@@ -96,7 +96,9 @@ const manifest = {
   signed: false,
   localOnly: true,
   dockerRequired: false,
-  postgresqlRequired: false,
+  postgresqlRequired: true,
+  externalPostgresqlRequired: false,
+  managedPostgresqlRuntimeIncluded: true,
   managedPostgresql: { version: JSON.parse(await readFile(resolve(desktop, "dist-portable", PRODUCT_DIRECTORY, "portable-manifest.json"), "utf8")).nativeRuntime.postgresql.version, major: 16 },
   files,
   boundaries: {

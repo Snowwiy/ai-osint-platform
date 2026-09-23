@@ -12,7 +12,7 @@
     <header class="topbar">
       <div>
         <strong>RavenTech OSINT Desktop</strong>
-        <span data-copy="prototype">RC6 local setup assistant</span>
+        <span data-copy="prototype">RC6 native desktop</span>
       </div>
       <div class="actions">
         <button id="language" type="button">Español</button>
@@ -31,18 +31,41 @@
         <p id="runtime-message" role="status" aria-live="polite"></p>
       </section>
 
-      <section class="hero">
+      <section class="hero" id="runtime-hero">
         <p class="eyebrow" data-copy="eyebrow">LOCAL SERVICE STATUS</p>
-        <h1 data-copy="title">Preparing the local workspace</h1>
-        <p data-copy="intro">This shell checks fixed localhost services and can run only five approved repository scripts.</p>
+        <h1 id="hero-title" data-copy="title">Preparing the local workspace</h1>
+        <p id="hero-intro" data-copy="intro">The desktop starts and supervises its local application runtime.</p>
         <div id="summary" class="summary checking" role="status" aria-live="polite">
           <span class="summary-dot"></span>
           <span id="summary-text" data-copy="checking">Checking…</span>
         </div>
-        <button id="open-platform" class="primary" type="button" data-copy="openWorkspace" hidden>Open local workspace</button>
+        <button id="open-platform" class="primary" type="button" data-copy="openWorkspace" hidden>Open RavenTech</button>
       </section>
 
-      <section id="setup-panel" class="panel setup-panel">
+      <section id="native-acceptance" class="panel" aria-live="polite">
+        <div class="panel-heading"><div><p class="eyebrow" data-copy="desktopEyebrow">DESKTOP RUNTIME</p><h2 id="desktop-runtime-title" data-copy="desktopTitle">Native Runtime Acceptance</h2></div><strong data-copy="nativeProfile">Native PostgreSQL</strong></div>
+        <p data-copy="desktopIntro">RavenTech starts its local database, backend, worker, and embedded interface automatically.</p>
+        <ol class="setup-steps native-steps" aria-labelledby="desktop-runtime-title">
+          <li id="native-step-application"><span>1</span><div><strong data-copy="stageApplication">Application</strong><small id="native-state-application">—</small></div></li>
+          <li id="native-step-database"><span>2</span><div><strong data-copy="stageDatabase">Database</strong><small id="native-state-database">—</small></div></li>
+          <li id="native-step-backend"><span>3</span><div><strong data-copy="stageBackend">Backend</strong><small id="native-state-backend">—</small></div></li>
+          <li id="native-step-worker"><span>4</span><div><strong data-copy="stageWorker">Worker</strong><small id="native-state-worker">—</small></div></li>
+          <li id="native-step-monitoring"><span>5</span><div><strong data-copy="stageMonitoring">Monitoring</strong><small id="native-state-monitoring">—</small></div></li>
+          <li id="native-step-ready"><span>6</span><div><strong data-copy="stageReady">Ready</strong><small id="native-state-ready">—</small></div></li>
+        </ol>
+        <ul class="native-acceptance-grid" aria-labelledby="desktop-runtime-title">
+          <li><span data-copy="stageDatabase">Database</span><strong id="accept-database">—</strong></li>
+          <li><span data-copy="stageBackend">Backend</span><strong id="accept-backend">—</strong></li>
+          <li><span data-copy="stageWorker">Worker</span><strong id="accept-worker">—</strong></li>
+          <li><span data-copy="acceptEmbedded">Embedded UI</span><strong id="accept-embedded">—</strong></li>
+          <li><span data-copy="stageMonitoring">Monitoring</span><strong id="accept-monitoring">—</strong></li>
+          <li><span data-copy="acceptMigrations">Migrations</span><strong id="accept-migrations">—</strong></li>
+          <li><span data-copy="acceptJobs">Native jobs</span><strong id="accept-jobs">—</strong></li>
+        </ul>
+        <p id="native-compatibility" class="distribution-note">Docker, Redis, and Celery are optional compatibility components. PostgreSQL remains required.</p>
+      </section>
+
+      <section id="setup-panel" class="panel setup-panel" hidden>
         <div class="panel-heading">
           <div>
             <p class="eyebrow" data-copy="setupEyebrow">FIRST-RUN SETUP</p>
@@ -79,11 +102,11 @@
         <article><span data-copy="readiness">Readiness</span><strong id="ready-status">Checking…</strong><small id="ready-detail"></small></article>
         <article><span data-copy="release">Release</span><strong id="release-status">Checking…</strong><small id="release-detail"></small></article>
         <article><span data-copy="frontend">Frontend</span><strong id="frontend-status">Checking…</strong><small id="frontend-detail"></small></article>
-        <article><span data-copy="dockerServices">Docker services</span><strong id="docker-status">Checking…</strong><small id="docker-detail"></small></article>
+        <article id="docker-service-card" hidden><span data-copy="dockerServices">Docker services</span><strong id="docker-status">Checking…</strong><small id="docker-detail"></small></article>
         <article><span data-copy="hostMetrics">Server host metrics</span><strong id="host-metrics-status">Checking…</strong><small id="host-metrics-detail"></small></article>
       </section>
 
-      <section class="panel runtime-checklist">
+      <section class="panel runtime-checklist" id="runtime-checklist" hidden>
         <h2 data-copy="runtimeChecklist">Runtime checklist</h2>
         <ul>
           <li><span data-copy="repoStructure">Repository structure</span><strong id="check-repository">—</strong></li>
@@ -108,26 +131,26 @@
         <p data-copy="frontendHelpBody">Run Vite only for development/browser mode. Installed and portable builds use bundled React assets.</p>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="legacy-launcher-panel" hidden>
         <h2 data-copy="helpTitle">Controlled local launcher</h2>
         <p data-copy="helpBody">Approved actions use fixed repository scripts. Copy remains available when scripts cannot be found.</p>
         <div id="commands"></div>
       </section>
 
-      <section class="panel command-result" aria-live="polite">
+      <section class="panel command-result" id="legacy-command-result" hidden aria-live="polite">
         <h2 data-copy="lastCommand">Last command</h2>
         <p id="last-command">No launcher action has run.</p>
         <strong id="command-result">Not run</strong>
         <pre id="command-output" hidden></pre>
       </section>
 
-      <section class="panel endpoints">
+      <section class="panel endpoints" id="local-endpoints" hidden>
         <h2 data-copy="endpoints">Local endpoints</h2>
         <p><span data-copy="frontendUrl">Frontend URL</span> <code id="frontend-url">http://localhost:5173</code></p>
         <p><span data-copy="backendUrl">Backend URL</span> <code id="backend-url">http://localhost:8000</code></p>
       </section>
-      <section class="panel firewall-note">
-        <h2 data-copy="firewallTitle">Windows firewall guidance</h2>
+      <section class="panel firewall-note" id="firewall-note" hidden>
+        <h2 data-copy="firewallTitle">Local network boundary</h2>
         <p data-copy="firewallBody">RavenTech uses localhost ports 8000 and 5173. Do not approve public-network exposure; review any firewall prompt before continuing.</p>
       </section>
       <p id="message" role="status"></p>

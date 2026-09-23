@@ -6,17 +6,24 @@ from pathlib import Path
 
 import pytest
 from app.native_cli import reserve_socket, validate_bind
-from app.native_runtime import native_paths, resource_path
+from app.native_runtime import (
+    _strip_windows_verbatim_prefix,
+    native_paths,
+    resource_path,
+)
 from app.native_server import main as server_main
 from app.native_worker import main as worker_main
+from jinja2 import Environment, FileSystemLoader
 
 
 def test_fixed_native_version(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     for name in (
-        "RAVENTECH_NATIVE_PACKAGE", "RUNTIME_PROFILE",
-        "RAVENTECH_CONFIG_FILE", "CHROMA_DATA_PATH",
+        "RAVENTECH_NATIVE_PACKAGE",
+        "RUNTIME_PROFILE",
+        "RAVENTECH_CONFIG_FILE",
+        "CHROMA_DATA_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
     assert server_main(["--version"]) == 0
@@ -71,6 +78,52 @@ def test_resources_resolve_without_repository_cwd(
     monkeypatch.chdir(tmp_path)
     assert resource_path("alembic", "versions").is_dir()
     assert resource_path("app", "templates", "reports", "report.html.j2").is_file()
+
+
+def test_windows_verbatim_resource_prefix_normalization() -> None:
+    assert (
+        _strip_windows_verbatim_prefix(
+            r"\\?\C:\Users\Long Name\RavenTech OSINT\backend.exe"
+        )
+        == r"C:\Users\Long Name\RavenTech OSINT\backend.exe"
+    )
+    assert (
+        _strip_windows_verbatim_prefix(
+            r"\\?\UNC\host\share\RavenTech OSINT\backend.exe"
+        )
+        == r"\\host\share\RavenTech OSINT\backend.exe"
+    )
+    assert _strip_windows_verbatim_prefix(r"C:\RavenTech\backend.exe") == (
+        r"C:\RavenTech\backend.exe"
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows packaged path behavior")
+def test_packaged_jinja_template_loads_from_tauri_verbatim_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    executable_directory = tmp_path / "RavenTech OSINT Café" / "backend"
+    template_directory = (
+        executable_directory / "resources" / "app" / "templates" / "reports"
+    )
+    template_directory.mkdir(parents=True)
+    (executable_directory / "RavenTechBackend.exe").touch()
+    (template_directory / "report.html.j2").write_text(
+        "{{ product }} packaged report", encoding="utf-8"
+    )
+    monkeypatch.setenv("RAVENTECH_NATIVE_PACKAGE", "1")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["\\\\?\\" + str(executable_directory / "RavenTechBackend.exe")],
+    )
+
+    template_path = resource_path("app", "templates", "reports", "report.html.j2")
+    environment = Environment(loader=FileSystemLoader(template_path.parent))
+
+    assert environment.get_template(template_path.name).render(product="RavenTech") == (
+        "RavenTech packaged report"
+    )
 
 
 def test_native_check_is_read_only(

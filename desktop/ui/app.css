@@ -83,6 +83,14 @@ h2 { margin-top: 0; font-size: 1rem; }
 .setup-steps li.complete > span { background: #65e6c4; }
 .setup-steps strong, .setup-steps small { display: block; overflow-wrap: anywhere; }
 .setup-steps small { margin-top: .2rem; color: #8fa7b8; font-size: .72rem; }
+.setup-steps li.attention { border-color: #735b2c; }
+.setup-steps li.attention > span { color: #071018; background: #f0b95c; }
+.native-acceptance-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 1rem 0; padding: 0; list-style: none; }
+.native-acceptance-grid li { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-width: 0; padding: .7rem; border: 1px solid #1b3544; border-radius: .45rem; background: #07131b; }
+.native-acceptance-grid span { color: #91a7b5; font-size: .82rem; }
+.native-acceptance-grid strong { color: #f0b95c; font-size: .8rem; text-align: right; }
+.native-acceptance-grid strong.ok { color: #65e6c4; }
+.native-acceptance-grid strong.offline { color: #ff8d8d; }
 .distribution-note, .firewall-note p { color: #9db0bd; line-height: 1.55; }
 .path-entry input[aria-invalid="true"] { border-color: #ff8d8d; }
 .project-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0 0; }
@@ -119,7 +127,7 @@ dialog::backdrop { background: rgb(2 8 12 / .78); }
   .command { grid-template-columns: 1fr; }
   .runtime-row { grid-template-columns: 1fr; }
   .runtime-actions { flex-wrap: wrap; }
-  .path-entry, .project-details, .runtime-checklist ul, .setup-steps { grid-template-columns: 1fr; }
+  .path-entry, .project-details, .runtime-checklist ul, .setup-steps, .native-acceptance-grid { grid-template-columns: 1fr; }
   .panel-heading { flex-direction: column; }
   .topbar span { display: none; }
 }

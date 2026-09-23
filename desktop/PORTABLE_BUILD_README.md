@@ -10,8 +10,6 @@ This copy-only package has no installer.
 ## Prerequisites
 
 - supported Windows with Microsoft Edge WebView2 Runtime
-- a local RavenTech configuration file under the platform-native application
-  config directory; fresh native installs use managed PostgreSQL
 - Docker Desktop only when choosing the Docker compatibility profile
 - Node.js/npm only when rebuilding or running browser/development mode
 
@@ -22,8 +20,9 @@ available as a separate compatibility profile.
 
 ## Run the portable application
 
-Double-click `RavenTech OSINT Desktop.exe`; first launch initializes managed
-PostgreSQL 16 on loopback port 55432.
+Double-click `RavenTech OSINT Desktop.exe`. First launch safely initializes the
+managed PostgreSQL 16 runtime on loopback port 55432, applies forward
+migrations, then starts the backend and worker.
 The containing folder is `RavenTech-OSINT-Desktop-5.0.0-rc6`, the window title
 is **RavenTech OSINT Desktop — Local Workspace**, and the icon remains a
 repository-owned local-candidate asset; public brand approval remains deferred.
@@ -35,15 +34,12 @@ The release shell loads its packaged frontend and checks these local endpoints:
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
-The desktop verifies the backend identity, readiness, and RC6 release before
-starting the worker and opening the embedded React workspace. Browser mode remains optionally available at
-`http://localhost:5173` when Vite is started separately.
-
-On first launch, manually enter the repository root in the setup card. The path
-is stored only after fixed marker and build-pinned five-script validation. Resolution then
-prefers that saved path, followed by matching current-directory ancestry and
-development executable ancestry. Missing or invalid paths retain copy-only mode;
-there is no broad folder browser or arbitrary command input.
+The desktop verifies backend identity, health, readiness, migrations, worker
+heartbeat, and RC6 release compatibility before opening the embedded React
+workspace. No repository path, `.env`, Python, Docker, Redis, Celery, Node/Vite,
+PostgreSQL CLI from `PATH`, PowerShell, or terminal is required for normal
+packaged use. Browser/Vite development remains optional at
+`http://localhost:5173`.
 
 ## Troubleshooting
 
@@ -53,9 +49,8 @@ there is no broad folder browser or arbitrary command input.
   RavenTech does not stop or reconfigure unrelated processes.
 - **Readiness degraded:** use Local Runtime status and the platform-native
   runtime logs. A component can be retried only when this desktop owns it.
-- **Frontend unavailable in development:** run `npm run dev` from `frontend/`.
-  In a portable release, **Frontend: Embedded** is expected and port 5173 is
-  not required.
+- **Frontend unavailable:** a packaged release uses embedded assets. Port 5173
+  and `npm run dev` apply only to browser/development mode.
 - **Window does not open:** confirm WebView2 Runtime is installed and that local
   endpoint security policy permits the executable.
 
@@ -68,8 +63,8 @@ the folder between local test locations.
 - Windows x86_64 portable local testing; Linux x86_64 packaging is documented
   separately; no public release or support SLA
 - unsigned executable with the repository-owned RavenTech local-candidate icon
-- Fresh native installs use managed PostgreSQL; external PostgreSQL and Docker
-  remain supported compatibility options
+- Fresh native installs use managed PostgreSQL. Existing external PostgreSQL
+  and Docker remain supported compatibility options; Docker is not required.
 - no OS startup persistence/autostart; child processes stop with this desktop
 - no arbitrary command input, shell/filesystem plugin, secret collection,
   remote administration, router

@@ -5,87 +5,79 @@ For native Windows/Linux backend, worker, and managed PostgreSQL packaging and l
 Version: `5.0.0-rc6`
 Audience: authorized local operators and private desktop testers
 
-RavenTech OSINT Desktop is a local Windows shell for the existing RavenTech
-OSINT web platform. It shows setup and service status, embeds the local web UI
-when it is ready, and can invoke six fixed repository launchers after the
-required confirmation. It is not a hosted service, a remote administration
-tool, or a replacement for the browser workflow.
+RavenTech OSINT Desktop is a local Windows/Linux application. In the packaged
+desktop profile it starts and supervises its managed PostgreSQL database,
+native backend, and native worker, then opens the embedded React interface and
+native host monitoring. It is not a hosted service or a remote administration
+tool.
 
 ## Local architecture
 
-The desktop executable uses Tauri and Windows WebView2. Installed and portable
-builds load the existing React production build from bundled Tauri assets. That
-frontend continues to call the FastAPI backend at `http://localhost:8000`.
-Vite at `http://localhost:5173/` is an optional browser/development endpoint.
+The packaged desktop embeds the React production build and includes the native
+FastAPI backend, PostgreSQL 16 runtime, and native PostgreSQL worker. A fresh
+desktop uses a per-user managed database bound only to `127.0.0.1:55432`.
+PostgreSQL remains required; a previously configured host-reachable external
+database is supported as an explicit compatibility mode.
 
-Docker Compose separately runs FastAPI, PostgreSQL, Redis, and the worker. The
-repository and local configuration remain outside the desktop package. The
-portable app and installer do not contain or install Docker, the backend, the
-database, Redis, project data, reports, backups, credentials, or `.env` files.
-
-Browser mode remains available at `http://localhost:5173` and uses the same
-backend and data as desktop mode.
+Normal packaged desktop operation does not require Docker, Redis, Celery,
+Python, Node/npm, Vite, a separately installed PostgreSQL server or CLI, a
+repository checkout, PowerShell, Bash, or manual terminal commands. Fixed
+PostgreSQL runtime utilities are bundled and invoked by their validated paths;
+the app does not search `PATH` or invoke a shell. Docker and Python/Vite
+development workflows remain available as separate profiles.
 
 ## Prerequisites
 
-- Windows 10 or 11 with Microsoft Edge WebView2 Runtime
-- the RavenTech OSINT repository at the RC6 source revision
-- Docker Desktop with Docker Compose, started by the operator
-- a local `.env` created and reviewed from `.env.example`; never copy it into a
-  distribution package
-- port `8000` available on loopback; port `5173` only for optional Vite mode
-- Node.js/npm and installed frontend dependencies when running the Vite
-  frontend from source
+- Windows 10 or 11 with Microsoft Edge WebView2 Runtime, or a supported Linux
+  x86_64 desktop distribution with the shared libraries listed by its package
+  manifest
+- loopback ports `8000` and `55432` available for the default managed runtime
 - an account authorized for the intended RavenTech workflow
 
-Rust, Cargo, Tauri CLI, and NSIS are build prerequisites only. They are not
-needed to run an already-built portable executable or installer.
+The repository, Docker, Redis, Celery, Python, Node/npm, Vite, Rust, Cargo,
+Tauri CLI, NSIS, database CLI tools from `PATH`, and a terminal are not runtime
+prerequisites for an already-built native desktop package. WebView2 on Windows
+is supplied by the operating system/runtime installation.
 
 ## First-run setup
 
-1. Start RavenTech OSINT Desktop. The Project stage opens before the platform UI.
-2. Enter the absolute path to the repository root. The desktop does not use a
-   broad filesystem browser.
-3. Select **Validate and save** / **Validar y guardar**.
-4. Review the Project, Prerequisites, and Local services stages and follow the
-   displayed next action.
-5. Start Docker Desktop yourself if it is unavailable or stopped. The desktop
-   never installs or starts Docker automatically.
-6. Start the platform as described below, then use **Check** to refresh status.
-   A release build reports **Frontend: Embedded**; open it when the backend is ready.
+1. Launch RavenTech OSINT Desktop from its installed or portable app entry.
+2. Wait while the status card moves through Application, Database, Backend,
+   Worker, Monitoring, and Ready. Startup and shutdown are supervised by the
+   desktop; no repository binding or separate service launch is needed.
+3. When Ready appears, open RavenTech and sign in. A fresh install initializes
+   its managed database once; later launches reuse the same per-user data.
+4. Use the Local Runtime status panel for component state and safe next steps.
 
-An accepted project path must resolve to a canonical directory containing the
-expected Compose file, Python project marker, `backend/app`, `frontend/package.json`,
-`desktop/`, and all six approved scripts under `scripts/local/`. The approved
-scripts must match the copies pinned into the desktop build. Empty, missing,
-incomplete, or altered repositories are rejected and remain copy-only.
+The normal packaged profile reports **Database: Managed Local PostgreSQL**,
+**Backend: Managed Native**, **Background Jobs: Native PostgreSQL Worker**, and
+**Frontend: Embedded**. Docker, Redis, and Celery are optional compatibility
+components.
 
-The saved path is a local preference in the current user's application-config
-directory. It is not added to the repository or distribution package. Path
-resolution tries the saved path first, then matching current-directory ancestry,
-then development executable ancestry, and finally copy-only guidance.
-The launcher supplies that validated canonical root to the fixed script through
-an internal environment value. `start_platform.ps1` validates it again, then
-tries its own script location and current directory; failure produces clean
-copy-only guidance rather than a null-path PowerShell stack trace.
+Unknown or unmarked database directories and occupied ports are preserved and
+reported. RavenTech never deletes a cluster to recover from startup failure.
 
-## Start, check, stop, and restart
+## Native desktop runtime controls
 
-The desktop may invoke only these exact, argument-free repository scripts:
+The desktop supervises only the backend, worker, and managed PostgreSQL
+processes it launched. Component actions are shown only when available and
+owned by this desktop; stop/restart requires confirmation. External database,
+backend, and worker processes are observed and are never stopped by RavenTech.
+Application exit requests cooperative shutdown in worker, backend, database
+order. Startup, health, readiness, release compatibility, worker heartbeat,
+and native host monitoring are checked automatically.
 
-- `scripts/local/start_platform.ps1`
-- `scripts/local/stop_platform.ps1`
-- `scripts/local/restart_platform.ps1`
-- `scripts/local/check_platform.ps1`
-- `scripts/local/open_platform.ps1`
-- `scripts/local/apply_lan_monitoring_config.ps1`
+The runtime status card identifies the embedded frontend separately from the
+development Vite frontend. Docker, Redis, and Celery absence is optional in the
+native profile and does not degrade native readiness.
 
-Start, stop, and restart require an explicit confirmation dialog. Check and
-open-frontend remain deliberate button actions. Output is bounded, time-limited,
-and sanitized. If project validation or PowerShell execution is unavailable,
-use the displayed copy-only command instead.
+## Development / Docker compatibility
 
-From the repository root, the equivalent operator workflow is:
+Contributor and compatibility workflows remain available. Docker Compose may
+run the FastAPI backend, PostgreSQL, Redis, and Celery worker. For the existing
+Windows script workflow, use the fixed approved scripts from a source checkout:
+
+From the repository root, the Docker compatibility workflow is:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\start_platform.ps1
@@ -94,6 +86,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\restart_plat
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\local\stop_platform.ps1
 ```
 
+Other repository-only helpers include `open_platform.ps1` and
+`apply_lan_monitoring_config.ps1`. These commands are for the explicit
+Development / Docker compatibility workflow; the packaged native desktop does
+not invoke or require them.
+
 For optional browser or desktop-development testing, run Vite separately:
 
 ```powershell
@@ -101,26 +98,28 @@ cd frontend
 npm run dev
 ```
 
-Installed and portable builds do not require this Vite command. The desktop
-does not accept command text, script names, or arguments from the
-operator. It cannot run database reset, backup, restore, remote, router, or
-scanning commands.
+These commands are development/Docker guidance only. They are not steps for
+normal packaged desktop operation. Packaged users do not require this Vite command.
+The packaged runtime does not accept
+operator command text, script names, executable paths, or arbitrary arguments.
 
 ## Health checks
 
-Use **Check** in the desktop setup/status screen or inspect the fixed local URLs:
+Use **Check again** in the native Local Runtime status panel. For authorized
+diagnostics, the fixed local health endpoints are:
 
 - frontend: embedded in installed/portable mode
-- development frontend: `http://localhost:5173/` (HTTP 2xx `text/html`)
+- development frontend only: `http://localhost:5173/` (HTTP 2xx `text/html`)
 - backend: `http://localhost:8000`
 - health: `http://localhost:8000/health`
 - readiness: `http://localhost:8000/health/ready`
 - release: `http://localhost:8000/api/v1/release`
 
 The RC6 acceptance value is `5.0.0-rc6`. A reachable health endpoint with failed
-readiness is a degraded state: inspect the Docker services and migration state
-before continuing. A release mismatch means the source/services do not match
-this desktop candidate. Do not treat a raw port conflict as platform readiness.
+readiness is degraded: inspect the safe Local Runtime reason and migration
+state. Consult Docker logs only when intentionally using Docker compatibility
+mode. A release mismatch means the backend does not match this desktop
+candidate; a port conflict is not considered readiness.
 
 ## Login and registration
 
@@ -192,11 +191,12 @@ exports include PDF, DOCX, HTML, and Markdown. Treat every output as potentially
 sensitive. Reports require analyst review and are not evidence of regulatory or
 legal completeness. Generated reports are not included in desktop artifacts.
 
-## Backup and restore
+## Development/Docker database backup and restore
 
-Backup and restore are separate, manual repository maintenance procedures; the
-desktop launcher cannot invoke them. From the repository root, create an ignored
-PostgreSQL backup with:
+These repository scripts manage the Docker/development database and are not part
+of normal packaged desktop use. Native managed-PostgreSQL backup/restore is not
+integrated; retain an operator-controlled backup before any planned migration.
+From the repository root, create an ignored Docker PostgreSQL backup with:
 
 ```powershell
 .\scripts\local\backup_db.ps1
@@ -214,41 +214,41 @@ Restore validation refuses the live database and creates a new database name:
 Do not attempt an unreviewed cutover or extract a report archive into the live
 volume. Follow `LOCAL_BACKUP_RESTORE.md` for safeguards and verification.
 
-## Troubleshooting
+## Development/Docker compatibility troubleshooting
 
-- **Wrong or missing project path:** enter the repository root, not `desktop/`
-  or `frontend/`. Restore altered/missing approved scripts from trusted Git
-  history; do not weaken validation.
-- **Docker unavailable:** install Docker separately under organizational policy,
-  start Docker Desktop, and retry. The desktop cannot install it.
-- **Backend unreachable:** run the approved start workflow, inspect
-  `docker compose ps` and bounded service logs, then check `/health`.
-- **Readiness degraded or migrations pending:** run the documented local start
-  workflow, which applies intended migrations, then check readiness again. Do
-  not reset the database.
+- **Repository path prompt:** appears only in the legacy development/Docker
+  launcher. Normal packaged native desktop does not bind a source path.
+- **Docker unavailable:** expected in native mode. Start Docker only when the
+  Docker compatibility profile is intentionally selected.
+- **Backend unreachable:** native users should review Local Runtime status;
+  Docker users may inspect `docker compose ps` and bounded service logs.
+- **Readiness degraded or migrations pending:** native startup applies forward
+  migrations and reports failures without deleting the database. Docker mode
+  follows the existing upgrade workflow. Do not reset the database.
 - **Frontend unavailable:** a release build should report **Embedded** without
   Vite. In development only, run `npm run dev` from `frontend/`.
-- **Port 8000 unavailable:** stop the unrelated process or reconfigure it outside
-  this workflow. Port 5173 matters only for optional Vite mode.
-- **Copy failed:** select the displayed command and copy it manually.
+- **Port 8000 unavailable:** the desktop leaves the unrelated listener alone.
+  Port 5173 matters only for optional Vite browser/development mode.
 - **SmartScreen warning:** the installer is unsigned. Verify its SHA-256 value
   against the package manifest and follow organizational policy; do not describe
   or treat it as trusted software.
-- **Docker/LAN firewall prompt:** only loopback access is required for the
-  desktop web flow. Do not approve public-network exposure for ports 8000/5173.
+- **Firewall prompt:** managed PostgreSQL uses loopback 55432 and backend uses
+  loopback 8000; do not approve public-network exposure. Port 5173 is optional
+  development-only.
 - **Raw application error:** record the friendly status and timestamp, not
   credentials or `.env`; consult `LOCAL_HEALTH_REPAIR.md`.
 
 ## Limitations and safety boundary
 
 - RC6 is a private, unsigned local-test candidate, not a public release.
-- Docker/backend services remain separately managed prerequisites; Vite is not
-  required for installed/portable UI rendering.
+- Packaged native mode includes the backend, worker, and PostgreSQL runtime.
+  Docker, Redis/Celery, Python, Node/Vite, and terminal commands are not runtime
+  prerequisites.
 - Installed-app and clean-uninstall behavior require real Windows host QA.
 - There is no code signing, auto-update, service autostart, production package,
   hosting, deployment, DNS, or Supabase migration.
-- There is no bundled backend, PostgreSQL, Redis, database, report set, backup,
-  credential, or secret.
+- An initialized database, reports, backups, credentials, and secrets are not
+  bundled. Managed PostgreSQL runtime binaries are included.
 - The desktop has no broad shell or filesystem plugin permission and no arbitrary
   or remote command execution.
 - There is no router automation, remote administration, new scanning, or
@@ -407,7 +407,7 @@ In **LAN Assets**, open a device to see Observed Services, counts, state filters
 
 Existing Docker installs stay in Celery compatibility mode by default. After Alembic upgrade, set `BACKGROUND_JOB_BACKEND=native` and run `python -m app.worker` from `backend` to use the PostgreSQL queue. Operations Center lists jobs and lets admins cancel or retry eligible jobs. Running cancellation takes effect at a safe handler boundary. PostgreSQL and the backend remain required; Redis/Celery are optional only in native mode. See `NATIVE_BACKGROUND_JOBS.md`.
 
-## Phase 5BJ desktop runtime
+## Phase 5BJ source-run runtime (historical; packaged startup later changed)
 
 Set `RUNTIME_PROFILE=desktop` on the backend and native worker, apply Alembic migrations, and run `python -m app.worker` from `backend`. PostgreSQL and the backend are required; Redis and Celery are not required in this profile. Check `/health/ready` and Operations Center for worker health, queue age, and safe errors. Docker/Celery mode remains available. The desktop still relies on separately operated FastAPI/PostgreSQL services in this phase.
 

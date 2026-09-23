@@ -1,10 +1,12 @@
-# Desktop native background runtime (Phases 5BJ–5BL)
+# Desktop native runtime (Phases 5BJ–5BN)
 
-Phase 5BK adds Windows and Linux standalone backend/worker builds; Phase 5BL supervises those packaged components; Phase 5BM adds Tauri-managed PostgreSQL 16 for fresh native desktop installs. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
+Phase 5BK adds Windows and Linux standalone backend/worker builds; Phase 5BL supervises those packaged components; Phase 5BM adds Tauri-managed PostgreSQL 16; Phase 5BN freezes the Docker-optional packaged workflow. See [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md), [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
 
-Tauri starts the fixed native FastAPI backend and worker in release desktop mode. For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` with the same PostgreSQL connection. The profile selects PostgreSQL-backed jobs and authentication even if an older `.env` says `BACKGROUND_JOB_BACKEND=celery`. PostgreSQL, Alembic migrations, and report storage remain required. Redis and Celery are optional compatibility services. PostgreSQL is not packaged and remains externally operated, commonly through Docker.
+The normal packaged Windows/Linux app includes the native FastAPI backend, worker, embedded frontend, and managed PostgreSQL 16 runtime. Tauri resolves managed or explicitly configured external database mode, applies forward migrations, waits for health/readiness/release checks, starts the worker, and opens the embedded UI. Fresh installs use managed PostgreSQL on loopback. PostgreSQL, migrations, and report storage remain required. Redis/Celery/Docker are not required for the desktop profile.
 
-`RUNTIME_PROFILE=docker` is the default and retains the existing Celery/Redis behavior. `RUNTIME_PROFILE=development` honors `BACKGROUND_JOB_BACKEND=celery|native`. No existing Docker installation is silently switched.
+For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` with the same PostgreSQL connection. The profile selects PostgreSQL-backed jobs and authentication even if an older `.env` says `BACKGROUND_JOB_BACKEND=celery`. Docker profile behavior remains unchanged.
+
+`RUNTIME_PROFILE=docker` retains the existing Celery/Redis behavior. `RUNTIME_PROFILE=development` honors `BACKGROUND_JOB_BACKEND=celery|native`. No existing Docker installation is silently switched.
 
 ## Dependency inventory and migration decision
 
@@ -13,6 +15,10 @@ Tauri starts the fixed native FastAPI backend and worker in release desktop mode
 | Celery broker/result settings and empty `workers/tasks.py` module | B, E, F | Retained for Docker compatibility; no registered application Celery tasks exist. |
 | Refresh-token JTI and failed-login throttling | A, D | PostgreSQL `native_auth_state` in desktop profile; token bodies are never stored. |
 | SlowAPI Redis storage | C | No decorated routes currently use it. Desktop points this optional limiter at local memory; required login throttling remains PostgreSQL-backed. |
+| Packaged native PostgreSQL/backend/worker | A | Fixed runtime resources are bundled; initialized database and installation credential stay in per-user data/state directories. |
+| Docker Compose, Redis, Celery | B, C | Preserved compatibility and contributor workflow; packaged native startup neither starts nor requires them. |
+| Python, Node/Vite, PowerShell/Bash | E, B | Build, source development, or explicit compatibility tooling only. |
+| PostgreSQL CLI from `PATH` | F | Not required. Fixed utilities are bundled and invoked using validated paths. |
 | LAN posture and recommendations after telemetry | A, E | Allowlisted native jobs with dedupe and cooldown. |
 | Monitoring summary refresh | A, E | Allowlisted native job; native worker schedules one bounded cycle per configured interval. |
 | Reports and exports (PDF, DOCX, HTML, Markdown) | A | Existing synchronous, permission-checked request flow retained. The API response/download contract and report transaction boundaries remain intact. |
@@ -33,7 +39,7 @@ Operations Center shows worker health, queue depth and age, counts, safe errors,
 
 Only fixed application handlers execute. Payloads have exact schemas and contain no passwords, JWTs, API keys, enrollment tokens, executable paths, commands, or raw banners. The worker does not use dynamic imports, `eval`, `exec`, subprocesses, or shell execution. Cancellation is cooperative. Remote commands, public scanning, brute force, credential testing, exploitation, and autostart are outside this runtime.
 
-Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires its configured dependencies. PostgreSQL remains required in every profile: fresh native desktop installs use the managed runtime, while configured external databases remain supported. Remaining phases are 5BN Docker-optional desktop finalization, 5BO Windows clean-machine acceptance, 5BP Linux clean-machine acceptance, and 5BQ Knowledge/Obsidian ingestion. Those later phases are not implemented here.
+Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires its configured dependencies. PostgreSQL remains required in every profile: fresh native desktop installs use the managed runtime, while configured external databases remain supported. Future acceptance phases are 5BO Windows clean-machine acceptance, 5BP Linux clean-machine acceptance, and 5BQ Obsidian plus verified Knowledge ingestion.
 
 ## Phase 5BL — Tauri native runtime supervision
 

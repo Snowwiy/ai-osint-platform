@@ -59,7 +59,12 @@ pub enum RuntimeError {
     ExistingClusterWithoutMarker,
     IncompleteInitialization,
     SecretUnavailable,
-    InitFailed,
+    InitFailed {
+        class: InitFailureClass,
+        exit_code: Option<i32>,
+        resource_hint: Option<InitResourceHint>,
+    },
+    InitSpawnFailed(InitFailureClass),
     StartFailed,
     ReadinessTimeout,
     DatabaseBootstrapFailed,
@@ -80,6 +85,11 @@ pub fn start(
         return Err(RuntimeError::RootNotAllowed);
     }
 
+    // PostgreSQL's Windows executable discovery does not handle the Win32
+    // extended-length `\\?\` prefix when initdb searches for its sibling
+    // postgres.exe. Tauri's resource resolver can return that spelling even
+    // though the same packaged files work through ordinary DOS paths.
+    let resource_root = postgres_compatible_resource_root(resource_root)?;
     let runtime = resource_root.join("postgresql");
     let bin = runtime.join("bin");
     let share = runtime.join("share");
@@ -115,6 +125,9 @@ pub fn start(
     create_private_dir(&state_directory)?;
     reject_symlink(&pg_root)?;
     reject_symlink(&state_directory)?;
+    if data_directory.exists() {
+        reject_symlink(&data_directory)?;
+    }
     let marker_path = pg_root.join("ownership.json");
     let secret_path = state_directory.join("database.secret");
     if marker_path.exists() {
@@ -123,7 +136,9 @@ pub fn start(
             serde_json::from_slice(&fs::read(&marker_path).map_err(|_| RuntimeError::Io)?)
                 .map_err(|_| RuntimeError::OwnershipMismatch)?;
         validate_marker(&marker)?;
-        if !data_directory.join("PG_VERSION").is_file() {
+        if !data_directory.join("PG_VERSION").is_file()
+            && !can_retry_empty_initialization(&marker, &data_directory)?
+        {
             return Err(RuntimeError::IncompleteInitialization);
         }
     } else {
@@ -211,12 +226,22 @@ pub fn start(
             .arg(&share)
             .current_dir(&bin)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output();
         let _ = fs::remove_file(&pwfile);
-        if !init.is_ok_and(|status| status.success()) {
-            return Err(RuntimeError::InitFailed);
+        match init {
+            Ok(output) if output.status.success() => {}
+            Ok(output) => {
+                return Err(RuntimeError::InitFailed {
+                    class: classify_init_output(&output.stdout, &output.stderr),
+                    exit_code: output.status.code(),
+                    resource_hint: missing_resource_hint(&output.stdout, &output.stderr),
+                });
+            }
+            Err(error) => {
+                return Err(RuntimeError::InitSpawnFailed(classify_io_error(&error)));
+            }
         }
     }
     if !marker.initialized && !data_directory.join("PG_VERSION").is_file() {
@@ -403,12 +428,197 @@ fn validate_marker(marker: &OwnershipMarker) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InitFailureClass {
+    PermissionDenied,
+    MissingResource,
+    ServerExecutableMissing,
+    ServerExecutableVersionMismatch,
+    LocaleConfiguration,
+    InvalidPath,
+    StorageUnavailable,
+    ProcessLaunch,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InitResourceHint {
+    BootstrapCatalog,
+    ConfigurationSample,
+    HbaSample,
+    IdentSample,
+    PostgresExecutable,
+    RuntimeLibrary,
+    TimezoneData,
+    LocaleData,
+    PasswordFile,
+}
+
+impl InitResourceHint {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::BootstrapCatalog => "PostgreSQL bootstrap catalog (postgres.bki)",
+            Self::ConfigurationSample => "PostgreSQL configuration template",
+            Self::HbaSample => "PostgreSQL authentication template",
+            Self::IdentSample => "PostgreSQL identity template",
+            Self::PostgresExecutable => "PostgreSQL server executable",
+            Self::RuntimeLibrary => "PostgreSQL runtime library",
+            Self::TimezoneData => "PostgreSQL timezone data",
+            Self::LocaleData => "PostgreSQL locale data",
+            Self::PasswordFile => "temporary initialization credential file",
+        }
+    }
+}
+
+fn missing_resource_hint(stdout: &[u8], stderr: &[u8]) -> Option<InitResourceHint> {
+    let mut diagnostic = String::from_utf8_lossy(stdout).to_ascii_lowercase();
+    diagnostic.push_str(&String::from_utf8_lossy(stderr).to_ascii_lowercase());
+    [
+        ("postgres.bki", InitResourceHint::BootstrapCatalog),
+        (
+            "postgresql.conf.sample",
+            InitResourceHint::ConfigurationSample,
+        ),
+        ("pg_hba.conf.sample", InitResourceHint::HbaSample),
+        ("pg_ident.conf.sample", InitResourceHint::IdentSample),
+        ("postgres.exe", InitResourceHint::PostgresExecutable),
+        ("initdb-password.tmp", InitResourceHint::PasswordFile),
+        ("timezone", InitResourceHint::TimezoneData),
+        ("locale", InitResourceHint::LocaleData),
+        (".dll", InitResourceHint::RuntimeLibrary),
+    ]
+    .iter()
+    .find_map(|(marker, hint)| diagnostic.contains(marker).then_some(*hint))
+}
+
+fn classify_init_output(stdout: &[u8], stderr: &[u8]) -> InitFailureClass {
+    let mut diagnostic = String::from_utf8_lossy(stdout).to_ascii_lowercase();
+    diagnostic.push_str(&String::from_utf8_lossy(stderr).to_ascii_lowercase());
+    if ["permission denied", "access is denied", "not permitted"]
+        .iter()
+        .any(|marker| diagnostic.contains(marker))
+    {
+        InitFailureClass::PermissionDenied
+    } else if diagnostic.contains("was not found in the same directory") {
+        InitFailureClass::ServerExecutableMissing
+    } else if diagnostic.contains("was not the same version") {
+        InitFailureClass::ServerExecutableVersionMismatch
+    } else if ["locale", "encoding", "collation"]
+        .iter()
+        .any(|marker| diagnostic.contains(marker))
+    {
+        InitFailureClass::LocaleConfiguration
+    } else if ["no space left", "disk full", "input/output error"]
+        .iter()
+        .any(|marker| diagnostic.contains(marker))
+    {
+        InitFailureClass::StorageUnavailable
+    } else if ["path too long", "file name too long", "invalid path"]
+        .iter()
+        .any(|marker| diagnostic.contains(marker))
+    {
+        InitFailureClass::InvalidPath
+    } else if [
+        "could not find",
+        "could not load",
+        "cannot find",
+        "not found",
+        "failed to load",
+    ]
+    .iter()
+    .any(|marker| diagnostic.contains(marker))
+    {
+        InitFailureClass::MissingResource
+    } else {
+        InitFailureClass::Unknown
+    }
+}
+
+fn classify_io_error(error: &std::io::Error) -> InitFailureClass {
+    match error.kind() {
+        std::io::ErrorKind::PermissionDenied => InitFailureClass::PermissionDenied,
+        std::io::ErrorKind::NotFound => InitFailureClass::MissingResource,
+        std::io::ErrorKind::InvalidInput => InitFailureClass::InvalidPath,
+        _ => InitFailureClass::ProcessLaunch,
+    }
+}
+
+fn is_empty_directory(path: &Path) -> Result<bool, RuntimeError> {
+    let mut entries = fs::read_dir(path).map_err(|_| RuntimeError::IncompleteInitialization)?;
+    match entries.next() {
+        None => Ok(true),
+        Some(Ok(_)) => Ok(false),
+        Some(Err(_)) => Err(RuntimeError::Io),
+    }
+}
+
+fn can_retry_empty_initialization(
+    marker: &OwnershipMarker,
+    data_directory: &Path,
+) -> Result<bool, RuntimeError> {
+    if marker.initialized {
+        return Ok(false);
+    }
+    is_empty_directory(data_directory)
+}
+
 fn executable(bin: &Path, name: &str) -> PathBuf {
     #[cfg(target_os = "windows")]
     let name = format!("{name}.exe");
     #[cfg(not(target_os = "windows"))]
     let name = name.to_owned();
     bin.join(name)
+}
+
+#[cfg(windows)]
+fn postgres_compatible_resource_root(path: &Path) -> Result<PathBuf, RuntimeError> {
+    use std::ffi::OsString;
+    use std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+    let wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+    const VERBATIM_PREFIX: [u16; 4] = [b'\\' as u16, b'\\' as u16, b'?' as u16, b'\\' as u16];
+    if !wide.starts_with(&VERBATIM_PREFIX) {
+        return Ok(path.to_path_buf());
+    }
+
+    let remainder = &wide[VERBATIM_PREFIX.len()..];
+    let unc_prefix = [b'U', b'N', b'C', b'\\'];
+    let is_unc = remainder.len() >= unc_prefix.len()
+        && remainder[..unc_prefix.len()]
+            .iter()
+            .zip(unc_prefix)
+            .all(|(actual, expected)| {
+                let upper = if (b'a' as u16..=b'z' as u16).contains(actual) {
+                    actual - 32
+                } else {
+                    *actual
+                };
+                upper == expected as u16
+            });
+    let legacy = if is_unc {
+        let mut unc = vec![b'\\' as u16, b'\\' as u16];
+        unc.extend_from_slice(&remainder[4..]);
+        unc
+    } else if remainder.len() >= 3
+        && matches!(remainder[0], 65..=90 | 97..=122)
+        && remainder[1] == b':' as u16
+        && remainder[2] == b'\\' as u16
+    {
+        remainder.to_vec()
+    } else {
+        return Err(RuntimeError::UnsafePath);
+    };
+
+    let normalized = PathBuf::from(OsString::from_wide(&legacy));
+    if !normalized.is_absolute() {
+        return Err(RuntimeError::UnsafePath);
+    }
+    Ok(normalized)
+}
+
+#[cfg(not(windows))]
+fn postgres_compatible_resource_root(path: &Path) -> Result<PathBuf, RuntimeError> {
+    Ok(path.to_path_buf())
 }
 
 fn output(path: &Path, argument: &str) -> Result<String, RuntimeError> {
@@ -595,6 +805,25 @@ mod tests {
         assert_ne!(first, second);
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn postgres_resource_root_normalizes_windows_verbatim_paths() {
+        assert_eq!(
+            postgres_compatible_resource_root(Path::new(
+                r"\\?\C:\Users\A Long User\RavenTech OSINT\resources\native-runtime"
+            ))
+            .expect("local verbatim path"),
+            PathBuf::from(r"C:\Users\A Long User\RavenTech OSINT\resources\native-runtime")
+        );
+        assert_eq!(
+            postgres_compatible_resource_root(Path::new(
+                r"\\?\UNC\host\share\RavenTech OSINT\native-runtime"
+            ))
+            .expect("UNC verbatim path"),
+            PathBuf::from(r"\\host\share\RavenTech OSINT\native-runtime")
+        );
+    }
+
     #[test]
     fn managed_hba_has_only_loopback_scram_rule() {
         assert_eq!(MANAGED_PORT, 55432);
@@ -628,20 +857,104 @@ mod tests {
     }
 
     #[test]
+    fn only_empty_uninitialized_owned_cluster_can_retry_initdb() {
+        let root = std::env::temp_dir().join(format!(
+            "raventech-phase5bn-init-retry-{}-{}",
+            std::process::id(),
+            random_hex(8).expect("random test suffix")
+        ));
+        fs::create_dir_all(&root).expect("isolated test directory");
+        let marker = OwnershipMarker {
+            application_id: APP_ID.into(),
+            runtime_format: 1,
+            postgres_major: POSTGRES_MAJOR,
+            created_at_unix: 1,
+            installation_id: "a".repeat(32),
+            port: MANAGED_PORT,
+            initialized: false,
+        };
+        assert!(can_retry_empty_initialization(&marker, &root).expect("empty directory"));
+
+        fs::write(root.join("unknown.file"), b"preserve").expect("unknown test file");
+        assert!(!can_retry_empty_initialization(&marker, &root).expect("nonempty directory"));
+        let initialized = OwnershipMarker {
+            initialized: true,
+            ..marker
+        };
+        assert!(!can_retry_empty_initialization(&initialized, &root).expect("healthy marker"));
+        let canonical_root = root.canonicalize().expect("canonical isolated test path");
+        let canonical_temp = std::env::temp_dir()
+            .canonicalize()
+            .expect("canonical temp root");
+        assert!(canonical_root.starts_with(canonical_temp));
+        assert!(!fs::symlink_metadata(&root)
+            .expect("isolated path metadata")
+            .file_type()
+            .is_symlink());
+        fs::remove_dir_all(canonical_root).expect("remove only isolated test data");
+    }
+
+    #[test]
+    fn initdb_diagnostics_reduce_to_sanitized_failure_classes() {
+        assert_eq!(
+            classify_init_output(b"", b"initdb: error: Access is denied"),
+            InitFailureClass::PermissionDenied
+        );
+        assert_eq!(
+            classify_init_output(b"", b"could not load required file"),
+            InitFailureClass::MissingResource
+        );
+        assert_eq!(
+            classify_init_output(
+                b"",
+                br#"program "postgres" is needed by "C:\private\initdb.exe" but was not found in the same directory as "C:\private\initdb.exe""#
+            ),
+            InitFailureClass::ServerExecutableMissing
+        );
+        assert_eq!(
+            classify_init_output(
+                b"",
+                br#"program "postgres" was found by "C:\private\initdb.exe" but was not the same version as initdb"#
+            ),
+            InitFailureClass::ServerExecutableVersionMismatch
+        );
+        assert_eq!(
+            classify_init_output(b"", b"invalid locale configuration"),
+            InitFailureClass::LocaleConfiguration
+        );
+        assert_eq!(
+            missing_resource_hint(
+                b"",
+                br#"initdb: could not open file "C:\private\path\postgres.bki": The system cannot find the file specified"#
+            ),
+            Some(InitResourceHint::BootstrapCatalog)
+        );
+        assert_eq!(
+            missing_resource_hint(b"could not find an unrelated resource", b""),
+            None
+        );
+    }
+
+    #[test]
     #[ignore = "starts a real isolated PostgreSQL process; run explicitly during platform acceptance"]
     fn live_managed_postgres_bootstrap_restart_and_persistence() {
-        let resource_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("dist-native")
-            .join(format!("{}-x86_64", std::env::consts::OS));
-        let temp_root =
-            std::env::temp_dir().join(format!("raventech-phase5bm-pgtest-{}", std::process::id()));
+        let resource_root = std::env::var_os("RAVENTECH_TEST_POSTGRES_RESOURCE_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("..")
+                    .join("dist-native")
+                    .join(format!("{}-x86_64", std::env::consts::OS))
+            });
+        let temp_root = std::env::temp_dir()
+            .join(format!("raventech-phase5bn-pgtest-{}", std::process::id()))
+            .join("RavenTech OSINT");
         assert!(
             !temp_root.exists(),
             "refusing to overwrite an existing test path"
         );
-        let data_root = temp_root.join("data");
-        let state_root = temp_root.join("state");
+        let data_root = temp_root.clone();
+        let state_root = temp_root.clone();
         let first =
             start(&resource_root, &data_root, &state_root).expect("first managed cluster startup");
         let first_marker: OwnershipMarker = serde_json::from_slice(

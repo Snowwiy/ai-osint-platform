@@ -33,8 +33,8 @@ test("operator manual covers the fixed local workflow", async () => {
     "Local architecture", "Prerequisites", "First-run setup", "Health checks",
     "Login and registration", "Language switch", "Monitoring overview",
     "LAN monitoring and service checks", "Endpoint agents",
-    "Posture recommendations", "Reports and export", "Backup and restore",
-    "Troubleshooting", "Limitations and safety boundary",
+    "Posture recommendations", "Reports and export", "Development/Docker database backup and restore",
+    "Development/Docker compatibility troubleshooting", "Limitations and safety boundary",
   ]) assert.match(manual, new RegExp(`##[#]? ${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   for (const script of ["start_platform.ps1", "stop_platform.ps1", "restart_platform.ps1", "check_platform.ps1", "open_platform.ps1", "apply_lan_monitoring_config.ps1"]) {
     assert.match(manual, new RegExp(script.replace(".", "\\.")));
@@ -56,7 +56,8 @@ test("private handoff declares exact ignored artifact paths and exclusions", asy
   for (const marker of [".env", "credentials", "tokens", "database dumps", "backups", "generated reports", "logs"]) {
     assert.ok(handoff.includes(marker));
   }
-  assert.match(handoff, /Neither portable nor[\s\S]*requires Vite/);
+  assert.match(handoff, /do not need Vite or port 5173/);
+  assert.match(handoff, /no repository path binding/i);
 });
 
 test("fresh setup checklist covers reproducible RC6 operator setup", async () => {
@@ -109,7 +110,9 @@ test("present desktop artifacts keep strict allowlists", async () => {
     }
     if (directory === "dist-local-release") {
       const manifest = JSON.parse(await readFile(resolve(root, "local-release-manifest.json"), "utf8"));
-      assert.equal(manifest.postgresqlRequired, false);
+      assert.equal(manifest.postgresqlRequired, true);
+      assert.equal(manifest.externalPostgresqlRequired, false);
+      assert.equal(manifest.managedPostgresqlRuntimeIncluded, true);
       assert.equal(manifest.managedPostgresql?.major, 16);
       assert.equal(manifest.boundaries?.managedPostgresqlRuntime, true);
       assert.equal(manifest.boundaries?.initializedDatabase, false);

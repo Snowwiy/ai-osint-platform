@@ -103,8 +103,12 @@ if (postgresVersion.error || postgresVersion.status !== 0 || !postgresVersion.st
 const readme = await readFile(resolve(output, "README.md"), "utf8");
 for (const required of [
   "http://localhost:5173", "http://localhost:8000", "Managed PostgreSQL 16 is included",
-  "Fresh native installs start and supervise managed PostgreSQL", "no installer", "copy-only", "repository root"
+  "Fresh native installs start and supervise managed PostgreSQL", "no installer", "No repository path",
+  "Docker remains", "Redis/Celery are not required"
 ]) if (!readme.includes(required)) throw new Error(`Portable README is missing: ${required}`);
+if (/manually enter the repository root|bind the repository root|Docker Desktop must be installed/i.test(readme)) {
+  throw new Error("Portable README contains stale development setup guidance for normal desktop use.");
+}
 if (/(api[_-]?key|access[_-]?token|password|secret)\s*[:=]\s*\S+/i.test(readme)) {
   throw new Error("Potential secret assignment detected in portable README.");
 }

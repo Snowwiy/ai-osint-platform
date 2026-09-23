@@ -236,6 +236,7 @@ export function OperationsCenterPage(): JSX.Element {
           status={status.data}
           activation={activation.data}
           agents={agents.data}
+          isNativeDesktop={nativeRuntime?.runtimeMode === "desktop" || (window.parent !== window && nativeRuntime === null)}
           refreshing={status.isFetching || activation.isFetching || agents.isFetching}
           onRefresh={() => {
             void status.refetch();

@@ -1,103 +1,20 @@
 # RavenTech OSINT
 
-Phases 5BK–5BM provide standalone Windows/Linux backend and worker builds, Tauri lifecycle supervision, and a managed PostgreSQL 16 runtime for native desktop. Existing configured external databases remain supported. Docker and Python development modes remain supported. See [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
-
-## Phase 5AA monitoring controls
-
-Monitoring Center includes safe policy tuning and maintenance windows for existing local, LAN, endpoint-agent, and vulnerability-baseline signals. Administrators manage thresholds, severity overrides, cooldowns, dedupe keys, daily caps, and audited suppression; analysts can review configuration under existing RBAC. Maintenance never deletes alerts or pauses collection.
-
-This phase adds no hosting, deployment, DNS, or Supabase changes and no active scanning, exploitation, brute force, or intrusive vulnerability testing.
-
 RavenTech OSINT is a defensive intelligence and investigation workspace for
 authorized security assessments. It helps analysts collect passive evidence,
 normalize findings, manage remediation workflows, review cases, and generate
 stakeholder-ready reports without intrusive scanning or offensive automation.
 
-Current release candidate: `5.0.0-rc6`. The validated runtime is local Docker
-Compose; production and free-tier hosting remain deferred.
+Current release candidate: `5.0.0-rc6`. The packaged Windows and Linux desktop
+uses an embedded frontend, native backend and worker, managed local PostgreSQL,
+and native host monitoring. Docker Compose remains available for development
+and compatibility. PostgreSQL is required; Redis and Celery are not required by
+the native desktop runtime. See [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md),
+[DESKTOP_NATIVE_RUNTIME.md](DESKTOP_NATIVE_RUNTIME.md), and
+[MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md).
 
-Phase 5AL adds an optional Tauri v2 desktop shell prototype in `desktop/`. It
-wraps the unchanged local Vite frontend, reports fixed localhost health and
-release status, and displays copy-only operator guidance. Browser mode remains
-fully supported. See [DESKTOP_TAURI_PROTOTYPE.md](DESKTOP_TAURI_PROTOTYPE.md).
-There is no signed or production desktop package yet.
-
-Phase 5AM refines the shell for local operator QA with distinct reachability,
-readiness, and degraded states; English/Spanish recovery guidance; seven
-copy-only commands; and constrained local-frame navigation. It changes no
-backend, frontend, Docker, database, hosting, or deployment architecture.
-
-Phase 5AN adds an unsigned Windows portable local-test workflow. It creates no
-installer and bundles no backend, PostgreSQL, Redis, Docker, `.env`, backups,
-or reports. Generated output is ignored under `desktop/dist-portable/`.
-
-Phase 5AO adds an unsigned NSIS installer workflow for local Windows testing.
-It installs only the desktop shell, keeps the portable build available, and
-bundles no backend, database, Docker runtime, secrets, backups, reports, or
-logs. The ignored installer output is not a public release.
-
-Phase 5AP aligns local distribution branding and adds read-only smoke validation
-for portable and installer manifests, checksums, exclusions, local URLs, and
-restricted permissions. See
-[DESKTOP_LOCAL_DISTRIBUTION.md](DESKTOP_LOCAL_DISTRIBUTION.md).
-
-Phase 5AQ adds a controlled desktop launcher for exactly five existing local
-scripts. Start, stop, and restart require confirmation; check and open-frontend
-remain explicit button actions. Installed builds that cannot locate repository
-ancestry use the copy-only fallback. No arbitrary command, script path, or
-command argument is accepted.
-
-Phase 5AR adds a lightweight first-run screen and safe project-path binding. The
-operator manually enters the repository root; Rust canonicalizes it and requires
-the compose, Python, desktop, frontend, backend, and all six approved-script
-markers plus exact build-pinned script contents before storing the path in the
-current user's app-config directory.
-Resolution uses the saved path first, then matching current-directory ancestry,
-then development executable ancestry, and finally copy-only fallback. No folder
-browser, filesystem plugin, arbitrary command argument, `.env` read, or automatic
-install was added. The bilingual checklist reports Docker detection, ports
-8000/5173, backend/frontend health, RC6 release match, and migrations.
-
-Phase 5AU turns that status screen into a three-stage English/Spanish setup
-wizard covering the project, prerequisites, and local services. It adds clearer
-empty/invalid-path feedback, portable/installed guidance, copy-failure recovery,
-and loopback-only Windows firewall guidance without installing or changing anything.
-
-Phase 5AV completes the private operator handoff for RC6 without changing the
-runtime. Start with [OPERATOR_MANUAL.md](OPERATOR_MANUAL.md), transfer and verify
-artifacts with [DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
-record local Windows acceptance with
-[DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
-
-Phase 5AW locks the same RC6 private candidate after a clean-repository and
-artifact-regeneration dry run. A new operator should begin with
-[FRESH_SETUP_CHECKLIST.md](FRESH_SETUP_CHECKLIST.md); it connects clone,
-configuration, Docker, migrations, frontend, authentication, synthetic demo,
-desktop binding, artifact builds, and acceptance without adding a feature,
-version, or tag.
-
-Phase 5AX adds the receiving-machine checklist for private transfer QA and
-manual recovery. Use
-[EXTERNAL_MACHINE_TEST_CHECKLIST.md](EXTERNAL_MACHINE_TEST_CHECKLIST.md) to
-verify prerequisites, package checksums, repository setup, portable/installed
-behavior, and non-destructive recovery on a second Windows machine.
-
-The Phase 5AX runtime correction packages the existing React production build
-inside Tauri. Portable and installed builds render that embedded UI and do not
-require Vite or port 5173. `http://localhost:5173/` remains an optional browser
-and desktop-development endpoint; its health probe accepts any HTTP 2xx
-`text/html` response. Docker and the backend on `http://localhost:8000` remain
-required.
-
-Phase 5AY automatically loads the authenticated local Monitoring Center summary
-after backend readiness and safely refreshes it every 30 seconds by default.
-Optional LAN discovery and TCP service checks remain separately disabled until
-explicitly configured, and their disabled state is informational rather than a
-platform failure.
-
-Local mode requires development-only values from `.env.example`; it does not
-require production secrets, hosted services, DNS, or Supabase.
-
+Production hosting, public distribution, and cloud deployment are not part of
+this local-first application.
 ## What Problem It Solves
 
 Security teams often need a repeatable way to turn authorized external exposure
@@ -115,7 +32,7 @@ RavenTech OSINT packages that workflow into one local-first platform:
 
 ## Key Features
 
-- FastAPI backend with async SQLAlchemy, Alembic, PostgreSQL, Redis, and Celery
+- FastAPI backend with async SQLAlchemy, Alembic, and PostgreSQL-backed native background jobs; Redis/Celery remain available for Docker compatibility
 - React/Vite/TypeScript frontend with a RavenTech dark analyst workspace
 - English/Spanish UI with persisted language preference and English fallback
 - JWT authentication, RBAC, investigation membership, and admin controls
@@ -163,31 +80,32 @@ not perform vulnerability scanning or exploit validation. See
 
 ```mermaid
 flowchart LR
-    UI["React/Vite Frontend"] --> API["FastAPI API"]
-    API --> DB["PostgreSQL"]
-    API --> Redis["Redis"]
-    API --> Workers["Celery Workers"]
+    UI["Embedded React Frontend"] --> API["Native FastAPI Backend"]
+    API --> DB["Managed or External PostgreSQL"]
+    API --> Worker["Native PostgreSQL Worker"]
     API --> Reports["Report Export Engine"]
-    API --> Knowledge["Local Knowledge Store"]
+    API --> Knowledge["Knowledge Architecture"]
     API --> Audit["Audit/Governance"]
-    Workers --> DB
+    Worker --> DB
     Reports --> DB
+    Compat["Docker/Celery Compatibility"] -.-> API
 ```
 
 The backend owns authorization, persistence, report generation, workflow logic,
 and deterministic intelligence services. The frontend consumes existing API
 contracts and presents analyst, executive, governance, and operations views.
+Packaged desktop startup is supervised by Tauri. Source development can use Docker Compose, Vite, and the Celery compatibility profile.
 
 ## Tech Stack
 
 - Backend: FastAPI, SQLAlchemy async, Pydantic v2, Alembic
-- Storage: PostgreSQL, Redis, local Chroma/knowledge metadata foundation
-- Workers: Celery foundation
+- Storage: PostgreSQL; optional Redis compatibility for Docker workflows
+- Workers: native PostgreSQL queue for desktop; Celery compatibility for Docker
 - Frontend: React, Vite, TypeScript, Tailwind CSS, TanStack Query
 - Reports: Jinja2 templates, Markdown, ReportLab/PDF, DOCX export support
 - CI: ruff, mypy, pytest, pip check, alembic check, frontend build
 
-## Local Setup
+## Development and Docker Setup
 
 Backend services:
 
@@ -235,8 +153,7 @@ npm run portable:build
 The output is
 `desktop/dist-portable/RavenTech-OSINT-Desktop-5.0.0-rc6/`. Read
 [desktop/PORTABLE_BUILD_README.md](desktop/PORTABLE_BUILD_README.md) before
-running the unsigned executable. Docker/backend services must still be started
-manually; `npm run dev` is needed only for browser or desktop-development mode.
+running the unsigned executable. The packaged application starts its native runtime when opened. `npm run dev` is needed only for browser or source-development mode.
 
 To build the unsigned current-user installer after local dependencies are
 available:
@@ -252,8 +169,7 @@ Output is collected under
 `desktop/dist-installer/RavenTech-OSINT-Desktop-5.0.0-rc6/`. Read
 [desktop/INSTALLER_BUILD_README.md](desktop/INSTALLER_BUILD_README.md) and use
 [DESKTOP_DISTRIBUTION_CHECKLIST.md](DESKTOP_DISTRIBUTION_CHECKLIST.md) for local
-QA. The installer is unsigned, may trigger SmartScreen, never starts services
-automatically, and must not be published.
+QA. The installer is unsigned and may trigger Windows SmartScreen. It does not install an operating-system service or an autostart entry; the application supervises its own runtime while it is open.
 
 After both local artifacts are built, validate the combined distribution:
 
@@ -263,8 +179,7 @@ npm run smoke -- --require-artifacts
 ```
 
 The desktop window is branded **RavenTech OSINT Desktop — Local Workspace**.
-Phase 5AT adds an original repository-owned shield/radar icon for the local
-candidate. Signing, public brand approval, auto-update, and public release remain deferred.
+The desktop uses the repository shield/radar icon for its local workspace. Signing and automatic updates are not part of the current desktop distribution.
 
 After portable and installer artifacts validate, create the ignored private
 aggregate package from `desktop/` with:
@@ -279,12 +194,7 @@ The output is
 only the two binaries, local instructions, known limitations, checksums, and a
 provenance manifest. See [desktop/LOCAL_RELEASE_README.md](desktop/LOCAL_RELEASE_README.md).
 
-The desktop status screen also shows Docker dependency state and the latest
-approved launcher result. Launcher output is capped and sanitized. Direct Vite
-and Docker commands remain copy-only. After sign-in and backend readiness, the
-embedded UI automatically loads the Monitoring Center summary and refreshes it
-every 30 seconds by default; this read-only polling does not start Docker, LAN
-discovery, TCP checks, or any other host service.
+The desktop status screen reports database, backend, worker, embedded frontend, and host-monitoring state with safe recovery guidance. After sign-in and backend readiness, the embedded UI loads the Monitoring Center summary and refreshes it every 30 seconds by default. This read-only polling does not start LAN discovery, TCP checks, or other host services.
 
 Desktop monitoring startup is controlled by
 `DESKTOP_AUTO_MONITORING_ENABLED=true`,
@@ -295,9 +205,9 @@ Desktop monitoring startup is controlled by
 intervals of 300 and 600 seconds. When LAN monitoring is disabled, the UI reports
 that monitoring is ready and discovery is disabled by configuration; it does not
 degrade platform health. Installed and portable builds use embedded assets and
-do not require Vite/port 5173. Docker and the backend on port 8000 remain required.
+do not require Vite/port 5173. Docker, Redis, and Celery are not required in native desktop mode.
 
-For a guided startup and health check:
+For Docker-based development, these scripts provide startup and health checks:
 
 ```powershell
 ./scripts/local/start_local.ps1
@@ -467,16 +377,12 @@ The complete presentation handoff is in
 [PORTFOLIO_PACKAGE.md](PORTFOLIO_PACKAGE.md), and the frozen platform boundary is
 recorded in [FINAL_PLATFORM_FREEZE.md](FINAL_PLATFORM_FREEZE.md).
 
-For the current desktop-local release freeze, see [RELEASE_NOTES_RC6.md](RELEASE_NOTES_RC6.md),
-[DESKTOP_LOCAL_ACCEPTANCE.md](DESKTOP_LOCAL_ACCEPTANCE.md), and
-[FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md). RC4 and earlier notes remain
-available as historical release context.
+For desktop setup and acceptance procedures, see [DESKTOP_LOCAL_ACCEPTANCE.md](DESKTOP_LOCAL_ACCEPTANCE.md) and [FINAL_QA_CHECKLIST.md](FINAL_QA_CHECKLIST.md).
 
-The final private RC6 operator materials are
-[OPERATOR_MANUAL.md](OPERATOR_MANUAL.md),
+Operator guidance is available in [OPERATOR_MANUAL.md](OPERATOR_MANUAL.md),
 [DESKTOP_PRIVATE_HANDOFF.md](DESKTOP_PRIVATE_HANDOFF.md), and
 [DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md](DESKTOP_OPERATOR_ACCEPTANCE_CHECKLIST.md).
-They describe local use and QA only; they are not public-release approval.
+These documents cover local operation and validation.
 For a clean checkout, follow [FRESH_SETUP_CHECKLIST.md](FRESH_SETUP_CHECKLIST.md)
 in order before using the operator acceptance checklist.
 For a separately transferred Windows host, continue with
@@ -514,8 +420,8 @@ Recommended portfolio screenshots:
 - Passive OSINT recon only; optional LAN monitoring is bounded connectivity
   observation, never vulnerability scanning or exploitation
 - AI is optional and degrades to deterministic fallback when unavailable
-- Current tested operation is local Docker Compose; production/free-tier hosting
-  and the Supabase production database migration are deferred
+- The desktop candidate requires local or external PostgreSQL; clean-machine acceptance is tracked separately from development and package validation
+- Production/free-tier hosting and the Supabase production database migration are deferred
 - No cloud deployment implementation, billing, SSO, or external ticketing
 - Internal notifications only; no email, SMS, push, or chat integrations
 - Internal search only; no external search provider, crawling, or internet-wide
@@ -531,198 +437,42 @@ See [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) for the full list.
 
 ## Roadmap
 
-The current release identity is the `5.0.0-rc6` desktop-local candidate. Web,
-local Docker, portable, unsigned installer, setup wizard, first-run binding, and
-controlled launcher checks are covered by the RC6 acceptance gate. The
-`v5.0.0-rc6` tag identifies this validated local candidate only; signing, public distribution,
-production packaging, hosting, DNS, and Supabase work remain deferred.
+The current release candidate focuses on dependable local Windows and Linux
+desktop use. Product roadmap areas include clean-machine installation
+validation, continued cross-platform runtime parity, and carefully scoped
+local knowledge workflows. No cloud deployment or public distribution is
+implied by these plans.
 
-## Phase 5AB monitoring reliability
+## Monitoring and Security Posture
 
-Monitoring now distinguishes required platform dependency health from optional
-host-agent telemetry, retires recovered local alerts, and presents provider
-timeouts/HTTP/parse failures as clean warnings while retaining valid recon
-entities. The Monitoring Center includes bounded open-port observations,
-service confidence, and standard/non-standard SSH indicators.
+The Monitoring Center combines native host metrics, Windows/Linux service and
+process visibility, endpoint-agent telemetry, authorized LAN asset observations,
+observed service changes, advisory alerts, and a change timeline. Service health
+uses configured expectations and operational evidence; an open port alone is
+not treated as a vulnerability. Security Posture recommendations explain the
+evidence and remain advisory for an operator to review.
 
-Authorized port discovery remains off by default. When explicitly enabled by
-an administrator, it performs rate-limited TCP connects only to configured
-ports on approved private LAN assets. It never authenticates, tests
-credentials, brute forces, sends exploit payloads, or scans public networks.
-Docker LAN limitations are informational and can be supplemented with the
-optional endpoint agent or static/router observations. This work is included
-in the `5.0.0-rc4` freeze and changed no hosting, deployment, DNS, or Supabase
-configuration.
+## Authorized LAN Visibility
 
-## Phase 5AC LAN monitoring history
+LAN inventory is limited to explicitly authorized private ranges. Endpoint
+agents report local telemetry and do not accept remote commands. Optional
+service observations use bounded TCP connectivity checks for configured ports;
+there is no public scanning, router automation, credential testing, or
+exploitation. Device OS/type classification includes confidence and supporting
+evidence so passive inference is not presented as certainty.
 
-The Monitoring Center now includes a filterable **Change Timeline** and
-per-asset service, telemetry, and change history. Meaningful local transitions
-include asset availability, identity observations, port/service state, SSH on
-approved non-standard ports, endpoint-agent reporting, resource-policy
-thresholds, and baseline indicator lifecycle. Entries are acknowledgeable but
-never deleted by acknowledgement.
+## Native Desktop Runtime
 
-History is derived only from configured local observations and authorized TCP
-checks. It stores no raw sensitive banners or credentials and introduces no
-public scanning, exploitation, brute force, hosting, deployment, DNS, or
-Supabase work. These capabilities are included in the `5.0.0-rc4` freeze.
+The packaged desktop uses a Tauri supervisor to start its native backend,
+PostgreSQL-backed worker, and managed PostgreSQL when selected. The production
+React frontend is embedded in the desktop package. PostgreSQL remains required;
+Docker, Redis, and Celery remain supported for development and compatibility,
+but are not required by the native desktop profile. See the runtime guides for
+data locations, startup behavior, and troubleshooting.
 
-## Phase 5AD alert triage
+## Clean-Install Validation
 
-Monitoring alerts now have a lightweight, user-scoped incident queue with
-new, triaged, investigating, muted, resolved, and false-positive states. It
-supports ownership, safe notes, resolution summaries, filters, related-record
-links, and audited actions while preserving Activity Inbox notifications and
-dedupe behavior. Cooldowns, suppressions, and maintenance windows still apply.
-
-The Activity Inbox is now a viewport overlay with bounded scrolling,
-responsive placement, outside-click dismissal, and Escape handling. This phase
-adds no public scanning, exploitation, brute force, credential testing,
-hosting, deployment, DNS, or Supabase changes. These capabilities are included
-in the `5.0.0-rc4` freeze.
-
-## Phase 5AE endpoint coverage
-
-The Endpoint Agents view now provides hashed, one-time-reveal enrollment
-credentials; agent inventory and freshness; simple asset groups; group coverage
-summaries; and expected/allowed service baselines. Manual Windows PowerShell
-and Linux Python helpers collect only basic resource, uptime, and OS telemetry.
-There is no remote shell, command execution, persistence, or autostart.
-
-Baseline results are defensive risk indicators derived from stored authorized
-observations. Phase 5AE adds no public scanning, exploitation, brute force,
-credential testing, hosting, deployment, DNS, or Supabase changes. These
-capabilities are included in the `5.0.0-rc4` freeze.
-
-## Phase 5AF monitoring activation
-
-The Monitoring Center now includes a read-only local activation guide for LAN
-monitoring and authorized TCP service checks, plus a safe Windows/Linux agent
-command builder. Target cards show whether they exactly match an authorized
-private LAN asset and display port observations separately from URL recon
-service entities. Partial recon enrichment now groups provider warnings and
-keeps stored results prominent with safe retry guidance.
-
-Activation requires an explicit local `.env` edit and Docker restart. No public
-scanning, DNS expansion, exploitation, brute force, credential collection,
-remote commands, hosting, deployment, or Supabase changes were added. These
-capabilities are included in the `5.0.0-rc4` freeze.
-
-## RC4 bilingual local acceptance freeze
-
-The local web application is feature-frozen at `5.0.0-rc4`. Phase 5AG completed
-cross-workflow QA for monitoring, target/recon, reports, notifications, search,
-data quality, and governance. Phase 5AH changes release identity and acceptance
-documentation only, except for regression fixes required by the validation gate.
-
-Phase 5AJ adds English/Spanish UI and report localization with a browser-local
-preference and English fallback. See
-[FINAL_LOCAL_ACCEPTANCE.md](FINAL_LOCAL_ACCEPTANCE.md) for the manual acceptance
-flow and [RELEASE_NOTES_RC4.md](RELEASE_NOTES_RC4.md) for the release summary.
-Desktop packaging, installers, hosting, deployment, DNS, and Supabase migration
-remain explicitly deferred.
-
-## Phase 5AI endpoint security posture
-
-Monitoring now includes an administrator-restricted **Security Posture** tab.
-Explicit assessments correlate stored authorized LAN observations with optional
-agent telemetry, calculate an advisory posture score, and create deduplicated
-manual recommendations for protection gaps, patch awareness, stale coverage,
-resource pressure, risky services, and service-baseline differences.
-
-Windows and Linux helpers collect only normalized local system status and port
-numbers when safely available. They do not collect files, passwords, browser
-history, private documents, keystrokes, or credentials and provide no remote
-shell or command channel. Block/isolation guidance is a manual checklist only;
-the platform never connects to or changes a router. See
-[ENDPOINT_SECURITY_POSTURE.md](ENDPOINT_SECURITY_POSTURE.md).
-
-Matching assessed assets can contribute an optional advisory posture summary to
-investigation reports without exposing unrelated LAN inventory. This phase adds
-no desktop packaging, hosting, deployment, DNS, Supabase migration, public
-scanning, exploitation, brute force, credential testing, or router automation.
-
-## Phase 5AZ authorized LAN bootstrap
-
-Monitoring → Activation includes a bilingual, administrator-only **Authorized
-LAN Bootstrap**. Entering `192.168.50.1/24` is normalized to the network boundary
-`192.168.50.0/24`; the host address is retained as gateway hint `192.168.50.1`.
-**Verify LAN setup** refreshes stored summaries without running discovery or TCP
-checks. It supplies copy-only `.env` guidance, one-time endpoint enrollment
-instructions, and a manual router/static observation form. Docker/backend remain
-required; installed and portable clients continue to use embedded assets.
-
-### Phase 5BA host metric precedence
-
-The desktop Monitoring Center now prefers read-only native Windows host metrics,
-then a fresh manual `ServerHost` agent, then a backend-host agent, and finally a
-clearly labeled **Docker container fallback**. Container CPU, memory, disk, and
-uptime are not presented as full host visibility. Run the main-host helper with
-`.\scripts\local\local_monitor_agent.ps1 -Mode ServerHost -BackendUrl http://localhost:8000 -IntervalSeconds 30`.
-Other authorized PCs use `-Mode LanEndpoint -BackendUrl http://192.168.50.201:8000 -IntervalSeconds 30` only after confirming that private server address.
-Agents are manual and non-persistent; no autostart, remote commands, or public scanning is installed.
-
-### Phase 5BB real-LAN acceptance
-
-Monitoring Center now presents one operator-readable RC6 acceptance summary for
-`192.168.50.0/24`: gateway hint, enablement flags, latest discovery/service-check
-times, next refresh, asset/import counts, agent coverage, host-metric source, and
-posture/recommendation counts. Disabled optional LAN features are informational.
-Use manual router/static import when Docker cannot see host neighbors, and run
-TCP-connect checks only for authorized assets after explicit configuration.
-
-### Phase 5BC controlled activation
-
-The desktop can now run one additional fixed, integrity-checked script after an
-explicit confirmation: `scripts/local/apply_lan_monitoring_config.ps1`. It updates
-only the documented non-secret monitoring keys for `192.168.50.0/24`, creates an
-ignored timestamped `.env` backup, preserves every other line, keeps discovery
-and service-check auto-start disabled, and reports only sanitized key names. A
-second confirmation is required to restart/verify Docker services. Browser mode
-remains copy-only; no general `.env` editor or arbitrary launcher was added.
-
-### Phase 5BD automatic private LAN inventory
-
-The manually run `ServerHost` helper now self-registers the primary RavenTech host
-and submits a bounded, read-only Windows neighbor-table sample. `LanEndpoint` agents
-self-register their own device. The backend accepts only private addresses inside
-`192.168.50.0/24`, deduplicates IP/MAC observations, preserves manual authorization,
-marks passive unknowns for review, and labels `192.168.50.1` only as the likely
-gateway. Docker neighbor visibility is no longer the only population path; manual
-router observations remain a fallback. Service checks remain explicit, authorized,
-private-CIDR-only TCP connects. No router automation, public scanning, remote command,
-credential testing, persistence, or autostart was added.
-
-### Phase 5BE live LAN acceptance
-
-Monitoring Center now exposes live acceptance details for the authorized `192.168.50.0/24` deployment: agent/self-registration state, trust and review state, read-only ServerHost neighbor diagnostics, telemetry freshness, service-check eligibility, current service state and changes, posture, and recommendation counts. Passive neighbor-table assets default to **needs review**; authenticated agents inside the configured private range are known/authorized agents, and `192.168.50.1` remains a reviewable gateway hint.
-
-Safe discovery prefers ServerHost neighbor observations, then known agent and stored manual/router assets, and only uses bounded private reachability checks when explicitly enabled. Docker host-neighbor visibility is not required. Service checks remain configured-port, TCP-connect-only, private-CIDR-only, bounded, unauthenticated, and advisory.
-
-The top-level **LAN Runtime Acceptance** card summarizes backend, native/agent host metrics, authorized LAN configuration, ServerHost and neighbor readiness, and stored asset/service/posture/alert counts. It is diagnostic only: displaying it never launches discovery or a service check. Needs-review and unauthorized counts are intentionally distinct, and an operator-approved gateway leaves the review count while retaining its gateway asset type.
-# Phase 5BG local host and LAN classification
-
-The desktop Monitoring Center > Server adds native Windows service/process
-inventory and confirmed, admin-gated local actions with protected-process
-safeguards. LAN Assets shows evidence-backed OS and device type with confidence.
-See [LOCAL_MONITORING.md](LOCAL_MONITORING.md) and [LAN_MONITORING.md](LAN_MONITORING.md).
-The release identity remains `5.0.0-rc6`; LAN agents remain telemetry-only.
-
-## Phase 5BH: service exposure and health
-
-Monitoring Center now shows explainable health for RavenTech core components and local Windows services. LAN Assets previews observed TCP services and provides per-device state, expected-service context, confidence, evidence, severity, and history. Existing asset/group baselines supply expected and allowed ports; an optional critical-port policy can mark a specific unexpected exposure critical. An open port indicates reachability, not a confirmed vulnerability. LAN monitoring remains restricted to authorized private ranges and read only bounded TCP checks. Local service actions remain desktop-only with Phase 5BG safeguards.
-
-## Phase 5BI: native background jobs
-
-An opt-in PostgreSQL worker processes allowlisted posture/recommendation and monitoring summary jobs. The default remains Celery compatibility mode. Docker, Redis, Celery, and PostgreSQL support remain. See `NATIVE_BACKGROUND_JOBS.md` for setup, retries, Operations Center controls, and the future Docker decoupling roadmap.
-
-## Phase 5BJ: desktop background runtime
-
-The `desktop` runtime profile uses PostgreSQL-backed jobs and auth state without Redis or Celery. A fresh desktop install uses Tauri-managed PostgreSQL 16 on loopback; an existing configured `DATABASE_URL` remains external. Tauri starts and supervises the packaged PostgreSQL, FastAPI backend, and worker. Docker/Celery and Python development modes remain supported. See `DESKTOP_NATIVE_RUNTIME.md` and `MANAGED_POSTGRESQL_RUNTIME.md`; Knowledge ingestion belongs to a later phase.
-
-## Phase 5BL — Tauri native runtime supervision
-
-Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
-
-Windows portable/installer packages include Windows x86_64 backend, worker, and managed PostgreSQL resources; Linux x86_64 packaging includes corresponding Linux runtime resources. Fresh native desktop mode manages PostgreSQL locally; external PostgreSQL remains supported. Redis/Celery are not required in native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. See `NATIVE_RUNTIME_SUPERVISOR.md` and `MANAGED_POSTGRESQL_RUNTIME.md`. Linux WSL evidence is not clean-machine Linux acceptance.
+Windows and Linux clean-machine acceptance is tracked separately from package
+build validation and development testing. Refer to
+[NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md) for the current
+acceptance record and procedures for future clean installations.

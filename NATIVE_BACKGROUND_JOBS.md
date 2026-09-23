@@ -46,7 +46,7 @@ If a worker stops, restart it and inspect its heartbeat and failed jobs in Opera
 
 ## Docker decoupling roadmap
 
-5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker (complete). 5BM: Managed PostgreSQL runtime (complete). 5BN: Docker-optional desktop finalization. 5BO: Windows clean-machine acceptance. 5BP: Linux clean-machine acceptance. 5BQ: Knowledge/Obsidian ingestion. Future phases remain documentation only here.
+5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker (complete). 5BM: Managed PostgreSQL runtime (complete). 5BN: Docker-optional desktop finalization (complete). 5BO: Windows clean-machine acceptance. 5BP: Linux clean-machine acceptance. 5BQ: Obsidian plus verified Knowledge ingestion. Future phases remain documentation only here.
 
 ## Phase 5BJ desktop profile
 

@@ -84,6 +84,27 @@ test("contains bilingual status and service-specific help without secret fields"
   assert.doesNotMatch(`${app}\n${html}`, /(api[_-]?key|access[_-]?token|password|secret)\s*[:=]/i);
 });
 
+test("native desktop status hides repository, Docker, Vite, and script-launcher setup", () => {
+  for (const id of ["native-acceptance", "native-step-application", "native-step-database", "native-step-backend", "native-step-worker", "native-step-monitoring", "native-step-ready", "accept-embedded", "accept-migrations", "accept-jobs"]) {
+    assert.ok(html.includes(`id="${id}"`), `missing native runtime status element: ${id}`);
+  }
+  for (const selector of ["#runtime-checklist", "#legacy-launcher-panel", "#legacy-command-result", "#docker-service-card", "#local-endpoints", "#firewall-note"]) {
+    assert.ok(app.includes(`"${selector}"`), `native desktop must hide ${selector}`);
+  }
+  assert.match(app, /function setDesktopMode\(nativeMode\)/);
+  assert.match(app, /runtimeMode === "desktop"\) \{ root\.replaceChildren\(\); return; \}/);
+  assert.match(app, /No repository setup or separate terminal steps are needed/);
+  assert.match(app, /No se necesita configurar una ruta de repositorio ni usar una terminal/);
+  assert.match(app, /Docker is optional\. Redis and Celery are not required/);
+  assert.match(app, /Docker es opcional\. Redis y Celery no son necesarios/);
+  assert.match(app, /nativeAcceptanceReady/);
+  assert.match(app, /snapshot\.backgroundJobBackend === "native"/);
+  assert.match(html, /id="native-acceptance" class="panel" aria-live/);
+  for (const id of ["setup-panel", "runtime-checklist", "legacy-launcher-panel", "legacy-command-result", "docker-service-card", "local-endpoints", "firewall-note"]) {
+    assert.match(html, new RegExp(`id="${id}"[^>]*hidden`), `packaged native shell must initially hide ${id}`);
+  }
+});
+
 test("native host metrics use fixed read-only Windows APIs", () => {
   for (const marker of ["GlobalMemoryStatusEx", "GetSystemTimes", "GetDiskFreeSpaceExW", "GetTickCount64", "GetComputerNameW", "GetVersionExW"]) {
     assert.ok(rust.includes(marker), `missing native metric API: ${marker}`);

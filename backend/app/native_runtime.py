@@ -22,6 +22,15 @@ def is_native_package() -> bool:
     return os.getenv("RAVENTECH_NATIVE_PACKAGE") == "1"
 
 
+def _strip_windows_verbatim_prefix(value: str) -> str:
+    """Convert Windows extended-length paths for libraries that reject them."""
+    if value[:8].casefold() == "\\\\?\\unc\\":
+        return "\\\\" + value[8:]
+    if value.startswith("\\\\?\\"):
+        return value[4:]
+    return value
+
+
 def native_paths() -> NativePaths:
     home = Path.home()
     if sys.platform == "win32":
@@ -58,7 +67,10 @@ def native_paths() -> NativePaths:
 def resource_path(*parts: str) -> Path:
     """Read-only data comes from the artifact, never the current directory."""
     if is_native_package() and Path(sys.argv[0]).suffix.lower() != ".py":
-        return Path(sys.argv[0]).resolve().parent / "resources" / Path(*parts)
+        executable = Path(sys.argv[0]).resolve()
+        if sys.platform == "win32":
+            executable = Path(_strip_windows_verbatim_prefix(str(executable)))
+        return executable.parent / "resources" / Path(*parts)
     return Path(__file__).resolve().parents[1] / Path(*parts)
 
 

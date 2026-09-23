@@ -7,6 +7,7 @@ const translations = {
     runtimeEyebrow: "NATIVE APPLICATION LIFECYCLE", runtimeTitle: "Local Runtime", runtimeIntro: "The desktop owns its managed PostgreSQL, backend, and worker processes. External PostgreSQL remains supported.",
     postgresRequiredAction: "Check the selected database mode and PostgreSQL runtime status.", runtimeStartingAction: "The desktop is starting PostgreSQL, the native backend, and worker.", nativeBackendMessage: "The native backend is starting or unavailable. Review Local Runtime for the safe reason and next step.", dbLocalOnly: "Loopback only", dbUptime: "Uptime", dbRestarts: "Restarts", dbError_managed_port_conflict: "Port 55432 is occupied. RavenTech did not contact or stop that process.", dbError_postgres_artifacts_missing: "The bundled PostgreSQL 16 runtime is unavailable or incomplete. Repair the desktop installation.", dbError_cluster_marker_missing: "An existing cluster has no RavenTech ownership marker. It was left untouched.", dbError_unknown_data_directory: "The managed database directory contains unknown data and was left untouched.", dbError_database_secret_unavailable: "The managed database credential is unavailable or invalid. Data was preserved.", dbError_migration_failed: "Database migration did not complete. The database was preserved.", dbError_postgres_exited: "Managed PostgreSQL exited unexpectedly. Data was preserved; a bounded restart may be attempted.",
     runtimeBackend: "Native Backend", runtimeWorker: "Background Worker", runtimePostgres: "PostgreSQL", runtimeFrontend: "Embedded Frontend", runtimeMode: "Runtime profile", ownershipOwned: "Owned by this desktop", ownershipExternal: "Externally managed", ownershipNone: "Not started", runtimeHealthy: "Healthy", runtimeWaiting: "Waiting", runtimeStarting: "Starting", runtimeRunning: "Running", runtimeFailed: "Failed", runtimeStopped: "Stopped", runtimeUnavailable: "Unavailable", runtimeOptional: "Not required", runtimeRestart: "Restart", runtimeStop: "Stop", runtimeStart: "Start", runtimeRetry: "Retry", runtimeConfirm: "Confirm stopping/restarting this local component? Active requests or jobs may be interrupted.", runtimeControlFailed: "The requested action was not accepted. Only components owned by this desktop can be stopped.", runtimePid: "PID", runtimeError: "Reason", runtimeRedis: "Redis (optional)", runtimeCelery: "Celery (compatibility only)", dbManaged: "Managed local database", dbExternal: "External database", dbVersion: "Version", dbPort: "Port", dbMigration: "Migrations",
+    desktopEyebrow: "NATIVE DESKTOP STARTUP", desktopTitle: "Desktop runtime", desktopIntro: "RavenTech starts its database, backend, worker, and embedded interface automatically.", nativeProfile: "Native PostgreSQL runtime", stageApplication: "Application", stageDatabase: "Database", stageBackend: "Backend", stageWorker: "Worker", stageMonitoring: "Host monitoring", stageReady: "Ready", nativePass: "Ready", nativeFail: "Needs attention", nativePending: "Starting", nativeCompatibility: "Docker is optional. Redis and Celery are not required. PostgreSQL remains required.", acceptEmbedded: "Embedded UI", acceptMigrations: "Migrations", acceptJobs: "Native jobs", nativeHeroTitle: "RavenTech desktop runtime", nativeHeroIntro: "Local services start automatically. No repository setup or separate terminal steps are needed.", nativeReadyTitle: "RavenTech is ready", nativeReadyMessage: "RavenTech is ready. Your embedded workspace is available.", nativeOpenWorkspace: "Open RavenTech",
     prototype: "RC6 local setup assistant", refresh: "Check again", eyebrow: "LOCAL SERVICE STATUS",
     title: "Local operator workspace", intro: "Validate the project once, then check and control only the approved local services.",
     setupEyebrow: "FIRST-RUN SETUP", setupTitle: "Bind the local RavenTech project", setupBody: "Enter the repository root manually. The desktop validates fixed markers and stores only the validated path.",
@@ -32,6 +33,7 @@ const translations = {
     runtimeEyebrow: "CICLO DE VIDA NATIVO DE LA APLICACIÓN", runtimeTitle: "Entorno local", runtimeIntro: "El escritorio controla PostgreSQL administrado, el backend y el worker. También admite PostgreSQL externo.",
     postgresRequiredAction: "Revisa el modo de base de datos y el estado del entorno local.", runtimeStartingAction: "El escritorio está iniciando PostgreSQL, el backend y el worker nativos.", nativeBackendMessage: "El backend nativo está iniciando o no está disponible. Consulta Entorno local para conocer el motivo y el siguiente paso.", dbLocalOnly: "Solo loopback", dbUptime: "Tiempo activo", dbRestarts: "Reinicios", dbError_managed_port_conflict: "El puerto 55432 está ocupado. RavenTech no se conectó ni detuvo ese proceso.", dbError_postgres_artifacts_missing: "El runtime PostgreSQL 16 incluido no está disponible o está incompleto. Repara la instalación.", dbError_cluster_marker_missing: "El clúster existente no tiene un marcador de RavenTech. Se dejó intacto.", dbError_unknown_data_directory: "El directorio de base de datos contiene datos desconocidos y se dejó intacto.", dbError_database_secret_unavailable: "La credencial administrada no está disponible o no es válida. Se conservaron los datos.", dbError_migration_failed: "La migración no terminó. Se conservó la base de datos.", dbError_postgres_exited: "PostgreSQL administrado se cerró inesperadamente. Se conservaron los datos; se puede intentar un reinicio limitado.",
     runtimeBackend: "Backend nativo", runtimeWorker: "Worker en segundo plano", runtimePostgres: "PostgreSQL", runtimeFrontend: "Frontend integrado", runtimeMode: "Perfil del entorno", ownershipOwned: "Controlado por este escritorio", ownershipExternal: "Administrado externamente", ownershipNone: "Sin iniciar", runtimeHealthy: "Saludable", runtimeWaiting: "En espera", runtimeStarting: "Iniciando", runtimeRunning: "En ejecución", runtimeFailed: "Error", runtimeStopped: "Detenido", runtimeUnavailable: "No disponible", runtimeOptional: "No requerido", runtimeRestart: "Reiniciar", runtimeStop: "Detener", runtimeStart: "Iniciar", runtimeRetry: "Reintentar", runtimeConfirm: "¿Confirmas detener o reiniciar este componente local? Las solicitudes o tareas activas pueden interrumpirse.", runtimeControlFailed: "No se aceptó la acción. Solo se pueden detener componentes controlados por este escritorio.", runtimePid: "PID", runtimeError: "Motivo", runtimeRedis: "Redis (opcional)", runtimeCelery: "Celery (solo compatibilidad)", dbManaged: "Base de datos local administrada", dbExternal: "Base de datos externa", dbVersion: "Versión", dbPort: "Puerto", dbMigration: "Migraciones",
+    desktopEyebrow: "INICIO NATIVO DEL ESCRITORIO", desktopTitle: "Entorno del escritorio", desktopIntro: "RavenTech inicia automáticamente la base de datos, el backend, el worker y la interfaz integrada.", nativeProfile: "Runtime PostgreSQL nativo", stageApplication: "Aplicación", stageDatabase: "Base de datos", stageBackend: "Backend", stageWorker: "Worker", stageMonitoring: "Monitoreo del host", stageReady: "Listo", nativePass: "Listo", nativeFail: "Requiere atención", nativePending: "Iniciando", nativeCompatibility: "Docker es opcional. Redis y Celery no son necesarios. PostgreSQL sigue siendo requerido.", acceptEmbedded: "Interfaz integrada", acceptMigrations: "Migraciones", acceptJobs: "Tareas nativas", nativeHeroTitle: "Runtime de RavenTech Desktop", nativeHeroIntro: "Los servicios locales se inician automáticamente. No se necesita configurar una ruta de repositorio ni usar una terminal.", nativeReadyTitle: "RavenTech está listo", nativeReadyMessage: "RavenTech está listo. El espacio integrado está disponible.", nativeOpenWorkspace: "Abrir RavenTech",
     prototype: "Asistente de configuración local RC6", refresh: "Comprobar de nuevo", eyebrow: "ESTADO DE SERVICIOS LOCALES",
     title: "Espacio de trabajo del operador", intro: "Valida el proyecto una vez y después comprueba y controla solo los servicios locales aprobados.",
     setupEyebrow: "CONFIGURACIÓN INICIAL", setupTitle: "Vincular el proyecto local de RavenTech", setupBody: "Introduce manualmente la raíz del repositorio. El escritorio valida marcadores fijos y guarda solo la ruta validada.",
@@ -84,6 +86,12 @@ function renderLanguage() {
   renderFrontendSource(); document.querySelector("#backend-url").textContent = BACKEND_URL;
   document.querySelector("#last-command").textContent = lastCommandKey ? copy(lastCommandKey) : copy("noCommand");
   document.querySelector("#command-result").textContent = copy(lastResultKey); renderCommands(); if (currentSetup) renderSetup(currentSetup); if (currentSnapshot) renderHostMetrics(currentSnapshot.nativeHostMetrics);
+  if (currentSnapshot && currentNativeRuntime?.runtimeMode === "desktop") {
+    const ready = renderNativeAcceptance(currentSnapshot);
+    document.querySelector("#hero-title").textContent = copy(ready ? "nativeReadyTitle" : "nativeHeroTitle");
+    document.querySelector("#hero-intro").textContent = copy("nativeHeroIntro");
+    document.querySelector("#open-platform").textContent = copy("nativeOpenWorkspace");
+  }
 }
 
 function renderHostMetrics(metrics) {
@@ -163,7 +171,9 @@ function publishNativeMetrics(metrics) {
 }
 
 function renderCommands() {
-  document.querySelector("#commands").replaceChildren(...commands.filter((command) => !command.devOnly || currentFrontendMode === "development").map((command) => {
+  const root = document.querySelector("#commands");
+  if (currentNativeRuntime?.runtimeMode === "desktop") { root.replaceChildren(); return; }
+  root.replaceChildren(...commands.filter((command) => !command.devOnly || currentFrontendMode === "development").map((command) => {
     const row = document.createElement("div"); row.className = "command";
     const name = document.createElement("label"); name.textContent = copy(command.label);
     const code = document.createElement("code"); code.textContent = command.text;
@@ -220,6 +230,58 @@ function renderWizard(snapshot) {
   }
 }
 
+function stateIsReady(state) { return ["healthy", "running", "ready"].includes(state); }
+
+function paintNativeCheck(id, ready, pending = false) {
+  setState(document.querySelector(id), copy(ready ? "nativePass" : pending ? "nativePending" : "nativeFail"), ready);
+}
+
+function paintNativeStep(name, ready, pending = false) {
+  const item = document.querySelector(`#native-step-${name}`);
+  item.classList.toggle("complete", ready);
+  item.classList.toggle("attention", !ready && !pending);
+  setState(document.querySelector(`#native-state-${name}`), copy(ready ? "nativePass" : pending ? "nativePending" : "nativeFail"), ready);
+}
+
+function renderNativeAcceptance(snapshot) {
+  const runtime = currentNativeRuntime;
+  if (!runtime) return false;
+  const databaseReady = stateIsReady(runtime.postgresql?.state);
+  const backendReady = stateIsReady(runtime.backend?.state) && snapshot.backend.healthy && snapshot.readiness.healthy;
+  const workerReady = stateIsReady(runtime.worker?.state);
+  const embeddedReady = runtime.embeddedFrontend === "ready" && snapshot.frontendMode === "embedded" && snapshot.frontend.healthy;
+  const monitoringReady = snapshot.nativeHostMetrics?.available === true;
+  const migrationsReady = snapshot.migrationStatus === "ok" || runtime.postgresql?.migrationState === "current";
+  const jobsReady = snapshot.backgroundJobBackend === "native" && workerReady;
+  const releaseReady = snapshot.releaseMatches === true;
+  for (const [id, ready, pending] of [
+    ["#accept-database", databaseReady, ["waiting", "starting"].includes(runtime.postgresql?.state)],
+    ["#accept-backend", backendReady, ["waiting", "starting"].includes(runtime.backend?.state)],
+    ["#accept-worker", workerReady, ["waiting", "starting"].includes(runtime.worker?.state)],
+    ["#accept-embedded", embeddedReady, !snapshot.frontend],
+    ["#accept-monitoring", monitoringReady, !snapshot.nativeHostMetrics],
+    ["#accept-migrations", migrationsReady, ["updating", "unknown"].includes(runtime.postgresql?.migrationState)],
+    ["#accept-jobs", jobsReady, snapshot.backgroundJobBackend === "unavailable"],
+  ]) paintNativeCheck(id, ready, pending);
+  paintNativeStep("application", true);
+  paintNativeStep("database", databaseReady, ["waiting", "starting"].includes(runtime.postgresql?.state));
+  paintNativeStep("backend", backendReady, ["waiting", "starting"].includes(runtime.backend?.state));
+  paintNativeStep("worker", workerReady, ["waiting", "starting"].includes(runtime.worker?.state));
+  paintNativeStep("monitoring", monitoringReady, !snapshot.nativeHostMetrics);
+  const ready = databaseReady && backendReady && workerReady && embeddedReady && monitoringReady && migrationsReady && jobsReady && releaseReady;
+  paintNativeStep("ready", ready, !snapshot.backend.reachable || ["waiting", "starting"].includes(runtime.backend?.state));
+  return ready;
+}
+
+function setDesktopMode(nativeMode) {
+  document.querySelector("#setup-panel").hidden = nativeMode;
+  document.querySelector("#native-acceptance").hidden = !nativeMode;
+  for (const selector of ["#runtime-checklist", "#legacy-launcher-panel", "#legacy-command-result", "#docker-service-card", "#local-endpoints", "#firewall-note"]) {
+    document.querySelector(selector).hidden = nativeMode;
+  }
+  if (nativeMode) setGuidance("");
+}
+
 async function saveProjectPath(event) {
   event.preventDefault(); const input = document.querySelector("#project-path"); const message = document.querySelector("#setup-message");
   if (!input.value.trim()) { message.textContent = copy("enterProjectPath"); message.className = "offline"; input.setAttribute("aria-invalid", "true"); input.focus(); return; }
@@ -271,8 +333,13 @@ function renderSnapshot(snapshot) {
   currentSnapshot = snapshot;
   currentFrontendMode = snapshot.frontendMode === "development" ? "development" : "embedded"; renderFrontendSource(); renderCommands();
   const nativeMode = currentNativeRuntime?.runtimeMode === "desktop";
-  document.querySelector("#setup-panel").hidden = nativeMode;
+  setDesktopMode(nativeMode);
+  document.querySelector("#hero-title").textContent = copy(nativeMode ? "nativeHeroTitle" : "title");
+  document.querySelector("#hero-intro").textContent = copy(nativeMode ? "nativeHeroIntro" : "intro");
+  document.querySelector("#open-platform").textContent = copy(nativeMode ? "nativeOpenWorkspace" : "openWorkspace");
+  document.querySelector("#native-compatibility").textContent = copy("nativeCompatibility");
   renderSetup(snapshot.setup); renderChecklist(snapshot); renderWizard(snapshot); document.querySelector("#next-action").textContent = copy(nextRuntimeAction(snapshot));
+  const nativeAcceptanceReady = nativeMode ? renderNativeAcceptance(snapshot) : false;
   const backendState = !snapshot.backend.reachable ? "unreachable" : snapshot.backend.healthy ? "reachable" : "degraded";
   const readinessState = !snapshot.readiness.reachable ? "unreachable" : snapshot.readiness.healthy ? "ready" : "degraded";
   const frontendState = currentFrontendMode === "embedded" ? "embedded" : !snapshot.frontend.reachable ? "unreachable" : snapshot.frontend.healthy ? "reachable" : "degraded";
@@ -282,9 +349,12 @@ function renderSnapshot(snapshot) {
   paint("#frontend-status", frontendState, currentFrontendMode === "embedded" ? copy("bundledAssets") : snapshot.frontend.httpStatus ? `HTTP ${snapshot.frontend.httpStatus}` : "");
   const dockerState = snapshot.dockerServicesStatus ?? (!snapshot.backend.reachable ? "unknown" : "degraded"); paint("#docker-status", dockerState, snapshot.dockerServicesStatus ? copy(dockerState) : copy("unknown"));
   renderHostMetrics(snapshot.nativeHostMetrics); publishNativeMetrics(snapshot.nativeHostMetrics);
-  const allReady = (nativeMode || snapshot.setup.configuredPathValid) && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
+  const allReady = nativeMode
+    ? nativeAcceptanceReady
+    : snapshot.setup.configuredPathValid && snapshot.backend.healthy && snapshot.readiness.healthy && snapshot.frontend.healthy && snapshot.releaseMatches === true && snapshot.migrationStatus === "ok";
   const summary = document.querySelector("#summary"), summaryText = document.querySelector("#summary-text"), openButton = document.querySelector("#open-platform"); openButton.hidden = !allReady;
-  if (!nativeMode && !snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
+  if (nativeMode && allReady) { summary.className = "summary success"; summaryText.textContent = copy("nativeReadyMessage"); setGuidance(""); document.querySelector("#hero-title").textContent = copy("nativeReadyTitle"); }
+  else if (!nativeMode && !snapshot.setup.configuredPathValid) { summary.className = "summary warning"; summaryText.textContent = copy("setupMessage"); setGuidance(""); }
   else if (!snapshot.backend.reachable) { summary.className = "summary error"; summaryText.textContent = copy(nativeMode ? "nativeBackendMessage" : "backendMessage"); setGuidance(nativeMode ? "" : "backend"); }
   else if (!snapshot.backend.healthy || !snapshot.readiness.healthy) { summary.className = "summary warning"; summaryText.textContent = copy(nativeMode ? "nativeBackendMessage" : "readinessMessage"); setGuidance(nativeMode ? "" : "readiness"); }
   else if (currentFrontendMode === "development" && !snapshot.frontend.healthy) { summary.className = "summary warning"; summaryText.textContent = copy("frontendMessage"); setGuidance("frontend"); }

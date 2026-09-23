@@ -66,5 +66,11 @@ test("local operator console and launcher scripts remain safe and copy-only", ()
   assert.match(consoleSource, /Local Operator Console/);
   assert.match(consoleSource, /browser never executes host commands/);
   assert.match(consoleSource, /start_platform\.ps1/);
+  assert.match(consoleSource, /\{!isNativeDesktop \?/);
+  assert.match(consoleSource, /No manual service commands are needed/);
+  assert.match(read("src/pages/OperationsCenterPage.tsx"), /window\.parent !== window && nativeRuntime === null/);
+  const nativeCopy = "Native desktop manages startup. Docker, Redis, Celery, Python, and a terminal are not required.";
+  assert.ok(read("src/lib/i18n.tsx").includes(nativeCopy));
+  assert.ok(read("src/lib/i18n.tsx").includes("El escritorio nativo administra el inicio."));
   assert.doesNotMatch(consoleSource, /(?:password|credential|secret|token)\s*[:=]\s*["'`]/i);
 });

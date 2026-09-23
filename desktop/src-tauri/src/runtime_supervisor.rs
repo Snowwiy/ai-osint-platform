@@ -388,6 +388,7 @@ impl NativeRuntimeSupervisor {
         let mut worker_restart_after = Instant::now();
         let mut postgres_attempts = 0_u8;
         let mut postgres_restart_after = Instant::now();
+        let mut postgres_startup_blocked = false;
         loop {
             if self.control().shutdown {
                 self.stop_owned(Component::Worker);
@@ -416,6 +417,7 @@ impl NativeRuntimeSupervisor {
                 self.stop_owned(Component::Backend);
                 self.stop_managed_postgres();
                 postgres_attempts = 0;
+                postgres_startup_blocked = false;
                 self.set_database_restart_count(0);
             }
 
@@ -477,6 +479,7 @@ impl NativeRuntimeSupervisor {
                     }
                 }
                 if !self.child_postgres_owned()
+                    && !postgres_startup_blocked
                     && postgres_attempts < RESTART_DELAYS.len() as u8
                     && Instant::now() >= postgres_restart_after
                 {
@@ -499,19 +502,18 @@ impl NativeRuntimeSupervisor {
                             self.set_database_started(pid, &process.version, process.port);
                             self.audit("managed_postgresql_started", "postgresql");
                             postgres_attempts = 0;
+                            postgres_startup_blocked = false;
                         }
                         Err(error) => {
+                            let retry_process_start =
+                                managed_database_process_start_retryable(&error);
                             let (code, reason) = managed_database_error(error);
-                            self.set_database_failure(code, reason);
-                            if code == "postgres_artifacts_missing"
-                                || code == "managed_port_conflict"
-                                || code == "unknown_data_directory"
-                                || code == "ownership_mismatch"
-                                || code == "cluster_marker_missing"
-                                || code == "postgres_version_mismatch"
-                            {
-                                postgres_attempts = RESTART_DELAYS.len() as u8;
-                            } else {
+                            let reason = app_paths
+                                .root_source
+                                .map(|source| format!("Runtime source: {source}. {reason}"))
+                                .unwrap_or(reason);
+                            self.set_database_failure(code, &reason);
+                            if retry_process_start {
                                 postgres_attempts = postgres_attempts.saturating_add(1);
                                 if let Some(delay) = RESTART_DELAYS
                                     .get(postgres_attempts.saturating_sub(1).min(2) as usize)
@@ -519,12 +521,18 @@ impl NativeRuntimeSupervisor {
                                 {
                                     postgres_restart_after = Instant::now() + delay;
                                 }
+                            } else {
+                                // Configuration, initialization, ownership, and storage failures
+                                // are not process crashes. Preserve their specific status and wait
+                                // for an explicit local retry instead of escalating to crash_loop.
+                                postgres_startup_blocked = true;
                             }
                         }
                     }
                 }
                 if !self.child_postgres_owned() {
-                    if postgres_attempts >= RESTART_DELAYS.len() as u8 {
+                    if !postgres_startup_blocked && postgres_attempts >= RESTART_DELAYS.len() as u8
+                    {
                         self.set_database_failure("crash_loop", "Managed PostgreSQL could not start after bounded retries. Preserve the data and use the database diagnostics before retrying.");
                     }
                     thread::sleep(HEALTH_INTERVAL);
@@ -1174,6 +1182,9 @@ impl NativeRuntimeSupervisor {
             status.postgresql.last_exit_code = None;
             status.postgresql.actions_available = true;
         }
+        self.message(&format!(
+            "Managed PostgreSQL started successfully on 127.0.0.1:{port}."
+        ));
     }
     fn set_database_failure(&self, code: &str, reason: &str) {
         let mut changed = false;
@@ -1372,40 +1383,115 @@ struct ArtifactPaths {
     root: Option<PathBuf>,
     backend: Option<PathBuf>,
     worker: Option<PathBuf>,
+    root_source: Option<&'static str>,
 }
 
 fn artifact_paths(app: &AppHandle) -> ArtifactPaths {
     if std::env::consts::ARCH != "x86_64" {
         return ArtifactPaths::default();
     }
-    let mut roots = Vec::new();
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        roots.push(resource_dir.join("native-runtime"));
-    }
+    let resource_dir = app.path().resource_dir().ok();
+    let executable = std::env::current_exe().ok();
+    let mut roots = packaged_runtime_roots(resource_dir.as_deref(), executable.as_deref());
     #[cfg(debug_assertions)]
     let desktop = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
     #[cfg(all(target_os = "windows", debug_assertions))]
     roots.push(desktop.join("dist-native/windows-x86_64"));
     #[cfg(all(target_os = "linux", debug_assertions))]
     roots.push(desktop.join("dist-native/linux-x86_64"));
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(executable_dir) = executable.parent() {
+            roots.push(executable_dir.join("native-runtime"));
+            roots.push(executable_dir.to_path_buf());
+        }
+    }
     #[cfg(target_os = "windows")]
     let (backend_name, worker_name) = ("RavenTechBackend.exe", "RavenTechWorker.exe");
     #[cfg(target_os = "linux")]
     let (backend_name, worker_name) = ("raventech-backend", "raventech-worker");
     #[cfg(not(any(target_os = "windows", target_os = "linux")))]
     let (backend_name, worker_name) = ("", "");
+    let mut paths = artifact_paths_from_roots(roots, backend_name, worker_name);
+    paths.root_source = paths.root.as_deref().map(|root| {
+        packaged_runtime_root_source(resource_dir.as_deref(), executable.as_deref(), root)
+    });
+    paths
+}
+
+fn packaged_runtime_root_source(
+    resource_dir: Option<&Path>,
+    executable: Option<&Path>,
+    root: &Path,
+) -> &'static str {
+    if executable
+        .and_then(Path::parent)
+        .is_some_and(|directory| directory.join("native-runtime") == root)
+    {
+        "exe-adjacent"
+    } else if resource_dir.is_some_and(|directory| directory.join("native-runtime") == root) {
+        "Tauri-resources"
+    } else if resource_dir.is_some_and(|directory| directory == root) {
+        "Tauri-root"
+    } else if executable
+        .and_then(Path::parent)
+        .is_some_and(|directory| directory == root)
+    {
+        "exe-root"
+    } else {
+        "other-root"
+    }
+}
+
+fn artifact_paths_from_roots(
+    roots: impl IntoIterator<Item = PathBuf>,
+    backend_name: &str,
+    worker_name: &str,
+) -> ArtifactPaths {
     for root in roots {
         let backend = root.join("backend").join(backend_name);
         let worker = root.join("worker").join(worker_name);
-        if backend.is_file() && worker.is_file() {
+        if backend.is_file() && worker.is_file() && postgresql_runtime_layout_present(&root) {
             return ArtifactPaths {
                 root: Some(root),
                 backend: Some(backend),
                 worker: Some(worker),
+                root_source: None,
             };
         }
     }
     ArtifactPaths::default()
+}
+
+fn postgresql_runtime_layout_present(root: &Path) -> bool {
+    #[cfg(target_os = "windows")]
+    let executable_suffix = ".exe";
+    #[cfg(not(target_os = "windows"))]
+    let executable_suffix = "";
+    let runtime = root.join("postgresql");
+    ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"]
+        .iter()
+        .all(|name| {
+            runtime
+                .join("bin")
+                .join(format!("{name}{executable_suffix}"))
+                .is_file()
+        })
+        && runtime.join("manifest.json").is_file()
+        && runtime.join("lib").is_dir()
+        && runtime.join("share").is_dir()
+}
+
+fn packaged_runtime_roots(resource_dir: Option<&Path>, executable: Option<&Path>) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(resource_dir) = resource_dir {
+        roots.push(resource_dir.join("native-runtime"));
+        roots.push(resource_dir.to_path_buf());
+    }
+    if let Some(executable_dir) = executable.and_then(Path::parent) {
+        roots.push(executable_dir.join("native-runtime"));
+        roots.push(executable_dir.to_path_buf());
+    }
+    roots
 }
 
 fn runtime_data_and_state_paths() -> Option<(PathBuf, PathBuf)> {
@@ -1507,24 +1593,69 @@ fn start_managed_database(
     managed_postgres::start(root, &data, &state)
 }
 
-fn managed_database_error(error: managed_postgres::RuntimeError) -> (&'static str, &'static str) {
+fn managed_database_process_start_retryable(error: &managed_postgres::RuntimeError) -> bool {
+    matches!(
+        error,
+        managed_postgres::RuntimeError::StartFailed
+            | managed_postgres::RuntimeError::ReadinessTimeout
+    )
+}
+
+fn init_failure_label(class: managed_postgres::InitFailureClass) -> &'static str {
+    match class {
+        managed_postgres::InitFailureClass::PermissionDenied => "permission denied",
+        managed_postgres::InitFailureClass::MissingResource => {
+            "required PostgreSQL resource missing"
+        }
+        managed_postgres::InitFailureClass::ServerExecutableMissing => {
+            "PostgreSQL server executable not found beside initdb"
+        }
+        managed_postgres::InitFailureClass::ServerExecutableVersionMismatch => {
+            "PostgreSQL server executable version mismatch"
+        }
+        managed_postgres::InitFailureClass::LocaleConfiguration => {
+            "locale or encoding configuration"
+        }
+        managed_postgres::InitFailureClass::InvalidPath => "invalid or unsupported filesystem path",
+        managed_postgres::InitFailureClass::StorageUnavailable => "filesystem storage unavailable",
+        managed_postgres::InitFailureClass::ProcessLaunch => {
+            "operating system could not launch initdb"
+        }
+        managed_postgres::InitFailureClass::Unknown => {
+            "unclassified PostgreSQL initialization error"
+        }
+    }
+}
+
+fn managed_database_error(error: managed_postgres::RuntimeError) -> (&'static str, String) {
     match error {
-        managed_postgres::RuntimeError::RootNotAllowed => ("root_not_allowed", "Managed PostgreSQL cannot run as root. Launch RavenTech Desktop as a regular user."),
-        managed_postgres::RuntimeError::ArtifactsMissing => ("postgres_artifacts_missing", "The bundled PostgreSQL 16 runtime is unavailable or incomplete. Repair the desktop installation."),
-        managed_postgres::RuntimeError::VersionMismatch => ("postgres_version_mismatch", "The managed PostgreSQL runtime or existing data major version is incompatible. Data was preserved."),
-        managed_postgres::RuntimeError::PortConflict => ("managed_port_conflict", "The managed local PostgreSQL port 55432 is occupied. RavenTech did not contact or stop that process."),
-        managed_postgres::RuntimeError::UnknownDataDirectory => ("unknown_data_directory", "The managed database directory contains unknown data and was left untouched."),
-        managed_postgres::RuntimeError::OwnershipMismatch => ("ownership_mismatch", "The database ownership marker is invalid. Data was preserved and no process was started."),
-        managed_postgres::RuntimeError::ExistingClusterWithoutMarker => ("cluster_marker_missing", "An existing PostgreSQL cluster has no RavenTech ownership marker. It was not adopted or modified."),
-        managed_postgres::RuntimeError::SecretUnavailable => ("database_secret_unavailable", "The managed database credential is unavailable or invalid. Data was preserved."),
-        managed_postgres::RuntimeError::IncompleteInitialization => ("incomplete_initialization", "Managed PostgreSQL initialization was interrupted. RavenTech will not repeat initdb automatically."),
-        managed_postgres::RuntimeError::InitFailed => ("cluster_initialization_failed", "PostgreSQL initialization failed. The data directory was preserved; manual retry is required."),
-        managed_postgres::RuntimeError::StartFailed => ("postgres_start_failed", "Managed PostgreSQL exited during startup. Review the sanitized database status and logs."),
-        managed_postgres::RuntimeError::ReadinessTimeout => ("postgres_readiness_timeout", "Managed PostgreSQL did not become ready before the startup deadline. Data was preserved."),
-        managed_postgres::RuntimeError::DatabaseBootstrapFailed => ("database_bootstrap_failed", "The RavenTech database could not be created. The cluster was preserved for diagnosis."),
-        managed_postgres::RuntimeError::UnsafePath => ("unsafe_runtime_path", "A managed database path is not a regular user-owned path. No data was changed."),
-        managed_postgres::RuntimeError::UnsupportedPlatform => ("unsupported_platform", "Managed PostgreSQL is supported only on Windows and Linux x86_64."),
-        managed_postgres::RuntimeError::Io => ("runtime_io_error", "A managed PostgreSQL runtime file could not be safely read or written."),
+        managed_postgres::RuntimeError::RootNotAllowed => ("root_not_allowed", "Managed PostgreSQL cannot run as root. Launch RavenTech Desktop as a regular user.".to_owned()),
+        managed_postgres::RuntimeError::ArtifactsMissing => ("postgres_artifacts_missing", "The bundled PostgreSQL 16 runtime is unavailable or incomplete. Repair the desktop installation.".to_owned()),
+        managed_postgres::RuntimeError::VersionMismatch => ("postgres_version_mismatch", "The managed PostgreSQL runtime or existing data major version is incompatible. Data was preserved.".to_owned()),
+        managed_postgres::RuntimeError::PortConflict => ("managed_port_conflict", "The managed local PostgreSQL port 55432 is occupied. RavenTech did not contact or stop that process.".to_owned()),
+        managed_postgres::RuntimeError::UnknownDataDirectory => ("unknown_data_directory", "The managed database directory contains unknown data and was left untouched.".to_owned()),
+        managed_postgres::RuntimeError::OwnershipMismatch => ("ownership_mismatch", "The database ownership marker is invalid. Data was preserved and no process was started.".to_owned()),
+        managed_postgres::RuntimeError::ExistingClusterWithoutMarker => ("cluster_marker_missing", "An existing PostgreSQL cluster has no RavenTech ownership marker. It was not adopted or modified.".to_owned()),
+        managed_postgres::RuntimeError::SecretUnavailable => ("database_secret_unavailable", "The managed database credential is unavailable or invalid. Data was preserved.".to_owned()),
+        managed_postgres::RuntimeError::IncompleteInitialization => ("incomplete_initialization", "PostgreSQL initialization is incomplete and contains data. RavenTech preserved the directory and will not reinitialize it.".to_owned()),
+        managed_postgres::RuntimeError::InitFailed {
+            class,
+            exit_code,
+            resource_hint,
+        } => {
+            let exit = exit_code.map(|value| format!(" Exit code: {value}." )).unwrap_or_default();
+            let resource = resource_hint
+                .map(|hint| format!(" Specific resource class: {}.", hint.label()))
+                .unwrap_or_default();
+            ("cluster_initialization_failed", format!("PostgreSQL initdb failed: {}.{resource} The data directory was preserved; an empty RavenTech-owned initialization may be retried safely.{exit}", init_failure_label(class)))
+        }
+        managed_postgres::RuntimeError::InitSpawnFailed(class) => ("initdb_process_launch_failed", format!("The operating system could not start initdb: {}. No raw process output was retained.", init_failure_label(class))),
+        managed_postgres::RuntimeError::StartFailed => ("postgres_start_failed", "Managed PostgreSQL exited during startup. Review the sanitized database status and logs.".to_owned()),
+        managed_postgres::RuntimeError::ReadinessTimeout => ("postgres_readiness_timeout", "Managed PostgreSQL did not become ready before the startup deadline. Data was preserved.".to_owned()),
+        managed_postgres::RuntimeError::DatabaseBootstrapFailed => ("database_bootstrap_failed", "The RavenTech database could not be created. The cluster was preserved for diagnosis.".to_owned()),
+        managed_postgres::RuntimeError::UnsafePath => ("unsafe_runtime_path", "A managed database path is not a regular user-owned path. No data was changed.".to_owned()),
+        managed_postgres::RuntimeError::UnsupportedPlatform => ("unsupported_platform", "Managed PostgreSQL is supported only on Windows and Linux x86_64.".to_owned()),
+        managed_postgres::RuntimeError::Io => ("runtime_io_error", "A managed PostgreSQL runtime file could not be safely read or written.".to_owned()),
     }
 }
 
@@ -1887,6 +2018,76 @@ mod tests {
     use super::*;
 
     #[test]
+    fn packaged_resource_resolution_falls_back_to_complete_executable_adjacent_runtime() {
+        #[cfg(target_os = "windows")]
+        let (backend_name, worker_name, postgres_suffix) =
+            ("RavenTechBackend.exe", "RavenTechWorker.exe", ".exe");
+        #[cfg(target_os = "linux")]
+        let (backend_name, worker_name, postgres_suffix) =
+            ("raventech-backend", "raventech-worker", "");
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+        let (backend_name, worker_name, postgres_suffix) = ("backend", "worker", "");
+
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let fixture = std::env::temp_dir().join(format!(
+            "raventech-phase5bn-packaged-resources-{}-{nonce}",
+            std::process::id()
+        ));
+        let tauri_resource_dir = fixture.join("tauri-resource-dir");
+        let incomplete_candidate = tauri_resource_dir.join("native-runtime");
+        let portable_dir = fixture.join("portable");
+        let complete_candidate = portable_dir.join("native-runtime");
+        let executable = portable_dir.join("RavenTech OSINT Desktop.exe");
+
+        for candidate in [&incomplete_candidate, &complete_candidate] {
+            std::fs::create_dir_all(candidate.join("backend")).expect("backend directory");
+            std::fs::create_dir_all(candidate.join("worker")).expect("worker directory");
+            std::fs::write(candidate.join("backend").join(backend_name), b"backend")
+                .expect("backend artifact");
+            std::fs::write(candidate.join("worker").join(worker_name), b"worker")
+                .expect("worker artifact");
+        }
+        std::fs::write(&executable, b"desktop").expect("desktop executable fixture");
+        let postgresql = complete_candidate.join("postgresql");
+        for name in ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"] {
+            std::fs::create_dir_all(postgresql.join("bin")).expect("PostgreSQL bin");
+            std::fs::write(
+                postgresql
+                    .join("bin")
+                    .join(format!("{name}{postgres_suffix}")),
+                b"runtime",
+            )
+            .expect("PostgreSQL executable fixture");
+        }
+        std::fs::create_dir_all(postgresql.join("lib")).expect("PostgreSQL lib");
+        std::fs::create_dir_all(postgresql.join("share")).expect("PostgreSQL share");
+        std::fs::write(postgresql.join("manifest.json"), b"{}").expect("PostgreSQL manifest");
+
+        let roots = packaged_runtime_roots(Some(&tauri_resource_dir), Some(&executable));
+        let paths = artifact_paths_from_roots(roots, backend_name, worker_name);
+        assert_eq!(paths.root.as_deref(), Some(complete_candidate.as_path()));
+        assert_eq!(
+            packaged_runtime_root_source(
+                Some(&tauri_resource_dir),
+                Some(&executable),
+                &complete_candidate
+            ),
+            "exe-adjacent"
+        );
+        assert!(artifact_paths_from_roots(
+            [incomplete_candidate.clone()],
+            backend_name,
+            worker_name
+        )
+        .root
+        .is_none());
+        std::fs::remove_dir_all(fixture).expect("remove isolated resource fixture");
+    }
+
+    #[test]
     fn status_is_normalized_and_marks_optional_services() {
         let status = RuntimeStatus::default();
         assert_eq!(
@@ -1915,6 +2116,57 @@ mod tests {
         assert!(supervisor
             .request(Component::Backend, "stop", true)
             .is_err());
+    }
+
+    #[test]
+    fn initdb_failure_is_not_misreported_as_a_postgres_process_crash_loop() {
+        let error = managed_postgres::RuntimeError::InitFailed {
+            class: managed_postgres::InitFailureClass::PermissionDenied,
+            exit_code: Some(1),
+            resource_hint: None,
+        };
+        assert!(!managed_database_process_start_retryable(&error));
+        let (code, reason) = managed_database_error(error);
+        assert_eq!(code, "cluster_initialization_failed");
+        assert!(reason.contains("permission denied"));
+        assert!(reason.contains("Exit code: 1"));
+        assert!(!reason.contains("password"));
+        assert!(managed_database_process_start_retryable(
+            &managed_postgres::RuntimeError::StartFailed
+        ));
+    }
+
+    #[test]
+    fn initdb_missing_resource_detail_is_sanitized_for_desktop_status() {
+        let error = managed_postgres::RuntimeError::InitFailed {
+            class: managed_postgres::InitFailureClass::MissingResource,
+            exit_code: Some(1),
+            resource_hint: Some(managed_postgres::InitResourceHint::BootstrapCatalog),
+        };
+        let (_, reason) = managed_database_error(error);
+        assert!(reason.contains("postgres.bki"));
+        assert!(!reason.contains("C:\\private"));
+        assert!(!reason.contains("password"));
+    }
+
+    #[test]
+    fn successful_postgres_start_replaces_stale_initialization_failure_summary() {
+        let supervisor = NativeRuntimeSupervisor::default();
+        supervisor.set_database_failure(
+            "cluster_initialization_failed",
+            "PostgreSQL initdb failed: required PostgreSQL resource missing.",
+        );
+
+        supervisor.set_database_started(1234, "PostgreSQL 16.15", 55432);
+
+        let status = supervisor.status();
+        assert_eq!(status.postgresql.state, "healthy");
+        assert_eq!(status.postgresql.last_error, None);
+        assert_eq!(status.postgresql.last_error_code, None);
+        assert!(status
+            .last_messages
+            .last()
+            .is_some_and(|message| message.contains("started successfully")));
     }
 
     #[test]

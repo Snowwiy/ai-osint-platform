@@ -1,6 +1,41 @@
 # Troubleshooting
 
-For native backend/worker artifacts, run `--version` and read-only `--check`, then verify external PostgreSQL and applied Alembic migrations. A busy port 8000 causes a clean startup failure; the launcher never kills the owner or chooses another port. Linux systemd inventory requires local system D-Bus. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
+## Native packaged desktop
+
+Start with the desktop **Local Runtime** panel. It reports Database, Backend,
+Worker, Embedded Frontend, Monitoring, migrations, and native-job readiness
+without requiring a terminal. Docker, Redis, and Celery are not required in the
+native desktop profile.
+
+- **Database runtime missing:** repair or reinstall the desktop package. The
+  application does not download binaries or search `PATH` for PostgreSQL.
+- **PostgreSQL initialization failed:** the Local Runtime status provides a
+  sanitized failure category and exit code when available. A retry is allowed
+  only for a valid RavenTech-owned marker that says initialization is incomplete
+  and whose expected data directory is still empty. Any nonempty or unknown data
+  is preserved and must not be deleted to force startup. An initialization error
+  is distinct from a PostgreSQL process crash loop.
+- **Unknown/unmarked database directory:** it is left untouched. Do not delete
+  or initialize it to make startup proceed; preserve it and review the managed
+  PostgreSQL diagnostics.
+- **Port 55432 conflict:** another process owns the preferred managed port.
+  RavenTech does not contact or stop that process. Resolve it outside RavenTech
+  or use an intentionally configured external database.
+- **Migration failure:** the database is preserved. Review the sanitized error
+  and retained runtime logs; no automatic rollback or destructive repair runs.
+- **Backend port 8000 conflict:** the unrelated listener is left running. The
+  desktop does not kill it or silently select another port.
+- **Worker or backend crash loop:** use Retry only from the desktop runtime
+  controls when the component is owned by that desktop; inspect the safe reason
+  first. External components cannot be stopped or restarted from the app.
+- **Permission or storage error:** verify access to the current user's RavenTech
+  config/data/state directories and available disk space. User database data is
+  never deleted during recovery.
+
+Linux systemd service inventory requires local system D-Bus; if unavailable, the
+native inventory reports it as unsupported. WSL is Linux runtime evidence, not
+clean-machine Linux acceptance. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md)
+and [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md).
 
 For private transfer to a second Windows machine, start with
 `EXTERNAL_MACHINE_TEST_CHECKLIST.md`. Its recovery section covers missing or
@@ -8,7 +43,7 @@ stopped Docker, fixed-port conflicts, backend/frontend reachability, project
 binding, approved scripts, RC6 mismatch, pending migrations, and the expected
 unsigned SmartScreen warning without automatic system changes.
 
-## Backend Shows Unavailable
+## Docker compatibility / development backend unavailable
 
 For the consolidated local-only repair flow, see `LOCAL_HEALTH_REPAIR.md`.
 
@@ -508,11 +543,23 @@ If a Windows service shows Neutral, configure its expected state in Monitoring C
 
 ## Native background worker
 
-If native readiness reports a stale or missing worker, verify the `0040_phase5bi_native_jobs` migration, PostgreSQL connectivity, `BACKGROUND_JOB_BACKEND=native`, and a running `python -m app.worker` process. Inspect Operations Center for retry time, attempts, and sanitized error summary. Restart the worker; abandoned jobs recover after `NATIVE_WORKER_STALE_SECONDS`. Do not run a second handler manually against the same job. Redis is not required in native mode.
+For source-run native mode, verify the `0040_phase5bi_native_jobs` migration, PostgreSQL connectivity, `BACKGROUND_JOB_BACKEND=native`, and the `python -m app.worker` process. Packaged desktop starts the worker automatically; inspect the Local Runtime panel instead. Operations Center shows retry time, attempts, and sanitized errors. A stale job recovers after `NATIVE_WORKER_STALE_SECONDS`. Do not run a second handler manually against the same job. Redis/Celery are not required in desktop mode.
 
-## Phase 5BJ desktop worker checks
+## Phase 5BJ desktop worker checks (source/development profile)
 
 If desktop readiness is unhealthy, verify PostgreSQL, migration alignment, report storage, and the native worker heartbeat. Inspect Operations Center for queue depth, oldest queued job, retry time, and safe error code. Redis/Celery being stopped is normal in `RUNTIME_PROFILE=desktop`; in `docker`/Celery mode check Redis as before. A full queue rejects new jobs safely; reduce load or resolve stuck jobs rather than raising limits without review.
+
+## Packaged Windows PostgreSQL startup
+
+If a packaged Windows run reports that `postgres.exe` is missing beside
+`initdb.exe`, verify the artifact is the current validated package. The native
+runtime normalizes Tauri's extended-length resource path before resolving the
+PostgreSQL sibling binaries. Do not copy binaries manually or change the
+database directory. Preserve the data and retry only if the RavenTech ownership
+marker is valid, initialization is incomplete, the expected directory is empty,
+and no PostgreSQL process is using it. A prior initdb event can remain in recent
+diagnostics; the current PostgreSQL state and health/readiness endpoints are the
+source for whether the runtime recovered.
 
 ## Phase 5BL — Tauri native runtime supervision
 
