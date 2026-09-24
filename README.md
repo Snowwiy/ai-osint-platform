@@ -388,32 +388,17 @@ in order before using the operator acceptance checklist.
 For a separately transferred Windows host, continue with
 [EXTERNAL_MACHINE_TEST_CHECKLIST.md](EXTERNAL_MACHINE_TEST_CHECKLIST.md).
 
-The reviewed GitHub release copy is in
-[GITHUB_RELEASE_DRAFT.md](GITHUB_RELEASE_DRAFT.md). It is documentation only; no
-GitHub release or hosted environment is created by the repository.
-
 For production-style readiness, Supabase PostgreSQL guidance, domain/CORS
 planning, and registration controls, see
 [DEPLOYMENT_PREFLIGHT.md](DEPLOYMENT_PREFLIGHT.md).
 
-Provider comparisons for a future, separately authorized phase are documented
-in [FREE_TIER_HOSTING_OPTIONS.md](FREE_TIER_HOSTING_OPTIONS.md). These are
-planning notes only; no hosting, DNS, or database migration has been performed.
+## Product Specification
 
-## Screenshot Placeholders
-
-Recommended portfolio screenshots:
-
-- Login and health indicator
-- Dashboard and executive posture
-- Investigation overview and passive recon evidence
-- Findings, correlations, IOC intelligence, and threat intelligence
-- AI fallback with citations
-- Reports and export actions
-- Activity Inbox, review board, governance settings, audit log, and operations
-  center
-- Global Search, saved views, and dashboard Quick Access
-- Admin Data Quality Center with non-destructive maintenance recommendations
+The Spanish software requirements specification for the current product is
+available at
+[RavenTech OSINT SRS (PDF)](docs/deliverables/RavenTech_OSINT_SRS_v1.0_ES.pdf).
+Its editable source is
+[RavenTech OSINT SRS (Markdown)](docs/srs/RavenTech_OSINT_SRS_ES.md).
 
 ## Known Limitations
 

@@ -64,7 +64,7 @@ does not run destructive checks.
 
 | Area | Result | Evidence / limitation |
 |---|---|---|
-| Windows packaged zero-Docker desktop | PASS (automated API workflow acceptance; visual UI inspection NOT RUN) | The rebuilt portable Tauri app launched from a fresh isolated profile without Docker, Redis, Celery, Python, Node/Vite, or manual backend/worker/PostgreSQL startup. Managed PostgreSQL initialized and bound only to 127.0.0.1:55432; backend health/readiness and release returned 200/200/5.0.0-rc6; the native worker heartbeated and completed PostgreSQL jobs. A same-profile relaunch reused the initialized cluster and preserved isolated test data. A temporary administrator created through the supported bootstrap utility passed login, profile, refresh rotation, previous-token rejection, logout, and revoked-token rejection. Dashboard, investigation, Monitoring Center, Operations Center, Security Posture, Change Timeline, and notification APIs passed. PDF, DOCX, HTML, and Markdown reports were generated and checked for non-empty output, MIME/signature or document structure, expected RavenTech/report content, and absence of test secrets. The authorized passive recon smoke path returned entities with provider warnings and performed no active scan. Production frontend assets are embedded; no Vite server was used. Direct visual inspection of rendered pages was NOT RUN because no browser/Tauri automation surface was available. Synthetic investigation/report test records were archived through supported APIs. Shutdown and relaunch/persistence checks passed. No operator credentials or data were used. |
+| Windows packaged zero-Docker desktop | PASS (installed NSIS plus portable API workflows; visual UI inspection NOT RUN) | The current unsigned NSIS installer and portable Tauri app launched from fresh isolated profiles outside the repository. Managed PostgreSQL initialized and bound only to 127.0.0.1:55432; backend health/readiness and release returned 200/200/5.0.0-rc6; the native worker heartbeated and completed PostgreSQL jobs. The installed NSIS app passed first launch, authenticated product API smoke, graceful shutdown, relaunch, uninstall, reinstall, and persistent-cluster reuse. A temporary administrator created through the supported bootstrap utility passed login, profile, refresh rotation, previous-token rejection, logout, and revoked-token rejection. Dashboard, investigation, note/task, analysis, Monitoring Center, LAN/agent/assets, Operations Center, Security Posture, executive, Change Timeline, correlation, vulnerability, maintenance, alert, and notification APIs passed. PDF, DOCX, HTML, and Markdown reports were generated and checked for non-empty output, MIME/signature or document structure, expected RavenTech/report content, and absence of test secrets. The authorized passive recon smoke path returned entities with provider warnings and performed no active scan. Production frontend assets are embedded; no Vite server was used. Direct visual inspection of the desktop UI was NOT RUN because no native Tauri automation surface was available. Test records and the initialized managed cluster remained in the isolated profile; no operator credentials or data were used. |
 | Linux/WSL native core | PASS (runtime/package checks; no GUI claim) | Debian x86_64 WSL rebuilt and tested the current supervisor (26 passed, 1 ignored), built the Linux release binary, regenerated the Linux package, and passed strict validation. Earlier isolated Linux PostgreSQL bootstrap/restart/persistence checks passed. This is Linux runtime evidence, not clean-machine acceptance. |
 | Linux Tauri GUI | NOT RUN | No GUI acceptance was performed in WSL. |
 | Windows clean-machine (5BO) | NOT RUN | Requires a separate clean Windows 10/11 x64 machine with WebView2 and no repository checkout. |
@@ -192,3 +192,90 @@ Do not corrupt a real database, kill unrelated processes, or auto-delete data.
 Clean-machine acceptance is not claimed by this Phase 5BN record unless those
 separate machines are actually used. Future Knowledge/Obsidian ingestion is not
 implemented here.
+
+## Windows isolated install and SRS delivery — 2026-09-24
+
+### Windows installation and packaged runtime
+
+- Clean Windows Sandbox/VM capability was unavailable on this host. Windows
+  clean-machine acceptance remains **NOT RUN**. The strongest available check
+  was an isolated Windows install using the current unsigned RC6 NSIS package,
+  a fresh temporary per-user data profile, and a working directory outside the
+  repository. Docker services, Redis, Celery, Python, Node/Vite, and manual
+  backend/worker/PostgreSQL launch were not used by the packaged app.
+- The first current NSIS install exposed a real resource-map defect. Tauri's
+  recursive wildcard-to-directory mapping flattened nested runtime files in
+  the installer. The PostgreSQL tree first lacked the expected `bin` sibling
+  layout; after that tree was corrected independently, packaged backend
+  validation exposed the flattened `pydantic_core` extension. The installer
+  builder now maps every regular file to its exact relative destination for the
+  backend, worker, and PostgreSQL trees. It rejects unsafe paths, empty trees,
+  symlinks, and unsupported entries. Three deterministic resource-map tests
+  cover PostgreSQL `bin/lib/share`, nested backend extension modules, worker
+  modules, empty sources, and unsafe destinations.
+- The rebuilt installer manifest and strict validator passed. A fresh install
+  contained the backend and its ABI-specific `pydantic_core` extension, worker,
+  and PostgreSQL `bin`, `lib`, and nested `share` resources. The installed
+  backend reported version `5.0.0-rc6` and `--check` passed. The installed Tauri
+  app initialized its owned PostgreSQL 16 cluster, reached backend health and
+  readiness HTTP 200, reported release `5.0.0-rc6`, and exposed healthy native
+  worker state. `/health` reported Redis and Celery as `not_required` and the
+  Operations Center engine as `native`.
+- A random temporary bootstrap administrator passed login, authenticated
+  profile and admin RBAC, refresh rotation, rejection of the old refresh token,
+  logout, and rejection of the revoked token. Dashboard and executive surfaces,
+  investigations, members, notes, tasks, local analysis/Knowledge search,
+  passive recon, reports, Monitoring Center, LAN assets, endpoint agents,
+  posture, vulnerabilities, policies/baselines, maintenance windows, alerts,
+  notifications, correlations, timelines, and Operations Center API checks
+  passed. Recon used only the reserved `example.com` passive smoke path and
+  returned partial results with provider warnings. PDF, DOCX, HTML, and Markdown
+  downloads were non-empty, had the expected MIME/signature or structure, and
+  contained expected RavenTech/report content without test credentials.
+- Graceful desktop shutdown stopped its owned worker, backend, and PostgreSQL;
+  the managed port stopped listening. Relaunch returned to health/readiness
+  HTTP 200 and reused the existing cluster. `PG_VERSION` remained unchanged and
+  the isolated acceptance investigation remained present. Normal NSIS
+  uninstallation removed the isolated installation directory and executable
+  while preserving the per-user database, ownership marker, and credential
+  file. Reinstalling the same current installer and launching against that
+  profile again returned to Ready and preserved the acceptance record without
+  repeating `initdb`. The installed UI was launched, but independent visual
+  inspection was **NOT RUN** because native-window automation was unavailable.
+- The final NSIS bundle passed the unsigned local installer validator. Portable
+  and local-release validators passed, and the Linux x86_64 package passed its
+  strict validator in Debian/WSL. The unsigned NSIS installer is 368,681,240
+  bytes with SHA-256
+  `75f89cb1b262f3f8b5b12aecdb031e309a5ff39ae188dd24c01ee1678cbe5125`.
+  The Linux package validator ran on Linux; no Linux clean-machine or Linux
+  Tauri GUI claim is made.
+
+### Regression and document delivery
+
+- Full backend suite: **370 passed**, five existing warnings. The initial test
+  attempt shared a database with a live native worker, which claimed a test job;
+  the suite was rerun against an isolated package-managed PostgreSQL cluster
+  with the desktop and worker stopped and then passed. The system PostgreSQL 18
+  service remained running and untouched.
+- Alembic on the live isolated managed database: current and sole head are
+  `0040_phase5bi_native_jobs`; `alembic check` reports no drift. Desktop JS
+  checks pass **51/51**. The current NSIS resource-map tests pass **3/3**.
+  Frontend localization passes **5/5**, monitoring tests pass **12/12**,
+  Windows Cargo tests pass **28/28** with one ignored live-PostgreSQL fixture,
+  and Debian/WSL Cargo tests pass **26/26** with the same fixture ignored.
+- The Spanish SRS source is
+  [`docs/srs/RavenTech_OSINT_SRS_ES.md`](docs/srs/RavenTech_OSINT_SRS_ES.md);
+  its delivery PDF is
+  [`docs/deliverables/RavenTech_OSINT_SRS_v1.0_ES.pdf`](docs/deliverables/RavenTech_OSINT_SRS_v1.0_ES.pdf).
+  The PDF is 56 pages and 185,340 bytes, containing 154 requirements (118
+  functional, 36 non-functional) and 154 matching traceability rows. Structural,
+  requirement-ID, traceability, version, page-number, secret, private-path, and
+  product-history validation passed. Visual QA passed on the cover, contents,
+  architecture diagram, functional requirement table, traceability matrix,
+  glossary, and final page; no clipping or broken Unicode was observed. SHA-256:
+  `c5aa92af515536258f48a4cd363bb7d605ea6ff4f6a0d812552adada3ad84c5b`. The
+  README links the professional product specification and contains no internal
+  milestone, prompt, or agent-tool chronology.
+- Windows clean-machine acceptance remains **NOT RUN**; Linux clean-machine and
+  Linux GUI acceptance remain **NOT RUN**. Knowledge/Obsidian ingestion is not
+  implemented.

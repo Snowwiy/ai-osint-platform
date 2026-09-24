@@ -3,8 +3,8 @@ import { access, copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promis
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { relative, sep } from "node:path";
 import { validateNativeRuntime } from "./native_runtime_package.mjs";
+import { mapDirectoryResources } from "./installer_resource_map.mjs";
 
 const VERSION = "5.0.0-rc6";
 const PRODUCT_DIRECTORY = `RavenTech-OSINT-Desktop-${VERSION}`;
@@ -52,7 +52,7 @@ console.log("Validating desktop, portable, and installer source contracts...");
 run(process.execPath, [resolve(desktop, "scripts", "validate.mjs")], desktop);
 run(process.execPath, ["--test", ...[
   "installer-scripts.test.mjs", "launcher.test.mjs", "local-scripts.test.mjs", "first-run.test.mjs",
-  "portable-scripts.test.mjs", "runtime.test.mjs", "smoke-script.test.mjs",
+  "portable-scripts.test.mjs", "runtime.test.mjs", "smoke-script.test.mjs", "installer-resource-map.test.mjs",
 ].map((name) => resolve(desktop, "tests", name))], desktop);
 run(process.execPath, [resolve(desktop, "scripts", "validate_installer.mjs"), "--config-only"], desktop);
 const nativeRuntime = await validateNativeRuntime({ desktop });
@@ -75,15 +75,17 @@ const installerOverride = JSON.parse(await readFile(resolve(desktop, "src-tauri"
 const resourceRoot = resolve(desktop, "src-tauri");
 const resourceMap = {};
 for (const name of ["backend", "worker"]) {
-  const source = nativeRuntime[name];
-  const relativeSource = relative(resourceRoot, source).split(sep).join("/");
-  resourceMap[`${relativeSource}/**/*`] = `native-runtime/${name}/`;
+  Object.assign(resourceMap, await mapDirectoryResources({
+    resourceRoot,
+    sourceDirectory: nativeRuntime[name],
+    destinationDirectory: `native-runtime/${name}`,
+  }));
 }
-{
-  const source = nativeRuntime.postgresql.directory;
-  const relativeSource = relative(resourceRoot, source).split(sep).join("/");
-  resourceMap[`${relativeSource}/**/*`] = "native-runtime/postgresql/";
-}
+Object.assign(resourceMap, await mapDirectoryResources({
+  resourceRoot,
+  sourceDirectory: nativeRuntime.postgresql.directory,
+  destinationDirectory: "native-runtime/postgresql",
+}));
 const mergedConfig = {
   ...configBase,
   ...installerOverride,
