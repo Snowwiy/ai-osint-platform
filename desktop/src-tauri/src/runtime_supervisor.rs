@@ -1468,17 +1468,24 @@ fn postgresql_runtime_layout_present(root: &Path) -> bool {
     #[cfg(not(target_os = "windows"))]
     let executable_suffix = "";
     let runtime = root.join("postgresql");
+    #[cfg(target_os = "linux")]
+    let (bin, lib, share) = (
+        runtime.join("lib/postgresql/16/bin"),
+        runtime.join("lib/postgresql/16/lib"),
+        runtime.join("share/postgresql/16"),
+    );
+    #[cfg(not(target_os = "linux"))]
+    let (bin, lib, share) = (
+        runtime.join("bin"),
+        runtime.join("lib"),
+        runtime.join("share"),
+    );
     ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"]
         .iter()
-        .all(|name| {
-            runtime
-                .join("bin")
-                .join(format!("{name}{executable_suffix}"))
-                .is_file()
-        })
+        .all(|name| bin.join(format!("{name}{executable_suffix}")).is_file())
         && runtime.join("manifest.json").is_file()
-        && runtime.join("lib").is_dir()
-        && runtime.join("share").is_dir()
+        && lib.is_dir()
+        && share.is_dir()
 }
 
 fn packaged_runtime_roots(resource_dir: Option<&Path>, executable: Option<&Path>) -> Vec<PathBuf> {
@@ -2052,18 +2059,28 @@ mod tests {
         }
         std::fs::write(&executable, b"desktop").expect("desktop executable fixture");
         let postgresql = complete_candidate.join("postgresql");
+        #[cfg(target_os = "linux")]
+        let (postgres_bin, postgres_lib, postgres_share) = (
+            postgresql.join("lib/postgresql/16/bin"),
+            postgresql.join("lib/postgresql/16/lib"),
+            postgresql.join("share/postgresql/16"),
+        );
+        #[cfg(not(target_os = "linux"))]
+        let (postgres_bin, postgres_lib, postgres_share) = (
+            postgresql.join("bin"),
+            postgresql.join("lib"),
+            postgresql.join("share"),
+        );
         for name in ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"] {
-            std::fs::create_dir_all(postgresql.join("bin")).expect("PostgreSQL bin");
+            std::fs::create_dir_all(&postgres_bin).expect("PostgreSQL bin");
             std::fs::write(
-                postgresql
-                    .join("bin")
-                    .join(format!("{name}{postgres_suffix}")),
+                postgres_bin.join(format!("{name}{postgres_suffix}")),
                 b"runtime",
             )
             .expect("PostgreSQL executable fixture");
         }
-        std::fs::create_dir_all(postgresql.join("lib")).expect("PostgreSQL lib");
-        std::fs::create_dir_all(postgresql.join("share")).expect("PostgreSQL share");
+        std::fs::create_dir_all(&postgres_lib).expect("PostgreSQL lib");
+        std::fs::create_dir_all(&postgres_share).expect("PostgreSQL share");
         std::fs::write(postgresql.join("manifest.json"), b"{}").expect("PostgreSQL manifest");
 
         let roots = packaged_runtime_roots(Some(&tauri_resource_dir), Some(&executable));

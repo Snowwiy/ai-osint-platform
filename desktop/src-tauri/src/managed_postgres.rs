@@ -91,14 +91,12 @@ pub fn start(
     // though the same packaged files work through ordinary DOS paths.
     let resource_root = postgres_compatible_resource_root(resource_root)?;
     let runtime = resource_root.join("postgresql");
-    let bin = runtime.join("bin");
-    let share = runtime.join("share");
+    let (bin, share, lib) = postgres_runtime_directories(&runtime);
     let postgres = executable(&bin, "postgres");
     let initdb = executable(&bin, "initdb");
     let psql = executable(&bin, "psql");
     let is_ready = executable(&bin, "pg_isready");
     let pg_ctl = executable(&bin, "pg_ctl");
-    let lib = runtime.join("lib");
     if ![&postgres, &initdb, &psql, &is_ready, &pg_ctl]
         .iter()
         .all(|path| path.is_file())
@@ -211,7 +209,8 @@ pub fn start(
         }
         let pwfile = state_directory.join("initdb-password.tmp");
         write_private_file(&pwfile, password.as_bytes())?;
-        let init = Command::new(&initdb)
+        let mut init_command = Command::new(&initdb);
+        init_command
             .args([
                 "--encoding=UTF8",
                 "--auth-host=scram-sha-256",
@@ -227,8 +226,9 @@ pub fn start(
             .current_dir(&bin)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .output();
+            .stderr(Stdio::piped());
+        configure_postgres_library_path(&mut init_command, &lib);
+        let init = init_command.output();
         let _ = fs::remove_file(&pwfile);
         match init {
             Ok(output) if output.status.success() => {}
@@ -262,6 +262,7 @@ pub fn start(
     let logs = state_directory.join("logs");
     create_private_dir(&logs)?;
     let mut command = Command::new(&postgres);
+    disable_postgres_unix_sockets(&mut command);
     command
         .arg("-D")
         .arg(&data_directory)
@@ -292,11 +293,7 @@ pub fn start(
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    #[cfg(target_os = "linux")]
-    command.env(
-        "LD_LIBRARY_PATH",
-        format!("{}:{}", lib.display(), lib.join("postgresql").display()),
-    );
+    configure_postgres_library_path(&mut command, &lib);
     #[cfg(target_os = "windows")]
     use std::os::windows::process::CommandExt;
     #[cfg(target_os = "windows")]
@@ -323,14 +320,14 @@ pub fn start(
         {
             return Err(RuntimeError::StartFailed);
         }
-        if Command::new(&is_ready)
+        let mut ready_command = Command::new(&is_ready);
+        ready_command
             .args(ready_args)
             .current_dir(&bin)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|status| status.success())
-        {
+            .stderr(Stdio::null());
+        configure_postgres_library_path(&mut ready_command, &lib);
+        if ready_command.status().is_ok_and(|status| status.success()) {
             break;
         }
         if Instant::now() >= deadline {
@@ -342,7 +339,8 @@ pub fn start(
 
     if bootstrap_database {
         let sql = format!("CREATE ROLE {DATABASE_USER} LOGIN PASSWORD '{password}';\nCREATE DATABASE {DATABASE_NAME} OWNER {DATABASE_USER};\nALTER ROLE {BOOTSTRAP_USER} NOLOGIN;\n");
-        let mut psql_child = Command::new(&psql)
+        let mut psql_command = Command::new(&psql);
+        psql_command
             .args([
                 "--no-psqlrc",
                 "--set=ON_ERROR_STOP=1",
@@ -356,12 +354,12 @@ pub fn start(
             .current_dir(&bin)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|_| {
-                let _ = stop(&mut child, &pg_ctl, &data_directory);
-                RuntimeError::DatabaseBootstrapFailed
-            })?;
+            .stderr(Stdio::null());
+        configure_postgres_library_path(&mut psql_command, &lib);
+        let mut psql_child = psql_command.spawn().map_err(|_| {
+            let _ = stop(&mut child, &pg_ctl, &data_directory);
+            RuntimeError::DatabaseBootstrapFailed
+        })?;
         if let Some(mut stdin) = psql_child.stdin.take() {
             if stdin.write_all(sql.as_bytes()).is_err() {
                 let _ = psql_child.wait();
@@ -394,7 +392,15 @@ pub fn stop(child: &mut Child, pg_ctl: &Path, data_directory: &Path) -> bool {
     if child.try_wait().ok().flatten().is_some() {
         return true;
     }
-    let _ = Command::new(pg_ctl)
+    let mut command = Command::new(pg_ctl);
+    #[cfg(target_os = "linux")]
+    {
+        let Some(lib) = postgres_library_directory_from_pg_ctl(pg_ctl) else {
+            return false;
+        };
+        configure_postgres_library_path(&mut command, &lib);
+    }
+    let _ = command
         .arg("-D")
         .arg(data_directory)
         .args(["-m", "fast", "-w", "-t", "20", "stop"])
@@ -728,6 +734,60 @@ fn write_hba(path: &Path) -> Result<(), RuntimeError> {
     file.sync_all().map_err(|_| RuntimeError::Io)
 }
 
+fn configure_postgres_library_path(command: &mut Command, lib: &Path) {
+    #[cfg(target_os = "linux")]
+    command.env(
+        "LD_LIBRARY_PATH",
+        format!("{}:{}", lib.display(), lib.join("postgresql").display()),
+    );
+    #[cfg(not(target_os = "linux"))]
+    let _ = (command, lib);
+}
+
+fn disable_postgres_unix_sockets(command: &mut Command) {
+    #[cfg(target_os = "linux")]
+    command.args(["-c", "unix_socket_directories="]);
+    #[cfg(not(target_os = "linux"))]
+    let _ = command;
+}
+
+#[cfg(target_os = "linux")]
+fn postgres_library_directory_from_pg_ctl(pg_ctl: &Path) -> Option<PathBuf> {
+    use std::ffi::OsStr;
+
+    let bin = pg_ctl.parent()?;
+    let version = bin.parent()?;
+    let postgresql = version.parent()?;
+    let library_root = postgresql.parent()?;
+    if bin.file_name()? != OsStr::new("bin")
+        || version.file_name()? != OsStr::new("16")
+        || postgresql.file_name()? != OsStr::new("postgresql")
+        || library_root.file_name()? != OsStr::new("lib")
+    {
+        return None;
+    }
+    Some(library_root.join("postgresql/16/lib"))
+}
+
+fn postgres_runtime_directories(runtime: &Path) -> (PathBuf, PathBuf, PathBuf) {
+    #[cfg(target_os = "linux")]
+    {
+        (
+            runtime.join("lib/postgresql/16/bin"),
+            runtime.join("share/postgresql/16"),
+            runtime.join("lib/postgresql/16/lib"),
+        )
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        (
+            runtime.join("bin"),
+            runtime.join("share"),
+            runtime.join("lib"),
+        )
+    }
+}
+
 fn reject_symlink(path: &Path) -> Result<(), RuntimeError> {
     let metadata = fs::symlink_metadata(path).map_err(|_| RuntimeError::Io)?;
     if metadata.file_type().is_symlink() {
@@ -832,6 +892,67 @@ mod tests {
         assert!(!rules.contains("trust"));
         assert!(!rules.contains("0.0.0.0"));
         assert!(!rules.contains("192.168.50.0/24"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn postgres_utilities_use_bundled_linux_library_paths() {
+        let runtime_lib =
+            Path::new("/opt/raventech/native-runtime/postgresql/lib/postgresql/16/lib");
+        let mut command = Command::new("initdb");
+        configure_postgres_library_path(&mut command, runtime_lib);
+        let configured = command
+            .get_envs()
+            .find(|(key, _)| *key == "LD_LIBRARY_PATH")
+            .and_then(|(_, value)| value)
+            .expect("bundled library path");
+        assert_eq!(
+            configured.to_string_lossy(),
+            format!(
+                "{}:{}",
+                runtime_lib.display(),
+                runtime_lib.join("postgresql").display()
+            )
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn postgres_runtime_preserves_the_debian_relocation_layout() {
+        let runtime = Path::new("/opt/raventech/native-runtime/postgresql");
+        let (bin, share, lib) = postgres_runtime_directories(runtime);
+        assert_eq!(bin, runtime.join("lib/postgresql/16/bin"));
+        assert_eq!(share, runtime.join("share/postgresql/16"));
+        assert_eq!(lib, runtime.join("lib/postgresql/16/lib"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn managed_postgres_does_not_depend_on_system_unix_socket_directories() {
+        let mut command = Command::new("postgres");
+        disable_postgres_unix_sockets(&mut command);
+        let args = command
+            .get_args()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(args, ["-c", "unix_socket_directories="]);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn bundled_pg_ctl_library_directory_is_derived_from_validated_runtime_layout() {
+        let pg_ctl =
+            Path::new("/opt/raventech/native-runtime/postgresql/lib/postgresql/16/bin/pg_ctl");
+        assert_eq!(
+            postgres_library_directory_from_pg_ctl(pg_ctl),
+            Some(PathBuf::from(
+                "/opt/raventech/native-runtime/postgresql/lib/postgresql/16/lib"
+            ))
+        );
+        assert_eq!(
+            postgres_library_directory_from_pg_ctl(Path::new("/usr/bin/pg_ctl")),
+            None
+        );
     }
 
     #[test]
@@ -965,8 +1086,10 @@ mod tests {
         assert!(first.version.contains("PostgreSQL) 16."));
         let password = fs::read_to_string(state_root.join("runtime/postgres/database.secret"))
             .expect("app-owned password file");
-        let psql = executable(&resource_root.join("postgresql/bin"), "psql");
-        let roles = Command::new(&psql)
+        let (bin, _, lib) = postgres_runtime_directories(&resource_root.join("postgresql"));
+        let psql = executable(&bin, "psql");
+        let mut roles_command = Command::new(&psql);
+        roles_command
             .args([
                 "--no-psqlrc",
                 "--tuples-only",
@@ -978,12 +1101,15 @@ mod tests {
                 "--no-password",
                 "--command=SELECT (SELECT rolsuper FROM pg_roles WHERE rolname='raventech')::text || '|' || (SELECT rolcanlogin FROM pg_roles WHERE rolname='raventech_runtime')::text",
             ])
-            .env("PGPASSWORD", password.trim())
+            .env("PGPASSWORD", password.trim());
+        configure_postgres_library_path(&mut roles_command, &lib);
+        let roles = roles_command
             .output()
             .expect("verify restricted application database role");
         assert!(roles.status.success());
         assert_eq!(String::from_utf8_lossy(&roles.stdout).trim(), "false|false");
-        let mut create_probe = Command::new(&psql)
+        let mut create_probe_command = Command::new(&psql);
+        create_probe_command
             .args([
                 "--no-psqlrc",
                 "--set=ON_ERROR_STOP=1",
@@ -996,7 +1122,9 @@ mod tests {
             .env("PGPASSWORD", password.trim())
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null());
+        configure_postgres_library_path(&mut create_probe_command, &lib);
+        let mut create_probe = create_probe_command
             .spawn()
             .expect("create persistence test record");
         create_probe.stdin.take().expect("psql input").write_all(b"CREATE TABLE public.phase5bm_persistence_probe (value integer primary key); INSERT INTO public.phase5bm_persistence_probe VALUES (1);\n").expect("write fixed persistence SQL");
@@ -1017,7 +1145,8 @@ mod tests {
         assert!(second_marker.initialized);
         let password = fs::read_to_string(state_root.join("runtime/postgres/database.secret"))
             .expect("same app-owned credential");
-        let query = Command::new(&psql)
+        let mut query_command = Command::new(&psql);
+        query_command
             .args([
                 "--no-psqlrc",
                 "--tuples-only",
@@ -1029,9 +1158,9 @@ mod tests {
                 "--no-password",
                 "--command=SELECT count(*) FROM public.phase5bm_persistence_probe WHERE value = 1",
             ])
-            .env("PGPASSWORD", password.trim())
-            .output()
-            .expect("query persisted test record");
+            .env("PGPASSWORD", password.trim());
+        configure_postgres_library_path(&mut query_command, &lib);
+        let query = query_command.output().expect("query persisted test record");
         assert!(query.status.success());
         assert_eq!(String::from_utf8_lossy(&query.stdout).trim(), "1");
         let mut child = second.child;

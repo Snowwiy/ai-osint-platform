@@ -65,8 +65,8 @@ does not run destructive checks.
 | Area | Result | Evidence / limitation |
 |---|---|---|
 | Windows packaged zero-Docker desktop | PASS (installed NSIS plus portable API workflows; visual UI inspection NOT RUN) | The current unsigned NSIS installer and portable Tauri app launched from fresh isolated profiles outside the repository. Managed PostgreSQL initialized and bound only to 127.0.0.1:55432; backend health/readiness and release returned 200/200/5.0.0-rc6; the native worker heartbeated and completed PostgreSQL jobs. The installed NSIS app passed first launch, authenticated product API smoke, graceful shutdown, relaunch, uninstall, reinstall, and persistent-cluster reuse. A temporary administrator created through the supported bootstrap utility passed login, profile, refresh rotation, previous-token rejection, logout, and revoked-token rejection. Dashboard, investigation, note/task, analysis, Monitoring Center, LAN/agent/assets, Operations Center, Security Posture, executive, Change Timeline, correlation, vulnerability, maintenance, alert, and notification APIs passed. PDF, DOCX, HTML, and Markdown reports were generated and checked for non-empty output, MIME/signature or document structure, expected RavenTech/report content, and absence of test secrets. The authorized passive recon smoke path returned entities with provider warnings and performed no active scan. Production frontend assets are embedded; no Vite server was used. Direct visual inspection of the desktop UI was NOT RUN because no native Tauri automation surface was available. Test records and the initialized managed cluster remained in the isolated profile; no operator credentials or data were used. |
-| Linux/WSL native core | PASS (runtime/package checks; no GUI claim) | Debian x86_64 WSL rebuilt and tested the current supervisor (26 passed, 1 ignored), built the Linux release binary, regenerated the Linux package, and passed strict validation. Earlier isolated Linux PostgreSQL bootstrap/restart/persistence checks passed. This is Linux runtime evidence, not clean-machine acceptance. |
-| Linux Tauri GUI | NOT RUN | No GUI acceptance was performed in WSL. |
+| Linux/WSL native core | PASS (packaged runtime and API workflows; visual GUI not claimed) | Debian 13 x86_64 WSL ran the current packaged Tauri executable from its bundle with an isolated XDG profile. Managed PostgreSQL 16.15 initialized on loopback, migrations reached the sole head, backend and worker became healthy, and authenticated Monitoring/Operations/Posture/Timeline/Notifications/Reports/Passive Recon APIs passed. A same-profile packaged relaunch reused the existing cluster; its ownership marker, PostgreSQL major version, current schema, and five synthetic users persisted. This process-controlled restart does not verify normal GUI close. This is Linux runtime evidence, not clean-machine acceptance. |
+| Linux Tauri GUI | NOT RUN (visual/interactive check) | WSLg was present and the packaged Tauri process launched, but no supported native-window inspection surface was available to verify rendered pages or manually interact with the UI. The embedded production frontend and backend API workflows were independently validated. |
 | Windows clean-machine (5BO) | NOT RUN | Requires a separate clean Windows 10/11 x64 machine with WebView2 and no repository checkout. |
 | Linux clean-machine (5BP) | NOT RUN | Requires a separate clean Linux x86_64 installation/VM with the package manifest prerequisites. |
 | Docker compatibility | PASS (configuration only) | Compose files remain present and a quiet Compose configuration check passed previously; Docker Desktop/service and live containers were stopped during native acceptance, so the live Docker workflow was not exercised here. |
@@ -142,6 +142,84 @@ does not run destructive checks.
   marked NOT RUN; production embedding and equivalent authenticated API
   workflows passed. Linux clean-machine and Linux Tauri GUI acceptance remain
   NOT RUN. The WSL result is not presented as clean-machine Linux acceptance.
+
+### Debian 13 WSL packaged Linux acceptance — 2026-09-24
+
+- Environment: Debian GNU/Linux 13, x86_64, WSL2; systemd was PID 1 and
+  system D-Bus was available. WSLg variables were present. The test ran as the
+  regular Linux user, not root. No separate Linux VM or clean installation was
+  available, so Linux clean-machine acceptance remains **NOT RUN**.
+- Package format: the current unsigned x86_64 directory bundle, containing the
+  Tauri desktop, PyInstaller backend and worker, embedded React production
+  assets, and PostgreSQL 16.15 runtime. The strict Linux package validator
+  passed. No DEB/RPM/AppImage installer or install/uninstall behavior is
+  claimed.
+- The packaged desktop executable was started from its bundle while the
+  current directory was `/`, with isolated XDG config/data/state roots. It
+  initialized a fresh marked managed cluster, applied migrations, started the
+  packaged backend and native worker, and returned `/health` 200,
+  `/health/ready` 200, and release `5.0.0-rc6`. Operations status identified
+  the desktop/native PostgreSQL engine and a current worker heartbeat. The
+  only database listener was loopback TCP on 55432; the generated host rule
+  used SCRAM-SHA-256 and no `trust` or LAN/public rule was present.
+- Authentication used only a synthetic account in that isolated database:
+  login, profile, refresh rotation, old-token rejection, logout, and revoked
+  token rejection passed. Dashboard, investigation listing, Monitoring,
+  Operations, systemd inventory, posture, timeline, notification, and
+  background-job APIs returned successfully. The read-only systemd inventory
+  returned nine units. Native Linux metrics and process inventory providers
+  passed their live-provider Rust tests; the backend's fallback metrics are
+  explicitly container-scoped and were not represented as host metrics.
+- PDF, DOCX, HTML, and Markdown reports were generated and validated for
+  non-empty content, correct type/signature or container structure, RavenTech
+  report content, and absence of test secrets/private paths. A passive
+  authorized recon smoke against the reserved `example.com` test target
+  returned entities without active scanning.
+- Startup/resource defects found by this run were fixed in the Linux package
+  builder/runtime: packaged PostgreSQL required its contrib extensions and
+  relocated library layout; Debian startup also needed bundled library-path
+  resolution and loopback-only operation without the default system Unix
+  socket directory. Regression tests cover the nested resource layout,
+  utility library paths, and managed stop path. The current package was rebuilt
+  and its validator passed.
+- Visual UI/page interaction, Linux process termination, and systemd
+  start/stop/restart actions were **NOT RUN**. Process/service protection and
+  normalized Linux inventory were exercised by deterministic tests; the live
+  read-only systemd inventory/API was exercised without privileged actions.
+  The Linux endpoint-agent executable was not present as a Linux product
+  package and its live registration was **NOT RUN**. Current WSL neighbor data
+  is not treated as evidence of an authorized LAN deployment.
+- The packaged app's startup, ready state, authenticated workflows, and
+  PostgreSQL-backed jobs were exercised in WSL. After a controlled stop of
+  only the isolated test-owned processes, the packaged app relaunched with the
+  same XDG profile, reused the existing cluster, and retained five synthetic
+  users. A controllable Tauri window was not exposed by the WSLg window tree,
+  so visual inspection and normal window-close behavior are **NOT RUN**. The
+  Linux GUI and clean-machine statuses remain **NOT RUN**.
+
+### Final Linux validation snapshot — 2026-09-24
+
+- Full backend suite: **371 passed**, five warnings. Alembic on the isolated
+  application database reported current and sole head
+  `0040_phase5bi_native_jobs`; `alembic check` reported no drift.
+- Linux Cargo tests: **30 passed, 1 ignored**. Windows focused Cargo regression:
+  **28 passed, 1 ignored**. Desktop checks passed **53/53**; localization
+  **5/5**; monitoring tests **12/12**; frontend production build, `pip check`,
+  PowerShell and Bash syntax checks passed.
+- Ruff 0.15.22 using the CI-equivalent `ruff check app workers tests` scope:
+  **456 findings / 457 accepted**. Mypy 2.3.1 using `mypy app workers`:
+  **66 findings / 66 accepted**. Focused changed-file checks passed.
+- Windows portable, unsigned NSIS, and local-release validators passed. The
+  current Linux x86_64 directory bundle passed its strict validator in Debian
+  13 WSL. Both Docker Compose configurations parsed with configuration-only
+  placeholders; Docker services were not used by the native Linux run.
+- SRS PDF structural/traceability and visual checks passed: 56 pages, 154
+  unique requirements (118 functional, 36 non-functional), 154 traceability
+  rows, SHA-256
+  `FE2446C3CFECA3EB1E154036EE24ABB2C3A210C7450DCC5D0C504DB5AD6D6237`.
+  The PDF is 186,061 bytes. It records same-profile cluster reuse and data
+  persistence while explicitly leaving visual GUI and normal window-close
+  checks unverified.
 
 ## Safe smoke procedure
 

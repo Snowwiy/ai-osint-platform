@@ -7,7 +7,10 @@ stakeholder-ready reports without intrusive scanning or offensive automation.
 
 Current release candidate: `5.0.0-rc6`. The packaged Windows and Linux desktop
 uses an embedded frontend, native backend and worker, managed local PostgreSQL,
-and native host monitoring. Docker Compose remains available for development
+and native host monitoring. The installed Windows runtime has passed isolated
+packaged acceptance. Linux x86_64 package and native runtime core have been
+validated on Debian 13 WSL; Linux visual GUI and independent clean-install
+acceptance remain untested. Docker Compose remains available for development
 and compatibility. PostgreSQL is required; Redis and Celery are not required by
 the native desktop runtime. See [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md),
 [DESKTOP_NATIVE_RUNTIME.md](DESKTOP_NATIVE_RUNTIME.md), and

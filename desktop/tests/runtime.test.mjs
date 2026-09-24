@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { createHash } from "node:crypto";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { validatePostgresqlRuntimeTree } from "../scripts/native_runtime_package.mjs";
 
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
@@ -10,6 +13,7 @@ const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
 const supervisor = await readFile(resolve(desktop, "src-tauri/src/runtime_supervisor.rs"), "utf8");
 const managedPostgres = await readFile(resolve(desktop, "src-tauri/src/managed_postgres.rs"), "utf8");
+const linuxPackageValidator = await readFile(resolve(desktop, "scripts/validate_linux_desktop.mjs"), "utf8");
 const postgresDocs = await readFile(resolve(desktop, "../MANAGED_POSTGRESQL_RUNTIME.md"), "utf8");
 const config = JSON.parse(await readFile(resolve(desktop, "src-tauri/tauri.conf.json"), "utf8"));
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri/capabilities/default.json"), "utf8"));
@@ -150,4 +154,45 @@ test("managed PostgreSQL is fixed, loopback-only, data-preserving, and cross-pla
   }
   assert.ok(app.includes("dbManaged") && app.includes("dbExternal") && app.includes("dbLocalOnly"));
   assert.ok(app.includes("El puerto 55432 está ocupado"));
+});
+
+test("PostgreSQL package validation requires checksummed pgcrypto and pg_trgm resources", async () => {
+  const root = await mkdtemp(join(tmpdir(), "raventech-pg-runtime-"));
+  try {
+    const files = {};
+    const resources = [
+      ["share/postgresql/16/extension/pgcrypto.control", "default_version = '1.3'\n"],
+      ["share/postgresql/16/extension/pgcrypto--1.3.sql", "CREATE FUNCTION test_pgcrypto();\n"],
+      ["share/postgresql/16/extension/pg_trgm.control", "default_version = '1.6'\n"],
+      ["share/postgresql/16/extension/pg_trgm--1.6.sql", "CREATE FUNCTION test_pg_trgm();\n"],
+      ["lib/postgresql/16/lib/pgcrypto.so", "pgcrypto test module"],
+      ["lib/postgresql/16/lib/pg_trgm.so", "pg_trgm test module"],
+    ];
+    for (const [relative, content] of resources) {
+      const path = resolve(root, relative);
+      await mkdir(dirname(path), { recursive: true });
+      const bytes = Buffer.from(content);
+      await writeFile(path, bytes);
+      files[relative] = { size_bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex") };
+    }
+    await writeFile(resolve(root, "manifest.json"), JSON.stringify({
+      os: "linux",
+      bin_directory: "lib/postgresql/16/bin",
+      share_directory: "share/postgresql/16",
+      library_directory: "lib/postgresql/16/lib",
+      files,
+    }));
+    assert.equal((await validatePostgresqlRuntimeTree(root)).length, resources.length + 1);
+
+    await rm(resolve(root, "lib/postgresql/16/lib/pgcrypto.so"));
+    await assert.rejects(validatePostgresqlRuntimeTree(root), /Required PostgreSQL extension resources are missing: pgcrypto/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("Linux PostgreSQL validation uses the packaged runtime library path", () => {
+  assert.ok(linuxPackageValidator.includes("LD_LIBRARY_PATH: runtimeLibraryPath"));
+  assert.ok(linuxPackageValidator.includes("const pgLibrary = resolve(pgRoot, pgManifest.library_directory)"));
+  assert.ok(managedPostgres.includes('runtime.join("lib/postgresql/16/bin")'));
 });

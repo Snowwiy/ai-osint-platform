@@ -75,7 +75,41 @@ async function validateTree(root, { postgresqlRuntime = false } = {}) {
 }
 
 export async function validatePostgresqlRuntimeTree(root) {
-  return validateTree(root, { postgresqlRuntime: true });
+  const files = await validateTree(root, { postgresqlRuntime: true });
+  const manifestPath = resolve(root, "manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const directories = manifest.os === "linux"
+    ? { bin: "lib/postgresql/16/bin", share: "share/postgresql/16", library: "lib/postgresql/16/lib" }
+    : { bin: "bin", share: "share", library: "lib" };
+  const moduleSuffix = manifest.os === "windows" ? ".dll" : ".so";
+  if (!["windows", "linux"].includes(manifest.os)
+    || manifest.bin_directory !== undefined && manifest.bin_directory !== directories.bin
+    || manifest.share_directory !== undefined && manifest.share_directory !== directories.share
+    || manifest.library_directory !== undefined && manifest.library_directory !== directories.library
+    || manifest.os === "linux" && (!manifest.bin_directory || !manifest.share_directory || !manifest.library_directory)) {
+    throw new Error("PostgreSQL runtime directory metadata is invalid.");
+  }
+  const filePaths = new Set(files.map(({ path }) => path));
+  const required = [];
+  for (const extension of ["pgcrypto", "pg_trgm"]) {
+    const control = `${directories.share}/extension/${extension}.control`;
+    const module = `${directories.library}/${extension}${moduleSuffix}`;
+    const sqlFiles = files
+      .map(({ path }) => path)
+      .filter((path) => path.startsWith(`${directories.share}/extension/${extension}--`) && path.endsWith(".sql"));
+    if (!filePaths.has(control) || !filePaths.has(module) || sqlFiles.length === 0) {
+      throw new Error(`Required PostgreSQL extension resources are missing: ${extension}.`);
+    }
+    required.push(control, module, ...sqlFiles);
+  }
+  for (const path of required) {
+    const bytes = await readFile(resolve(root, path));
+    const record = manifest.files?.[path];
+    if (!record || record.size_bytes !== bytes.length || record.sha256 !== createHash("sha256").update(bytes).digest("hex")) {
+      throw new Error(`PostgreSQL extension checksum is missing or invalid: ${path}`);
+    }
+  }
+  return files;
 }
 
 export async function validateNativeRuntime({ desktop = DESKTOP, platform = process.platform } = {}) {
@@ -106,23 +140,26 @@ export async function validateNativeRuntime({ desktop = DESKTOP, platform = proc
   if (postgresManifest.component !== "postgresql" || postgresManifest.major_version !== 16 || postgresManifest.os !== paths.os || postgresManifest.architecture !== "x86_64" || postgresManifest.compatible_raventech_version !== VERSION) {
     throw new Error("The managed PostgreSQL manifest does not match this desktop target.");
   }
+  const postgresBinDirectory = postgresManifest.bin_directory ?? "bin";
+  const postgresShareDirectory = postgresManifest.share_directory ?? "share";
+  const postgresLibraryDirectory = postgresManifest.library_directory ?? "lib";
   const postgresFiles = {};
   for (const name of [paths.os === "windows" ? "postgres.exe" : "postgres", paths.os === "windows" ? "initdb.exe" : "initdb", paths.os === "windows" ? "psql.exe" : "psql", paths.os === "windows" ? "pg_isready.exe" : "pg_isready", paths.os === "windows" ? "pg_ctl.exe" : "pg_ctl"]) {
-    const path = resolve(postgresDirectory, "bin", name);
+    const path = resolve(postgresDirectory, postgresBinDirectory, name);
     const bytes = await readFile(path);
     const sha256 = createHash("sha256").update(bytes).digest("hex");
-    const relativePath = `bin/${name}`;
+    const relativePath = `${postgresBinDirectory}/${name}`;
     if (postgresManifest.files?.[relativePath]?.sha256 !== sha256 || postgresManifest.files?.[relativePath]?.size_bytes !== bytes.length) throw new Error(`PostgreSQL runtime checksum mismatch: ${name}`);
     postgresFiles[name] = { sha256, sizeBytes: bytes.length };
   }
-  const postgresVersion = spawnSync(resolve(postgresDirectory, "bin", paths.os === "windows" ? "postgres.exe" : "postgres"), ["--version"], { cwd: postgresDirectory, shell: false, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const postgresVersion = spawnSync(resolve(postgresDirectory, postgresBinDirectory, paths.os === "windows" ? "postgres.exe" : "postgres"), ["--version"], { cwd: postgresDirectory, shell: false, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   if (postgresVersion.error || postgresVersion.status !== 0 || !postgresVersion.stdout.includes("PostgreSQL) 16.")) throw new Error("The bundled PostgreSQL executable failed its version check.");
-  const sharePath = resolve(postgresDirectory, "share");
+  const sharePath = resolve(postgresDirectory, postgresShareDirectory);
   if (!(await stat(sharePath)).isDirectory() || (await readdir(sharePath)).length === 0) throw new Error("The bundled PostgreSQL share resources are missing.");
   const moduleName = paths.os === "windows" ? "dict_snowball.dll" : "dict_snowball.so";
-  const modulePath = resolve(postgresDirectory, "lib", moduleName);
+  const modulePath = resolve(postgresDirectory, postgresLibraryDirectory, moduleName);
   const moduleBytes = await readFile(modulePath);
-  const moduleManifest = postgresManifest.files?.[`lib/${moduleName}`];
+  const moduleManifest = postgresManifest.files?.[`${postgresLibraryDirectory}/${moduleName}`];
   if (!moduleManifest || moduleManifest.sha256 !== createHash("sha256").update(moduleBytes).digest("hex") || moduleManifest.size_bytes !== moduleBytes.length) throw new Error("The PostgreSQL runtime shared-module resource is missing or invalid.");
   const postgresTree = await validatePostgresqlRuntimeTree(postgresDirectory);
   for (const file of postgresTree) {

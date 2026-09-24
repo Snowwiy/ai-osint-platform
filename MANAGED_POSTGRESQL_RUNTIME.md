@@ -10,9 +10,9 @@ Managed mode requires PostgreSQL 16 x86_64 runtime resources, PostgreSQL-compati
 
 ## Runtime distribution
 
-The selected major version is PostgreSQL 16, matching the project's PostgreSQL 16 Docker service. The Windows x86_64 runtime is staged from the official EnterpriseDB PostgreSQL 16 binary archive. The Linux x86_64 runtime is built from the official PostgreSQL source distribution in Debian/WSL and staged with its required shared libraries listed in the artifact manifest. PyInstaller remains the backend/worker packaging engine; PostgreSQL is a separate fixed runtime resource. Build-generated resources remain ignored and are checked by per-file SHA-256 manifests.
+The selected major version is PostgreSQL 16, matching the project's PostgreSQL 16 Docker service. The Windows x86_64 runtime is staged from the official EnterpriseDB PostgreSQL 16 binary archive. The Linux x86_64 runtime is assembled from the Debian-compatible PostgreSQL 16.15 distribution and staged with its required shared libraries listed in the artifact manifest. Its bundle keeps Debian's relocated `lib/postgresql/16/{bin,lib}` and `share/postgresql/16` layout, including the `pgcrypto` and `pg_trgm` extension modules required by the application schema. PyInstaller remains the backend/worker packaging engine; PostgreSQL is a separate fixed runtime resource. Build-generated resources remain ignored and are checked by per-file SHA-256 manifests.
 
-Only the fixed `postgres`, `initdb`, `psql`, `pg_isready`, and `pg_ctl` programs, their runtime libraries, and PostgreSQL share resources are included. The runtime does not search `PATH` and does not invoke a shell. Linux dynamic-library requirements vary by distribution; the manifest lists required shared libraries and minimum glibc observed at build time. WSL testing is Linux runtime testing, not clean-machine acceptance.
+Only the fixed `postgres`, `initdb`, `psql`, `pg_isready`, and `pg_ctl` programs, their runtime libraries, and PostgreSQL share resources are included. The runtime does not search `PATH` and does not invoke a shell. On Linux, these fixed child processes receive a runtime-specific `LD_LIBRARY_PATH` assembled from the validated packaged directories; the server uses loopback TCP without requiring a system Unix-socket directory. Linux dynamic-library requirements vary by distribution; the manifest lists required shared libraries and minimum glibc observed at build time. Debian 13 WSL runtime validation is Linux runtime evidence, not clean-machine acceptance.
 
 ## Data, ownership, and credential
 
@@ -67,3 +67,10 @@ Finalization snapshot (2026-09-22): Windows Tauri managed-runtime startup, migra
 Phase 5BN finalizes the packaged runtime as Docker-optional; this does not change PostgreSQL's required status or managed/external database behavior. Future phases are 5BO Windows clean-machine acceptance, 5BP Linux clean-machine acceptance, and 5BQ Obsidian plus verified Knowledge ingestion.
 
 Follow-up packaged validation on 2026-09-23 reproduced the Windows failure with an extended-length Tauri resource path and identified why `initdb` could not find sibling `postgres.exe`. The immutable resource root is now normalized before resolving PostgreSQL binaries. A current packaged Tauri launch and same-profile relaunch passed managed initialization/reuse, health/readiness/release, worker heartbeat, and isolated data persistence. The full interactive zero-Docker gate remains incomplete; see [NATIVE_DESKTOP_ACCEPTANCE.md](NATIVE_DESKTOP_ACCEPTANCE.md).
+
+Debian 13 WSL package validation on 2026-09-24 launched the current Tauri
+bundle with isolated XDG roots. The bundled PostgreSQL 16.15 runtime initialized
+with the required contrib extensions, applied migrations, bound only to
+loopback, and supported backend/worker health plus authenticated application
+API workflows. The packaged child processes use the bundled library layout;
+Linux clean-machine installation and visual GUI acceptance remain **NOT RUN**.

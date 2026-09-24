@@ -24,7 +24,7 @@ await mkdir(resolve(output, "native-runtime"), { recursive: true });
 await cp(runtime.backend, resolve(output, "native-runtime", "backend"), { recursive: true });
 await cp(runtime.worker, resolve(output, "native-runtime", "worker"), { recursive: true });
 await cp(runtime.postgresql.directory, resolve(output, "native-runtime", "postgresql"), { recursive: true });
-for (const name of ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"]) await chmod(resolve(output, "native-runtime", "postgresql", "bin", name), 0o755);
+for (const name of ["postgres", "initdb", "psql", "pg_isready", "pg_ctl"]) await chmod(resolve(output, "native-runtime", "postgresql", runtime.postgresql.manifest.bin_directory, name), 0o755);
 for (const component of ["backend", "worker"]) await chmod(resolve(output, "native-runtime", component, runtime[`${component}Binary`]), 0o755);
 await copyFile(resolve(desktop, "LINUX_NATIVE_PACKAGE_README.md"), resolve(output, "README.md"));
 await copyFile(resolve(repository, "LICENSE"), resolve(output, "LICENSE"));

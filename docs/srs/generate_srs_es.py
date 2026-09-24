@@ -1649,8 +1649,8 @@ SECTIONS: list[tuple[str, list[str]]] = [
         "7. Entorno operativo y plataformas",
         [
             "Windows: Tauri, artefactos nativos de backend/worker, PostgreSQL 16 administrado, métricas de host, inventario de procesos, SCM, sockets y vecinos. El instalador actual es unsigned y requiere WebView2 disponible en el sistema según el manifiesto.",
-            "Linux x86_64: Tauri, backend/worker nativos, PostgreSQL administrado y rutas XDG. El proveedor usa interfaces locales como /proc, /sys, netlink y systemd/D-Bus cuando está disponible. WSL Debian es evidencia de ejecución Linux, pero no equivale a aceptación limpia de instalación ni a GUI Linux.",
-            "La aceptación limpia Windows/Linux en VM independiente queda separada de las pruebas en host o WSL. Al corte documental, Windows clean-machine no se ejecutó; Linux clean-machine y Linux GUI tampoco.",
+            "Linux x86_64: Tauri, backend/worker nativos, PostgreSQL administrado y rutas XDG. El proveedor usa interfaces locales como /proc, /sys, netlink y systemd/D-Bus cuando está disponible. Debian 13 x86_64 en WSL2 validó el paquete Linux actual, el inicio del proceso Tauri empaquetado, PostgreSQL administrado, backend/worker, migraciones y flujos API autenticados. Tras un reinicio controlado de procesos de prueba, el mismo perfil XDG reutilizó el clúster; el marcador, la versión mayor de PostgreSQL, el esquema y cinco usuarios sintéticos persistieron. Esto no valida el cierre normal de la GUI ni es aceptación de instalación limpia; la inspección visual de GUI Linux tampoco se ejecutó.",
+            "La aceptación limpia Windows/Linux en VM independiente queda separada de las pruebas en host o WSL. Al corte documental, Windows clean-machine y Linux clean-machine no se ejecutaron; la inspección visual e interacción de Linux GUI tampoco.",
         ],
     ),
     (
@@ -1801,8 +1801,8 @@ SECTIONS: list[tuple[str, list[str]]] = [
     (
         "29. Aceptación del producto y estado de validación",
         [
-            "Para 5.0.0-rc6, la documentación de aceptación registra prueba host-isolated Windows/API, prueba de PostgreSQL administrado, worker, autentificación, reportes, recon pasivo y smoke de operaciones. La máquina Windows limpia independiente no estaba disponible en esta ejecución y permanece NOT RUN.",
-            "Debian/WSL registra validación de runtime Linux core/paquete; no se afirma instalación limpia bare-metal ni GUI Tauri Linux. El resultado WSL es solo evidencia de runtime Linux en WSL.",
+            "Para 5.0.0-rc6, la documentación de aceptación registra prueba Windows empaquetada aislada, PostgreSQL administrado, worker, autenticación, reportes, recon pasivo y flujos de operaciones. La máquina Windows limpia independiente no estaba disponible en esta ejecución y permanece NOT RUN.",
+            "Debian 13 x86_64/WSL registra validación del paquete actual y del arranque Tauri empaquetado con PostgreSQL administrado, migraciones, backend, worker, autenticación, APIs de Monitoring/Operations/Posture/Timeline/Notifications, reportes y recon pasivo. Un reinicio controlado del perfil XDG reutilizó el clúster existente y conservó el marcador y cinco usuarios sintéticos. El inventario local systemd vía D-Bus devolvió unidades; los proveedores nativos de métricas y procesos pasaron pruebas Linux. No se afirma cierre normal de GUI, instalación limpia ni inspección visual de GUI Linux; el resultado es evidencia de runtime Linux en WSL.",
             "Los criterios detallados se expresan como procedimiento repetible. Una PASS en un entorno no implica certificación en otro. La tabla de trazabilidad remite a los planes de prueba por subsistema.",
         ],
     ),
@@ -1823,7 +1823,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
     (
         "32. Límites conocidos y evolución",
         [
-            "El software es candidato local no firmado; no hay actualización automática. La validación Linux clean-machine y Tauri GUI Linux deben ejecutarse por separado. Capacidades de backup/restore, algunos proveedores OSINT externos y acciones systemd dependen del entorno/permisos.",
+            "El software es candidato local no firmado; no hay actualización automática. La aceptación Linux clean-machine y la inspección visual/funcional de Tauri GUI Linux deben ejecutarse por separado. El paquete x86_64 y el runtime core fueron validados en Debian 13 WSL2; otras distribuciones no se presumen validadas. Las acciones systemd dependen del entorno/permisos y no se ejercieron en esta ejecución. Capacidades de backup/restore y algunos proveedores OSINT externos también dependen del entorno.",
             "La importación/indexación de Obsidian/Knowledge no está implementada. Los siguientes trabajos de producto pueden abordar aceptación limpia multiplataforma y conocimiento con consentimiento, hashing, límites de tipo/tamaño, revisión y trazabilidad.",
         ],
     ),
@@ -1967,7 +1967,7 @@ def build_markdown() -> str:
             "| AT-04 | Operaciones | Dashboard, casos, monitoring, operaciones, postura, timeline e inbox autorizados. |",
             "| AT-05 | Informes | PDF/DOCX/HTML/Markdown válidos, no vacíos y sin secretos. |",
             "| AT-06 | Recon | Smoke pasivo autorizado conserva entidades válidas y advierte fallas parciales. |",
-            "| AT-07 | Linux core | Debían/WSL runtime y paquete; no implica GUI o clean-machine. |",
+            "| AT-07 | Linux core | Debian 13 x86_64 WSL2: paquete actual, arranque Tauri empaquetado, PostgreSQL administrado, migraciones, backend/worker y APIs autenticadas; no implica GUI visual ni clean-machine. |",
             "| AT-08 | Esquema | Una cabeza Alembic; current=head; check sin drift. |",
         ]
     )

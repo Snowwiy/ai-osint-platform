@@ -159,3 +159,33 @@ def test_build_manifest_has_only_safe_metadata(tmp_path: Path) -> None:
     assert not any("password" in key or "token" in key for key in metadata)
     assert "username" not in metadata
     assert "home" not in metadata
+
+
+def test_postgresql_stager_requires_migration_extensions(tmp_path: Path) -> None:
+    import importlib.util
+
+    source = (
+        Path(__file__).resolve().parents[3]
+        / "scripts"
+        / "native"
+        / "build_postgres_runtime.py"
+    )
+    spec = importlib.util.spec_from_file_location("postgres_runtime_stager", source)
+    assert spec is not None and spec.loader is not None
+    stager = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(stager)
+
+    share = tmp_path / "share"
+    extension_dir = share / "extension"
+    library = tmp_path / "lib"
+    extension_dir.mkdir(parents=True)
+    library.mkdir()
+    for extension in ("pgcrypto", "pg_trgm"):
+        (extension_dir / f"{extension}.control").write_text("default_version = '1'\n")
+        (extension_dir / f"{extension}--1.sql").write_text("-- test extension\n")
+        (library / f"{extension}.so").write_bytes(b"test module")
+
+    stager.validate_contrib_resources(share, library, "linux")
+    (library / "pgcrypto.so").unlink()
+    with pytest.raises(RuntimeError, match="lib/pgcrypto.so"):
+        stager.validate_contrib_resources(share, library, "linux")
