@@ -147,6 +147,12 @@ async def get_monitoring_startup_status(
         baseline_open=baseline.open + baseline.acknowledged + baseline.in_progress,
         docker_limitation=activation.docker_limitation,
         host_neighbor_guidance=activation.host_neighbor_guidance,
+        runtime_profile=settings.RUNTIME_PROFILE,
+        provider_source=activation.provider_source,
+        provider_status=lan_assets.provider_status,
+        neighbor_collector_status=lan_assets.neighbor_collector_status,
+        next_discovery_at=lan_assets.next_discovery_at,
+        discovered_asset_count=lan_assets.discovered_asset_count,
         safety_notes=[
             "Automatic refresh reads local summaries only; it does not start discovery or TCP checks.",
             "LAN actions remain restricted to configured RFC1918 CIDRs, bounded ports, limits, timeouts, and intervals.",

@@ -1,5 +1,24 @@
 # RavenTech OSINT Final QA Checklist
 
+## Automatic native LAN discovery and agentless inventory
+
+- [ ] Windows and Linux providers enumerate active interfaces, authorized route
+  intersections, and native neighbor-table entries without remote commands.
+- [ ] Native desktop auto-registers its ServerHost identity and imports private
+  neighbors without requiring a manual ServerHost script or JWT.
+- [ ] Agentless observations deduplicate by stable evidence, preserve manual
+  trust/name/notes, and keep IP-reuse conflicts for operator review.
+- [ ] TCP fallback stays limited to authorized private routes, configured ports,
+  bounded host count, concurrency, timeout, and cooldown.
+- [ ] Ethernet/Wi-Fi remains Unknown without direct operator/router evidence;
+  confidence and device/OS classifications remain evidence-based.
+- [ ] Monitoring Center exposes native provider status, CIDR, neighbor state,
+  last/next discovery, asset counts, limitations, and bilingual labels.
+- [ ] Migration has one head and no drift; backend, frontend, desktop, package,
+  lint-delta, and SRS validations pass before commit.
+- [ ] No public scanning, router automation, authentication, credential testing,
+  protocol commands, remote administration, or persistence is added.
+
 ## Phase 5BN packaged PostgreSQL startup recovery
 
 - [ ] Rebuild Windows portable, unsigned installer, local-release, and Linux
@@ -649,6 +668,19 @@ check blocks the current release-freeze commit and push.
 Release desktop runs use the cross-platform Tauri supervisor for the fixed PyInstaller backend and worker. The supervisor verifies the RC6 release and native runtime profile, waits for PostgreSQL/migration/storage prerequisites before starting the worker, and reports owned versus external components. It uses bounded restart attempts and cooperative shutdown markers, and only terminates retained child processes that this desktop launched. A per-user Windows mutex or Linux file lock prevents duplicate desktop sessions from independently starting children. Backend port conflicts and external components are observation-only.
 
 Windows portable/installer packages include Windows x86_64 backend, worker, and managed PostgreSQL resources; Linux x86_64 packaging includes equivalent runtime resources. Existing external PostgreSQL remains supported. Redis/Celery are not required for native desktop mode, while Docker and development profiles remain supported. No OS autostart, systemd installation, updater, or automatic downloads are added. Linux WSL evidence is not clean-machine Linux acceptance.
+
+## Automatic LAN discovery and asset visibility
+
+- [ ] Native ServerHost inventory reads active local interfaces, route intersections, and OS neighbor tables without a manually launched ServerHost script or frontend JWT.
+- [ ] Only explicitly configured RFC1918 CIDRs intersecting active routes are eligible; public, loopback, multicast, broadcast, link-local, and out-of-range peers are rejected.
+- [ ] Agentless neighbors appear as reviewable assets; endpoint agents remain optional and provide deeper telemetry.
+- [ ] When enabled, startup and periodic discovery use bounded native jobs with queue dedupe, safe cooldowns, at most 256 hosts, at most 32 configured TCP ports, and bounded concurrency/timeouts.
+- [ ] OS/device classification includes evidence and confidence; physical connection medium remains unknown without direct router/operator evidence.
+- [ ] Existing manual authorization, names, criticality, notes, and router/static observations survive native refresh; stable MAC/IP identity avoids duplicates and conflicts are skipped.
+- [ ] Monitoring Center identifies the native host provider, authorized CIDR, neighbor status, discovery schedule, asset counts, and limited-visibility reason; Docker/ServerHost guidance is shown only in compatibility mode.
+- [ ] Windows provider is exercised on the host; Linux provider is tested on Debian/WSL where available. Any live peer check uses only currently configured authorized CIDRs.
+- [ ] Alembic remains one linear head; backend, focused LAN, frontend/localization, desktop, package, SRS, Ruff, and mypy checks pass before commit.
+- [ ] Version remains `5.0.0-rc6`; no tag, public release, remote command capability, or Knowledge/Obsidian ingestion is added.
 
 ## Phase 5BM finalization snapshot (2026-09-22)
 

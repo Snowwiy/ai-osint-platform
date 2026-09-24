@@ -60,6 +60,35 @@ def test_gateway_router_and_hostname_hints_have_explicit_confidence() -> None:
     assert (unknown.device_type, unknown.confidence) == ("unknown", "low")
 
 
+@pytest.mark.parametrize(
+    ("hostname", "device_type"),
+    [
+        ("lab-switch-01", "switch"),
+        ("access-point-east", "access_point"),
+        ("office-printer", "printer"),
+        ("nas-backup", "nas"),
+        ("camera-garage", "camera"),
+    ],
+)
+def test_agentless_device_hints_are_explicit_and_not_high_confidence(
+    hostname: str, device_type: str
+) -> None:
+    result = classify(hostname=hostname)
+    assert result.device_type == device_type
+    assert result.source == "hostname_heuristic"
+    assert result.confidence == "medium"
+
+
+def test_physical_connection_medium_is_unknown_without_trusted_evidence() -> None:
+    medium = LanAsset.__table__.c.connection_medium
+    confidence = LanAsset.__table__.c.connection_medium_confidence
+    assert medium.nullable is False
+    assert str(medium.server_default.arg) == "unknown"
+    assert confidence.nullable is False
+    assert str(confidence.server_default.arg) == "low"
+    assert LanAsset.__table__.c.connection_medium_source.nullable is True
+
+
 def test_no_exact_os_version_is_inferred() -> None:
     result = classify(hostname="windows-laptop", vendor="Microsoft")
     assert result.os_family == "unknown"

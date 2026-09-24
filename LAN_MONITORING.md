@@ -1,5 +1,34 @@
 # Authorized LAN Monitoring
 
+## Native desktop discovery
+
+The packaged Windows/Linux desktop uses the host-native provider to read active
+interfaces, authorized routes, and the operating system neighbor table. When LAN
+monitoring and startup scheduling are enabled, the PostgreSQL worker registers
+the RavenTech host, imports bounded neighbor observations, and repeats discovery
+at the configured interval. Endpoint agents are optional and add deeper
+telemetry; they are not required to populate agentless assets. Native desktop
+neighbor collection does not require a manually started ServerHost script or a
+reusable frontend JWT.
+
+Discovery is restricted to explicitly configured RFC1918 IPv4 ranges and their
+active route intersections. If enabled, the fallback uses bounded TCP connect
+checks on configured ports only (at most 256 hosts, 32 ports, and configured
+concurrency/timeout). Neighbor-table absence alone does not mark an asset
+offline. Device type and OS remain evidence-based; Ethernet/Wi-Fi remain unknown
+unless reliable router or operator evidence identifies the medium. No public
+scan, ICMP executable, authentication, protocol command, router automation, or
+remote administration is performed.
+
+Docker/development compatibility mode may not expose the host neighbor table.
+Only in that mode can an optional ServerHost agent or imported router/static
+observation provide host-side neighbor evidence. The Tauri supervisor manages
+only its fixed local backend/worker children; it does not add remote agent
+commands. Native backend binaries default to loopback. Private-LAN backend
+binding and host firewall policy require an explicit operator choice. See
+[NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and
+[NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
+
 The manual Linux ServerHost agent can report existing `/proc/net/arp` neighbors within its private local /24. It does not probe hosts, alter router configuration, or expand the authorized LAN boundary. The Tauri supervisor manages only its fixed local backend/worker children; it does not add remote agent commands. Native backend binaries default to loopback; private-LAN binding and host firewall policy require an explicit operator choice. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md).
 
 ## RC3 freeze boundary

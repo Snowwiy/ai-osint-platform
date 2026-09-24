@@ -1,6 +1,21 @@
 # Local Monitoring Center
 
-Phase 5BK keeps normalized local-monitoring APIs for Windows and Linux. Tauri uses native Windows metrics or Linux sysinfo; local Linux process inventory uses `/proc`, and systemd service inventory uses system D-Bus where available. Phase 5BL's runtime panel reports the owned backend/worker lifecycle separately from host monitoring. The native backend defaults to loopback. See [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) for platform limits and validation.
+The packaged Windows/Linux desktop uses native host metrics and a native LAN
+provider. It reads local interfaces, routes, and neighbor tables, then imports
+bounded observations from configured private CIDRs. LAN assets are agentless by
+default; optional endpoint agents provide deeper telemetry. Desktop discovery
+is scheduled by the PostgreSQL worker when the reviewed LAN profile enables it.
+It does not require Docker neighbor visibility or a manually launched
+ServerHost script. Docker/development mode retains its compatibility guidance.
+
+Normalized local-monitoring APIs remain shared across Windows and Linux. Tauri
+uses native Windows metrics or Linux sysinfo; local Linux process inventory uses
+`/proc`, and systemd service inventory uses system D-Bus where available. The
+runtime panel reports the owned backend/worker lifecycle separately from host
+monitoring. The native backend defaults to loopback. See
+[NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md) and
+[NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md) for platform limits
+and validation.
 
 ## Phase 5AA policy tuning
 
@@ -18,7 +33,11 @@ LAN visibility can improve coverage but are not required platform dependencies;
 their absence must not change a healthy platform into a degraded one. Desktop
 packaging, hosting, deployment, DNS, and Supabase migration remain deferred.
 
-## Start and open
+## Browser/Docker development setup
+
+Normal packaged desktop use starts the managed database, backend, worker, and
+embedded frontend through Tauri. The commands below apply to the browser/Docker
+development profile.
 
 ```powershell
 docker compose up -d
@@ -324,17 +343,26 @@ No other `.env` key is eligible for modification by this action.
 
 ## Phase 5BD automatic observations
 
-The foreground `ServerHost` helper is the preferred bridge to the Windows host
-neighbor table because Docker Desktop cannot reliably expose it. Collection is
-read-only and bounded: the helper sends host metrics plus at most 256 same-private-
-`/24` neighbor identities. The backend accepts only configured RFC1918 addresses.
-`LanEndpoint` registers only itself. Neither mode captures files, packet contents,
-credentials, process command lines, environment values, or browser data, and neither
-mode installs persistence. Manual router import remains an operator fallback.
+In Docker/development compatibility mode, the foreground `ServerHost` helper is an
+optional bridge to the Windows host neighbor table because Docker Desktop cannot
+reliably expose it. The packaged desktop instead reads native host interfaces,
+routes, and the OS neighbor table and schedules discovery through its PostgreSQL
+worker; it does not need a manually started helper or pasted JWT. Collection is
+read-only and bounded, and the backend accepts only configured RFC1918 addresses.
+`LanEndpoint` remains optional and registers only itself. No mode captures files,
+packet contents, credentials, process command lines, environment values, or browser
+data, and no mode installs persistence. Manual router import is only an optional
+compatibility fallback.
 
 ## Phase 5BE live LAN diagnostics
 
-The LAN inventory and desktop UI report collector active/inactive state, last sample time, raw, accepted, rejected, deduplicated and out-of-CIDR observations, plus assets created and updated by the latest ServerHost sample. An empty neighbor sample is informational and suggests starting the manually operated ServerHost agent or using the manual router/static fallback.
+In desktop mode, the LAN inventory reports native provider and neighbor-table
+status, authorized CIDR, automatic discovery timestamps, and discovered asset
+counts. In Docker/development compatibility mode, it reports the optional
+ServerHost collector's last sample and accepted/rejected/deduplicated counts; an
+empty sample there may be supplemented with a manually operated helper or
+router/static observation. Neither absence of a neighbor sample nor a missing
+endpoint agent alone indicates a platform failure.
 
 Each asset exposes derived trust state, telemetry freshness, service-check eligibility, current observed-service count, posture state and active recommendation count. These are local acceptance signals, not evidence of compromise. Current services include first and last observation times and a previous-state change marker; banner output remains limited to the fixed `SSH protocol banner detected` classification.
 # Phase 5BG local host operations

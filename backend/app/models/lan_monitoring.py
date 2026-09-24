@@ -63,6 +63,15 @@ class LanAsset(Base, TimestampMixin):
     agent_form_factor: Mapped[str | None] = mapped_column(String(30), nullable=True)
     device_type: Mapped[str] = mapped_column(String(30), nullable=False, default="unknown", server_default="unknown")
     manual_device_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    connection_medium: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="unknown", server_default="unknown"
+    )
+    connection_medium_source: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    connection_medium_confidence: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="low", server_default="low"
+    )
     classification_source: Mapped[str] = mapped_column(String(40), nullable=False, default="insufficient_evidence", server_default="insufficient_evidence")
     classification_confidence: Mapped[str] = mapped_column(String(10), nullable=False, default="low", server_default="low")
     classification_evidence: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))

@@ -12,6 +12,11 @@ TYPES = {
     "mobile",
     "tablet",
     "router",
+    "switch",
+    "access_point",
+    "printer",
+    "nas",
+    "camera",
     "network_device",
     "iot",
     "virtual_machine",
@@ -120,10 +125,29 @@ def classify(
             family, "router", "gateway_hint", "high", ("configured gateway address",)
         )
     name = (hostname or "").lower()
-    if any(term in name for term in ("router", "gateway", "switch", "ap-")):
-        kind = "router" if "router" in name or "gateway" in name else "network_device"
+    if "router" in name or "gateway" in name:
         return Classification(
-            family, kind, "hostname_heuristic", "medium", ("hostname pattern",)
+            family, "router", "hostname_heuristic", "medium", ("hostname pattern",)
+        )
+    for pattern, kind in (
+        ("switch", "switch"),
+        ("access-point", "access_point"),
+        ("access_point", "access_point"),
+        ("printer", "printer"),
+        ("nas", "nas"),
+        ("camera", "camera"),
+    ):
+        if pattern in name:
+            return Classification(
+                family, kind, "hostname_heuristic", "medium", ("hostname pattern",)
+            )
+    if "ap-" in name:
+        return Classification(
+            family,
+            "access_point",
+            "hostname_heuristic",
+            "medium",
+            ("hostname pattern",),
         )
     if any(term in name for term in ("iphone", "ipad", "phone", "tablet")):
         kind = "tablet" if "ipad" in name or "tablet" in name else "mobile"

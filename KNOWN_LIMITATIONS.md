@@ -30,6 +30,16 @@ and installed builds embed the same React production assets. Portable and unsign
 installer workflows are local-test aids; signed production packaging, hosting,
 deployment, DNS, and Supabase migration are deferred.
 
+Native desktop LAN discovery reads only host interfaces, active route
+intersections, and the operating system neighbor table inside explicitly
+configured private IPv4 CIDRs. Bounded TCP-connect fallback is separately
+gated, limited to configured ports and host/concurrency/timeout caps, and does
+not authenticate or send protocol commands. Neighbor-table visibility depends
+on local routing, segmentation, client isolation, firewall policy, and whether
+devices have communicated recently. Ethernet/Wi-Fi is reported as unknown
+unless reliable router or operator evidence identifies it. Endpoint agents are
+optional and add telemetry rather than enabling discovery.
+
 Phase 5AL includes a Tauri source prototype, not a validated desktop package.
 It depends on separately running local Docker/backend services. Port 5173 is a
 development fallback only; release artifacts do not require it.
@@ -104,8 +114,9 @@ operator must verify checksums and complete the external-machine checklist.
   copy falls back to English and never exposes raw translation keys.
 
 - Passive, defensive OSINT investigation workflow only; no generalized active
-  scanning or Nmap integration. Separately enabled LAN monitoring performs only
-  bounded private-network ICMP/TCP connectivity observations.
+  scanning or Nmap integration. LAN monitoring imports authorized native
+  neighbor observations and, when separately enabled, bounded private-network
+  TCP-connect observations; it does not invoke an ICMP executable.
 - No exploitation, attack automation, or offensive workflow.
 - No internet-wide enumeration or crawler.
 - No autonomous agents, unattended remediation, or autonomous offensive
@@ -419,9 +430,10 @@ coverage limitations, not platform-health failures.
 
 - Windows neighbor tables contain only recently resolved local peers and are not a
   complete network inventory. Offline, isolated, or quiet devices may not appear.
-- The trusted ServerHost helper limits collection to its same private `/24`; the
-  backend independently enforces `LAN_ALLOWED_CIDRS`. Other approved subnets require
-  an agent or manual observation within that configured range.
+- Native desktop discovery intersects active local routes with explicitly
+  authorized private CIDRs. The optional Docker/development ServerHost helper is
+  limited to its local private `/24`; the backend independently enforces
+  `LAN_ALLOWED_CIDRS` in both profiles.
 - Auto-registered neighbor assets default to review-required. No router discovery,
   packet capture, device authentication, blocking, or remediation is performed.
 
@@ -431,7 +443,11 @@ coverage limitations, not platform-health failures.
 - Passive observations cannot prove ownership or trust. They remain `needs_review`, including the configured gateway hint, until an operator decides otherwise.
 - Service guesses use configured-port mappings and a fixed minimal SSH protocol classification. They do not authenticate, collect arbitrary banners, identify vulnerabilities, or prove compromise.
 - Online/offline and telemetry freshness reflect bounded observation windows, not continuous availability monitoring.
-- The read-only LAN Runtime Acceptance panel reports stored evidence. ServerHost and neighbor states remain `WAITING` until an operator manually supplies the prompt-only admin token and an accepted heartbeat reaches the backend; automated QA does not fabricate that event.
+- In native desktop mode, the LAN page reports live native provider, authorized
+  CIDR, neighbor collector, and scheduled discovery state without ServerHost
+  credentials. Docker/development compatibility diagnostics may still show the
+  optional ServerHost heartbeat as waiting; it is not a desktop startup
+  requirement.
 # Phase 5BG limitations
 
 Native service/process inventory and actions require the Windows desktop app

@@ -11,6 +11,7 @@ const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const app = await readFile(resolve(desktop, "ui/app.js"), "utf8");
 const html = await readFile(resolve(desktop, "ui/index.html"), "utf8");
 const rust = await readFile(resolve(desktop, "src-tauri/src/main.rs"), "utf8");
+const lanConfiguration = await readFile(resolve(desktop, "src-tauri/src/lan_configuration.rs"), "utf8");
 const supervisor = await readFile(resolve(desktop, "src-tauri/src/runtime_supervisor.rs"), "utf8");
 const managedPostgres = await readFile(resolve(desktop, "src-tauri/src/managed_postgres.rs"), "utf8");
 const linuxPackageValidator = await readFile(resolve(desktop, "scripts/validate_linux_desktop.mjs"), "utf8");
@@ -63,7 +64,8 @@ test("offers copy fallback and only fixed controlled launcher actions", () => {
   assert.match(rust, /Command::new\(&powershell\)/);
   assert.match(rust, /join\("System32"\)/);
   assert.match(app, /confirmedArgument: true/);
-  assert.match(rust, /if !confirmed/);
+  assert.match(rust, /lan_configuration::apply_lan_monitoring_profile\([\s\S]*confirmed\)/);
+  assert.match(lanConfiguration, /if !confirmed/);
 });
 
 test("keeps Tauri permissions and navigation constrained", () => {

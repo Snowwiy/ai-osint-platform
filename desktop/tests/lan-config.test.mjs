@@ -10,6 +10,9 @@ const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = resolve(desktop, "..");
 const source = resolve(repository, "scripts", "local", "apply_lan_monitoring_config.ps1");
 const powershell = join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+const nativeConfigSource = resolve(desktop, "src-tauri", "src", "lan_configuration.rs");
+const tauriMain = resolve(desktop, "src-tauri", "src", "main.rs");
+const runtimeSupervisor = resolve(desktop, "src-tauri", "src", "runtime_supervisor.rs");
 
 test("fixed LAN profile preserves secrets and creates a timestamped backup", async () => {
   const root = await mkdtemp(join(tmpdir(), "raventech-lan-config-"));
@@ -64,4 +67,27 @@ test("fixed LAN script rejects public CIDRs and exposes no dynamic configuration
   assert.match(script, /param\(\)/);
   assert.doesNotMatch(script, /Read-Host|Invoke-Expression|iex\b|ScriptBlock::Create/i);
   assert.doesNotMatch(script, /DB_RESET|DATABASE_URL|APP_SECRET_KEY|SUPABASE/i);
+});
+
+test("packaged desktop applies LAN settings through a fixed native command and config path", async () => {
+  const [native, main, supervisor, python] = await Promise.all([
+    readFile(nativeConfigSource, "utf8"),
+    readFile(tauriMain, "utf8"),
+    readFile(runtimeSupervisor, "utf8"),
+    readFile(resolve(repository, "backend/app/native_runtime.py"), "utf8"),
+  ]);
+  assert.match(main, /apply_lan_monitoring_profile\(&config_path, &profile, confirmed\)/);
+  assert.match(main, /native_config_file_path\(\)/);
+  assert.match(supervisor, /RavenTech OSINT[\s\S]{0,80}config[\s\S]{0,40}\.env/);
+  assert.match(supervisor, /XDG_CONFIG_HOME/);
+  assert.match(python, /RAVENTECH_CONFIG_FILE.*paths\.config \/ "\.env"/);
+  assert.match(native, /deny_unknown_fields/);
+  assert.match(native, /LAN_REJECT_PUBLIC_CIDRS=true/);
+  assert.match(native, /LAN_AUTO_DISCOVERY_ON_START=true/);
+  assert.match(native, /LAN_AUTO_SERVICE_CHECK_ON_START=true/);
+  assert.match(native, /MAX_HOSTS_PER_CIDR: u64 = 256/);
+  assert.match(native, /MAX_PORTS: usize = 32/);
+  assert.match(native, /create_new\(true\)/);
+  assert.match(native, /sync_all\(\)/);
+  assert.doesNotMatch(main, /Command::new\([^\n]*apply_lan_monitoring_config\.ps1/);
 });

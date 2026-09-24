@@ -81,7 +81,15 @@ test("real LAN acceptance status is readable without weakening safety gates", ()
   assert.match(lan, /Service-check eligible\. TCP connect only/);
   assert.match(lan, /SSH indicator/);
   assert.match(lan, /Advisory risk indicator only/);
+  assert.match(lan, /config\?\.runtime_profile === "desktop" \? t\("The native host provider is active/);
+  assert.match(lan, /config\?\.runtime_profile !== "desktop" && !config\?\.neighbor_collector_active/);
   assert.match(lan, /Docker could not read host LAN neighbors/);
+  for (const field of ["provider_source", "provider_status", "neighbor_collector_status", "last_discovery_at", "next_discovery_at", "last_service_observation_at", "next_service_observation_at", "discovered_asset_count"]) {
+    assert.ok(lan.includes(field), `missing native discovery status: ${field}`);
+  }
+  assert.match(lan, /Physical medium is not inferred without reliable evidence/);
+  assert.match(lan, /connection_medium === "unknown"/);
+  assert.match(center, /nativeLanRuntime \? t\("Native host provider is the desktop discovery source\."\)/);
 });
 
 test("automatic LAN registration states remain local, readable, and bilingual", () => {
@@ -101,6 +109,12 @@ test("automatic LAN registration states remain local, readable, and bilingual", 
     "Observaciones de vecinos del host",
     "Activos que requieren revisión",
     "Docker no pudo leer los vecinos LAN del host",
+    "Proveedor nativo del host",
+    "Último descubrimiento automático",
+    "Próximo descubrimiento automático",
+    "Visibilidad LAN limitada.",
+    "Medio de conexión",
+    "Medio desconocido",
   ]) assert.ok(i18n.includes(phrase), `missing Spanish auto-registration copy: ${phrase}`);
 });
 
@@ -151,8 +165,8 @@ test("runtime acceptance panel is read-only and bilingual", () => {
     "Neighbor observations",
     "Alerts/recommendations",
   ]) assert.ok(center.includes(phrase), `missing runtime acceptance copy: ${phrase}`);
-  assert.match(center, /server_host_agent_connected \? "pass" : "waiting"/);
-  assert.match(center, /last_host_neighbor_sample \? "pass" : "waiting"/);
+  assert.match(center, /provider_status === "available" \? "pass" : "waiting"/);
+  assert.match(center, /neighbor_collector_status === "available" \? "pass" : "waiting"/);
   assert.doesNotMatch(center, /LAN Runtime Acceptance[\s\S]*discovery\.mutate|LAN Runtime Acceptance[\s\S]*serviceCheck\.mutate/);
   for (const phrase of [
     "Aceptación del entorno LAN",
@@ -178,7 +192,7 @@ test("agent enrollment acceptance remains manual and token-secret safe", () => {
 
 test("controlled LAN activation is confirmed, fixed, and copy-only outside desktop", () => {
   assert.match(activation, /apply_lan_monitoring_config/);
-  assert.match(activation, /\{ confirmed: true \}/);
+  assert.match(activation, /confirmed: true,[\s\S]*profile:/);
   assert.match(activation, /window\.confirm/);
   assert.match(activation, /restart_platform/);
   assert.match(activation, /Existing secrets and unknown settings are preserved and never displayed/);

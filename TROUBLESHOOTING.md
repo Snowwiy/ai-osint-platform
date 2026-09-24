@@ -7,6 +7,16 @@ Worker, Embedded Frontend, Monitoring, migrations, and native-job readiness
 without requiring a terminal. Docker, Redis, and Celery are not required in the
 native desktop profile.
 
+For an empty LAN inventory, open Monitoring → LAN Assets and check the native
+provider status, reviewed authorized CIDR, neighbor collector, and last/next
+discovery time. Desktop discovery reads local interface, route, and neighbor
+data directly; it does not need the ServerHost PowerShell agent. If an active
+authorized route has no peer entries, segmentation, client isolation, firewall
+policy, or inactive devices may limit visibility. Bounded TCP connect fallback
+runs only when both LAN discovery and configured service checks are enabled; it
+stays inside the authorized route/CIDR, host, port, concurrency, and timeout
+limits.
+
 - **Database runtime missing:** repair or reinstall the desktop package. The
   application does not download binaries or search `PATH` for PostgreSQL.
 - **PostgreSQL initialization failed:** the Local Runtime status provides a
@@ -510,9 +520,11 @@ and Supabase remain unchanged.
   health/readiness/RC6 verification. Never restart by supplying custom commands.
 - **Need to recover `.env`:** stop and review the timestamped ignored backup locally.
   Do not print, attach, or commit it because it may contain existing secrets.
-- **Docker reports no LAN neighbors:** this is informational. Run the trusted
-  `ServerHost` helper manually so Windows supplies a read-only neighbor sample, or
-  use manual router observations. Do not mount privileged host networking into Docker.
+- **Docker/development reports no LAN neighbors:** this is an optional container
+  visibility limitation. A manually operated trusted `ServerHost` helper or
+  approved router/static observation may supplement that profile. Packaged native
+  desktop mode reads local interfaces, routes, and neighbors directly and does not
+  require the helper, a pasted JWT, or privileged Docker networking.
 - **ServerHost reports zero neighbors:** confirm the host uses an address inside
   `192.168.50.0/24`, the backend loaded that allowed CIDR, and Windows has recent
   neighbor entries. No active scan is forced by the helper.
@@ -522,7 +534,7 @@ and Supabase remain unchanged.
 
 ### Live acceptance diagnostics show zero neighbors
 
-Confirm the ServerHost agent says `Heartbeat accepted` and `host asset exists: True`, then check **LAN Assets → Host neighbor collector**. Zero raw observations means Windows returned no eligible private neighbors at that moment; it is not platform degradation. Reconnect an approved LAN device or import an observation manually. Rejected/out-of-CIDR counts indicate the backend correctly refused an address outside `192.168.50.0/24`, including network and broadcast addresses.
+In Docker/development compatibility mode, confirm the optional ServerHost agent says `Heartbeat accepted` and `host asset exists: True`, then check **LAN Assets → Host neighbor collector**. In native desktop mode, check **Native host provider**, the authorized CIDR, neighbor collector status, and last/next discovery instead; no manual agent heartbeat is needed. Zero raw observations means no eligible private peers were present in the OS neighbor cache at that moment; it is not platform degradation. Rejected/out-of-CIDR counts indicate the backend refused an address outside configured authorized ranges.
 
 If a device appears under **Needs review**, this is expected for passive neighbor observations. Authorize it only after matching the IP/MAC to an approved device. `192.168.50.201` is only an example backend address for LanEndpoint commands; use the actual detected/configured server LAN address.
 # Phase 5BG host actions and classification

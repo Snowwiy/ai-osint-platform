@@ -98,6 +98,7 @@ class Settings(BaseSettings):
     LAN_GATEWAY_HINT: str = "192.168.50.1"
     LAN_DISCOVERY_INTERVAL_SECONDS: int = 300
     LAN_DISCOVERY_PING_ENABLED: bool = False
+    LAN_DISCOVERY_CONCURRENCY: int = 16
     LAN_AUTO_DISCOVERY_ON_START: bool = False
     LAN_AUTO_SERVICE_CHECK_ON_START: bool = False
     LAN_AUTO_DISCOVERY_INTERVAL_SECONDS: int = 300
@@ -252,6 +253,8 @@ class Settings(BaseSettings):
             errors.append(
                 "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS must be at least 600."
             )
+        if not 1 <= self.LAN_DISCOVERY_CONCURRENCY <= 32:
+            errors.append("LAN_DISCOVERY_CONCURRENCY must be between 1 and 32.")
         if self.LAN_AGENT_MAX_STALE_MINUTES < 2:
             errors.append("LAN_AGENT_MAX_STALE_MINUTES must be at least 2.")
         if not 0.2 <= self.LAN_SERVICE_CHECK_TIMEOUT_SECONDS <= 5:

@@ -332,4 +332,19 @@ class MonitoringStartupStatus(BaseModel):
     optional_telemetry: bool = True
     docker_limitation: str
     host_neighbor_guidance: str
+    runtime_profile: Literal["desktop", "docker", "development"] = "docker"
+    provider_source: Literal[
+        "native_host_provider",
+        "server_host_agent",
+        "container_neighbor_table",
+        "unavailable",
+    ] = "unavailable"
+    provider_status: Literal[
+        "available", "limited", "unavailable", "disabled"
+    ] = "unavailable"
+    neighbor_collector_status: Literal[
+        "available", "empty", "unavailable", "disabled"
+    ] = "unavailable"
+    next_discovery_at: datetime | None = None
+    discovered_asset_count: int = Field(default=0, ge=0)
     safety_notes: list[str]

@@ -32,7 +32,7 @@ PDF = ROOT / "docs" / "deliverables" / "RavenTech_OSINT_SRS_v1.0_ES.pdf"
 PRODUCT = "RavenTech OSINT"
 PRODUCT_VERSION = "5.0.0-rc6"
 DOCUMENT_VERSION = "1.0"
-ISSUE_DATE = date(2026, 9, 23).isoformat()
+ISSUE_DATE = date(2026, 9, 24).isoformat()
 STATUS = "Especificación para candidato de lanzamiento"
 
 
@@ -649,6 +649,96 @@ add(
             "Inspección y prueba",
             "LAN-08",
             "No se ejecutan órdenes, detenciones ni cambios de servicios remotos.",
+        ),
+        (
+            "Observar interfaces, rutas y vecinos locales",
+            "Proveedor LAN nativo",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas deterministas de proveedor y aceptación nativa",
+            "LAN-09",
+            "El escritorio obtiene interfaces, rutas y vecinos mediante proveedores locales de solo lectura y registra el host RavenTech sin exigir el agente manual.",
+        ),
+        (
+            "Descubrir activos agentless automáticamente",
+            "Inventario LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de integración y límites",
+            "LAN-10",
+            "Los vecinos autorizados y las respuestas TCP acotadas crean o actualizan activos sin requerir un agente; los activos nuevos quedan pendientes de revisión.",
+        ),
+        (
+            "Seleccionar redes según rutas autorizadas",
+            "Autorización LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de intersección de ruta/CIDR",
+            "LAN-11",
+            "Solo se observa la intersección alcanzable entre rutas activas y CIDR RFC1918 configurados; destinos públicos y rutas no autorizadas se rechazan.",
+        ),
+        (
+            "Acotar la detección activa",
+            "Seguridad de red",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de límite de host, puerto y concurrencia",
+            "LAN-12",
+            "El descubrimiento usa como máximo 256 hosts y 32 puertos TCP configurados con concurrencia limitada; no ejecuta ICMP externo, autenticación ni comandos de protocolo.",
+        ),
+        (
+            "Programar descubrimiento y observación de servicios",
+            "Trabajos nativos",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de scheduler, deduplicación y cooldown",
+            "LAN-13",
+            "El descubrimiento periódico respeta un mínimo de 300 segundos y la observación de servicios 600 segundos, sin duplicar ciclos solapados.",
+        ),
+        (
+            "Deduplicar identidad y conservar decisiones manuales",
+            "Inventario LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de identidad DHCP y preservación manual",
+            "LAN-14",
+            "MAC estable correlaciona cambios de IP; conflictos de reutilización de IP se omiten y no reemplazan nombres, autorización, criticidad ni notas manuales.",
+        ),
+        (
+            "Representar evidencia y frescura de activos",
+            "Inventario LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de estado y transición de línea de tiempo",
+            "LAN-15",
+            "La presencia fuerte o TCP reciente puede indicar online; ausencia de vecinos por sí sola no marca offline y la falta de evidencia permanece unknown.",
+        ),
+        (
+            "Clasificar dispositivo con confianza explícita",
+            "Clasificación LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de clasificación agentless y metadatos",
+            "LAN-16",
+            "Tipo y sistema operativo conservan origen, evidencia y confianza; señales pasivas débiles permanecen desconocidas o de confianza baja/media.",
+        ),
+        (
+            "Informar medio físico solo con evidencia confiable",
+            "Identidad de red",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de evidencia de medio de conexión",
+            "LAN-17",
+            "Ethernet o Wi-Fi se asignan únicamente por evidencia directa del operador/router; en otro caso el medio se presenta como desconocido.",
+        ),
+        (
+            "Explicar visibilidad limitada del escritorio nativo",
+            "Monitoreo LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Prueba de interfaz nativa y compatibilidad",
+            "LAN-18",
+            "El escritorio identifica el proveedor nativo y muestra CIDR, estado de vecinos y horarios; guía de Docker/ServerHost manual aparece solo en perfiles de compatibilidad.",
         ),
     ],
 )
@@ -1723,6 +1813,9 @@ SECTIONS: list[tuple[str, list[str]]] = [
     (
         "18. LAN Assets y agentes",
         [
+            "En el escritorio nativo, el proveedor del host obtiene interfaces activas, rutas y vecinos desde APIs locales de Windows o las tablas locales de Linux. El worker programa discovery al inicio y periódicamente cuando el perfil LAN revisado está habilitado. El host RavenTech se registra como ServerHost local sin ejecutar manualmente PowerShell, iniciar un agente ni pegar un JWT.",
+            "Los activos sin agente se registran desde vecinos autorizados y, solo cuando se habilita por separado, conectividad TCP acotada dentro de la intersección de rutas activas y CIDR privados RFC1918 autorizados. El máximo es 256 hosts, 32 puertos configurados y concurrencia limitada. La ausencia del agente o de entradas ARP/NDP no prueba que un dispositivo esté offline; segmentación, aislamiento y dispositivos inactivos limitan la visibilidad.",
+            "Ethernet y Wi-Fi permanecen desconocidos salvo evidencia directa del operador o router. Agentes endpoint son opcionales y agregan telemetría; el discovery agentless no intenta autenticación, comandos de protocolo, acceso a router ni administración remota. La guía de ServerHost manual y limitaciones de vecinos Docker se muestran solo en perfiles de compatibilidad.",
             "La clasificación de activo usa agente autenticado primero, clasificación de operador, pistas de gateway, heurísticas y unknown como fallback. OS y device type retienen source/confidence/evidence. Vendor OUI puede aportar contexto, nunca certeza de clase por sí solo.",
             "Las observaciones de servicio incluyen puerto, guess, estado, confianza, primera/última observación, estado previo y relación con baseline. No se envían credenciales ni comandos de protocolo; banners crudos sensibles no se presentan.",
             "ServerHost/LanEndpoint aportan telemetría. El agente endpoint no admite ejecución de tareas remotas. Alta disponibilidad/controles dependen de conectividad y permisos de endpoint.",
@@ -1837,7 +1930,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
         "34. Referencias y control documental",
         [
             "Fuentes de producto consultadas: README, arquitectura, API, esquema de datos, modelo de seguridad, manual de operador, documentación de runtime nativo y PostgreSQL administrado, monitoreo local/LAN, postura de endpoints, límites conocidos, checklist final y validadores de paquete incluidos en el repositorio.",
-            "El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-23. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.",
+            "El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-24. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.",
         ],
     ),
 ]
@@ -1864,7 +1957,7 @@ def build_markdown() -> str:
         "## Control de cambios",
         "| Versión | Fecha | Cambio | Estado |",
         "|---|---|---|---|",
-        f"| {DOCUMENT_VERSION} | {ISSUE_DATE} | Emisión inicial de requisitos y trazabilidad del producto RC6 | Candidato de lanzamiento |",
+        f"| {DOCUMENT_VERSION} | {ISSUE_DATE} | Actualización de requisitos verificables de descubrimiento LAN y visibilidad de activos | Candidato de lanzamiento |",
         "",
         "## Contenido",
     ]

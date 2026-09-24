@@ -441,7 +441,9 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     assert deduped["status"] == "offline"
     assert "192.168.60.9" not in {item["ip_address"] for item in items}
     assert listing.json()["agent_self_registered"] == 1
-    assert listing.json()["host_neighbor_observations"] == 2
+    # Discovery updates the manually maintained asset without replacing its
+    # operator source; only the gateway remains table-sourced in the asset list.
+    assert listing.json()["host_neighbor_observations"] == 1
     assert listing.json()["needs_review"] == 1
     assert listing.json()["unauthorized"] == 0
     assert listing.json()["service_observations"] == 0

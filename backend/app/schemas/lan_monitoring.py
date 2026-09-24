@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 LanAssetStatus = Literal["online", "offline", "unknown"]
 LanAssetSource = Literal[
-    "static", "arp", "ping", "router", "agent", "endpoint_agent", "host_neighbor_table"
+    "static", "arp", "ping", "tcp_connect", "router", "agent", "endpoint_agent",
+    "host_neighbor_table", "native_host_provider"
 ]
 LanRiskSeverity = Literal["info", "warning", "critical"]
 AssetCriticality = Literal["low", "medium", "high", "critical"]
@@ -43,12 +44,21 @@ class LanDiscoveryObservation(BaseModel):
     hostname: str | None = Field(default=None, max_length=255)
     vendor: str | None = Field(default=None, max_length=255)
     asset_type: str = Field(default="unknown", min_length=1, max_length=40)
-    source: Literal["static", "arp", "ping", "router", "host_neighbor_table"] = "static"
+    source: Literal[
+        "static",
+        "arp",
+        "ping",
+        "tcp_connect",
+        "router",
+        "host_neighbor_table",
+        "native_host_provider",
+    ] = "static"
     latency_ms: float | None = Field(default=None, ge=0, le=60_000)
     services: list[LanServiceInput] = Field(default_factory=list, max_length=32)
     interface_name: str | None = Field(default=None, max_length=100)
     connection_type: str | None = Field(default=None, max_length=100)
     is_authorized: bool | None = None
+    evidence_state: Literal["online", "unknown"] = "online"
     notes: str | None = Field(default=None, max_length=1000)
 
     @field_validator("mac_address")
@@ -73,7 +83,27 @@ class LanAssetUpdate(BaseModel):
     hostname: str | None = Field(default=None, max_length=255)
     vendor: str | None = Field(default=None, max_length=255)
     asset_type: str | None = Field(default=None, min_length=1, max_length=40)
-    device_type: Literal["desktop", "laptop", "server", "mobile", "tablet", "router", "network_device", "iot", "virtual_machine", "unknown"] | None = None
+    device_type: (
+        Literal[
+            "desktop",
+            "laptop",
+            "server",
+            "mobile",
+            "tablet",
+            "router",
+            "switch",
+            "access_point",
+            "printer",
+            "nas",
+            "camera",
+            "network_device",
+            "iot",
+            "virtual_machine",
+            "unknown",
+        ]
+        | None
+    ) = None
+    connection_medium: Literal["ethernet", "wifi", "unknown"] | None = None
     notes: str | None = Field(default=None, max_length=2000)
     is_authorized: bool | None = None
     monitoring_enabled: bool | None = None
@@ -218,6 +248,9 @@ class LanAssetResponse(BaseModel):
     architecture: str | None = None
     agent_mode: str | None = None
     device_type: str = "unknown"
+    connection_medium: Literal["ethernet", "wifi", "unknown"] = "unknown"
+    connection_medium_source: str | None = None
+    connection_medium_confidence: Literal["high", "medium", "low"] = "low"
     manual_device_type: str | None = None
     classification_source: str = "insufficient_evidence"
     classification_confidence: str = "low"
@@ -264,14 +297,32 @@ class LanAssetResponse(BaseModel):
 
 class LanAssetListResponse(BaseModel):
     generated_at: datetime
+    runtime_profile: Literal["desktop", "docker", "development"] = "docker"
     enabled: bool
     allowed_cidrs: list[str]
     discovery_interval_seconds: int
     ping_enabled: bool
     service_check_enabled: bool
     service_ports: list[int]
-    docker_limited: bool = True
+    docker_limited: bool = False
     limitation: str
+    provider_source: Literal[
+        "native_host_provider",
+        "server_host_agent",
+        "container_neighbor_table",
+        "unavailable",
+    ] = "unavailable"
+    provider_status: Literal[
+        "available", "limited", "unavailable", "disabled"
+    ] = "unavailable"
+    neighbor_collector_status: Literal[
+        "available", "empty", "unavailable", "disabled"
+    ] = "unavailable"
+    last_discovery_at: datetime | None = None
+    next_discovery_at: datetime | None = None
+    last_service_observation_at: datetime | None = None
+    next_service_observation_at: datetime | None = None
+    discovered_asset_count: int = 0
     total: int
     online: int
     offline: int
@@ -390,6 +441,19 @@ class MonitoringActivationStatus(BaseModel):
     auto_registration_enabled: bool = False
     host_neighbor_collection_enabled: bool = False
     host_neighbor_guidance: str
+    runtime_profile: Literal["desktop", "docker", "development"] = "docker"
+    configuration_source: Literal[
+        "native_desktop", "docker_compose", "environment"
+    ] = "environment"
+    provider_source: Literal[
+        "native_host_provider",
+        "server_host_agent",
+        "container_neighbor_table",
+        "unavailable",
+    ] = "unavailable"
+    provider_status: Literal[
+        "available", "limited", "unavailable", "disabled"
+    ] = "unavailable"
 
 
 class LanBootstrapRequest(BaseModel):

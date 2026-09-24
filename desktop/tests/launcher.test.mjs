@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rust = await readFile(resolve(desktop, "src-tauri", "src", "main.rs"), "utf8");
+const lanConfiguration = await readFile(resolve(desktop, "src-tauri", "src", "lan_configuration.rs"), "utf8");
 const app = await readFile(resolve(desktop, "ui", "app.js"), "utf8");
 const html = await readFile(resolve(desktop, "ui", "index.html"), "utf8");
 const capability = JSON.parse(await readFile(resolve(desktop, "src-tauri", "capabilities", "default.json"), "utf8"));
@@ -80,5 +81,6 @@ test("start stop and restart require confirmation while copy fallback remains", 
   assert.match(app, /commandUnavailable/);
   assert.match(app, /label: "applyLanConfig"[^\n]+confirm: true[^\n]+confirmedArgument: true/);
   assert.match(rust, /async fn apply_lan_monitoring_config\([\s\S]*confirmed: bool/);
-  assert.match(rust, /if !confirmed/);
+  assert.match(rust, /lan_configuration::apply_lan_monitoring_profile\([\s\S]*confirmed\)/);
+  assert.match(lanConfiguration, /if !confirmed/);
 });

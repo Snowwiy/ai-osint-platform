@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import re
-import shutil
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from time import monotonic
 from typing import Literal, cast
 from urllib.parse import urlparse
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -56,6 +55,10 @@ from app.services.monitoring_history import (
     record_asset_observation_changes,
     record_service_observation,
     reconcile_asset_state_changes,
+)
+from app.services.native_lan_provider import (
+    NativeLanSnapshot,
+    collect_native_snapshot,
 )
 
 RFC1918_NETWORKS: tuple[ipaddress.IPv4Network, ...] = tuple(
@@ -106,6 +109,25 @@ class LanDiscoveryRateLimitedError(Exception):
 def get_monitoring_activation() -> MonitoringActivationStatus:
     allowed_cidrs = [str(item) for item in configured_networks()]
     ports = configured_service_ports()
+    native_profile = settings.RUNTIME_PROFILE == "desktop"
+    if native_profile:
+        provider_source: Literal[
+            "native_host_provider",
+            "container_neighbor_table",
+            "server_host_agent",
+        ] = "native_host_provider"
+    elif settings.RUNTIME_PROFILE == "docker":
+        provider_source = "container_neighbor_table"
+    else:
+        provider_source = "server_host_agent"
+    limited_message = (
+        "Limited LAN visibility. RavenTech uses the native host provider; network "
+        "segmentation, client isolation, firewall policy, or inactive devices may "
+        "limit observations."
+        if native_profile
+        else "Docker could not read host LAN neighbors. Use the ServerHost agent or "
+        "imported router observations."
+    )
     return MonitoringActivationStatus(
         desktop_auto_monitoring_enabled=settings.DESKTOP_AUTO_MONITORING_ENABLED,
         auto_refresh_enabled=settings.MONITORING_AUTO_REFRESH_ENABLED,
@@ -152,10 +174,11 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             f"LAN_GATEWAY_HINT={settings.LAN_GATEWAY_HINT}",
             "LAN_DISCOVERY_PING_ENABLED=true",
             "LAN_SERVICE_CHECK_ENABLED=true",
-            "LAN_AUTO_DISCOVERY_ON_START=false",
-            "LAN_AUTO_SERVICE_CHECK_ON_START=false",
-            "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS=300",
-            "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS=600",
+            f"LAN_AUTO_DISCOVERY_ON_START={str(settings.LAN_AUTO_DISCOVERY_ON_START).lower()}",
+            f"LAN_AUTO_SERVICE_CHECK_ON_START={str(settings.LAN_AUTO_SERVICE_CHECK_ON_START).lower()}",
+            f"LAN_AUTO_DISCOVERY_INTERVAL_SECONDS={settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS}",
+            f"LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS={settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS}",
+            f"LAN_DISCOVERY_CONCURRENCY={settings.LAN_DISCOVERY_CONCURRENCY}",
             f"LAN_SERVICE_CHECK_PORTS={','.join(str(port) for port in ports)}",
             f"LAN_SERVICE_CHECK_TIMEOUT_SECONDS={settings.LAN_SERVICE_CHECK_TIMEOUT_SECONDS:g}",
             f"LAN_SERVICE_CHECK_MAX_HOSTS={settings.LAN_SERVICE_CHECK_MAX_HOSTS}",
@@ -163,18 +186,19 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             "LAN_REJECT_PUBLIC_CIDRS=true",
             "LAN_SSH_BANNER_DETECTION_ENABLED=true",
         ],
-        restart_commands=[
-            "docker compose up -d --force-recreate backend celery-worker",
-            "docker compose ps",
-        ],
+        restart_commands=(
+            []
+            if native_profile
+            else [
+                "docker compose up -d --force-recreate backend celery-worker",
+                "docker compose ps",
+            ]
+        ),
         windows_firewall_note=(
             "If another approved LAN device must reach the backend, allow inbound TCP 8000 "
             "only from the configured private CIDR in Windows Defender Firewall."
         ),
-        docker_limitation=(
-            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
-            "collect read-only host neighbor observations, or import router observations manually."
-        ),
+        docker_limitation=limited_message,
         optional_telemetry_note=(
             "Missing endpoint-agent telemetry is an optional coverage gap, not a platform failure."
         ),
@@ -195,8 +219,27 @@ def get_monitoring_activation() -> MonitoringActivationStatus:
             settings.LAN_MONITORING_ENABLED and settings.LAN_REJECT_PUBLIC_CIDRS
         ),
         host_neighbor_guidance=(
-            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
-            "collect read-only host neighbor observations, or import router observations manually."
+            "Native host provider reads local interfaces, routes, and the OS neighbor "
+            "table. Limited visibility can result from segmentation, isolation, "
+            "firewall policy, or inactive devices."
+            if native_profile
+            else limited_message
+        ),
+        runtime_profile=settings.RUNTIME_PROFILE,
+        configuration_source=(
+            "native_desktop"
+            if native_profile
+            else "docker_compose"
+            if settings.RUNTIME_PROFILE == "docker"
+            else "environment"
+        ),
+        provider_source=provider_source,
+        provider_status=(
+            "available"
+            if native_profile and settings.LAN_MONITORING_ENABLED
+            else "disabled"
+            if not settings.LAN_MONITORING_ENABLED
+            else "limited"
         ),
     )
 
@@ -296,6 +339,33 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
     }
     neighbor_diagnostics = await _latest_neighbor_diagnostics(db)
     now = datetime.now(UTC)
+    activation = get_monitoring_activation()
+    latest_discovery = (
+        await db.execute(
+            select(AuditLog)
+            .where(AuditLog.action == "lan.discovery.executed")
+            .order_by(AuditLog.created_at.desc())
+            .limit(1)
+        )
+    ).scalars().first()
+    last_discovery = latest_discovery.created_at if latest_discovery else None
+    discovery_metadata = (
+        latest_discovery.event_metadata
+        if latest_discovery and isinstance(latest_discovery.event_metadata, dict)
+        else {}
+    )
+    last_service_observation = (
+        await db.execute(
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.action == "lan.service_check.executed"
+            )
+        )
+    ).scalar_one_or_none()
+    native_profile = settings.RUNTIME_PROFILE == "desktop"
+    native_peer_evidence = bool(
+        discovery_metadata.get("neighbors_read", 0)
+        or discovery_metadata.get("tcp_hosts_responded", 0)
+    )
     baselines = {item.id: await lan_baseline(db, item.id) for item in assets}
     items = [
         _asset_response(
@@ -310,6 +380,7 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
     ]
     return LanAssetListResponse(
         generated_at=now,
+        runtime_profile=settings.RUNTIME_PROFILE,
         enabled=settings.LAN_MONITORING_ENABLED,
         allowed_cidrs=[str(item) for item in configured_networks()],
         discovery_interval_seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS,
@@ -317,8 +388,97 @@ async def list_lan_assets(db: AsyncSession) -> LanAssetListResponse:
         service_check_enabled=settings.LAN_SERVICE_CHECK_ENABLED,
         service_ports=configured_service_ports(),
         limitation=(
-            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
-            "collect read-only host neighbor observations, or import router observations manually."
+            "Limited LAN visibility: no peers are currently present in the native "
+            "neighbor table. TCP reachability observations may still be available. "
+            "Network segmentation, client isolation, firewall policy, or inactive "
+            "devices may limit visibility."
+            if native_profile
+            and settings.LAN_MONITORING_ENABLED
+            and latest_discovery is not None
+            and not native_peer_evidence
+            else activation.docker_limitation
+            if not native_profile
+            else ""
+        ),
+        docker_limited=not native_profile,
+        provider_source=activation.provider_source,
+        provider_status=(
+            "disabled"
+            if not settings.LAN_MONITORING_ENABLED
+            else "available"
+            if native_profile
+            and (
+                any(item.source == "native_server_host" for item in assets)
+                or (
+                    latest_discovery is not None
+                    and discovery_metadata.get("interfaces_read", 0) > 0
+                    and discovery_metadata.get("reachable_networks", 0) > 0
+                )
+            )
+            else "limited"
+            if native_profile and latest_discovery is not None
+            else "unavailable"
+            if native_profile
+            else "limited"
+        ),
+        neighbor_collector_status=(
+            "disabled"
+            if not settings.LAN_MONITORING_ENABLED
+            else "available"
+            if native_profile
+            and discovery_metadata.get("provider") == "native_host_provider"
+            and discovery_metadata.get("neighbors_read", 0) > 0
+            else "empty"
+            if native_profile
+            and discovery_metadata.get("provider") == "native_host_provider"
+            else "unavailable"
+            if native_profile
+            else "available"
+            if neighbor_diagnostics.get("accepted_observations", 0) > 0
+            else "empty"
+            if neighbor_diagnostics.get("raw_observations", 0) > 0
+            else "unavailable"
+        ),
+        last_discovery_at=last_discovery,
+        next_discovery_at=(
+            last_discovery
+            + timedelta(seconds=settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS)
+            if last_discovery and settings.LAN_MONITORING_ENABLED
+            else now
+            if (
+                settings.LAN_MONITORING_ENABLED
+                and settings.LAN_AUTO_DISCOVERY_ON_START
+            )
+            else None
+        ),
+        last_service_observation_at=last_service_observation,
+        next_service_observation_at=(
+            last_service_observation
+            + timedelta(seconds=settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS)
+            if last_service_observation
+            and settings.LAN_MONITORING_ENABLED
+            and settings.LAN_SERVICE_CHECK_ENABLED
+            else now
+            if (
+                settings.LAN_MONITORING_ENABLED
+                and settings.LAN_SERVICE_CHECK_ENABLED
+                and settings.LAN_AUTO_SERVICE_CHECK_ON_START
+            )
+            else None
+        ),
+        discovered_asset_count=sum(
+            item.source
+            in {
+                "native_server_host",
+                "host_neighbor_table",
+                "tcp_connect",
+                "arp",
+                "ping",
+                "router",
+                "agent",
+                "endpoint_agent",
+            }
+            for item in assets
         ),
         total=len(items),
         online=sum(item.status == "online" for item in items),
@@ -411,6 +571,11 @@ async def update_lan_asset(
         if field == "device_type":
             asset.manual_device_type = value if value != "unknown" else None
             continue
+        if field == "connection_medium":
+            asset.connection_medium = value
+            asset.connection_medium_source = "operator" if value != "unknown" else None
+            asset.connection_medium_confidence = "high" if value != "unknown" else "low"
+            continue
         setattr(asset, field, value.strip() if isinstance(value, str) else value)
     if "vendor" in body.model_fields_set:
         asset.vendor_source = "operator" if asset.vendor else None
@@ -447,11 +612,35 @@ async def discover_lan(
     network = validate_allowed_cidr(body.cidr or str(configured_networks()[0]))
     await _enforce_discovery_interval(db)
     observations = list(body.observations)
+    native_snapshot: NativeLanSnapshot | None = None
     if not observations:
-        observations = await _stored_host_neighbor_observations(db, network)
-        observations = _merge_observations(observations, _read_container_arp(network))
-        if settings.LAN_DISCOVERY_PING_ENABLED and not observations:
-            observations = await _ping_network(network)
+        if settings.RUNTIME_PROFILE == "desktop":
+            native_snapshot = await asyncio.to_thread(
+                collect_native_snapshot, tuple(configured_networks())
+            )
+            observations = _native_neighbor_observations(native_snapshot, network)
+        else:
+            observations = await _stored_host_neighbor_observations(db, network)
+            observations = _merge_observations(
+                observations, _read_container_arp(network)
+            )
+        if settings.LAN_DISCOVERY_PING_ENABLED:
+            candidate_networks = (
+                [
+                    item.network
+                    for item in native_snapshot.reachable_networks
+                    if item.network.overlaps(network)
+                ]
+                if native_snapshot is not None
+                else [network]
+            )
+            observations = _merge_observations(
+                observations,
+                await _tcp_discovery(
+                    candidate_networks,
+                    _snapshot_local_addresses(native_snapshot),
+                ),
+            )
         if settings.LAN_SERVICE_CHECK_ENABLED and observations:
             eligible: list[LanDiscoveryObservation] = []
             for observation in observations:
@@ -469,7 +658,7 @@ async def discover_lan(
             "Service observations require LAN_SERVICE_CHECK_ENABLED=true."
         )
 
-    created = updated = services_created = 0
+    created = updated = services_created = duplicates_avoided = 0
     now = datetime.now(UTC)
     for observation in observations:
         address = validate_allowed_ip(observation.ip_address)
@@ -477,14 +666,22 @@ async def discover_lan(
             raise LanConfigurationError(
                 "An observed asset is outside the selected CIDR."
             )
-        previous_asset = await _asset_by_ip_or_mac(
-            db, observation.ip_address, observation.mac_address
-        )
+        try:
+            previous_asset = await _asset_by_ip_or_mac(
+                db, observation.ip_address, observation.mac_address
+            )
+        except LanAssetIdentityConflictError:
+            duplicates_avoided += 1
+            continue
         old_status = previous_asset.status if previous_asset else None
         old_hostname = previous_asset.hostname if previous_asset else None
         old_mac = previous_asset.mac_address if previous_asset else None
         old_ip = previous_asset.ip_address if previous_asset else None
-        asset, was_created = await _upsert_observation(db, user, observation, now)
+        try:
+            asset, was_created = await _upsert_observation(db, user, observation, now)
+        except LanAssetIdentityConflictError:
+            duplicates_avoided += 1
+            continue
         await record_asset_observation_changes(
             db,
             asset=asset,
@@ -511,8 +708,9 @@ async def discover_lan(
     limitation = None
     if not observations:
         limitation = (
-            "Docker could not read host LAN neighbors. Start the ServerHost agent to "
-            "collect read-only host neighbor observations, or import router observations manually."
+            native_snapshot.limitation
+            if native_snapshot is not None
+            else get_monitoring_activation().docker_limitation
         )
         await _notify_discovery_limitation(db, user)
     await record_event(
@@ -525,7 +723,11 @@ async def discover_lan(
             "observations": len(observations),
             "created": created,
             "updated": updated,
-            "docker_limited": limitation is not None,
+            "duplicates_avoided": duplicates_avoided,
+            "provider": "native_host_provider"
+            if settings.RUNTIME_PROFILE == "desktop"
+            else "container_neighbor_table",
+            "docker_limited": settings.RUNTIME_PROFILE != "desktop",
         },
     )
     await db.flush()
@@ -542,6 +744,303 @@ async def discover_lan(
             if observations
             else "Discovery completed safely with no accessible observations."
         ),
+    )
+
+
+class LanAssetIdentityConflictError(Exception):
+    """A current private IP is associated with conflicting stable MAC evidence."""
+
+
+def _normalized_os_family(os_name: str) -> str:
+    normalized = os_name.casefold()
+    if "windows" in normalized:
+        return "windows"
+    if "linux" in normalized or "debian" in normalized:
+        return "linux"
+    if "mac" in normalized or "darwin" in normalized:
+        return "macos"
+    return "unknown"
+
+
+def _snapshot_local_addresses(snapshot: NativeLanSnapshot | None) -> set[str]:
+    if snapshot is None:
+        return set()
+    return {item.address for item in snapshot.interfaces}
+
+
+def _native_neighbor_observations(
+    snapshot: NativeLanSnapshot, selected_network: ipaddress.IPv4Network | None = None
+) -> list[LanDiscoveryObservation]:
+    allowed = [item.network for item in snapshot.reachable_networks]
+    observations: list[LanDiscoveryObservation] = []
+    for item in snapshot.neighbors:
+        try:
+            address = validate_allowed_ip(item.ip_address)
+        except LanConfigurationError:
+            continue
+        if not any(address in network for network in allowed):
+            continue
+        if selected_network is not None and address not in selected_network:
+            continue
+        observations.append(
+            LanDiscoveryObservation(
+                ip_address=str(address),
+                mac_address=item.mac_address,
+                interface_name=item.interface,
+                source="host_neighbor_table",
+                evidence_state=(
+                    "online"
+                    if item.state in {"reachable", "permanent"}
+                    else "unknown"
+                ),
+            )
+        )
+    return observations[: settings.LAN_SERVICE_CHECK_MAX_HOSTS]
+
+
+async def _tcp_discovery(
+    networks: list[ipaddress.IPv4Network], local_addresses: set[str]
+) -> list[LanDiscoveryObservation]:
+    """Bounded connect-only liveness checks over configured ports, never shell ping."""
+    if (
+        not settings.LAN_DISCOVERY_PING_ENABLED
+        or not settings.LAN_SERVICE_CHECK_ENABLED
+        or not networks
+    ):
+        return []
+    candidates = _bounded_tcp_candidates(networks, local_addresses)
+    ports = configured_service_ports()
+
+    async def probe_port(address: ipaddress.IPv4Address, port: int) -> bool:
+        try:
+            _reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(str(address), port),
+                timeout=settings.LAN_SERVICE_CHECK_TIMEOUT_SECONDS,
+            )
+        except ConnectionRefusedError:
+            return True
+        except (OSError, TimeoutError):
+            return False
+        writer.close()
+        try:
+            await writer.wait_closed()
+        except OSError:
+            pass
+        return True
+
+    queue: asyncio.Queue[ipaddress.IPv4Address] = asyncio.Queue()
+    for candidate in candidates:
+        queue.put_nowait(candidate)
+    responsive: set[str] = set()
+
+    async def worker() -> None:
+        while True:
+            try:
+                address = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                for port in ports:
+                    if await probe_port(address, port):
+                        responsive.add(str(address))
+                        break
+            finally:
+                queue.task_done()
+
+    worker_count = min(settings.LAN_DISCOVERY_CONCURRENCY, len(candidates))
+    if worker_count:
+        await asyncio.gather(*(worker() for _ in range(worker_count)))
+    return [
+        LanDiscoveryObservation(
+            ip_address=address,
+            source="tcp_connect",
+            evidence_state="online",
+        )
+        for address in sorted(responsive, key=ipaddress.IPv4Address)
+    ]
+
+
+def _bounded_tcp_candidates(
+    networks: list[ipaddress.IPv4Network], local_addresses: set[str]
+) -> list[ipaddress.IPv4Address]:
+    """Return a deterministic, host-capped candidate set inside authorized ranges."""
+    candidates: list[ipaddress.IPv4Address] = []
+    seen: set[str] = set()
+    for network in networks:
+        for address in network.hosts():
+            text_address = str(address)
+            if text_address in local_addresses or text_address in seen:
+                continue
+            if address in {network.network_address, network.broadcast_address}:
+                continue
+            try:
+                validate_allowed_ip(text_address)
+            except LanConfigurationError:
+                continue
+            seen.add(text_address)
+            candidates.append(address)
+            if len(candidates) >= settings.LAN_SERVICE_CHECK_MAX_HOSTS:
+                break
+        if len(candidates) >= settings.LAN_SERVICE_CHECK_MAX_HOSTS:
+            break
+    return candidates
+
+
+async def run_native_lan_discovery(db: AsyncSession) -> str:
+    """Collect native host evidence and persist assets without frontend credentials."""
+    if not settings.LAN_MONITORING_ENABLED:
+        return "LAN discovery is disabled by configuration."
+    if not await _try_advisory_lock(db, 4):
+        return "A bounded LAN discovery cycle is already running."
+    started = monotonic()
+    snapshot = await asyncio.to_thread(
+        collect_native_snapshot, tuple(configured_networks())
+    )
+    now = datetime.now(UTC)
+    created = updated = duplicates_avoided = 0
+    if settings.RUNTIME_PROFILE == "desktop" and snapshot.primary_address:
+        host = LanDiscoveryObservation(
+            ip_address=snapshot.primary_address,
+            mac_address=snapshot.primary_mac,
+            hostname=snapshot.hostname,
+            asset_type="server_host",
+            source="native_host_provider",
+            # A new RavenTech host is trusted below; an existing operator
+            # authorization decision must remain authoritative.
+            is_authorized=None,
+            evidence_state="online",
+        )
+        try:
+            prior = await _asset_by_ip_or_mac(
+                db, host.ip_address, host.mac_address
+            )
+            old_status = prior.status if prior else None
+            old_hostname = prior.hostname if prior else None
+            old_mac = prior.mac_address if prior else None
+            old_ip = prior.ip_address if prior else None
+            asset, was_created = await _upsert_observation(db, None, host, now)
+            asset.asset_type = "server_host"
+            asset.source = "native_server_host"
+            if was_created or (
+                prior is not None
+                and prior.source
+                in {"host_neighbor_table", "tcp_connect", "ping", "arp"}
+            ):
+                asset.is_authorized = True
+            asset.os_name = snapshot.os_name
+            asset.os_version = snapshot.os_version
+            asset.os_family = _normalized_os_family(snapshot.os_name)
+            asset.architecture = snapshot.architecture
+            asset.device_type = "server"
+            asset.classification_source = "native_server_host"
+            asset.classification_confidence = "high"
+            asset.classification_evidence = [
+                "native RavenTech desktop host provider",
+                "local OS metadata",
+            ]
+            asset.capabilities = [
+                "host_metrics",
+                "native_interfaces",
+                "neighbor_table",
+                "local_service_inventory",
+            ]
+            await record_asset_observation_changes(
+                db,
+                asset=asset,
+                created=was_created,
+                old_status=old_status,
+                old_hostname=old_hostname,
+                old_mac=old_mac,
+                old_ip=old_ip,
+                source="native_server_host",
+                detected_at=now,
+            )
+            created += int(was_created)
+            updated += int(not was_created)
+        except LanAssetIdentityConflictError:
+            duplicates_avoided += 1
+
+    observations = _native_neighbor_observations(snapshot)
+    tcp_candidates: list[ipaddress.IPv4Address] = []
+    tcp_observations: list[LanDiscoveryObservation] = []
+    if settings.LAN_DISCOVERY_PING_ENABLED:
+        known_addresses = _snapshot_local_addresses(snapshot) | {
+            item.ip_address for item in snapshot.neighbors
+        }
+        candidate_networks = [item.network for item in snapshot.reachable_networks]
+        tcp_candidates = _bounded_tcp_candidates(candidate_networks, known_addresses)
+        tcp_observations = await _tcp_discovery(
+            candidate_networks,
+            known_addresses,
+        )
+        observations = _merge_observations(observations, tcp_observations)
+    for observation in observations[: settings.LAN_SERVICE_CHECK_MAX_HOSTS]:
+        try:
+            previous = await _asset_by_ip_or_mac(
+                db, observation.ip_address, observation.mac_address
+            )
+            old_status = previous.status if previous else None
+            old_hostname = previous.hostname if previous else None
+            old_mac = previous.mac_address if previous else None
+            old_ip = previous.ip_address if previous else None
+            asset, was_created = await _upsert_observation(
+                db, None, observation, now
+            )
+        except LanAssetIdentityConflictError:
+            duplicates_avoided += 1
+            continue
+        await record_asset_observation_changes(
+            db,
+            asset=asset,
+            created=was_created,
+            old_status=old_status,
+            old_hostname=old_hostname,
+            old_mac=old_mac,
+            old_ip=old_ip,
+            source=observation.source,
+            detected_at=now,
+        )
+        created += int(was_created)
+        updated += int(not was_created)
+        if was_created or old_status != asset.status:
+            from app.services.background_jobs import enqueue_job
+
+            await enqueue_job(
+                db,
+                "posture.recompute",
+                {"asset_id": str(asset.id)},
+                priority=20,
+                dedupe_key=f"lan-discovery-posture:{asset.id}",
+                cooldown_seconds=300,
+            )
+
+    await record_event(
+        db,
+        action="lan.discovery.executed",
+        resource_type="lan_monitoring",
+        metadata={
+            "provider": "native_host_provider",
+            "neighbors_read": len(snapshot.neighbors),
+            "interfaces_read": len(snapshot.interfaces),
+            "reachable_networks": len(snapshot.reachable_networks),
+            "candidate_hosts": len(tcp_candidates),
+            "hosts_contacted": len(tcp_candidates),
+            "tcp_hosts_responded": len(tcp_observations),
+            "assets_created": created,
+            "assets_updated": updated,
+            "duplicates_avoided": duplicates_avoided,
+            "visibility_limited": bool(snapshot.limitation)
+            and not tcp_observations,
+            "duration_ms": max(0, int((monotonic() - started) * 1000)),
+        },
+    )
+    await db.flush()
+    return (
+        f"Native host discovery completed: {created} created, {updated} updated, "
+        f"{len(snapshot.neighbors)} neighbor observations, "
+        f"{len(tcp_observations)} TCP-responsive hosts across "
+        f"{len(snapshot.reachable_networks)} reachable authorized networks; "
+        f"{duplicates_avoided} identity conflicts were skipped."
     )
 
 
@@ -967,6 +1466,8 @@ async def check_asset_services(
         raise LanConfigurationError(
             "Service checks require an authorized asset with monitoring enabled."
         )
+    if not await _try_advisory_lock(db, 5):
+        raise LanDiscoveryRateLimitedError
     last = (
         await db.execute(
             select(func.max(AuditLog.created_at)).where(
@@ -1283,6 +1784,18 @@ def _asset_response(
     posture: EndpointSecurityPosture | None = None,
     baseline: LanServiceBaseline | None = None,
 ) -> LanAssetResponse:
+    connection_medium = cast(
+        Literal["ethernet", "wifi", "unknown"],
+        asset.connection_medium
+        if asset.connection_medium in {"ethernet", "wifi"}
+        else "unknown",
+    )
+    connection_medium_confidence = cast(
+        Literal["high", "medium", "low"],
+        asset.connection_medium_confidence
+        if asset.connection_medium_confidence in {"high", "medium"}
+        else "low",
+    )
     connected = _agent_connected(asset, telemetry, now)
     status = _effective_status(asset, telemetry, now)
     agent_asset = asset.source in AGENT_ASSET_SOURCES
@@ -1318,6 +1831,9 @@ def _asset_response(
         architecture=asset.architecture,
         agent_mode=asset.agent_mode,
         device_type=asset.device_type or "unknown",
+        connection_medium=connection_medium,
+        connection_medium_source=asset.connection_medium_source,
+        connection_medium_confidence=connection_medium_confidence,
         manual_device_type=asset.manual_device_type,
         classification_source=asset.classification_source or "insufficient_evidence",
         classification_confidence=asset.classification_confidence or "low",
@@ -1524,38 +2040,75 @@ def _indicator(
 
 
 async def _upsert_observation(
-    db: AsyncSession, user: User, observation: LanDiscoveryObservation, now: datetime
+    db: AsyncSession,
+    user: User | None,
+    observation: LanDiscoveryObservation,
+    now: datetime,
 ) -> tuple[LanAsset, bool]:
     address = str(validate_allowed_ip(observation.ip_address))
     asset = await _asset_by_ip_or_mac(db, address, observation.mac_address)
+    current_ip_asset = await _asset_by_ip(db, address)
+    if (
+        current_ip_asset is not None
+        and observation.mac_address
+        and current_ip_asset.mac_address
+        and observation.mac_address.upper() != current_ip_asset.mac_address.upper()
+    ):
+        # The IP lookup can return the occupied row after the MAC lookup misses.
+        # Treat that as DHCP/IP reuse instead of silently keeping the old identity.
+        raise LanAssetIdentityConflictError
+    if asset is None and current_ip_asset is not None:
+        asset = current_ip_asset
+    elif asset is not None and asset.ip_address != address:
+        if current_ip_asset is not None and current_ip_asset.id != asset.id:
+            raise LanAssetIdentityConflictError
     created = asset is None
     if asset is None:
         asset = LanAsset(
             ip_address=address,
             first_seen=now,
-            created_by=user.id,
+            created_by=user.id if user else None,
             is_authorized=False,
         )
         db.add(asset)
     elif asset.ip_address != address:
         asset.ip_address = address
-    asset.mac_address = observation.mac_address or asset.mac_address
-    asset.hostname = _clean(observation.hostname) or asset.hostname
-    if observation.vendor:
+    asset.mac_address = asset.mac_address or observation.mac_address
+    asset.hostname = asset.hostname or _clean(observation.hostname)
+    if observation.vendor and not asset.vendor:
         asset.vendor = _clean(observation.vendor)
         asset.vendor_source = observation.source
         asset.vendor_confidence = "medium" if observation.source == "router" else "low"
+    if observation.source == "router" and observation.connection_type:
+        medium_hint = observation.connection_type.strip().casefold().replace("_", "-")
+        reliable_medium = (
+            "wifi"
+            if medium_hint in {"wifi", "wi-fi", "wireless"}
+            else "ethernet"
+            if medium_hint in {"ethernet", "wired", "cable"}
+            else None
+        )
+        if reliable_medium and asset.connection_medium_source != "operator":
+            asset.connection_medium = reliable_medium
+            asset.connection_medium_source = "router_observation"
+            asset.connection_medium_confidence = "high"
     if observation.asset_type != "unknown" or asset.asset_type == "unknown":
         asset.asset_type = observation.asset_type
     if address == settings.LAN_GATEWAY_HINT:
         asset.asset_type = "gateway"
         asset.hostname = asset.hostname or "Likely gateway/router"
     _classify_asset(asset)
-    if asset.source not in AGENT_ASSET_SOURCES:
+    if asset.source not in AGENT_ASSET_SOURCES and asset.source not in {
+        "static",
+        "router",
+    }:
         asset.source = observation.source
-    if observation.source != "host_neighbor_table" or created:
+    if observation.evidence_state == "online":
         asset.status = "online"
-    asset.last_seen = now
+    elif created:
+        asset.status = "unknown"
+    if observation.evidence_state == "online":
+        asset.last_seen = now
     asset.last_checked_at = now
     asset.response_latency_ms = observation.latency_ms
     asset.confidence = 80 if observation.source == "router" else 70
@@ -1677,6 +2230,14 @@ def _effective_status(
 ) -> LanAssetStatus:
     if not asset.monitoring_enabled:
         return "unknown"
+    if asset.status == "offline":
+        return "offline"
+    if (
+        asset.status == "unknown"
+        and asset.last_checked_at is not None
+        and (asset.last_seen is None or asset.last_checked_at >= asset.last_seen)
+    ):
+        return "unknown"
     if asset.source in AGENT_ASSET_SOURCES:
         return "online" if _agent_connected(asset, telemetry, now) else "offline"
     if asset.source == "host_neighbor_table" and asset.status in {"offline", "unknown"}:
@@ -1707,12 +2268,17 @@ async def _asset_by_ip(db: AsyncSession, ip_address: str) -> LanAsset | None:
 async def _asset_by_ip_or_mac(
     db: AsyncSession, ip_address: str, mac_address: str | None
 ) -> LanAsset | None:
-    asset = await _asset_by_ip(db, ip_address)
-    if asset is not None or not mac_address:
-        return asset
-    return (
-        await db.execute(select(LanAsset).where(LanAsset.mac_address == mac_address))
-    ).scalars().first()
+    if mac_address:
+        asset = (
+            await db.execute(
+                select(LanAsset).where(
+                    func.upper(LanAsset.mac_address) == mac_address.upper()
+                )
+            )
+        ).scalars().first()
+        if asset is not None:
+            return asset
+    return await _asset_by_ip(db, ip_address)
 
 
 def _dedupe_host_neighbors(
@@ -1747,6 +2313,8 @@ async def _require_asset(db: AsyncSession, asset_id: uuid.UUID) -> LanAsset:
 
 
 async def _enforce_discovery_interval(db: AsyncSession) -> None:
+    if not await _try_advisory_lock(db, 4):
+        raise LanDiscoveryRateLimitedError
     last = (
         await db.execute(
             select(func.max(AuditLog.created_at)).where(
@@ -1758,6 +2326,17 @@ async def _enforce_discovery_interval(db: AsyncSession) -> None:
         seconds=settings.LAN_DISCOVERY_INTERVAL_SECONDS
     ):
         raise LanDiscoveryRateLimitedError
+
+
+async def _try_advisory_lock(db: AsyncSession, lock_id: int) -> bool:
+    return bool(
+        (
+            await db.execute(
+                text("SELECT pg_try_advisory_xact_lock(50211, :lock_id)"),
+                {"lock_id": lock_id},
+            )
+        ).scalar_one()
+    )
 
 
 def _read_container_arp(
@@ -1829,57 +2408,126 @@ async def _stored_host_neighbor_observations(
 async def _ping_network(
     network: ipaddress.IPv4Network,
 ) -> list[LanDiscoveryObservation]:
-    executable = shutil.which("ping")
-    if executable is None:
-        return []
-    semaphore = asyncio.Semaphore(16)
-
-    async def check(address: ipaddress.IPv4Address) -> LanDiscoveryObservation | None:
-        async with semaphore:
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    executable,
-                    "-c",
-                    "1",
-                    "-W",
-                    "1",
-                    str(address),
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
-                output, _ = await asyncio.wait_for(process.communicate(), timeout=2)
-            except (OSError, TimeoutError):
-                return None
-            if process.returncode != 0:
-                return None
-            match = re.search(rb"time[=<]([0-9.]+)\s*ms", output)
-            latency = float(match.group(1)) if match else None
-            return LanDiscoveryObservation(
-                ip_address=str(address), source="ping", latency_ms=latency
-            )
-
-    results = await asyncio.gather(*(check(address) for address in network.hosts()))
-    return [item for item in results if item is not None]
+    # Keep the legacy helper name for compatibility with internal call sites,
+    # but discovery is now TCP-connect-only and never launches a ping executable.
+    return await _tcp_discovery([network], set())
 
 
 async def _observe_configured_services(
     observations: list[LanDiscoveryObservation],
 ) -> None:
     ports = configured_service_ports()
-    semaphore = asyncio.Semaphore(16)
+    bounded = observations[: settings.LAN_SERVICE_CHECK_MAX_HOSTS]
+    queue: asyncio.Queue[LanDiscoveryObservation] = asyncio.Queue()
+    for observation in bounded:
+        queue.put_nowait(observation)
 
-    async def check(observation: LanDiscoveryObservation, port: int) -> None:
-        async with semaphore:
+    async def worker() -> None:
+        while True:
             try:
-                result = await _tcp_service_observation(observation.ip_address, port)
-                observation.services.append(result)
-            except (OSError, TimeoutError):
-                observation.services.append(
-                    LanServiceInput(port=port, status="unknown")
-                )
+                observation = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
+            try:
+                for port in ports:
+                    try:
+                        result = await _tcp_service_observation(
+                            observation.ip_address, port
+                        )
+                    except (OSError, TimeoutError):
+                        result = LanServiceInput(port=port, status="unknown")
+                    observation.services.append(result)
+            finally:
+                queue.task_done()
 
-    await asyncio.gather(
-        *(check(observation, port) for observation in observations for port in ports)
+    worker_count = min(settings.LAN_DISCOVERY_CONCURRENCY, len(bounded))
+    if worker_count:
+        await asyncio.gather(*(worker() for _ in range(worker_count)))
+    for observation in bounded:
+        observation.services.sort(key=lambda item: item.port)
+
+
+async def run_native_service_observation(db: AsyncSession) -> str:
+    """Check configured TCP ports on explicitly authorized, monitored assets only."""
+    if not settings.LAN_MONITORING_ENABLED or not settings.LAN_SERVICE_CHECK_ENABLED:
+        return "Configured TCP service observations are disabled."
+    if not await _try_advisory_lock(db, 5):
+        return "A bounded service observation cycle is already running."
+    authorized = tuple(configured_networks())
+    if settings.RUNTIME_PROFILE == "desktop":
+        snapshot = await asyncio.to_thread(collect_native_snapshot, authorized)
+        authorized = tuple(item.network for item in snapshot.reachable_networks)
+    if not authorized:
+        return (
+            "Service observations are limited because no authorized route is "
+            "available."
+        )
+    rows = list(
+        (
+            await db.execute(
+                select(LanAsset)
+                .where(
+                    LanAsset.is_authorized.is_(True),
+                    LanAsset.monitoring_enabled.is_(True),
+                )
+                .order_by(LanAsset.last_seen.desc().nullslast())
+                .limit(settings.LAN_SERVICE_CHECK_MAX_HOSTS * 2)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    observations: list[LanDiscoveryObservation] = []
+    for asset in rows:
+        try:
+            address = validate_allowed_ip(asset.ip_address)
+        except LanConfigurationError:
+            continue
+        if not any(address in network for network in authorized):
+            continue
+        observations.append(
+            LanDiscoveryObservation(
+                ip_address=str(address),
+                mac_address=asset.mac_address,
+                source="host_neighbor_table",
+            )
+        )
+        if len(observations) >= settings.LAN_SERVICE_CHECK_MAX_HOSTS:
+            break
+    await _observe_configured_services(observations)
+    observed_at = datetime.now(UTC)
+    created = 0
+    for observation in observations:
+        service_asset = await _asset_by_ip(db, observation.ip_address)
+        if service_asset is None:
+            continue
+        for service in observation.services:
+            await record_service_observation(
+                db,
+                asset=service_asset,
+                observation=service,
+                source="scheduled_native_service_check",
+                observed_at=observed_at,
+            )
+            created += 1
+    await record_event(
+        db,
+        action="lan.service_check.executed",
+        resource_type="lan_monitoring",
+        metadata={
+            "provider": "native_host_provider"
+            if settings.RUNTIME_PROFILE == "desktop"
+            else "authorized_asset_inventory",
+            "assets_checked": len(observations),
+            "ports_configured": len(configured_service_ports()),
+            "observations_created": created,
+        },
+    )
+    await db.flush()
+    return (
+        "Configured TCP observations completed for "
+        f"{len(observations)} authorized assets; "
+        f"{created} observations recorded."
     )
 
 
@@ -1892,19 +2540,20 @@ def _merge_observations(
     return list(merged.values())
 
 
-async def _notify_discovery_limitation(db: AsyncSession, user: User) -> None:
+async def _notify_discovery_limitation(db: AsyncSession, user: User | None) -> None:
     day = datetime.now(UTC).date().isoformat()
     await create_admin_notification(
         db,
         notification_type="monitoring_alert",
         severity="info",
-        title="Docker neighbor visibility is limited",
+        title="LAN visibility is limited",
         message=(
-            "Docker could not read host LAN neighbors. Start the ServerHost agent "
-            "for read-only host observations or use manual router observations."
+            "RavenTech found no peers in the available authorized network "
+            "observations. Segmentation, client isolation, firewall policy, or "
+            "inactive devices may limit visibility."
         ),
         entity_type="lan_monitoring",
-        actor_user_id=user.id,
+        actor_user_id=user.id if user else None,
         action_url="/monitoring",
         metadata={"rule": "lan_discovery_limited"},
         dedupe_key_prefix=f"lan:discovery-limited:{day}",

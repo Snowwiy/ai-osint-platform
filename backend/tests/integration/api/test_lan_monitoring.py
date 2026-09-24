@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import ipaddress
 import uuid
 from datetime import UTC, datetime
 
@@ -17,12 +18,24 @@ from app.schemas.monitoring import (
     MonitoringServicesResponse,
     MonitoringSystemResponse,
 )
+from app.services import lan_monitoring
+from app.schemas.lan_monitoring import LanDiscoveryObservation
 from app.services.lan_monitoring import (
+    LanAssetIdentityConflictError,
     LanConfigurationError,
     _classify_service,
+    _upsert_observation,
+    list_lan_assets,
     normalize_private_cidr,
+    run_native_lan_discovery,
     validate_allowed_cidr,
     validate_allowed_ip,
+)
+from app.services.native_lan_provider import (
+    NativeInterface,
+    NativeLanSnapshot,
+    NativeNeighbor,
+    NativeRoute,
 )
 from app.schemas.lan_monitoring import LanServiceInput
 from app.services.monitoring_history import record_service_observation
@@ -127,8 +140,130 @@ async def test_manual_router_observation_fields_are_validated_and_persisted(
     listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
     item = next(value for value in listing.json()["items"] if value["ip_address"] == "192.168.50.22")
     assert item["is_authorized"] is True
+    assert item["connection_medium"] == "wifi"
+    assert item["connection_medium_source"] == "router_observation"
     assert "Interface: wifi" in item["notes"]
     assert "Connection: wireless" in item["notes"]
+
+
+async def test_native_observation_preserves_manual_asset_fields_and_ip_conflicts(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.50.0/24")
+    manual = LanAsset(
+        ip_address="192.168.50.61",
+        mac_address="02:11:22:33:44:61",
+        hostname="operator-name",
+        source="static",
+        is_authorized=True,
+        criticality="high",
+        notes="keep operator notes",
+    )
+    db.add(manual)
+    await db.flush()
+
+    observed, created = await _upsert_observation(
+        db,
+        None,
+        LanDiscoveryObservation(
+            ip_address="192.168.50.61",
+            mac_address="02:11:22:33:44:61",
+            hostname="discovered-name",
+            source="host_neighbor_table",
+        ),
+        datetime.now(UTC),
+    )
+    assert not created
+    assert observed.id == manual.id
+    assert observed.hostname == "operator-name"
+    assert observed.source == "static"
+    assert observed.is_authorized is True
+    assert observed.criticality == "high"
+    assert observed.notes == "keep operator notes"
+
+    with pytest.raises(LanAssetIdentityConflictError):
+        await _upsert_observation(
+            db,
+            None,
+            LanDiscoveryObservation(
+                ip_address="192.168.50.61",
+                mac_address="02:11:22:33:44:62",
+                source="host_neighbor_table",
+            ),
+            datetime.now(UTC),
+        )
+
+
+async def test_native_discovery_registers_host_and_agentless_neighbor(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "RUNTIME_PROFILE", "desktop")
+    monkeypatch.setattr(settings, "LAN_MONITORING_ENABLED", True)
+    monkeypatch.setattr(settings, "LAN_ALLOWED_CIDRS", "192.168.50.0/24")
+    monkeypatch.setattr(settings, "LAN_DISCOVERY_PING_ENABLED", False)
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", False)
+    network = ipaddress.IPv4Network("192.168.50.0/24")
+    sampled = datetime.now(UTC)
+    snapshot = NativeLanSnapshot(
+        available=True,
+        hostname="raventech-host",
+        os_name="Windows",
+        os_version="11",
+        architecture="AMD64",
+        sampled_at=sampled,
+        interfaces=(
+            NativeInterface("Ethernet", "192.168.50.37", network, "02:11:22:33:44:37"),
+        ),
+        reachable_networks=(NativeRoute("Ethernet", network),),
+        neighbors=(
+            NativeNeighbor(
+                "192.168.50.61", "02:11:22:33:44:61", "Ethernet", "reachable"
+            ),
+        ),
+        primary_address="192.168.50.37",
+        primary_mac="02:11:22:33:44:37",
+        limitation=None,
+    )
+    monkeypatch.setattr(
+        lan_monitoring, "collect_native_snapshot", lambda _nets: snapshot
+    )
+
+    result = await run_native_lan_discovery(db)
+    host = await lan_monitoring._asset_by_ip(db, "192.168.50.37")
+    peer = await lan_monitoring._asset_by_ip(db, "192.168.50.61")
+    listing = await list_lan_assets(db)
+
+    assert "2 created" in result
+    assert host is not None and host.source == "native_server_host"
+    assert host.is_authorized is True
+    assert host.device_type == "server"
+    assert peer is not None and peer.source == "host_neighbor_table"
+    assert peer.is_authorized is False
+    assert peer.status == "online"
+    assert listing.runtime_profile == "desktop"
+    assert listing.provider_source == "native_host_provider"
+    assert listing.provider_status == "available"
+    assert listing.neighbor_collector_status == "available"
+    assert listing.discovered_asset_count == 2
+
+
+async def test_native_lan_scheduler_starts_once_and_deduplicates(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.services.background_jobs import schedule_lan_discovery_cycle
+
+    monkeypatch.setattr(settings, "RUNTIME_PROFILE", "desktop")
+    monkeypatch.setattr(settings, "BACKGROUND_JOB_BACKEND", "native")
+    monkeypatch.setattr(settings, "LAN_MONITORING_ENABLED", True)
+    monkeypatch.setattr(settings, "LAN_AUTO_DISCOVERY_ON_START", True)
+    first = await schedule_lan_discovery_cycle(db, "phase5bq-test-worker")
+    assert first is not None
+    assert first.job_type == "monitoring.lan_discovery"
+    assert first.dedupe_key == "scheduler:lan-discovery"
+    await db.commit()
+
+    second = await schedule_lan_discovery_cycle(db, "phase5bq-test-worker")
+    assert second is None
 
 
 async def test_admin_can_create_and_update_authorized_lan_asset(

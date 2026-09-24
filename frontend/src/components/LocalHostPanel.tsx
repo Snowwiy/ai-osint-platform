@@ -30,7 +30,7 @@ function nativeCore(): Core | null {
 const bytes = (value: number) => `${(value / 1024 / 1024).toFixed(1)} MB`;
 const elapsed = (value: number) => value < 60 ? `${value}s` : value < 3600 ? `${Math.round(value / 60)}m` : `${Math.round(value / 3600)}h`;
 
-export function LocalHostPanel({ platformServices, serverHostConnected }: { platformServices: { key: string; label: string; status: string; detail: string }[]; serverHostConnected: boolean }): JSX.Element {
+export function LocalHostPanel({ platformServices, serverHostConnected, nativeRuntime = false, nativeProviderAvailable = false }: { platformServices: { key: string; label: string; status: string; detail: string }[]; serverHostConnected: boolean; nativeRuntime?: boolean; nativeProviderAvailable?: boolean }): JSX.Element {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"cpu" | "memory" | "pid">("cpu");
@@ -67,7 +67,7 @@ export function LocalHostPanel({ platformServices, serverHostConnected }: { plat
     { name: "Redis", status: snapshot.data?.backgroundJobBackend === "native" ? "optional" : snapshot.data?.dependencyStatuses?.redis === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.redis ? "down" : "unknown", required: snapshot.data?.backgroundJobBackend !== "native", detail: snapshot.data?.backgroundJobBackend === "native" ? "Not required by desktop runtime" : "" },
     { name: snapshot.data?.backgroundJobBackend === "native" ? "Native Worker" : "Celery Worker", status: snapshot.data?.dependencyStatuses?.worker === "ok" ? "healthy" : snapshot.data?.dependencyStatuses?.worker ? "down" : "unknown", required: true, detail: "" },
     ...(snapshot.data?.backgroundJobBackend === "native" ? [{ name: "Celery", status: "optional", required: false, detail: "Compatibility only" }] : []),
-    { name: "ServerHost Agent", status: serverHostConnected ? "connected" : "unavailable", required: false, detail: "" },
+    { name: nativeRuntime ? "Native host provider" : "ServerHost Agent", status: nativeRuntime ? nativeProviderAvailable ? "healthy" : "unavailable" : serverHostConnected ? "connected" : "unavailable", required: false, detail: "" },
     { name: "Docker Desktop", status: snapshot.data?.dockerAvailability === "running" ? "running" : snapshot.data?.dockerAvailability === "installed" ? "unavailable" : "unknown", required: false, detail: "" },
     { name: "Embedded Frontend", status: snapshot.data?.frontend.healthy ? "healthy" : snapshot.data?.frontend ? "down" : "unknown", required: true, detail: snapshot.data?.frontendMode ?? "" },
   ];

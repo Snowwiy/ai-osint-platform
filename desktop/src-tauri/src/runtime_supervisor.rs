@@ -1549,6 +1549,26 @@ fn runtime_data_and_state_paths() -> Option<(PathBuf, PathBuf)> {
     None
 }
 
+pub fn native_config_file_path() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        return std::env::var_os("LOCALAPPDATA").map(PathBuf::from).map(|root| {
+            root.join("RavenTech OSINT")
+                .join("config")
+                .join(".env")
+        });
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let config = std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
+        return Some(config.join("raventech-osint").join(".env"));
+    }
+    #[allow(unreachable_code)]
+    None
+}
+
 fn database_mode(profile: &str) -> &'static str {
     if profile != "desktop" {
         return "external";

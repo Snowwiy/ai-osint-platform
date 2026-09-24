@@ -11,7 +11,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.background_job import BackgroundJob, BackgroundJobEvent
+from app.models.background_job import (
+    BackgroundJob,
+    BackgroundJobEvent,
+    NativeWorkerHeartbeat,
+)
 from app.services.audit import record_event
 
 ACTIVE = ("queued", "scheduled", "running", "retry_wait", "cancel_requested")
@@ -21,6 +25,8 @@ ALLOWED_TYPES = {
     "posture.recompute": {"asset_id"},
     "recommendations.recompute": {"asset_id"},
     "monitoring.refresh": set(),
+    "monitoring.lan_discovery": set(),
+    "monitoring.service_observation": set(),
 }
 FORBIDDEN_KEYS = (
     "password",
@@ -417,4 +423,96 @@ async def schedule_native_cycle(db: AsyncSession) -> BackgroundJob | None:
         priority=PRIORITIES["low"],
         dedupe_key="scheduler:monitoring",
         cooldown_seconds=interval,
+    )
+
+
+async def _schedule_periodic_lan_job(
+    db: AsyncSession,
+    *,
+    worker_id: str,
+    job_type: str,
+    dedupe_key: str,
+    interval: int,
+    run_on_start: bool,
+    lock_id: int,
+) -> BackgroundJob | None:
+    if not settings.LAN_MONITORING_ENABLED:
+        return None
+    locked = (
+        await db.execute(
+            text("SELECT pg_try_advisory_xact_lock(50211, :lock_id)"),
+            {"lock_id": lock_id},
+        )
+    ).scalar_one()
+    if not locked:
+        return None
+    worker_started = (
+        await db.execute(
+            select(NativeWorkerHeartbeat.started_at).where(
+                NativeWorkerHeartbeat.worker_id == worker_id
+            )
+        )
+    ).scalar_one_or_none()
+    last_created = (
+        await db.execute(
+            select(BackgroundJob.created_at)
+            .where(
+                BackgroundJob.job_type == job_type,
+                BackgroundJob.dedupe_key == dedupe_key,
+            )
+            .order_by(BackgroundJob.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    now = datetime.now(UTC)
+    if last_created is not None:
+        due = last_created <= now - timedelta(seconds=interval)
+    elif run_on_start:
+        due = True
+    else:
+        due = worker_started is not None and worker_started <= now - timedelta(
+            seconds=interval
+        )
+    if not due:
+        return None
+    return await enqueue_job(
+        db,
+        job_type,
+        {},
+        priority=PRIORITIES["low"],
+        dedupe_key=dedupe_key,
+        cooldown_seconds=interval,
+    )
+
+
+async def schedule_lan_discovery_cycle(
+    db: AsyncSession, worker_id: str
+) -> BackgroundJob | None:
+    """Queue one bounded network cycle; never catch up in a burst."""
+    if settings.background_engine != "native":
+        return None
+    return await _schedule_periodic_lan_job(
+        db,
+        worker_id=worker_id,
+        job_type="monitoring.lan_discovery",
+        dedupe_key="scheduler:lan-discovery",
+        interval=settings.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS,
+        run_on_start=settings.LAN_AUTO_DISCOVERY_ON_START,
+        lock_id=2,
+    )
+
+
+async def schedule_service_observation_cycle(
+    db: AsyncSession, worker_id: str
+) -> BackgroundJob | None:
+    if settings.background_engine != "native" or not settings.LAN_SERVICE_CHECK_ENABLED:
+        return None
+    return await _schedule_periodic_lan_job(
+        db,
+        worker_id=worker_id,
+        job_type="monitoring.service_observation",
+        dedupe_key="scheduler:service-observation",
+        interval=settings.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS,
+        run_on_start=settings.LAN_AUTO_SERVICE_CHECK_ON_START,
+        lock_id=3,
     )

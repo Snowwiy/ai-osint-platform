@@ -5,7 +5,7 @@
 - Versión del documento: 1.0
 - Versión del producto: 5.0.0-rc6
 - Estado: Especificación para candidato de lanzamiento
-- Fecha: 2026-09-23
+- Fecha: 2026-09-24
 - Idioma: español
 
 > Especificación basada en las capacidades actuales del candidato de producto. Los elementos futuros se identifican explícitamente como no implementados.
@@ -13,7 +13,7 @@
 ## Control de cambios
 | Versión | Fecha | Cambio | Estado |
 |---|---|---|---|
-| 1.0 | 2026-09-23 | Emisión inicial de requisitos y trazabilidad del producto RC6 | Candidato de lanzamiento |
+| 1.0 | 2026-09-24 | Actualización de requisitos verificables de descubrimiento LAN y visibilidad de activos | Candidato de lanzamiento |
 
 ## Contenido
 - 1. Propósito y alcance
@@ -594,6 +594,86 @@ Requisito: El sistema deberá ofrecer o aplicar evitar control remoto. Criterio 
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Inspección y prueba. Caso de prueba: LAN-08.
 
+### FR-LAN-009 — Observar interfaces, rutas y vecinos locales
+
+Subsistema: Proveedor LAN nativo.
+
+Requisito: El sistema deberá ofrecer o aplicar observar interfaces, rutas y vecinos locales. Criterio de aceptación: El escritorio obtiene interfaces, rutas y vecinos mediante proveedores locales de solo lectura y registra el host RavenTech sin exigir el agente manual.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas deterministas de proveedor y aceptación nativa. Caso de prueba: LAN-09.
+
+### FR-LAN-010 — Descubrir activos agentless automáticamente
+
+Subsistema: Inventario LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar descubrir activos agentless automáticamente. Criterio de aceptación: Los vecinos autorizados y las respuestas TCP acotadas crean o actualizan activos sin requerir un agente; los activos nuevos quedan pendientes de revisión.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de integración y límites. Caso de prueba: LAN-10.
+
+### FR-LAN-011 — Seleccionar redes según rutas autorizadas
+
+Subsistema: Autorización LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar seleccionar redes según rutas autorizadas. Criterio de aceptación: Solo se observa la intersección alcanzable entre rutas activas y CIDR RFC1918 configurados; destinos públicos y rutas no autorizadas se rechazan.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de intersección de ruta/CIDR. Caso de prueba: LAN-11.
+
+### FR-LAN-012 — Acotar la detección activa
+
+Subsistema: Seguridad de red.
+
+Requisito: El sistema deberá ofrecer o aplicar acotar la detección activa. Criterio de aceptación: El descubrimiento usa como máximo 256 hosts y 32 puertos TCP configurados con concurrencia limitada; no ejecuta ICMP externo, autenticación ni comandos de protocolo.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de límite de host, puerto y concurrencia. Caso de prueba: LAN-12.
+
+### FR-LAN-013 — Programar descubrimiento y observación de servicios
+
+Subsistema: Trabajos nativos.
+
+Requisito: El sistema deberá ofrecer o aplicar programar descubrimiento y observación de servicios. Criterio de aceptación: El descubrimiento periódico respeta un mínimo de 300 segundos y la observación de servicios 600 segundos, sin duplicar ciclos solapados.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de scheduler, deduplicación y cooldown. Caso de prueba: LAN-13.
+
+### FR-LAN-014 — Deduplicar identidad y conservar decisiones manuales
+
+Subsistema: Inventario LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar deduplicar identidad y conservar decisiones manuales. Criterio de aceptación: MAC estable correlaciona cambios de IP; conflictos de reutilización de IP se omiten y no reemplazan nombres, autorización, criticidad ni notas manuales.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de identidad DHCP y preservación manual. Caso de prueba: LAN-14.
+
+### FR-LAN-015 — Representar evidencia y frescura de activos
+
+Subsistema: Inventario LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar representar evidencia y frescura de activos. Criterio de aceptación: La presencia fuerte o TCP reciente puede indicar online; ausencia de vecinos por sí sola no marca offline y la falta de evidencia permanece unknown.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de estado y transición de línea de tiempo. Caso de prueba: LAN-15.
+
+### FR-LAN-016 — Clasificar dispositivo con confianza explícita
+
+Subsistema: Clasificación LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar clasificar dispositivo con confianza explícita. Criterio de aceptación: Tipo y sistema operativo conservan origen, evidencia y confianza; señales pasivas débiles permanecen desconocidas o de confianza baja/media.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de clasificación agentless y metadatos. Caso de prueba: LAN-16.
+
+### FR-LAN-017 — Informar medio físico solo con evidencia confiable
+
+Subsistema: Identidad de red.
+
+Requisito: El sistema deberá ofrecer o aplicar informar medio físico solo con evidencia confiable. Criterio de aceptación: Ethernet o Wi-Fi se asignan únicamente por evidencia directa del operador/router; en otro caso el medio se presenta como desconocido.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de evidencia de medio de conexión. Caso de prueba: LAN-17.
+
+### FR-LAN-018 — Explicar visibilidad limitada del escritorio nativo
+
+Subsistema: Monitoreo LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar explicar visibilidad limitada del escritorio nativo. Criterio de aceptación: El escritorio identifica el proveedor nativo y muestra CIDR, estado de vecinos y horarios; guía de Docker/ServerHost manual aparece solo en perfiles de compatibilidad.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de interfaz nativa y compatibilidad. Caso de prueba: LAN-18.
+
 ### FR-AGENT-001 — Registrar ServerHost
 
 Subsistema: Agentes.
@@ -1096,6 +1176,9 @@ Los procesos se muestran con PID y nombre visible y métricas permitidas; no se 
 
 ## 18. LAN Assets y agentes
 
+En el escritorio nativo, el proveedor del host obtiene interfaces activas, rutas y vecinos desde APIs locales de Windows o las tablas locales de Linux. El worker programa discovery al inicio y periódicamente cuando el perfil LAN revisado está habilitado. El host RavenTech se registra como ServerHost local sin ejecutar manualmente PowerShell, iniciar un agente ni pegar un JWT.
+Los activos sin agente se registran desde vecinos autorizados y, solo cuando se habilita por separado, conectividad TCP acotada dentro de la intersección de rutas activas y CIDR privados RFC1918 autorizados. El máximo es 256 hosts, 32 puertos configurados y concurrencia limitada. La ausencia del agente o de entradas ARP/NDP no prueba que un dispositivo esté offline; segmentación, aislamiento y dispositivos inactivos limitan la visibilidad.
+Ethernet y Wi-Fi permanecen desconocidos salvo evidencia directa del operador o router. Agentes endpoint son opcionales y agregan telemetría; el discovery agentless no intenta autenticación, comandos de protocolo, acceso a router ni administración remota. La guía de ServerHost manual y limitaciones de vecinos Docker se muestran solo en perfiles de compatibilidad.
 La clasificación de activo usa agente autenticado primero, clasificación de operador, pistas de gateway, heurísticas y unknown como fallback. OS y device type retienen source/confidence/evidence. Vendor OUI puede aportar contexto, nunca certeza de clase por sí solo.
 Las observaciones de servicio incluyen puerto, guess, estado, confianza, primera/última observación, estado previo y relación con baseline. No se envían credenciales ni comandos de protocolo; banners crudos sensibles no se presentan.
 ServerHost/LanEndpoint aportan telemetría. El agente endpoint no admite ejecución de tareas remotas. Alta disponibilidad/controles dependen de conectividad y permisos de endpoint.
@@ -1448,6 +1531,16 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-LAN-006 | Clasificar sistema y tipo | Activos LAN | Windows/Linux | Implementado | Prueba de clasificación | LAN-06 | La clasificación registra fuente, evidencia y confianza; se desconoce ante falta de evidencia. |
 | FR-LAN-007 | Presentar cambios | Línea de tiempo | Windows/Linux | Implementado | Prueba de deduplicación | LAN-07 | Aperturas/cierres/cambios se registran una vez por transición observada. |
 | FR-LAN-008 | Evitar control remoto | Seguridad | Windows/Linux | Implementado | Inspección y prueba | LAN-08 | No se ejecutan órdenes, detenciones ni cambios de servicios remotos. |
+| FR-LAN-009 | Observar interfaces, rutas y vecinos locales | Proveedor LAN nativo | Windows/Linux | Implementado | Pruebas deterministas de proveedor y aceptación nativa | LAN-09 | El escritorio obtiene interfaces, rutas y vecinos mediante proveedores locales de solo lectura y registra el host RavenTech sin exigir el agente manual. |
+| FR-LAN-010 | Descubrir activos agentless automáticamente | Inventario LAN | Windows/Linux | Implementado | Pruebas de integración y límites | LAN-10 | Los vecinos autorizados y las respuestas TCP acotadas crean o actualizan activos sin requerir un agente; los activos nuevos quedan pendientes de revisión. |
+| FR-LAN-011 | Seleccionar redes según rutas autorizadas | Autorización LAN | Windows/Linux | Implementado | Pruebas de intersección de ruta/CIDR | LAN-11 | Solo se observa la intersección alcanzable entre rutas activas y CIDR RFC1918 configurados; destinos públicos y rutas no autorizadas se rechazan. |
+| FR-LAN-012 | Acotar la detección activa | Seguridad de red | Windows/Linux | Implementado | Pruebas de límite de host, puerto y concurrencia | LAN-12 | El descubrimiento usa como máximo 256 hosts y 32 puertos TCP configurados con concurrencia limitada; no ejecuta ICMP externo, autenticación ni comandos de protocolo. |
+| FR-LAN-013 | Programar descubrimiento y observación de servicios | Trabajos nativos | Windows/Linux | Implementado | Pruebas de scheduler, deduplicación y cooldown | LAN-13 | El descubrimiento periódico respeta un mínimo de 300 segundos y la observación de servicios 600 segundos, sin duplicar ciclos solapados. |
+| FR-LAN-014 | Deduplicar identidad y conservar decisiones manuales | Inventario LAN | Windows/Linux | Implementado | Pruebas de identidad DHCP y preservación manual | LAN-14 | MAC estable correlaciona cambios de IP; conflictos de reutilización de IP se omiten y no reemplazan nombres, autorización, criticidad ni notas manuales. |
+| FR-LAN-015 | Representar evidencia y frescura de activos | Inventario LAN | Windows/Linux | Implementado | Pruebas de estado y transición de línea de tiempo | LAN-15 | La presencia fuerte o TCP reciente puede indicar online; ausencia de vecinos por sí sola no marca offline y la falta de evidencia permanece unknown. |
+| FR-LAN-016 | Clasificar dispositivo con confianza explícita | Clasificación LAN | Windows/Linux | Implementado | Pruebas de clasificación agentless y metadatos | LAN-16 | Tipo y sistema operativo conservan origen, evidencia y confianza; señales pasivas débiles permanecen desconocidas o de confianza baja/media. |
+| FR-LAN-017 | Informar medio físico solo con evidencia confiable | Identidad de red | Windows/Linux | Implementado | Pruebas de evidencia de medio de conexión | LAN-17 | Ethernet o Wi-Fi se asignan únicamente por evidencia directa del operador/router; en otro caso el medio se presenta como desconocido. |
+| FR-LAN-018 | Explicar visibilidad limitada del escritorio nativo | Monitoreo LAN | Windows/Linux | Implementado | Prueba de interfaz nativa y compatibilidad | LAN-18 | El escritorio identifica el proveedor nativo y muestra CIDR, estado de vecinos y horarios; guía de Docker/ServerHost manual aparece solo en perfiles de compatibilidad. |
 | FR-AGENT-001 | Registrar ServerHost | Agentes | Windows/Linux | Implementado | Prueba de integración | AGENT-01 | El agente de host reporta telemetría dentro del ámbito local autorizado. |
 | FR-AGENT-002 | Registrar LanEndpoint | Agentes | Windows/Linux | Implementado | Prueba de integración | AGENT-02 | El endpoint informa telemetría; no recibe órdenes ejecutables. |
 | FR-AGENT-003 | Autenticar agente | Agentes | Windows/Linux | Implementado | Prueba de autenticación | AGENT-03 | El enrolamiento/autenticación usa credenciales dedicadas y almacena solo material protegido. |
@@ -1555,7 +1648,7 @@ Activo: dispositivo/red autorizado representado en Monitoring. Agente: proceso a
 ## 34. Referencias y control documental
 
 Fuentes de producto consultadas: README, arquitectura, API, esquema de datos, modelo de seguridad, manual de operador, documentación de runtime nativo y PostgreSQL administrado, monitoreo local/LAN, postura de endpoints, límites conocidos, checklist final y validadores de paquete incluidos en el repositorio.
-El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-23. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
+El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-24. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
 
 
 ## Anexo A. Criterios de aceptación ejecutables

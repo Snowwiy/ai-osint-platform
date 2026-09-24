@@ -11,6 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::Manager;
 mod local_host;
+mod lan_configuration;
 mod managed_postgres;
 mod runtime_supervisor;
 
@@ -1165,19 +1166,48 @@ async fn open_local_frontend(app: tauri::AppHandle) -> LauncherResult {
 }
 
 #[tauri::command]
-async fn apply_lan_monitoring_config(app: tauri::AppHandle, confirmed: bool) -> LauncherResult {
-    if !confirmed {
+async fn apply_lan_monitoring_config(
+    confirmed: bool,
+    profile: lan_configuration::LanMonitoringProfile,
+) -> LauncherResult {
+    let Some(config_path) = runtime_supervisor::native_config_file_path() else {
         return LauncherResult {
             action: LocalAction::ApplyLanConfig.name(),
             success: false,
-            script_available: find_script(&app, LocalAction::ApplyLanConfig).is_some(),
+            script_available: true,
             timed_out: false,
             exit_code: None,
-            message: "Explicit operator confirmation is required before editing local monitoring configuration.".to_owned(),
+            message: "The native RavenTech configuration location is unavailable.".to_owned(),
             output: String::new(),
         };
+    };
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        lan_configuration::apply_lan_monitoring_profile(&config_path, &profile, confirmed)
+    })
+    .await;
+    let outcome = match result {
+        Ok(Ok(backup)) => (true, "The approved LAN settings were saved to native desktop configuration.".to_owned(), backup),
+        Ok(Err("confirmation_required")) => (false, "Confirm the reviewed LAN settings before applying them.".to_owned(), None),
+        Ok(Err("private_cidr_required")) => (false, "Use private RFC1918 IPv4 networks only.".to_owned(), None),
+        Ok(Err("cidr_exceeds_host_limit")) => (false, "Each authorized network must fit within the 256-address bound.".to_owned(), None),
+        Ok(Err("gateway_outside_authorized_networks")) => (false, "The gateway must be a usable address inside an authorized network.".to_owned(), None),
+        Ok(Err("invalid_port" | "port_count_out_of_range")) => (false, "Use between 1 and 32 valid TCP ports.".to_owned(), None),
+        Ok(Err("cidr_count_out_of_range")) => (false, "Use between 1 and 16 private network ranges.".to_owned(), None),
+        Ok(Err("config_file_unsafe" | "config_directory_unsafe")) => (false, "The native configuration path is not a regular RavenTech-owned location; no file was changed.".to_owned(), None),
+        Ok(Err(_)) | Err(_) => (false, "Native configuration could not be safely updated. Check local permissions and try again.".to_owned(), None),
+    };
+    LauncherResult {
+        action: LocalAction::ApplyLanConfig.name(),
+        success: outcome.0,
+        script_available: true,
+        timed_out: false,
+        exit_code: None,
+        message: outcome.1,
+        output: outcome.2.map_or_else(
+            || "No previous configuration backup was created.".to_owned(),
+            |name| format!("Backup: {name}"),
+        ),
     }
-    run_action(app, LocalAction::ApplyLanConfig).await
 }
 
 #[tauri::command]

@@ -3303,6 +3303,13 @@ export interface MonitoringStartupStatus {
   optional_telemetry: boolean;
   docker_limitation: string;
   host_neighbor_guidance: string;
+  runtime_profile: "desktop" | "docker" | "development";
+  configuration_source: "native_desktop" | "docker_compose" | "environment";
+  provider_source: "native_host_provider" | "server_host_agent" | "container_neighbor_table" | "unavailable";
+  provider_status: "available" | "limited" | "unavailable" | "disabled";
+  neighbor_collector_status: "available" | "empty" | "unavailable" | "disabled";
+  next_discovery_at: string | null;
+  discovered_asset_count: number;
   safety_notes: string[];
 }
 
@@ -3327,6 +3334,9 @@ export interface LanAsset {
   architecture: string | null;
   agent_mode: string | null;
   device_type: string;
+  connection_medium: "ethernet" | "wifi" | "unknown";
+  connection_medium_source: string | null;
+  connection_medium_confidence: "high" | "medium" | "low";
   manual_device_type: string | null;
   classification_source: string;
   classification_confidence: string;
@@ -3390,6 +3400,7 @@ export interface ServiceBaseline { id: string; name: string; description: string
 
 export interface LanAssetListResponse {
   generated_at: string;
+  runtime_profile: "desktop" | "docker" | "development";
   enabled: boolean;
   allowed_cidrs: string[];
   discovery_interval_seconds: number;
@@ -3398,6 +3409,14 @@ export interface LanAssetListResponse {
   service_ports: number[];
   docker_limited: boolean;
   limitation: string;
+  provider_source: "native_host_provider" | "server_host_agent" | "container_neighbor_table" | "unavailable";
+  provider_status: "available" | "limited" | "unavailable" | "disabled";
+  neighbor_collector_status: "available" | "empty" | "unavailable" | "disabled";
+  last_discovery_at: string | null;
+  next_discovery_at: string | null;
+  last_service_observation_at: string | null;
+  next_service_observation_at: string | null;
+  discovered_asset_count: number;
   total: number;
   online: number;
   offline: number;
@@ -3580,6 +3599,10 @@ export interface MonitoringActivationStatus {
   auto_registration_enabled: boolean;
   host_neighbor_collection_enabled: boolean;
   host_neighbor_guidance: string;
+  runtime_profile: "desktop" | "docker" | "development";
+  configuration_source: "native_desktop" | "docker_compose" | "environment";
+  provider_source: "native_host_provider" | "server_host_agent" | "container_neighbor_table" | "unavailable";
+  provider_status: "available" | "limited" | "unavailable" | "disabled";
 }
 
 export interface LanBootstrapStatus {

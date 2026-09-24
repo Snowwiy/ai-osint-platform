@@ -57,6 +57,7 @@ export function MonitoringCenterPage(): JSX.Element {
     retry: 1,
   });
   const data = overview.data;
+  const nativeLanRuntime = startup.data?.runtime_profile === "desktop";
   const intervals = safeArray(data?.polling_interval_options).filter(
     (value) => Number.isFinite(value) && value >= 10,
   );
@@ -148,7 +149,8 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("Host neighbor assets")}: {safeNumber(startup.data.host_neighbor_observations)}</p>
             <p>{t("Assets requiring review")}: {safeNumber(startup.data.assets_needing_review)}</p>
             <p>{t("Last host neighbor sample")}: {safeDate(startup.data.last_host_neighbor_sample)?.toLocaleString() ?? t("Never")}</p>
-            <p>{t("ServerHost agent")}: {startup.data.server_host_agent_connected ? t("Connected") : t("Needs action")}</p>
+            <p>{t(nativeLanRuntime ? "Native host provider" : "ServerHost agent")}: {nativeLanRuntime ? t(startup.data.provider_status) : startup.data.server_host_agent_connected ? t("Connected") : t("Needs action")}</p>
+            {nativeLanRuntime ? <><p>{t("Neighbor collector status")}: {t(startup.data.neighbor_collector_status)}</p><p>{t("Next automatic discovery")}: {safeDate(startup.data.next_discovery_at)?.toLocaleString() ?? t("Not scheduled")}</p></> : null}
             <p>{t("Agents connected")}: {safeNumber(startup.data.agent_covered)}</p>
             <p>{t("Missing agent")}: {safeNumber(startup.data.assets_missing_agent)}</p>
             <p>{t("Service observations")}: {safeNumber(startup.data.service_observations)}</p>
@@ -157,8 +159,8 @@ export function MonitoringCenterPage(): JSX.Element {
             <p>{t("Posture assessed")}: {safeNumber(startup.data.assessed_posture)}</p>
             <p>{t("Open recommendations")}: {safeNumber(startup.data.open_recommendations)}</p>
           </div>
-          <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {t("Docker LAN neighbor visibility may be limited")} · {t("Disabled optional monitoring is informational, not degraded")}</p>
-          {!startup.data.host_neighbor_observations ? <p className="mt-2 text-xs text-cyan-100">{t(startup.data.host_neighbor_guidance)}</p> : null}
+          <p className="mt-3 text-xs text-raven-muted">{t("Endpoint agent telemetry optional")} · {nativeLanRuntime ? t("Native host provider is the desktop discovery source.") : t("Docker LAN neighbor visibility may be limited")} · {t("Disabled optional monitoring is informational, not degraded")}</p>
+          {!nativeLanRuntime && !startup.data.host_neighbor_observations ? <p className="mt-2 text-xs text-cyan-100">{t(startup.data.host_neighbor_guidance)}</p> : null}
           <div className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft/60 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-raven-muted">{t("LAN Runtime Acceptance")}</p>
             <p className="mt-1 text-xs text-raven-muted">{t("Read-only diagnostics; rendering this summary never starts discovery or service checks.")}</p>
@@ -166,8 +168,8 @@ export function MonitoringCenterPage(): JSX.Element {
               <AcceptanceState label={t("Backend")} state={backendAccepted ? "pass" : "fail"} t={t} />
               <AcceptanceState label={t("Host metrics")} state={hostMetricsAccepted ? "pass" : "fail"} t={t} />
               <AcceptanceState label={t("LAN configuration")} state={lanConfigurationAccepted ? "pass" : "fail"} t={t} />
-              <AcceptanceState label={t("ServerHost agent")} state={startup.data.server_host_agent_connected ? "pass" : "waiting"} t={t} />
-              <AcceptanceState label={t("Neighbor observations")} state={startup.data.last_host_neighbor_sample ? "pass" : "waiting"} t={t} />
+              <AcceptanceState label={t(nativeLanRuntime ? "Native host provider" : "ServerHost agent")} state={nativeLanRuntime ? startup.data.provider_status === "available" ? "pass" : "waiting" : startup.data.server_host_agent_connected ? "pass" : "waiting"} t={t} />
+              <AcceptanceState label={t("Neighbor observations")} state={startup.data.neighbor_collector_status === "available" ? "pass" : "waiting"} t={t} />
               <AcceptanceCount label={t("LAN assets")} value={startup.data.assets_total} />
               <AcceptanceCount label={t("Service observations")} value={startup.data.service_observations} />
               <AcceptanceCount label={t("Posture evaluation")} value={startup.data.assessed_posture} />
@@ -229,7 +231,7 @@ export function MonitoringCenterPage(): JSX.Element {
             {!nativePrimary && system?.source === "container" ? <p className="mt-2 rounded border border-cyan-300/30 p-3 text-xs text-cyan-100">{safeString(system.fallback_reason, t("Run the manual ServerHost agent for full host visibility."))}</p> : null}
           </section> : null}
 
-          {tab === "server" ? <LocalHostPanel platformServices={serviceItems.map((item) => ({ key: safeString(item.key, item.label), label: safeString(item.label, "Service"), status: safeString(item.status, "unknown"), detail: safeString(item.detail) }))} serverHostConnected={Boolean(startup.data?.server_host_agent_connected)} /> : null}
+          {tab === "server" ? <LocalHostPanel platformServices={serviceItems.map((item) => ({ key: safeString(item.key, item.label), label: safeString(item.label, "Service"), status: safeString(item.status, "unknown"), detail: safeString(item.detail) }))} serverHostConnected={Boolean(startup.data?.server_host_agent_connected)} nativeRuntime={nativeLanRuntime} nativeProviderAvailable={Boolean(nativePrimary)} /> : null}
 
           {tab === "server" ? <section>
             <h2 className="mb-3 text-lg font-semibold">Asset watch</h2>

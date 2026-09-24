@@ -28,7 +28,9 @@ from app.services.background_jobs import (
     fail_job,
     mark_progress,
     recover_stale_jobs,
+    schedule_lan_discovery_cycle,
     schedule_native_cycle,
+    schedule_service_observation_cycle,
     validate_payload,
 )
 from app.services.endpoint_posture import EndpointPostureNotFoundError
@@ -53,15 +55,31 @@ async def _monitoring(db: AsyncSession, payload: dict[str, str]) -> str:
     return f"Monitoring summary refreshed for {count} LAN assets."
 
 
+async def _lan_discovery(db: AsyncSession, payload: dict[str, str]) -> str:
+    from app.services.lan_monitoring import run_native_lan_discovery
+
+    return await run_native_lan_discovery(db)
+
+
+async def _service_observation(db: AsyncSession, payload: dict[str, str]) -> str:
+    from app.services.lan_monitoring import run_native_service_observation
+
+    return await run_native_service_observation(db)
+
+
 HANDLERS: dict[str, Handler] = {
     "posture.recompute": _posture,
     "recommendations.recompute": _posture,
     "monitoring.refresh": _monitoring,
+    "monitoring.lan_discovery": _lan_discovery,
+    "monitoring.service_observation": _service_observation,
 }
 HANDLER_TIMEOUT_SECONDS = {
     "monitoring.refresh": 30,
     "posture.recompute": 90,
     "recommendations.recompute": 90,
+    "monitoring.lan_discovery": 600,
+    "monitoring.service_observation": 600,
 }
 
 
@@ -242,6 +260,8 @@ async def run_worker() -> None:
                 await recover_stale_jobs(db)
                 try:
                     await schedule_native_cycle(db)
+                    await schedule_lan_discovery_cycle(db, worker_id)
+                    await schedule_service_observation_cycle(db, worker_id)
                 except QueueFullError:
                     logger.debug("Native scheduler deferred: queue is full.")
                 await db.commit()
