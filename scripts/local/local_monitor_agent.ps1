@@ -211,7 +211,7 @@ try {
             os_name = $os.Caption
             os_version = $os.Version
             os_family = "windows"
-            architecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
+            architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
             form_factor = Get-LocalFormFactor
             agent_mode = "LanEndpoint"
             agent_version = $AgentVersion
@@ -305,3 +305,4 @@ try {
     $secretValue = $null
     Write-Host "Local monitor agent stopped. No persistence or autostart was configured."
 }
+
