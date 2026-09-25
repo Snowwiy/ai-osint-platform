@@ -1102,25 +1102,105 @@ Plataforma: Windows/Linux. Estado: Parcial. Verificación: Prueba visual/manual.
 
 Subsistema: Conocimiento.
 
-Requisito: El sistema deberá ofrecer o aplicar referencias actuales. Criterio de aceptación: Solo referencias/espacios de trabajo existentes se describen como disponibles.
+Requisito: El sistema deberá ofrecer o aplicar referencias actuales. Criterio de aceptación: Las referencias integradas siguen disponibles y se distinguen de las fuentes locales importadas.
 
 Plataforma: Windows/Linux. Estado: Parcial. Verificación: Inspección funcional. Caso de prueba: KNOW-01.
 
-### FR-KNOW-002 — Importación de vault
+### FR-KNOW-002 — Importar vault o documentos seleccionados
 
 Subsistema: Conocimiento.
 
-Requisito: El sistema deberá ofrecer o aplicar importación de vault. Criterio de aceptación: No se importan ni indexan vaults Obsidian en la versión evaluada.
+Requisito: El sistema deberá ofrecer o aplicar importar vault o documentos seleccionados. Criterio de aceptación: Solo archivos elegidos por el operador se copian al almacén local y se indexan mediante trabajo nativo.
 
-Plataforma: Windows/Linux. Estado: Planificado. Verificación: No aplica. Caso de prueba: KNOW-02.
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API y de ingestión. Caso de prueba: KNOW-02.
 
-### FR-KNOW-003 — Índice semántico gestionado
+### FR-KNOW-003 — Parsear formatos locales soportados
 
 Subsistema: Conocimiento.
 
-Requisito: El sistema deberá ofrecer o aplicar índice semántico gestionado. Criterio de aceptación: No se ejecuta ingestion/indexación de conocimiento en segundo plano.
+Requisito: El sistema deberá ofrecer o aplicar parsear formatos locales soportados. Criterio de aceptación: Markdown, TXT, PDF, DOCX, HTML, JSON y CSV usan límites de tamaño y errores clasificados; otros tipos se omiten.
 
-Plataforma: Windows/Linux. Estado: Planificado. Verificación: No aplica. Caso de prueba: KNOW-03.
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas deterministas de parser. Caso de prueba: KNOW-03.
+
+### FR-KNOW-004 — Preservar metadatos Obsidian seguros
+
+Subsistema: Conocimiento.
+
+Requisito: El sistema deberá ofrecer o aplicar preservar metadatos obsidian seguros. Criterio de aceptación: Se extraen título, aliases, tags, estado, categoría y referencias permitidas sin ejecutar YAML.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de parser Markdown. Caso de prueba: KNOW-04.
+
+### FR-KNOW-005 — Registrar procedencia y verificación
+
+Subsistema: Conocimiento.
+
+Requisito: El sistema deberá ofrecer o aplicar registrar procedencia y verificación. Criterio de aceptación: Documento y fragmento conservan fuente, nombre relativo, hash, sección, página disponible, confianza y verificación.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de esquema e integración. Caso de prueba: KNOW-05.
+
+### FR-KNOW-006 — Sincronizar cambios incrementalmente
+
+Subsistema: Conocimiento.
+
+Requisito: El sistema deberá ofrecer o aplicar sincronizar cambios incrementalmente. Criterio de aceptación: Contenido sin cambios se omite; nuevas versiones reemplazan fragmentos; renombres preservan identidad cuando el hash es único y eliminaciones reconciliadas no borran originales.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de sincronización PostgreSQL. Caso de prueba: KNOW-06.
+
+### FR-KNOW-007 — Resolver relaciones Obsidian explícitas
+
+Subsistema: Conocimiento.
+
+Requisito: El sistema deberá ofrecer o aplicar resolver relaciones obsidian explícitas. Criterio de aceptación: Wikilinks/embeds crean relaciones explícitas con resolución local y profundidad acotada.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de grafo local. Caso de prueba: KNOW-07.
+
+### FR-KNOW-008 — Buscar conocimiento local con filtros
+
+Subsistema: Conocimiento.
+
+Requisito: El sistema deberá ofrecer o aplicar buscar conocimiento local con filtros. Criterio de aceptación: Búsqueda local combina palabras clave y vector opcional, con filtros de fuente, confianza, verificación, idioma, categoría y tags.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de búsqueda API. Caso de prueba: KNOW-08.
+
+### FR-KNOW-009 — Citar referencias locales estables
+
+Subsistema: Conocimiento e informes.
+
+Requisito: El sistema deberá ofrecer o aplicar citar referencias locales estables. Criterio de aceptación: Los informes incluyen documentos locales solo cuando el operador selecciona sus identificadores y muestran procedencia sin rutas absolutas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de salida PDF/DOCX/HTML/Markdown. Caso de prueba: KNOW-09.
+
+### FR-KNOW-010 — Administrar fuentes y estado de índice
+
+Subsistema: Conocimiento y operaciones.
+
+Requisito: El sistema deberá ofrecer o aplicar administrar fuentes y estado de índice. Criterio de aceptación: La fuente puede revisarse, sincronizarse, deshabilitarse o quitarse del índice sin borrar los originales seleccionados.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas RBAC/API/UI. Caso de prueba: KNOW-10.
+
+### FR-KNOW-011 — Aislar ingestión de archivos
+
+Subsistema: Seguridad y privacidad.
+
+Requisito: El sistema deberá ofrecer o aplicar aislar ingestión de archivos. Criterio de aceptación: La ingestión copia archivos elegidos, rechaza traversal/enlaces inseguros, no ejecuta contenido y no envía texto a proveedores externos automáticamente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de límites y rutas. Caso de prueba: KNOW-11.
+
+### FR-KNOW-012 — Indexar sin servicio externo de IA
+
+Subsistema: Conocimiento local.
+
+Requisito: El sistema deberá ofrecer o aplicar indexar sin servicio externo de ia. Criterio de aceptación: El índice PostgreSQL y la búsqueda por palabras permanecen disponibles cuando no existe modelo local de embeddings.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba sin modelo/vector disponible. Caso de prueba: KNOW-12.
+
+### FR-KNOW-013 — Preparar recuperación RAG gobernada
+
+Subsistema: Conocimiento local.
+
+Requisito: El sistema deberá ofrecer o aplicar preparar recuperación rag gobernada. Criterio de aceptación: La recuperación expone referencias y metadatos de confianza; el material importado no se incorpora a prompts externos automáticamente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Revisión de separación y contratos. Caso de prueba: KNOW-13.
 
 ### FR-BACK-001 — Crear respaldo local
 
@@ -1196,7 +1276,7 @@ Un puerto abierto normal o esperado no genera alerta universal. La alerta report
 ## 21. Operations Center y trabajos nativos
 
 El motor nativo persiste trabajos en PostgreSQL y ejecuta una registry allowlist. Los estados cubren encolado, programación, ejecución, reintento, completion, fallo y cancelación. Los payloads y resultados se saneán.
-La compatibilidad Celery/Redis continúa en el perfil Docker/desarrollo. En escritorio nativo, Redis y Celery son opcionales. Conocimiento futuro puede utilizar la abstracción de trabajos, pero no existe handler de import/indexación de vault.
+La compatibilidad Celery/Redis continúa en el perfil Docker/desarrollo. En escritorio nativo, Redis y Celery son opcionales. La sincronización de fuentes Knowledge utiliza un handler nativo allowlist cuyo payload contiene solo el identificador de fuente.
 
 ## 22. Runtime nativo y gestión de PostgreSQL
 
@@ -1216,8 +1296,10 @@ Backup/restore se considera parcial y explícitamente acotado a utilidades exist
 
 ## 24. Conocimiento: capacidad actual y límites
 
-El producto contiene arquitectura de conocimiento, referencias y espacios de trabajo existentes. Importación de vault, sincronización Obsidian, indexación de archivos del operador, reindexación y búsqueda de contenido importado no se encuentran implementadas en la versión evaluada.
-La implementación futura debe usar importación explícita, procedencia, control de acceso, almacenamiento de hashes, trabajos nativos y rechazo seguro de contenido activo. Esta especificación no autoriza ingestion ni ejecución de contenido.
+El operador puede importar documentos locales seleccionados o vincular un vault Obsidian mediante el selector nativo. Para el vault, la ruta canónica queda privada en la base local para habilitar sincronización manual; una fuente offline conserva los documentos indexados y requiere relink explícito si se mueve. Las cargas individuales quedan como snapshots administrados por RavenTech.
+La ingesta/indexación utiliza trabajo PostgreSQL nativo, hash SHA-256, parser con lista de tipos y límites, estado de confianza/revisión explícito, tags, búsqueda local y grafo Obsidian de vínculos explícitos. Embeddings locales son opcionales; la búsqueda por palabras permanece disponible.
+Las referencias importadas no se consideran verificadas por importarlas. Solo documentos elegidos expresamente se agregan como citas en un informe. La ingesta, búsqueda, cita y filtrado no envían contenido a un proveedor externo; la recuperación RAG se limita a contratos gobernados, con referencias y separación de datos.
+La sincronización compara hashes y evita reparsear documentos sin cambios, conserva identidad cuando un renombre es inequívoco y reconcilia relaciones. Los documentos eliminados se quitan del índice cuando se puede completar un recorrido válido; los fallos de lectura preservan registros existentes. Quitar una fuente elimina solo el snapshot e índice RavenTech cuya propiedad se verifica; nunca elimina el vault original.
 
 ## 25. Requisitos no funcionales
 
@@ -1294,6 +1376,30 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba de contra
 El usuario solo ve registros permitidos por rol y membresía.
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas RBAC. Caso de prueba: PRIV-04. Criterio: No hay lectura cruzada de investigaciones sin permiso.
+
+### NFR-KNOW-001 — Privacidad local de Knowledge
+
+El contenido, fragmentos y metadatos importados permanecen en almacenamiento local y no se envían a proveedores externos automáticamente.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de red y pruebas de configuración. Caso de prueba: KNOW-NFR-01. Criterio: La ingestión, indexación y búsqueda funcionan sin solicitudes de red a proveedores de IA.
+
+### NFR-KNOW-002 — Límite de lectura del vault
+
+La sincronización puede leer únicamente el directorio de vault seleccionado y sus descendientes regulares.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de traversal/enlaces. Caso de prueba: KNOW-NFR-02. Criterio: Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican.
+
+### NFR-KNOW-003 — Parser acotado y no ejecutable
+
+Los parsers aplican límites de archivo y contenido activo no se ejecuta.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de parser y carga malformada. Caso de prueba: KNOW-NFR-03. Criterio: Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos.
+
+### NFR-KNOW-004 — Reenlace local explícito
+
+Una fuente no disponible permanece offline hasta que el operador la religa mediante el selector nativo.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de disponibilidad y relink. Caso de prueba: KNOW-NFR-04. Criterio: La indisponibilidad no elimina índice ni cambia silenciosamente la ubicación de origen.
 
 ### NFR-REL-001 — Inicio ordenado
 
@@ -1594,9 +1700,19 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-AUD-003 | Preservar procedencia | Auditoría | Windows/Linux | Implementado | Prueba de contrato | AUD-03 | Acciones mantienen actor y hora para revisión administrativa. |
 | FR-I18N-001 | Interfaz bilingüe | Localización | Windows/Linux | Implementado | Prueba de catálogo/build | I18N-01 | Etiquetas principales existen en español e inglés y conservan fallback. |
 | FR-I18N-002 | Formato regional | Localización | Windows/Linux | Parcial | Prueba visual/manual | I18N-02 | Fechas/números son legibles; no se afirma localización exhaustiva de contenidos externos. |
-| FR-KNOW-001 | Referencias actuales | Conocimiento | Windows/Linux | Parcial | Inspección funcional | KNOW-01 | Solo referencias/espacios de trabajo existentes se describen como disponibles. |
-| FR-KNOW-002 | Importación de vault | Conocimiento | Windows/Linux | Planificado | No aplica | KNOW-02 | No se importan ni indexan vaults Obsidian en la versión evaluada. |
-| FR-KNOW-003 | Índice semántico gestionado | Conocimiento | Windows/Linux | Planificado | No aplica | KNOW-03 | No se ejecuta ingestion/indexación de conocimiento en segundo plano. |
+| FR-KNOW-001 | Referencias actuales | Conocimiento | Windows/Linux | Parcial | Inspección funcional | KNOW-01 | Las referencias integradas siguen disponibles y se distinguen de las fuentes locales importadas. |
+| FR-KNOW-002 | Importar vault o documentos seleccionados | Conocimiento | Windows/Linux | Implementado | Pruebas API y de ingestión | KNOW-02 | Solo archivos elegidos por el operador se copian al almacén local y se indexan mediante trabajo nativo. |
+| FR-KNOW-003 | Parsear formatos locales soportados | Conocimiento | Windows/Linux | Implementado | Pruebas deterministas de parser | KNOW-03 | Markdown, TXT, PDF, DOCX, HTML, JSON y CSV usan límites de tamaño y errores clasificados; otros tipos se omiten. |
+| FR-KNOW-004 | Preservar metadatos Obsidian seguros | Conocimiento | Windows/Linux | Implementado | Pruebas de parser Markdown | KNOW-04 | Se extraen título, aliases, tags, estado, categoría y referencias permitidas sin ejecutar YAML. |
+| FR-KNOW-005 | Registrar procedencia y verificación | Conocimiento | Windows/Linux | Implementado | Pruebas de esquema e integración | KNOW-05 | Documento y fragmento conservan fuente, nombre relativo, hash, sección, página disponible, confianza y verificación. |
+| FR-KNOW-006 | Sincronizar cambios incrementalmente | Conocimiento | Windows/Linux | Implementado | Pruebas de sincronización PostgreSQL | KNOW-06 | Contenido sin cambios se omite; nuevas versiones reemplazan fragmentos; renombres preservan identidad cuando el hash es único y eliminaciones reconciliadas no borran originales. |
+| FR-KNOW-007 | Resolver relaciones Obsidian explícitas | Conocimiento | Windows/Linux | Implementado | Pruebas de grafo local | KNOW-07 | Wikilinks/embeds crean relaciones explícitas con resolución local y profundidad acotada. |
+| FR-KNOW-008 | Buscar conocimiento local con filtros | Conocimiento | Windows/Linux | Implementado | Pruebas de búsqueda API | KNOW-08 | Búsqueda local combina palabras clave y vector opcional, con filtros de fuente, confianza, verificación, idioma, categoría y tags. |
+| FR-KNOW-009 | Citar referencias locales estables | Conocimiento e informes | Windows/Linux | Implementado | Pruebas de salida PDF/DOCX/HTML/Markdown | KNOW-09 | Los informes incluyen documentos locales solo cuando el operador selecciona sus identificadores y muestran procedencia sin rutas absolutas. |
+| FR-KNOW-010 | Administrar fuentes y estado de índice | Conocimiento y operaciones | Windows/Linux | Implementado | Pruebas RBAC/API/UI | KNOW-10 | La fuente puede revisarse, sincronizarse, deshabilitarse o quitarse del índice sin borrar los originales seleccionados. |
+| FR-KNOW-011 | Aislar ingestión de archivos | Seguridad y privacidad | Windows/Linux | Implementado | Pruebas de límites y rutas | KNOW-11 | La ingestión copia archivos elegidos, rechaza traversal/enlaces inseguros, no ejecuta contenido y no envía texto a proveedores externos automáticamente. |
+| FR-KNOW-012 | Indexar sin servicio externo de IA | Conocimiento local | Windows/Linux | Implementado | Prueba sin modelo/vector disponible | KNOW-12 | El índice PostgreSQL y la búsqueda por palabras permanecen disponibles cuando no existe modelo local de embeddings. |
+| FR-KNOW-013 | Preparar recuperación RAG gobernada | Conocimiento local | Windows/Linux | Implementado | Revisión de separación y contratos | KNOW-13 | La recuperación expone referencias y metadatos de confianza; el material importado no se incorpora a prompts externos automáticamente. |
 | FR-BACK-001 | Crear respaldo local | Respaldo | Windows/Linux | Parcial | Prueba de integración aislada | BACK-01 | Las operaciones existentes usan ruta controlada y registran resultado seguro. |
 | FR-BACK-002 | Validar respaldo | Recuperación | Windows/Linux | Parcial | Prueba de validación | BACK-02 | La validación no sobreescribe base activa y comunica limitaciones. |
 | FR-BACK-003 | Restaurar con control | Recuperación | Windows/Linux | Parcial | Ensayo fuera de producción | BACK-03 | Toda restauración requiere acción administrativa explícita y objetivo aislado. |
@@ -1612,6 +1728,10 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-PRIV-002 | Retención | No funcional | Windows/Linux | Especificado | Revisión de política | PRIV-02 | La interfaz no promete borrado automático no existente. |
 | NFR-PRIV-003 | Transparencia de inferencia | No funcional | Windows/Linux | Especificado | Prueba de contrato | PRIV-03 | Inferencia de dispositivo/OS no aparece como hecho de alta certeza sin agente. |
 | NFR-PRIV-004 | Separación de datos | No funcional | Windows/Linux | Especificado | Pruebas RBAC | PRIV-04 | No hay lectura cruzada de investigaciones sin permiso. |
+| NFR-KNOW-001 | Privacidad local de Knowledge | No funcional | Windows/Linux | Especificado | Inspección de red y pruebas de configuración | KNOW-NFR-01 | La ingestión, indexación y búsqueda funcionan sin solicitudes de red a proveedores de IA. |
+| NFR-KNOW-002 | Límite de lectura del vault | No funcional | Windows/Linux | Especificado | Pruebas de traversal/enlaces | KNOW-NFR-02 | Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican. |
+| NFR-KNOW-003 | Parser acotado y no ejecutable | No funcional | Windows/Linux | Especificado | Pruebas de parser y carga malformada | KNOW-NFR-03 | Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos. |
+| NFR-KNOW-004 | Reenlace local explícito | No funcional | Windows/Linux | Especificado | Pruebas de disponibilidad y relink | KNOW-NFR-04 | La indisponibilidad no elimina índice ni cambia silenciosamente la ubicación de origen. |
 | NFR-REL-001 | Inicio ordenado | No funcional | Windows/Linux | Especificado | Prueba de supervisor | REL-01 | Fallo de dependencia evita estado Ready y no borra datos. |
 | NFR-REL-002 | Cierre cooperativo | No funcional | Windows/Linux | Especificado | Prueba de ciclo | REL-02 | Procesos ajenos permanecen activos. |
 | NFR-REL-003 | Recuperación no destructiva | No funcional | Windows/Linux | Especificado | Prueba de rutas | REL-03 | No se elimina ni reinicializa un directorio ambiguo. |
@@ -1639,11 +1759,11 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 ## 32. Límites conocidos y evolución
 
 El software es candidato local no firmado; no hay actualización automática. La aceptación Linux clean-machine y la inspección visual/funcional de Tauri GUI Linux deben ejecutarse por separado. El paquete x86_64 y el runtime core fueron validados en Debian 13 WSL2; otras distribuciones no se presumen validadas. Las acciones systemd dependen del entorno/permisos y no se ejercieron en esta ejecución. Capacidades de backup/restore y algunos proveedores OSINT externos también dependen del entorno.
-La importación/indexación de Obsidian/Knowledge no está implementada. Los siguientes trabajos de producto pueden abordar aceptación limpia multiplataforma y conocimiento con consentimiento, hashing, límites de tipo/tamaño, revisión y trazabilidad.
+La ruta del vault Obsidian se conserva de forma privada en la base local para sincronización manual; las cargas de documentos individuales continúan como snapshots administrados. Al mover la base a otro equipo, la ruta original puede quedar offline y requiere relink explícito. No hay OCR ni comprensión de imágenes. La confianza es una declaración revisable, no una prueba automática de veracidad.
 
 ## 33. Glosario
 
-Activo: dispositivo/red autorizado representado en Monitoring. Agente: proceso autenticado que reporta telemetría. Baseline: estado o exposición esperada configurada. Confianza: fuerza de evidencia que respalda clasificación. Evidencia: observación con fuente y tiempo. Handler: función nativa explícitamente registrada para trabajo. Host principal: equipo local donde se ejecuta el desktop. Perfil runtime: selección desktop/docker/development. SCRAM-SHA-256: mecanismo de autenticación de PostgreSQL. Trabajo: unidad persistente ejecutada por worker nativo.
+Activo: dispositivo/red autorizado representado en Monitoring. Agente: proceso autenticado que reporta telemetría. Baseline: estado o exposición esperada configurada. Confianza: fuerza de evidencia que respalda clasificación. Evidencia: observación con fuente y tiempo. Handler: función nativa explícitamente registrada para trabajo. Host principal: equipo local donde se ejecuta el desktop. Perfil runtime: selección desktop/docker/development. SCRAM-SHA-256: mecanismo de autenticación de PostgreSQL. Trabajo: unidad persistente ejecutada por worker nativo. Fuente Knowledge: registro con procedencia y límite de lectura. Snapshot documental: copia local administrada de archivos seleccionados individualmente.
 
 ## 34. Referencias y control documental
 

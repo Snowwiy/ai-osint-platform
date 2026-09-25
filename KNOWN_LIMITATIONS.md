@@ -10,9 +10,10 @@ and native host monitoring. PostgreSQL remains required. Docker, Redis, Celery,
 Python, Node/Vite, external PostgreSQL, CLI tools from `PATH`, and manual shell
 startup are not normal packaged runtime dependencies. Docker and source
 development remain supported. Full clean-machine install acceptance is still
-outstanding: Windows in 5BO and Linux in 5BP. WSL results are not clean-machine
-acceptance. Managed-native backup/restore is still partial, and Knowledge or
-Obsidian ingestion remains unimplemented for 5BQ.
+outstanding. WSL results are not clean-machine acceptance. Managed-native
+backup/restore is still partial. Knowledge uses selected-file snapshots:
+updates require the operator to reselect changed files, and there is no OCR,
+image understanding, or automatic trust verification.
 
 The Phase 5BN packaged Windows zero-Docker test previously failed in `initdb`
 before backend readiness. That build did not retain an initdb diagnostic, so the
@@ -223,9 +224,10 @@ uses it in a training environment.
 
 ## Knowledge Retrieval
 
-Knowledge Search uses only locally curated and indexed content. It does not
-browse the internet. Search quality depends on the available local documents
-and their indexing state.
+Knowledge Search uses built-in references and operator-selected local snapshots.
+It does not browse the internet. Search quality depends on the available local
+documents and their indexing state. Selected local imports remain unverified
+until an authorized reviewer changes their metadata.
 
 ## Global Search And Saved Views
 
@@ -465,11 +467,11 @@ TCP connect only measures reachability at observation time. A port number or san
 
 ## Phase 5BI background jobs
 
-Only posture/recommendation recomputation and monitoring summary refresh have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, evidence processing, and Knowledge ingestion remain on their current paths. Celery configuration and Redis remain for compatibility. PostgreSQL remains required; Docker is still supported but is not required by the packaged desktop runtime when a host-reachable PostgreSQL service is configured. Cancellation is cooperative and long-running future handlers need explicit safe checkpoints.
+Posture/recommendation recomputation, monitoring summary refresh, and selected Knowledge source synchronization have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, and evidence processing retain their current paths. Celery configuration and Redis remain for compatibility. PostgreSQL remains required; Docker is still supported but is not required by the packaged desktop runtime. Cancellation is cooperative and long-running handlers use explicit safe checkpoints.
 
 ## Phase 5BJ limits
 
-Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. Phase 5BL packages and supervises the fixed FastAPI backend and worker; PostgreSQL remains separately managed, commonly with Docker. The native scheduler currently covers monitoring summary refresh only; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge/Obsidian ingestion is not implemented. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.
+Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. The native scheduler covers monitoring summary refresh; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge source sync is an allowlisted native job. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.
 
 ## Native desktop acceptance limits
 

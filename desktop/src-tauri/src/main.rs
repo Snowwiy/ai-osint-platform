@@ -13,6 +13,7 @@ use tauri::Manager;
 mod local_host;
 mod lan_configuration;
 mod managed_postgres;
+mod knowledge_picker;
 mod runtime_supervisor;
 
 const LOOPBACK: &str = "127.0.0.1:8000";
@@ -1230,6 +1231,21 @@ async fn get_native_host_metrics() -> NativeHostMetrics {
 }
 
 #[tauri::command]
+async fn select_knowledge_files(
+    app: tauri::AppHandle,
+    mode: String,
+) -> Result<Option<knowledge_picker::KnowledgeSelection>, String> {
+    let mode = match mode.as_str() {
+        "vault" => knowledge_picker::SelectionMode::Vault,
+        "documents" => knowledge_picker::SelectionMode::Documents,
+        _ => return Err("Unsupported Knowledge selection mode.".to_owned()),
+    };
+    tauri::async_runtime::spawn_blocking(move || knowledge_picker::pick(&app, mode))
+        .await
+        .map_err(|_| "Native Knowledge selection was interrupted.".to_owned())?
+}
+
+#[tauri::command]
 async fn get_project_setup(app: tauri::AppHandle) -> ProjectSetup {
     project_setup(&app)
 }
@@ -1435,6 +1451,7 @@ mod tests {
 
 fn main() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let supervisor =
                 runtime_supervisor::NativeRuntimeSupervisor::start(app.handle().clone());
@@ -1444,6 +1461,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             probe_local_services,
             get_native_host_metrics,
+            select_knowledge_files,
             get_local_host_inventory,
             terminate_local_process,
             control_local_service,

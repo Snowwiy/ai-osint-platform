@@ -55,6 +55,12 @@ class ReportCreateRequest(BaseModel):
     template_id: uuid.UUID | None = None
     output_format: ReportDownloadFormat = "html"
     language: ReportLanguage = "en"
+    knowledge_document_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def deduplicate_knowledge_documents(self) -> ReportCreateRequest:
+        self.knowledge_document_ids = list(dict.fromkeys(self.knowledge_document_ids))
+        return self
 
 
 class ReportResponse(BaseModel):

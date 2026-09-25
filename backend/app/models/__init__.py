@@ -1,14 +1,19 @@
-from app.models.ai_analysis import AiAnalysis
-from app.models.agent_management import AgentEnrollmentToken, AssetGroup, AssetGroupMembership, ExpectedServiceBaseline
 from app.models.admin_settings import AdminSettings
+from app.models.agent_management import (
+    AgentEnrollmentToken,
+    AssetGroup,
+    AssetGroupMembership,
+    ExpectedServiceBaseline,
+)
+from app.models.ai_analysis import AiAnalysis
 from app.models.audit_log import AuditLog
-from app.models.base import Base
 from app.models.background_job import (
     BackgroundJob,
     BackgroundJobEvent,
     NativeAuthState,
     NativeWorkerHeartbeat,
 )
+from app.models.base import Base
 from app.models.case_closure import (
     CaseClosure,
     CaseClosureChecklistItem,
@@ -16,12 +21,15 @@ from app.models.case_closure import (
 )
 from app.models.case_review import CaseReview
 from app.models.data_quality import DataQualityIssue
+from app.models.endpoint_posture import (
+    EndpointRemediationRecommendation,
+    EndpointSecurityPosture,
+)
 from app.models.engagement import (
     AuthorizationEvidence,
     Engagement,
     EngagementScopeItem,
 )
-from app.models.endpoint_posture import EndpointRemediationRecommendation, EndpointSecurityPosture
 from app.models.evidence_bookmark import EvidenceBookmark
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
@@ -40,16 +48,25 @@ from app.models.investigation_workflow_event import InvestigationWorkflowEvent
 from app.models.ioc import IOC, IOCObservation
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_link import KnowledgeLink
+from app.models.knowledge_source import KnowledgeSource
 from app.models.lan_monitoring import (
     LanAsset,
     LanAssetTelemetry,
     LanServiceObservation,
     VulnerabilityBaselineFinding,
 )
-from app.models.notification import Notification
-from app.models.monitoring_policy import AlertSuppression, MaintenanceWindow, MonitoringPolicy
-from app.models.monitoring_history import MonitoringChangeEvent, ServiceObservationHistory
+from app.models.monitoring_history import (
+    MonitoringChangeEvent,
+    ServiceObservationHistory,
+)
+from app.models.monitoring_policy import (
+    AlertSuppression,
+    MaintenanceWindow,
+    MonitoringPolicy,
+)
 from app.models.monitoring_triage import MonitoringAlertTriage
+from app.models.notification import Notification
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -126,6 +143,8 @@ __all__ = [
     "PlaybookStep",
     "KnowledgeChunk",
     "KnowledgeDocument",
+    "KnowledgeSource",
+    "KnowledgeLink",
     "LanAsset",
     "LanAssetTelemetry",
     "LanServiceObservation",

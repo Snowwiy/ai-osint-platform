@@ -807,6 +807,13 @@
     <li>
       [{{ citation.id }}] {{ citation.framework }}:
       {{ citation.title }} ({{ citation.source }})
+      {% if citation.publisher %} — {{ citation.publisher }}{% endif %}
+      {% if citation.section %}; section: {{ citation.section }}{% endif %}
+      {% if citation.page_number %}; page: {{ citation.page_number }}{% endif %}
+      {% if citation.relative_name %}; document: {{ citation.relative_name }}{% endif %}
+      {% if citation.trust_level %}; trust: {{ citation.trust_level }}{% endif %}
+      {% if citation.verification_status %}; verification: {{ citation.verification_status }}{% endif %}
+      {% if citation.canonical_url %}; reference: <a href="{{ citation.canonical_url }}">{{ citation.canonical_url }}</a>{% endif %}
     </li>
     {% endfor %}
   </ul>

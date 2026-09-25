@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import uuid
+from datetime import UTC, datetime
+
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models.finding import Finding
 from app.models.finding_evidence import FindingEvidence
+from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_source import KnowledgeSource
 from app.models.recon_entity import ReconEntity
 from app.models.report import Report
 from app.models.threat_finding import ThreatFinding
@@ -41,6 +47,95 @@ async def test_create_report_renders_html_markdown_and_preserves_citations(
     assert report.markdown_content is not None
     assert "## Key Findings" in report.markdown_content
     assert "knowledge:" in report.markdown_content
+
+
+async def test_report_includes_only_explicit_local_knowledge_citations(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    db: AsyncSession,
+    test_investigation,
+) -> None:
+    source_id = uuid.uuid4()
+    document_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    source = KnowledgeSource(
+        id=source_id,
+        name="Acceptance reference",
+        source_type="document_upload",
+        display_location="Selected document: Acceptance reference",
+        status="ready",
+        trust_level="trusted",
+        verification_status="reviewed",
+        publisher="Example Research Group",
+        canonical_url="https://example.org/reference",
+    )
+    document = KnowledgeDocument(
+        id=document_id,
+        source_type="osint_notes",
+        file_path=f"{source_id}/reference.md",
+        relative_name="reference.md",
+        source_id=source_id,
+        category="Research",
+        content_type="text/markdown",
+        title="Reference Heading",
+        content="# Reference Heading\n\nSupported local text.",
+        hash="a" * 64,
+        trust_level="trusted",
+        verification_status="reviewed",
+        document_status="ready",
+        size_bytes=48,
+        indexed_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    chunk = KnowledgeChunk(
+        id=uuid.uuid4(),
+        document_id=document_id,
+        content="Supported local text.",
+        chunk_index=0,
+        embedding_metadata={"heading_path": ["Reference Heading"], "page_number": 2},
+    )
+    db.add(source)
+    await db.flush()
+    db.add(document)
+    await db.flush()
+    db.add(chunk)
+    await db.flush()
+    await db.commit()
+
+    response = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/reports",
+        headers=analyst_headers,
+        json={"report_type": "technical", "knowledge_document_ids": [str(document_id)]},
+    )
+
+    assert response.status_code == 200
+    report = await db.get(Report, response.json()["id"])
+    assert report is not None and report.status == "ready"
+    assert report.report_metadata["selected_knowledge_document_ids"] == [
+        str(document_id)
+    ]
+    assert f"knowledge:{document_id}" in (report.markdown_content or "")
+    assert "publisher: Example Research Group" in (report.markdown_content or "")
+    assert "section: Reference Heading" in (report.markdown_content or "")
+    assert "page: 2" in (report.markdown_content or "")
+    assert "https://example.org/reference" in (report.html_content or "")
+
+
+async def test_report_rejects_unavailable_explicit_knowledge_reference(
+    client: AsyncClient,
+    analyst_headers: dict[str, str],
+    test_investigation,
+) -> None:
+    response = await client.post(
+        f"/api/v1/investigations/{test_investigation.id}/reports",
+        headers=analyst_headers,
+        json={
+            "report_type": "technical",
+            "knowledge_document_ids": [str(uuid.uuid4())],
+        },
+    )
+    assert response.status_code == 422
 
 
 async def test_list_and_get_report_require_membership(
@@ -199,9 +294,9 @@ async def test_spanish_report_language_preserves_all_export_formats(
     assert "## Limitaciones" in detail.json()["markdown_content"]
     assert '<html lang="es">' in detail.json()["html_content"]
     assert "<h2>Resumen ejecutivo</h2>" in detail.json()["html_content"]
-    assert "No valida explotación ni demuestra compromiso" in detail.json()[
-        "html_content"
-    ]
+    assert (
+        "No valida explotación ni demuestra compromiso" in detail.json()["html_content"]
+    )
 
     for output_format, signature in (("pdf", b"%PDF"), ("docx", b"PK")):
         exported = await client.get(

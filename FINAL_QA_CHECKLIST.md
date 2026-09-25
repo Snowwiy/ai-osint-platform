@@ -680,7 +680,7 @@ Windows portable/installer packages include Windows x86_64 backend, worker, and 
 - [ ] Monitoring Center identifies the native host provider, authorized CIDR, neighbor status, discovery schedule, asset counts, and limited-visibility reason; Docker/ServerHost guidance is shown only in compatibility mode.
 - [ ] Windows provider is exercised on the host; Linux provider is tested on Debian/WSL where available. Any live peer check uses only currently configured authorized CIDRs.
 - [ ] Alembic remains one linear head; backend, focused LAN, frontend/localization, desktop, package, SRS, Ruff, and mypy checks pass before commit.
-- [ ] Version remains `5.0.0-rc6`; no tag, public release, remote command capability, or Knowledge/Obsidian ingestion is added.
+- [ ] Version remains `5.0.0-rc6`; no tag, public release, remote command capability, or arbitrary file access is added.
 
 ## Phase 5BM finalization snapshot (2026-09-22)
 
@@ -699,3 +699,15 @@ Windows portable/installer packages include Windows x86_64 backend, worker, and 
 - [x] Current package validators pass; Windows startup failure was traced to extended-length Tauri resource paths and fixed by normalizing the immutable resource root. Initialization retry protections remain unchanged.
 - [ ] Complete visible embedded-UI/dashboard workflow, report generation/download, and passive recon smoke. Do not claim full Windows zero-Docker acceptance or commit until these are verified.
 - [ ] Windows and Linux clean-machine acceptance remain separate future tests; WSL is not clean-machine Linux acceptance.
+
+## Local Knowledge ingestion and provenance
+
+- [ ] Selected Obsidian/document files are copied to RavenTech storage; original files are never modified or deleted.
+- [ ] The parser is allowlisted, size-bounded, non-executable, and rejects traversal and symlink/junction escape.
+- [ ] Sources default to unverified/unknown; source metadata edits require admin RBAC and audit without source contents.
+- [ ] Sync tests cover unchanged, modified, added, renamed, removed, unsupported, and exact-duplicate documents and preserve original files.
+- [ ] Search/citations retain relative source provenance, trust, verification, section/page when available, tags, and hash.
+- [ ] Imported documents are not sent to external AI or inserted into reports unless explicitly selected; sensitive warnings require confirmation.
+- [ ] Native worker accepts only `knowledge.source.sync` with a source ID, not paths or document contents.
+- [ ] Operations reports bounded Knowledge health/count/status data without document text.
+- [ ] SRS source/PDF, traceability, page count, signature, metadata, secret scan, private-path scan, and visual QA pass.

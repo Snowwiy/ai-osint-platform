@@ -28,11 +28,11 @@ from app.schemas.report import (
     ReportType,
 )
 from app.services.audit import record_event
-from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.governance import (
     FeatureDisabledError,
     ensure_export_format_allowed,
 )
+from app.services.investigation import ForbiddenError, InvestigationNotFoundError
 from app.services.report import (
     ReportNotFoundError,
     ReportTemplateNotFoundError,
@@ -117,6 +117,8 @@ async def bulk_generate_reports_endpoint(
             status_code=403,
             detail={"code": "feature_disabled", "message": str(exc)},
         ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
 
 
 @router.get(
@@ -250,6 +252,8 @@ async def create_report_endpoint(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ReportTemplateNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     except FeatureDisabledError as exc:
         raise HTTPException(
             status_code=403,

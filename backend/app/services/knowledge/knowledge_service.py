@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import re
 import uuid
 from dataclasses import dataclass
 from typing import Any, Literal, cast
@@ -11,10 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_source import KnowledgeSource
 from app.schemas.knowledge import (
-    KnowledgeFramework,
     KnowledgeDocumentListResponse,
     KnowledgeDocumentResponse,
+    KnowledgeFramework,
     KnowledgeIndexResponse,
     KnowledgeSearchMode,
     KnowledgeSearchResponse,
@@ -38,6 +40,11 @@ from app.services.knowledge.markdown_parser import parse_markdown
 class KnowledgeSearchFilters:
     source_type: KnowledgeSourceType | None = None
     tags: list[str] | None = None
+    source_id: uuid.UUID | None = None
+    trust_level: str | None = None
+    verified_only: bool = False
+    language: str | None = None
+    category: str | None = None
 
 
 def get_embedder() -> LocalSentenceTransformerEmbedder:
@@ -139,6 +146,7 @@ async def list_knowledge_documents(
     *,
     source_type: KnowledgeSourceType | None = None,
     tags: list[str] | None = None,
+    source_id: uuid.UUID | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> KnowledgeDocumentListResponse:
@@ -147,6 +155,8 @@ async def list_knowledge_documents(
         filters.append(KnowledgeDocument.source_type == source_type)
     if tags:
         filters.append(KnowledgeDocument.tags.contains(tags))
+    if source_id:
+        filters.append(KnowledgeDocument.source_id == source_id)
     base = select(KnowledgeDocument).where(*filters)
     total = len((await db.execute(base)).scalars().all())
     result = await db.execute(
@@ -169,17 +179,26 @@ async def search_knowledge(
     filters: KnowledgeSearchFilters,
     limit: int = 10,
 ) -> KnowledgeSearchResponse:
+    actual_mode = mode
     if mode == "keyword":
         results = await _keyword_search(db, query, filters, limit)
     elif mode == "semantic":
-        results = await _semantic_search(db, query, filters, limit)
+        try:
+            results = await _semantic_search(db, query, filters, limit)
+        except Exception:
+            results = await _keyword_search(db, query, filters, limit)
+            actual_mode = "keyword"
     else:
         keyword = await _keyword_search(db, query, filters, limit)
-        semantic = await _semantic_search(db, query, filters, limit)
+        try:
+            semantic = await _semantic_search(db, query, filters, limit)
+        except Exception:
+            semantic = []
+            actual_mode = "keyword"
         results = _merge_results(keyword, semantic, limit)
     return KnowledgeSearchResponse(
         query=query,
-        mode=mode,
+        mode=actual_mode,
         total=len(results),
         items=results,
     )
@@ -194,6 +213,7 @@ async def _keyword_search(
     stmt = (
         select(KnowledgeChunk, KnowledgeDocument)
         .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
+        .outerjoin(KnowledgeSource, KnowledgeDocument.source_id == KnowledgeSource.id)
         .where(
             or_(
                 KnowledgeChunk.content.ilike(f"%{query}%"),
@@ -232,6 +252,10 @@ async def _semantic_search(
         document = await db.get(KnowledgeDocument, document_id)
         if document is None or not _document_matches_filters(document, filters):
             continue
+        if document.source_id:
+            source = await db.get(KnowledgeSource, document.source_id)
+            if source is None or source.status == "disabled":
+                continue
         results.append(
             _search_result(
                 document,
@@ -262,15 +286,50 @@ def _search_result(
     score: float,
 ) -> KnowledgeSearchResult:
     context = _defensive_result_context(document, chunk)
+    metadata = document.knowledge_metadata or {}
+    source_name = metadata.get("source_name")
+    safe_path = document.relative_name
+    if not safe_path:
+        candidate = document.file_path.replace("\\", "/")
+        safe_path = (
+            candidate.rsplit("/", 1)[-1]
+            if ":" in candidate or candidate.startswith("/")
+            else candidate
+        )
+    page_match = re.search(r"(?m)^\[Page\s+(\d+)\]$", chunk)
     return KnowledgeSearchResult(
         document_id=document.id,
         title=document.title,
         source_type=document.source_type,  # type: ignore[arg-type]
-        file_path=document.file_path,
+        file_path=safe_path,
+        citation_id=f"knowledge:{document.id}",
+        source_id=document.source_id,
+        source_name=str(source_name) if source_name else None,
+        relative_name=document.relative_name,
+        section=next(
+            (
+                line.lstrip("# ").strip()
+                for line in chunk.splitlines()
+                if line.startswith("#")
+            ),
+            None,
+        ),
+        page_number=int(page_match.group(1)) if page_match else None,
+        modified_at=document.updated_at,
+        indexed_at=document.indexed_at,
+        language=document.language,
+        trust_level=document.trust_level,
+        verification_status=document.verification_status,
+        sensitive_content_warning=bool(metadata.get("sensitive_content_warning")),
+        duplicate_of_document_id=_uuid_or_none(
+            metadata.get("duplicate_of_document_id")
+        ),
         chunk=chunk,
         score=score,
         tags=document.tags,
-        category=context["category"],
+        category=(
+            document.category if document.category != "Other" else context["category"]
+        ),
         framework=context["framework"],
         severity_relevance=context["severity_relevance"],
         defensive_explanation=context["defensive_explanation"],
@@ -457,6 +516,22 @@ def _apply_document_filters(stmt: Any, filters: KnowledgeSearchFilters) -> Any:
         stmt = stmt.where(KnowledgeDocument.source_type == filters.source_type)
     if filters.tags:
         stmt = stmt.where(KnowledgeDocument.tags.contains(filters.tags))
+    if filters.source_id:
+        stmt = stmt.where(KnowledgeDocument.source_id == filters.source_id)
+    if filters.trust_level:
+        stmt = stmt.where(KnowledgeDocument.trust_level == filters.trust_level)
+    if filters.verified_only:
+        stmt = stmt.where(KnowledgeDocument.verification_status == "verified")
+    if filters.language:
+        stmt = stmt.where(KnowledgeDocument.language == filters.language)
+    if filters.category:
+        stmt = stmt.where(KnowledgeDocument.category == filters.category)
+    stmt = stmt.where(
+        or_(
+            KnowledgeDocument.source_id.is_(None),
+            KnowledgeSource.status != "disabled",
+        )
+    )
     return stmt
 
 
@@ -467,6 +542,16 @@ def _document_matches_filters(
     if filters.source_type is not None and document.source_type != filters.source_type:
         return False
     if filters.tags and not set(filters.tags).issubset(set(document.tags)):
+        return False
+    if filters.source_id and document.source_id != filters.source_id:
+        return False
+    if filters.trust_level and document.trust_level != filters.trust_level:
+        return False
+    if filters.verified_only and document.verification_status != "verified":
+        return False
+    if filters.language and document.language != filters.language:
+        return False
+    if filters.category and document.category != filters.category:
         return False
     return True
 

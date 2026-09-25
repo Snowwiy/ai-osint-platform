@@ -6,6 +6,12 @@ The normal packaged Windows/Linux app includes the native FastAPI backend, worke
 
 For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.worker` with the same PostgreSQL connection. The profile selects PostgreSQL-backed jobs and authentication even if an older `.env` says `BACKGROUND_JOB_BACKEND=celery`. Docker profile behavior remains unchanged.
 
+Knowledge ingestion is a native desktop workflow: the UI sends only selected
+file bytes and relative names through the authenticated local API, and the
+PostgreSQL worker indexes RavenTech's managed snapshot. The desktop does not
+expose an arbitrary host-path indexing API. Browser mode without the trusted
+Tauri origin cannot register or synchronize local Knowledge sources.
+
 `RUNTIME_PROFILE=docker` retains the existing Celery/Redis behavior. `RUNTIME_PROFILE=development` honors `BACKGROUND_JOB_BACKEND=celery|native`. No existing Docker installation is silently switched.
 
 ## Dependency inventory and migration decision
@@ -25,7 +31,7 @@ For source development, set `RUNTIME_PROFILE=desktop` and run `python -m app.wor
 | Recon and enrichment | A | Existing synchronous, scoped request flow retained to preserve authorization, rate limits, partial results, and provider-error semantics. No new provider or scan type. |
 | Evidence, intelligence, correlation, timeline, investigation updates | A | Existing synchronous database transactions retained to preserve provenance and immediate user-visible results. |
 | Notifications, alerts, data quality, archive/cleanup | A | Existing PostgreSQL request/maintenance flows retained; no Celery dependency or independent recurring requirement. Operator-controlled maintenance remains explicit. |
-| Future Knowledge/Obsidian import and indexing | F | No handler registered. A future phase should use this job abstraction with fixed schemas for `knowledge.import`, `knowledge.index`, and `knowledge.reindex`. |
+| Selected Knowledge/Obsidian source synchronization | A | Fixed `knowledge.source.sync` handler accepts a source UUID only; bytes and source paths stay out of the job payload. |
 
 ## Scheduler and resource limits
 
@@ -39,7 +45,7 @@ Operations Center shows worker health, queue depth and age, counts, safe errors,
 
 Only fixed application handlers execute. Payloads have exact schemas and contain no passwords, JWTs, API keys, enrollment tokens, executable paths, commands, or raw banners. The worker does not use dynamic imports, `eval`, `exec`, subprocesses, or shell execution. Cancellation is cooperative. Remote commands, public scanning, brute force, credential testing, exploitation, and autostart are outside this runtime.
 
-Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires its configured dependencies. PostgreSQL remains required in every profile: fresh native desktop installs use the managed runtime, while configured external databases remain supported. Future acceptance phases are 5BO Windows clean-machine acceptance, 5BP Linux clean-machine acceptance, and 5BQ Obsidian plus verified Knowledge ingestion.
+Redis, Celery, and Docker Compose remain present and supported. Docker mode still requires its configured dependencies. PostgreSQL remains required in every profile: fresh native desktop installs use the managed runtime, while configured external databases remain supported. Clean-machine acceptance remains a separate Windows and Linux test activity.
 
 ## Phase 5BL — Tauri native runtime supervision
 

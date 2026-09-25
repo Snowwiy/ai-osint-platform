@@ -702,6 +702,16 @@ export interface OperationsStatusResponse {
   components: Record<string, OperationsComponentStatus>;
   storage: StorageMetrics;
   recent_operations: RecentOperationEvent[];
+  knowledge_index: {
+    health: "healthy" | "warning" | "degraded";
+    sources: number;
+    documents: number;
+    chunks: number;
+    failed_documents: number;
+    offline_sources: number;
+    last_sync_at: string | null;
+    active_jobs: number;
+  };
 }
 
 export interface EnvironmentValidationItem {
@@ -2215,6 +2225,7 @@ export interface ReportCreateRequest {
   template_id?: string | null;
   output_format?: ReportFormat;
   language?: "en" | "es";
+  knowledge_document_ids?: string[];
 }
 
 export interface ReportSummary {
@@ -2583,6 +2594,19 @@ export interface KnowledgeSearchResult {
   title: string;
   source_type: string;
   file_path: string;
+  citation_id?: string;
+  source_id?: string | null;
+  source_name?: string | null;
+  relative_name?: string | null;
+  section?: string | null;
+  page_number?: number | null;
+  modified_at?: string | null;
+  indexed_at?: string | null;
+  language?: string | null;
+  trust_level?: string;
+  verification_status?: string;
+  sensitive_content_warning?: boolean;
+  duplicate_of_document_id?: string | null;
   chunk: string;
   score: number;
   tags: string[];
@@ -3088,6 +3112,82 @@ export interface InvestigationEvidence {
 export interface InvestigationEvidenceListResponse {
   total: number;
   items: InvestigationEvidence[];
+}
+
+export interface KnowledgeSource {
+  id: string;
+  name: string;
+  source_type: string;
+  display_location: string;
+  category: string;
+  platform: string | null;
+  availability: string;
+  status: string;
+  trust_level: string;
+  verification_status: string;
+  language: string | null;
+  publisher: string | null;
+  canonical_url: string | null;
+  publication_date: string | null;
+  version_label: string | null;
+  notes: string | null;
+  content_hash: string | null;
+  last_indexed_at: string | null;
+  last_seen_at: string | null;
+  document_count: number;
+  chunk_count: number;
+  error_summary: string | null;
+  scan_counts: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeStats {
+  sources: number;
+  documents: number;
+  chunks: number;
+  verified_sources: number;
+  unverified_sources: number;
+  failed_documents: number;
+  offline_sources: number;
+  active_jobs: number;
+  last_sync_at: string | null;
+}
+
+export interface KnowledgeDocumentSummary {
+  id: string;
+  source_type: string;
+  file_path: string;
+  relative_name: string | null;
+  category: string;
+  title: string;
+  hash: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  source_id: string | null;
+  content_type: string;
+  language: string | null;
+  trust_level: string;
+  verification_status: string;
+  document_status: string;
+  size_bytes: number;
+  indexed_at: string | null;
+  knowledge_metadata: Record<string, unknown>;
+}
+
+export interface KnowledgeDocumentDetail extends KnowledgeDocumentSummary {
+  source_name: string | null;
+  modified_at: string | null;
+  content: string;
+  metadata: Record<string, unknown>;
+  references: Array<{
+    target: string;
+    alias: string | null;
+    resolved: boolean;
+    kind: string;
+    target_document_id: string | null;
+  }>;
 }
 
 export type MonitoringStatus = "healthy" | "degraded" | "unavailable";

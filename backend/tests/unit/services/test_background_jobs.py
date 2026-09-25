@@ -56,6 +56,18 @@ async def test_enqueue_claim_complete_and_dedupe(db: AsyncSession) -> None:
     assert {"queued", "claimed", "started", "completed"}.issubset(set(events))
 
 
+def test_knowledge_job_payload_is_allowlisted_and_path_free() -> None:
+    source_id = uuid.uuid4()
+    assert validate_payload("knowledge.source.sync", {"source_id": str(source_id)}) == {
+        "source_id": str(source_id)
+    }
+    with pytest.raises(JobValidationError):
+        validate_payload(
+            "knowledge.source.sync",
+            {"source_id": str(source_id), "path": "C:/private/vault"},
+        )
+
+
 @pytest.mark.asyncio
 async def test_priority_retry_and_exhaustion(db: AsyncSession) -> None:
     low = await enqueue_job(db, "monitoring.refresh", {}, priority=20)

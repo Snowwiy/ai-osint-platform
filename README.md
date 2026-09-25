@@ -53,7 +53,9 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Evidence intelligence, IOC correlation, and threat intelligence workspace
 - Playbooks, remediation workflow, case review, report approval, and audit trail
 - HTML, Markdown, PDF, and DOCX report exports
+- Local Knowledge library for operator-selected Obsidian vault files and reference documents, with source provenance, trust/review metadata, bounded incremental indexing, keyword search, and optional local vector retrieval
 - Optional AI analysis with deterministic fallback when the provider is unavailable
+- Knowledge ingestion, indexing, filtering, and citation work without an external AI service. Imported content remains local and is added to reports only when the operator explicitly selects references.
 - Operations Center with health, diagnostics, backups, restore dry-run validation
 - Local Monitoring Center with service telemetry, RBAC-aware investigation
   watch, private-range LAN discovery, agentless neighbor and bounded TCP
@@ -102,6 +104,16 @@ The backend owns authorization, persistence, report generation, workflow logic,
 and deterministic intelligence services. The frontend consumes existing API
 contracts and presents analyst, executive, governance, and operations views.
 Packaged desktop startup is supervised by Tauri. Source development can use Docker Compose, Vite, and the Celery compatibility profile.
+
+Obsidian vaults are selected locally and retained as private, read-only source
+locations for operator-triggered incremental sync. Individual document uploads
+are copied into RavenTech-managed storage. Search results retain source,
+relative document name, section/page where available, content hash, trust level,
+and verification state. Import does not imply verification, and source URLs
+are descriptive metadata; RavenTech does not fetch them automatically.
+Removing a source removes its RavenTech index and any managed upload snapshot,
+never the selected original files. See
+[LOCAL_KNOWLEDGE.md](LOCAL_KNOWLEDGE.md) for source management and privacy details.
 
 ## Tech Stack
 

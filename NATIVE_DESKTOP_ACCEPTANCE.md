@@ -355,5 +355,21 @@ implemented here.
   README links the professional product specification and contains no internal
   milestone, prompt, or agent-tool chronology.
 - Windows clean-machine acceptance remains **NOT RUN**; Linux clean-machine and
-  Linux GUI acceptance remain **NOT RUN**. Knowledge/Obsidian ingestion is not
-  implemented.
+  Linux GUI acceptance remain **NOT RUN**.
+
+## Local Knowledge acceptance
+
+Knowledge source support uses an authenticated selected-file snapshot and the
+native PostgreSQL worker. The accepted design does not store the original
+vault's absolute path or monitor it in the background. Administrators can
+review trust and verification metadata, synchronize selected file updates, and
+remove the managed copy/index without deleting originals. Search and citation
+are local; imported content is not automatically added to reports or uploaded
+to external AI services. See [LOCAL_KNOWLEDGE.md](LOCAL_KNOWLEDGE.md) for the
+operational behavior and snapshot limitations.
+
+Synthetic fixtures cover Markdown/frontmatter/tags, PDF/DOCX/HTML/TXT/JSON/CSV,
+Obsidian links and bounded embeds, hashes, incremental reconciliation, source
+removal, path/symlink containment, search filters, trust metadata, explicit
+report citations, and Operations Center counters. A live operator vault was
+not accessed.

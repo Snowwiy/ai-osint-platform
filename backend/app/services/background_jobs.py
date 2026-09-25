@@ -27,6 +27,7 @@ ALLOWED_TYPES = {
     "monitoring.refresh": set(),
     "monitoring.lan_discovery": set(),
     "monitoring.service_observation": set(),
+    "knowledge.source.sync": {"source_id"},
 }
 FORBIDDEN_KEYS = (
     "password",
@@ -65,6 +66,11 @@ def validate_payload(job_type: str, payload: dict[str, Any]) -> dict[str, Any]:
             return {"asset_id": str(uuid.UUID(str(payload["asset_id"])))}
         except (ValueError, TypeError, KeyError) as exc:
             raise JobValidationError("A valid asset identifier is required.") from exc
+    if "source_id" in allowed:
+        try:
+            return {"source_id": str(uuid.UUID(str(payload["source_id"])))}
+        except (ValueError, TypeError, KeyError) as exc:
+            raise JobValidationError("A valid source identifier is required.") from exc
     return {}
 
 
@@ -144,9 +150,9 @@ async def enqueue_job(
             return concurrent
     depth = (
         await db.execute(
-            select(func.count()).select_from(BackgroundJob).where(
-                BackgroundJob.status.in_(WAITING)
-            )
+            select(func.count())
+            .select_from(BackgroundJob)
+            .where(BackgroundJob.status.in_(WAITING))
         )
     ).scalar_one()
     if depth >= settings.NATIVE_WORKER_MAX_QUEUE_DEPTH:
@@ -195,25 +201,29 @@ async def enqueue_job(
 async def claim_job(db: AsyncSession, worker_id: str) -> BackgroundJob | None:
     now = datetime.now(UTC)
     candidates = (
-        await db.execute(
-            select(BackgroundJob)
-            .where(
-                BackgroundJob.status.in_(("queued", "scheduled", "retry_wait")),
-                BackgroundJob.scheduled_at <= now,
-                or_(
-                    BackgroundJob.next_retry_at.is_(None),
-                    BackgroundJob.next_retry_at <= now,
-                ),
+        (
+            await db.execute(
+                select(BackgroundJob)
+                .where(
+                    BackgroundJob.status.in_(("queued", "scheduled", "retry_wait")),
+                    BackgroundJob.scheduled_at <= now,
+                    or_(
+                        BackgroundJob.next_retry_at.is_(None),
+                        BackgroundJob.next_retry_at <= now,
+                    ),
+                )
+                .order_by(
+                    BackgroundJob.priority.desc(),
+                    BackgroundJob.scheduled_at,
+                    BackgroundJob.created_at,
+                )
+                .with_for_update(skip_locked=True)
+                .limit(20)
             )
-            .order_by(
-                BackgroundJob.priority.desc(),
-                BackgroundJob.scheduled_at,
-                BackgroundJob.created_at,
-            )
-            .with_for_update(skip_locked=True)
-            .limit(20)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     job = None
     for candidate in candidates:
         type_lock = (
@@ -226,7 +236,9 @@ async def claim_job(db: AsyncSession, worker_id: str) -> BackgroundJob | None:
             continue
         running = (
             await db.execute(
-                select(func.count()).select_from(BackgroundJob).where(
+                select(func.count())
+                .select_from(BackgroundJob)
+                .where(
                     BackgroundJob.job_type == candidate.job_type,
                     BackgroundJob.status.in_(("running", "cancel_requested")),
                 )

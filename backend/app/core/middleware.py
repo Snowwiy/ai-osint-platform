@@ -42,7 +42,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        request_id = request.headers.get(settings.REQUEST_ID_HEADER) or str(uuid.uuid4())
+        request_id = request.headers.get(settings.REQUEST_ID_HEADER) or str(
+            uuid.uuid4()
+        )
         request.state.request_id = request_id
         token = set_request_id(request_id)
         started_at = time.perf_counter()
@@ -75,7 +77,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
         if request.url.path not in {"/docs", "/redoc", "/openapi.json"}:
             response.headers.setdefault(
                 "Content-Security-Policy",
@@ -106,7 +110,25 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
             request_size = int(content_length) if content_length else 0
         except ValueError:
             request_size = 0
-        if request_size > self.max_body_size:
+        path_parts = request.url.path.strip("/").split("/")
+        is_knowledge_upload = (
+            request.method == "POST"
+            and path_parts[:4] == ["api", "v1", "knowledge", "sources"]
+            and (
+                path_parts[4:] in (["upload"], ["obsidian-vault"])
+                or len(path_parts) == 6
+                and path_parts[5] == "upload"
+                and _is_uuid_segment(path_parts[4])
+            )
+        )
+        from app.core.config import settings
+
+        body_limit = (
+            settings.KNOWLEDGE_MAX_UPLOAD_BYTES + 1_048_576
+            if is_knowledge_upload
+            else self.max_body_size
+        )
+        if request_size > body_limit:
             return JSONResponse(
                 status_code=413,
                 content=error_payload(

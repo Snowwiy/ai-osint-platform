@@ -38,3 +38,37 @@ def test_chunk_document_splits_large_sections_on_paragraphs() -> None:
 
     assert len(chunks) >= 2
     assert all(chunk.content.startswith("# Long Note") for chunk in chunks)
+
+
+def test_chunk_document_keeps_fenced_code_blocks_with_blank_lines_intact() -> None:
+    chunks = chunk_document(
+        "# Safe example\n\nIntro text.\n\n"
+        "```text\nline one\n\nline two\n```\n\nConclusion.",
+        max_chars=120,
+    )
+    code_chunks = [chunk.content for chunk in chunks if "```text" in chunk.content]
+    assert len(code_chunks) == 1
+    assert "line one\n\nline two\n```" in code_chunks[0]
+
+
+def test_chunk_document_splits_large_code_at_safe_boundaries() -> None:
+    code = "\n".join(
+        f"line_{index} = 'bounded illustrative text'" for index in range(30)
+    )
+    chunks = chunk_document(
+        "# Boundaries\n\n"
+        + ("An oversized explanatory paragraph remains searchable. " * 8)
+        + "\n\n```python\n"
+        + code
+        + "\n```",
+        max_chars=120,
+    )
+
+    assert len(chunks) > 2
+    assert all(len(chunk.content) <= 120 for chunk in chunks)
+    code_chunks = [chunk.content for chunk in chunks if "```python" in chunk.content]
+    assert len(code_chunks) > 1
+    assert all(
+        chunk.count("```python") == 1 and chunk.rstrip().endswith("```")
+        for chunk in code_chunks
+    )

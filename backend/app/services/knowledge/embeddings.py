@@ -44,5 +44,6 @@ class LocalSentenceTransformerEmbedder:
             )
             SentenceTransformer = sentence_transformers.SentenceTransformer
 
-            self._model = SentenceTransformer(self._model_name)
+            # Never download a model as a side effect of ingestion/search.
+            self._model = SentenceTransformer(self._model_name, local_files_only=True)
         return self._model

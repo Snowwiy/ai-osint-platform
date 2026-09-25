@@ -1,5 +1,18 @@
 # Troubleshooting
 
+## Knowledge source did not index
+
+Check **Operations Center → Knowledge index** for the source state, bounded
+scan counts, and sanitized error category. Unsupported and oversized files
+are skipped; parser failures do not make the backend unhealthy. Confirm the
+selected file type and configured Knowledge size limits, then reselect the
+updated files and run **Sync**. A source is a RavenTech-managed snapshot, not a
+live filesystem watch. Trust and verification must be reviewed separately.
+
+If a selected-file snapshot reports a boundary or ownership error, do not edit
+its storage path or marker manually. Remove the source from RavenTech and add
+the selected files again; source removal does not delete the original files.
+
 > Legacy implementation reference. Use `TROUBLESHOOTING.md` and
 > `LOCAL_HEALTH_REPAIR.md` at the repository root for the current RC3 local
 > runbooks. This file is retained as historical context.

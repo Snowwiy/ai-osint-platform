@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { BookmarkButton } from "../components/BookmarkButton";
 import { InvestigationTabs } from "../components/InvestigationTabs";
@@ -26,6 +26,8 @@ import {
   decideReportApproval,
   downloadReport,
   getFeatureAvailability,
+  listKnowledgeDocuments,
+  listKnowledgeSources,
   listReports,
   listReportTemplates,
   previewReportQuality,
@@ -43,6 +45,8 @@ import type {
   ReportSummary,
   ReportTemplate,
   ReportType,
+  KnowledgeDocumentSummary,
+  KnowledgeSource,
 } from "../types";
 
 const formats: ReportFormat[] = ["pdf", "docx", "html", "md"];
@@ -68,6 +72,7 @@ export function ReportsPage(): JSX.Element {
   const [reportLanguage, setReportLanguage] = useState<AppLanguage>(language);
   const [templateId, setTemplateId] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState<string[]>([]);
   const features = useQuery({
     queryKey: ["feature-availability"],
     queryFn: getFeatureAvailability,
@@ -97,6 +102,30 @@ export function ReportsPage(): JSX.Element {
     queryFn: () => listReportTemplates(),
     staleTime: 60_000,
   });
+  const knowledgeSources = useQuery({
+    queryKey: ["knowledge-sources", "report-picker"],
+    queryFn: listKnowledgeSources,
+    staleTime: 30_000,
+  });
+  const selectableSources = safeArray(knowledgeSources.data?.items).filter(
+    (source) => source.status !== "disabled",
+  );
+  const knowledgeDocumentQueries = useQueries({
+    queries: selectableSources.map((source) => ({
+      queryKey: ["knowledge-documents", source.id],
+      queryFn: () => listKnowledgeDocuments(source.id),
+      staleTime: 30_000,
+    })),
+  });
+  const selectableKnowledge = useMemo(
+    () =>
+      selectableSources.flatMap((source, index) =>
+        safeArray(knowledgeDocumentQueries[index]?.data?.items)
+          .filter((item) => ["ready", "sensitive_content_warning"].includes(item.document_status))
+          .map((document) => ({ source, document })),
+      ),
+    [knowledgeDocumentQueries, selectableSources],
+  );
   const templateItems = useMemo(
     () => templates.data?.items ?? [],
     [templates.data?.items],
@@ -132,6 +161,7 @@ export function ReportsPage(): JSX.Element {
         template_id: selectedTemplate?.id,
         output_format: format,
         language: reportLanguage,
+        knowledge_document_ids: selectedKnowledgeIds,
       }),
     onSuccess: async (report) => {
       await invalidateReports(queryClient, investigationId);
@@ -382,7 +412,22 @@ export function ReportsPage(): JSX.Element {
           </Field>
           <button
             type="button"
-            onClick={() => generateReport.mutate()}
+            onClick={() => {
+              const selectedSensitive = selectableKnowledge.some(
+                ({ document }) =>
+                  selectedKnowledgeIds.includes(document.id) &&
+                  document.document_status === "sensitive_content_warning",
+              );
+              if (
+                selectedSensitive &&
+                !window.confirm(
+                  t("A selected Knowledge document has a sensitive-content warning. Include this explicitly selected reference in the report?"),
+                )
+              ) {
+                return;
+              }
+              generateReport.mutate();
+            }}
             disabled={generateReport.isPending || templates.isLoading}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-raven-violet px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-60"
           >
@@ -394,6 +439,19 @@ export function ReportsPage(): JSX.Element {
             Generate
           </button>
         </div>
+        <KnowledgeReferencePicker
+          items={selectableKnowledge}
+          selectedIds={selectedKnowledgeIds}
+          loading={knowledgeSources.isLoading || knowledgeDocumentQueries.some((query) => query.isLoading)}
+          onToggle={(documentId) =>
+            setSelectedKnowledgeIds((current) => {
+              if (current.includes(documentId)) {
+                return current.filter((id) => id !== documentId);
+              }
+              return current.length >= 20 ? current : [...current, documentId];
+            })
+          }
+        />
         {selectedTemplate ? (
           <TemplatePreview template={selectedTemplate} />
         ) : (
@@ -453,6 +511,59 @@ export function ReportsPage(): JSX.Element {
         />
       )}
     </>
+  );
+}
+
+function KnowledgeReferencePicker({
+  items,
+  selectedIds,
+  loading,
+  onToggle,
+}: {
+  items: Array<{ source: KnowledgeSource; document: KnowledgeDocumentSummary }>;
+  selectedIds: string[];
+  loading: boolean;
+  onToggle: (documentId: string) => void;
+}): JSX.Element {
+  const { t } = useI18n();
+  return (
+    <details className="mt-4 rounded-md border border-raven-border bg-raven-panelSoft p-3">
+      <summary className="cursor-pointer text-sm font-medium text-raven-text">
+        {t("Select local Knowledge references")} ({selectedIds.length}/20)
+      </summary>
+      <p className="mt-2 text-xs text-raven-muted">
+        {t("References are added only when selected here. Imported content is not sent to an AI service.")}
+      </p>
+      {loading ? <p className="mt-2 text-xs text-raven-muted">{t("Loading indexed references…")}</p> : null}
+      {!loading && items.length === 0 ? (
+        <p className="mt-2 text-xs text-raven-muted">{t("No indexed local references are available.")}</p>
+      ) : null}
+      <div className="mt-2 max-h-64 space-y-2 overflow-auto">
+        {items.map(({ source, document }) => {
+          const checked = selectedIds.includes(document.id);
+          const sensitive = document.document_status === "sensitive_content_warning";
+          return (
+            <label key={document.id} className="flex items-start gap-2 rounded border border-raven-border p-2 text-xs">
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={!checked && selectedIds.length >= 20}
+                onChange={() => onToggle(document.id)}
+                aria-label={`Include ${document.title} from ${source.name}`}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block font-medium text-raven-text">{document.title}</span>
+                <span className="block text-raven-muted">
+                  {source.name} · {document.relative_name ?? document.title} · {source.trust_level} / {source.verification_status}
+                </span>
+                {sensitive ? <span className="block text-amber-500">{t("Sensitive-content warning; explicit confirmation is required at generation.")}</span> : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </details>
   );
 }
 

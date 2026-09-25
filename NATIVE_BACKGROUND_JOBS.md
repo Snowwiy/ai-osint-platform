@@ -17,16 +17,16 @@ RavenTech has a PostgreSQL job engine. In desktop runtime, Tauri starts the fixe
 | Threat intelligence | Synchronous | Retained synchronous | Keep provider limits and immediate results |
 | Evidence processing | Synchronous | Retained synchronous | Preserve evidence provenance and transactions |
 | Demo jobs | Synchronous | Retained synchronous | Optional; no Celery task |
-| Knowledge ingestion | No background implementation | Reserved for future phase only | No handler or executable payload accepted |
+| Knowledge source synchronization and indexing | PostgreSQL native queue | `knowledge.source.sync` allowlisted handler | Bounded selected-file snapshot, idempotent hash reconciliation, no external upload |
 | Celery task module | Registered module has no task definitions | Compatibility retained | Redis broker/result settings remain |
 
 ## Queue and worker
 
 `background_jobs` persists status, priority, safe payload, progress, timestamps, attempts, retry time, dedupe key, owner, asset/investigation references, worker identity, and cancellation state. `background_job_events` records coarse transitions. A partial unique index protects active dedupe keys. Claiming uses `FOR UPDATE SKIP LOCKED`, ordered by priority and schedule. The worker heartbeats itself and running jobs, recovers stale leases, retries transient failures with bounded exponential backoff, and stops gracefully. Selected handlers are idempotent; a crash after an external side effect can require manual review, so new handlers must define an idempotency strategy.
 
-Only registered job types and exact payload schemas are accepted. Current handlers are `posture.recompute`, `recommendations.recompute`, and `monitoring.refresh`. There is no generic import, Python execution, shell execution, URL fetch, or command field. Payloads exclude credentials, tokens, command lines, and raw banners. Error summaries and audit metadata are sanitized. Cancellation is cooperative: queued jobs stop immediately; running jobs finish their current safe boundary before cancellation takes effect. It never terminates an OS process.
+Only registered job types and exact payload schemas are accepted. Current handlers include `posture.recompute`, `recommendations.recompute`, `monitoring.refresh`, and `knowledge.source.sync`. There is no generic import, Python execution, shell execution, URL fetch, or command field. Payloads exclude credentials, tokens, command lines, source paths, file bytes, and raw banners. Error summaries and audit metadata are sanitized. Cancellation is cooperative: queued jobs stop immediately; running jobs finish their current safe boundary before cancellation takes effect. It never terminates an OS process.
 
-Future Knowledge ingestion should dispatch through this background-job abstraction after a dedicated allowlisted, idempotent handler and payload schema are designed. No Knowledge ingestion handler is implemented in Phase 5BI.
+Knowledge source synchronization dispatches through the fixed `knowledge.source.sync` handler and a schema-validated source UUID payload. Source bytes and absolute paths are not put in the job payload. Future import/index/reindex workflows must use the same dispatcher and add fixed handlers rather than dynamic module or callable names.
 
 ## Configuration and operations
 
@@ -46,7 +46,7 @@ If a worker stops, restart it and inspect its heartbeat and failed jobs in Opera
 
 ## Docker decoupling roadmap
 
-5BI: Native PostgreSQL worker (complete). 5BJ: Desktop Redis/Celery independence (complete). 5BK: Separate Windows/Linux backend and worker packaging (complete). 5BL: Tauri supervisor for native backend and worker (complete). 5BM: Managed PostgreSQL runtime (complete). 5BN: Docker-optional desktop finalization (complete). 5BO: Windows clean-machine acceptance. 5BP: Linux clean-machine acceptance. 5BQ: Obsidian plus verified Knowledge ingestion. Future phases remain documentation only here.
+Knowledge synchronization is an active native worker workflow. Future retrieval and ingestion improvements must preserve the fixed-handler contract, keep selected content out of job payloads, and retain the Docker/Celery compatibility runtime.
 
 ## Phase 5BJ desktop profile
 

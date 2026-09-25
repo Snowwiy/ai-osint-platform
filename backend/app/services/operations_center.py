@@ -14,9 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.audit_log import AuditLog
+from app.models.background_job import BackgroundJob
 from app.models.finding import Finding
 from app.models.investigation import Investigation
+from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_source import KnowledgeSource
 from app.models.report import Report
 from app.models.report_template import ReportTemplate
 from app.native_runtime import resource_path
@@ -25,6 +28,7 @@ from app.schemas.operations_center import (
     DiagnosticsPackageResponse,
     EnvironmentValidationItem,
     EnvironmentValidationResponse,
+    KnowledgeIndexHealth,
     OperationalStatus,
     OperationsComponentStatus,
     OperationsStatusResponse,
@@ -67,6 +71,73 @@ async def get_operations_status(
         components=components,
         storage=storage,
         recent_operations=await _recent_operation_events(db),
+        knowledge_index=await _knowledge_index_health(db),
+    )
+
+
+async def _knowledge_index_health(db: AsyncSession) -> KnowledgeIndexHealth:
+    sources = (await db.execute(select(KnowledgeSource))).scalars().all()
+    documents = int(
+        (
+            await db.execute(
+                select(func.count(KnowledgeDocument.id)).where(
+                    KnowledgeDocument.source_id.is_not(None)
+                )
+            )
+        ).scalar_one()
+    )
+    chunks = int(
+        (
+            await db.execute(
+                select(func.count(KnowledgeChunk.id))
+                .join(KnowledgeDocument)
+                .where(KnowledgeDocument.source_id.is_not(None))
+            )
+        ).scalar_one()
+    )
+    failed_documents = sum(
+        int((source.metadata_json or {}).get("scan_counts", {}).get("failed", 0))
+        for source in sources
+    )
+    offline_sources = sum(source.status == "offline" for source in sources)
+    active_jobs = int(
+        (
+            await db.execute(
+                select(func.count(BackgroundJob.id)).where(
+                    BackgroundJob.job_type == "knowledge.source.sync",
+                    BackgroundJob.status.in_(
+                        ("queued", "scheduled", "running", "retry_wait")
+                    ),
+                )
+            )
+        ).scalar_one()
+    )
+    health: Literal["healthy", "warning", "degraded"]
+    if (
+        failed_documents
+        or offline_sources
+        or any(source.status == "failed" for source in sources)
+    ):
+        health = "degraded"
+    elif active_jobs or any(
+        source.status in {"pending", "scanning", "indexing", "ready_with_warnings"}
+        for source in sources
+    ):
+        health = "warning"
+    else:
+        health = "healthy"
+    return KnowledgeIndexHealth(
+        health=health,
+        sources=len(sources),
+        documents=documents,
+        chunks=chunks,
+        failed_documents=failed_documents,
+        offline_sources=offline_sources,
+        last_sync_at=max(
+            (source.last_indexed_at for source in sources if source.last_indexed_at),
+            default=None,
+        ),
+        active_jobs=active_jobs,
     )
 
 
@@ -136,9 +207,7 @@ async def get_environment_validation() -> EnvironmentValidationResponse:
             name="REGISTRATION_INVITE_CODE",
             scope="backend",
             status=(
-                "configured"
-                if settings.REGISTRATION_INVITE_CODE.strip()
-                else "missing"
+                "configured" if settings.REGISTRATION_INVITE_CODE.strip() else "missing"
             ),
             required=False,
             detail=(
@@ -446,10 +515,7 @@ def _overall_status(
     components: dict[str, OperationsComponentStatus],
 ) -> OperationalStatus:
     optional = {"redis"} if settings.background_engine == "native" else set()
-    if (
-        settings.background_engine == "native"
-        and not settings.NATIVE_WORKER_ENABLED
-    ):
+    if settings.background_engine == "native" and not settings.NATIVE_WORKER_ENABLED:
         optional.add("worker")
     statuses = [
         component.status
@@ -564,9 +630,7 @@ async def _count(db: AsyncSession, model: type[Any]) -> int:
 async def _report_storage_bytes(db: AsyncSession) -> int:
     try:
         value = (
-            await db.execute(
-                select(func.coalesce(func.sum(Report.file_size_bytes), 0))
-            )
+            await db.execute(select(func.coalesce(func.sum(Report.file_size_bytes), 0)))
         ).scalar_one()
         return int(value or 0)
     except Exception:

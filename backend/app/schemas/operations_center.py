@@ -47,6 +47,17 @@ class RecentOperationEvent(BaseModel):
     created_at: datetime
 
 
+class KnowledgeIndexHealth(BaseModel):
+    health: Literal["healthy", "warning", "degraded"]
+    sources: int = Field(ge=0)
+    documents: int = Field(ge=0)
+    chunks: int = Field(ge=0)
+    failed_documents: int = Field(ge=0)
+    offline_sources: int = Field(ge=0)
+    last_sync_at: datetime | None = None
+    active_jobs: int = Field(ge=0)
+
+
 class OperationsStatusResponse(BaseModel):
     generated_at: datetime
     runtime_profile: Literal["desktop", "docker", "development"] = "docker"
@@ -57,6 +68,7 @@ class OperationsStatusResponse(BaseModel):
     components: dict[str, OperationsComponentStatus]
     storage: StorageMetrics
     recent_operations: list[RecentOperationEvent]
+    knowledge_index: KnowledgeIndexHealth
 
 
 class EnvironmentValidationItem(BaseModel):

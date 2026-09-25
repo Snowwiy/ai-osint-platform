@@ -126,6 +126,10 @@ import type {
   InvestigationTaskUpdateRequest,
   InvestigationUpdateRequest,
   KnowledgeSearchResponse,
+  KnowledgeSource,
+  KnowledgeStats,
+  KnowledgeDocumentSummary,
+  KnowledgeDocumentDetail,
   MaintenanceDryRunResponse,
   IOCConfidence,
   IOCCorrelationResponse,
@@ -2317,9 +2321,95 @@ export async function downloadReport(
   );
 }
 
-export async function searchKnowledge(query: string): Promise<KnowledgeSearchResponse> {
+export async function searchKnowledge(query: string, filters: { source_id?: string; trust_level?: string; verified_only?: boolean; language?: string; category?: string; tags?: string[] } = {}): Promise<KnowledgeSearchResponse> {
   const params = new URLSearchParams({ q: query, mode: "hybrid", limit: "10" });
+  if (filters.source_id) params.set("source_id", filters.source_id);
+  if (filters.trust_level) params.set("trust_level", filters.trust_level);
+  if (filters.verified_only) params.set("verified_only", "true");
+  if (filters.language) params.set("language", filters.language);
+  if (filters.category) params.set("category", filters.category);
+  filters.tags?.forEach((tag) => params.append("tags", tag));
   return request<KnowledgeSearchResponse>(`/knowledge/search?${params.toString()}`);
+}
+
+export async function listKnowledgeSources(): Promise<{ total: number; items: KnowledgeSource[] }> {
+  return request("/knowledge/sources");
+}
+
+export async function getKnowledgeStats(): Promise<KnowledgeStats> {
+  return request("/knowledge/stats");
+}
+
+export async function listKnowledgeDocuments(sourceId: string): Promise<{ total: number; items: KnowledgeDocumentSummary[] }> {
+  const params = new URLSearchParams({ source_id: sourceId, limit: "100" });
+  return request(`/knowledge/documents?${params.toString()}`);
+}
+
+export async function getKnowledgeDocument(documentId: string): Promise<KnowledgeDocumentDetail> {
+  return request<KnowledgeDocumentDetail>(`/knowledge/documents/${encodeURIComponent(documentId)}`);
+}
+
+export async function addObsidianVault(name: string, files: File[], trustLevel: string, verificationStatus: string, category = "Other", metadata: { publisher?: string; canonicalUrl?: string; publicationDate?: string; version?: string; notes?: string; language?: string } = {}, sourceRootPath?: string): Promise<KnowledgeSource> {
+  const body = new FormData();
+  body.set("name", name);
+  body.set("trust_level", trustLevel);
+  body.set("verification_status", verificationStatus);
+  body.set("category", category);
+  if (metadata.publisher) body.set("publisher", metadata.publisher);
+  if (metadata.canonicalUrl) body.set("canonical_url", metadata.canonicalUrl);
+  if (metadata.publicationDate) body.set("publication_date", metadata.publicationDate);
+  if (metadata.version) body.set("version_label", metadata.version);
+  if (metadata.notes) body.set("notes", metadata.notes);
+  if (metadata.language) body.set("language", metadata.language);
+  if (sourceRootPath) body.set("source_root_path", sourceRootPath);
+  for (const file of files) {
+    const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+    body.append("files", file, relative);
+    body.append("file_mtimes_ms", String(file.lastModified));
+  }
+  return request("/knowledge/sources/obsidian-vault", { method: "POST", body });
+}
+
+export async function uploadKnowledgeDocuments(name: string, files: File[], trustLevel: string, verificationStatus: string, metadata: { publisher?: string; canonicalUrl?: string; publicationDate?: string; version?: string; notes?: string; language?: string; category?: string } = {}): Promise<KnowledgeSource> {
+  const body = new FormData();
+  body.set("name", name);
+  body.set("trust_level", trustLevel);
+  body.set("verification_status", verificationStatus);
+  if (metadata.category) body.set("category", metadata.category);
+  if (metadata.publisher) body.set("publisher", metadata.publisher);
+  if (metadata.canonicalUrl) body.set("canonical_url", metadata.canonicalUrl);
+  if (metadata.publicationDate) body.set("publication_date", metadata.publicationDate);
+  if (metadata.version) body.set("version_label", metadata.version);
+  if (metadata.notes) body.set("notes", metadata.notes);
+  if (metadata.language) body.set("language", metadata.language);
+  files.forEach((file) => {
+    body.append("files", file, file.name);
+    body.append("file_mtimes_ms", String(file.lastModified));
+  });
+  return request("/knowledge/sources/upload", { method: "POST", body });
+}
+
+export async function replaceKnowledgeSourceFiles(sourceId: string, files: File[], sourceRootPath?: string): Promise<KnowledgeSource> {
+  const body = new FormData();
+  if (sourceRootPath) body.set("source_root_path", sourceRootPath);
+  for (const file of files) {
+    const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+    body.append("files", file, relative);
+    body.append("file_mtimes_ms", String(file.lastModified));
+  }
+  return request(`/knowledge/sources/${encodeURIComponent(sourceId)}/upload`, { method: "POST", body });
+}
+
+export async function syncKnowledgeSource(sourceId: string): Promise<KnowledgeSource> {
+  return request(`/knowledge/sources/${encodeURIComponent(sourceId)}/sync`, { method: "POST" });
+}
+
+export async function updateKnowledgeSource(sourceId: string, patch: Partial<Pick<KnowledgeSource, "category" | "trust_level" | "verification_status" | "notes" | "publisher" | "canonical_url" | "publication_date" | "version_label" | "language" | "status">>): Promise<KnowledgeSource> {
+  return request(`/knowledge/sources/${encodeURIComponent(sourceId)}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export async function removeKnowledgeSource(sourceId: string): Promise<void> {
+  return request(`/knowledge/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
 }
 
 export async function getDetectionKnowledge(
@@ -2546,7 +2636,7 @@ async function requestRoot<T>(
 
 function buildHeaders(options: RequestInitWithAuth): HeadersInit {
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
+  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   headers.set("Accept", "application/json");

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -56,6 +56,17 @@ class KnowledgeDocumentResponse(BaseModel):
     tags: list[str]
     created_at: datetime
     updated_at: datetime
+    source_id: uuid.UUID | None = None
+    relative_name: str | None = None
+    category: str = "Other"
+    content_type: str = "text/markdown"
+    language: str | None = None
+    trust_level: str = "unknown"
+    verification_status: str = "unverified"
+    document_status: str = "ready"
+    size_bytes: int = 0
+    indexed_at: datetime | None = None
+    knowledge_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class KnowledgeDocumentListResponse(BaseModel):
@@ -63,11 +74,86 @@ class KnowledgeDocumentListResponse(BaseModel):
     items: list[KnowledgeDocumentResponse]
 
 
+class KnowledgeSourceResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    source_type: str
+    display_location: str
+    category: str
+    platform: str | None
+    availability: str
+    status: str
+    trust_level: str
+    verification_status: str
+    language: str | None
+    publisher: str | None
+    canonical_url: str | None
+    publication_date: str | None
+    version_label: str | None
+    notes: str | None
+    content_hash: str | None = None
+    last_indexed_at: datetime | None
+    last_seen_at: datetime | None
+    document_count: int
+    chunk_count: int
+    error_summary: str | None
+    scan_counts: dict[str, int] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class KnowledgeSourceListResponse(BaseModel):
+    total: int
+    items: list[KnowledgeSourceResponse]
+
+
+class KnowledgeSourcePatch(BaseModel):
+    category: str | None = Field(default=None, max_length=80)
+    trust_level: (
+        Literal["authoritative", "trusted", "internal", "community", "unknown"] | None
+    ) = None
+    verification_status: (
+        Literal["verified", "reviewed", "unverified", "stale", "rejected"] | None
+    ) = None
+    notes: str | None = Field(default=None, max_length=2000)
+    publisher: str | None = Field(default=None, max_length=200)
+    canonical_url: str | None = Field(default=None, max_length=1000)
+    publication_date: str | None = Field(default=None, max_length=40)
+    version_label: str | None = Field(default=None, max_length=120)
+    language: str | None = Field(default=None, max_length=16)
+    status: Literal["enabled", "disabled"] | None = None
+
+
+class KnowledgeStatsResponse(BaseModel):
+    sources: int
+    documents: int
+    chunks: int
+    verified_sources: int
+    unverified_sources: int
+    failed_documents: int
+    offline_sources: int
+    active_jobs: int
+    last_sync_at: datetime | None = None
+
+
 class KnowledgeSearchResult(BaseModel):
     document_id: uuid.UUID
     title: str
     source_type: KnowledgeSourceType
     file_path: str
+    citation_id: str = ""
+    source_id: uuid.UUID | None = None
+    source_name: str | None = None
+    relative_name: str | None = None
+    section: str | None = None
+    page_number: int | None = None
+    modified_at: datetime | None = None
+    indexed_at: datetime | None = None
+    language: str | None = None
+    trust_level: str = "unknown"
+    verification_status: str = "unverified"
+    sensitive_content_warning: bool = False
+    duplicate_of_document_id: uuid.UUID | None = None
     chunk: str
     score: float
     tags: list[str]
@@ -122,7 +208,7 @@ class KnowledgeCitation(BaseModel):
     chunk_id: str
     title: str
     source: str
-    framework: KnowledgeFramework
+    framework: str
     category: str
     confidence: float = Field(ge=0, le=1)
 

@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     CELERY_WORKER_CONCURRENCY: int = 2
 
     CHROMA_DATA_PATH: str = "/data/chroma"
+    KNOWLEDGE_MAX_FILE_BYTES: int = 5 * 1024 * 1024
+    KNOWLEDGE_MAX_SCAN_BYTES: int = 100 * 1024 * 1024
+    KNOWLEDGE_MAX_UPLOAD_BYTES: int = 50 * 1024 * 1024
+    KNOWLEDGE_MAX_UPLOAD_FILES: int = 1000
 
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
@@ -230,9 +234,7 @@ class Settings(BaseSettings):
         if self.LAN_DISCOVERY_INTERVAL_SECONDS < 60:
             errors.append("LAN_DISCOVERY_INTERVAL_SECONDS must be at least 60.")
         if not 15 <= self.MONITORING_AUTO_REFRESH_SECONDS <= 300:
-            errors.append(
-                "MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300."
-            )
+            errors.append("MONITORING_AUTO_REFRESH_SECONDS must be between 15 and 300.")
         if not 30 <= self.SERVER_HOST_METRICS_INTERVAL_SECONDS <= 3600:
             errors.append(
                 "SERVER_HOST_METRICS_INTERVAL_SECONDS must be between 30 and 3600."
@@ -246,9 +248,7 @@ class Settings(BaseSettings):
                 "POSTURE_RECOMPUTE_INTERVAL_SECONDS must be between 300 and 86400."
             )
         if self.LAN_AUTO_DISCOVERY_INTERVAL_SECONDS < 300:
-            errors.append(
-                "LAN_AUTO_DISCOVERY_INTERVAL_SECONDS must be at least 300."
-            )
+            errors.append("LAN_AUTO_DISCOVERY_INTERVAL_SECONDS must be at least 300.")
         if self.LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS < 600:
             errors.append(
                 "LAN_AUTO_SERVICE_CHECK_INTERVAL_SECONDS must be at least 600."
@@ -359,7 +359,8 @@ class Settings(BaseSettings):
             )
         if self.LAN_MONITORING_ENABLED and not self.LAN_AGENT_TOKEN:
             warnings.append(
-                "LAN_AGENT_TOKEN is empty; endpoint-agent registration and telemetry are disabled."
+                "LAN_AGENT_TOKEN is empty; endpoint-agent registration and "
+                "telemetry are disabled."
             )
         return warnings
 

@@ -37,6 +37,9 @@ from app.models.investigation_note import InvestigationNote
 from app.models.investigation_tag import InvestigationTag, InvestigationTagLink
 from app.models.investigation_task import InvestigationTask
 from app.models.investigation_workflow_event import InvestigationWorkflowEvent
+from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_source import KnowledgeSource
 from app.models.lan_monitoring import LanAsset
 from app.models.playbook import (
     DefensivePlaybook,
@@ -288,6 +291,11 @@ async def create_report(
         report_type=body.report_type,
         template_id=body.template_id,
     )
+    selected_knowledge_ids = body.knowledge_document_ids
+    if selected_knowledge_ids:
+        # Validate explicit citations before creating a report record. Imported
+        # knowledge is never added to a report implicitly.
+        await _selected_knowledge_citations(db, selected_knowledge_ids)
     branding = await get_report_branding(db)
     default_title = (
         f"Informe {body.report_type.replace('_', ' ').title()} — {investigation.title}"
@@ -311,6 +319,9 @@ async def create_report(
             "sections": _template_sections(report_template, body.report_type),
             "branding": branding.model_dump(),
             "language": body.language,
+            "selected_knowledge_document_ids": [
+                str(item) for item in selected_knowledge_ids
+            ],
         },
     )
     db.add(report)
@@ -445,6 +456,7 @@ async def _generate_report_content(
             investigation,
             report.report_type,
             enabled_sections=sections,
+            selected_knowledge_ids=_report_knowledge_ids(report.report_metadata),
         )
         context = _governed_context(context, controls)
         report.progress_label = "Rendering report content"
@@ -470,13 +482,14 @@ async def _generate_report_content(
                     report_template.name if report_template is not None else None
                 ),
                 "sections": sections,
-                "quality_warnings": [
-                    warning.model_dump() for warning in warnings
-                ],
+                "quality_warnings": [warning.model_dump() for warning in warnings],
                 "preferred_format": report.report_format,
                 "export_controls": controls.model_dump(),
                 "branding": branding.model_dump(),
                 "language": language,
+                "selected_knowledge_document_ids": [
+                    str(item) for item in _report_knowledge_ids(report.report_metadata)
+                ],
             }
         )
         report.html_content = html
@@ -543,9 +556,7 @@ def _apply_report_governance(
     controls: ExportControlSettings,
     branding: dict[str, object],
 ) -> tuple[str, str]:
-    confidentiality = str(
-        branding.get("confidentiality_label") or "Internal"
-    )
+    confidentiality = str(branding.get("confidentiality_label") or "Internal")
     footer = str(branding.get("footer_text") or "")
     if controls.watermark_exports:
         markdown = f"> **{confidentiality}**\n\n{markdown}"
@@ -671,9 +682,7 @@ def render_markdown_report(context: ReportContext) -> str:
                 "",
             ]
         )
-        lines.extend(
-            f"- {item}" for item in context.monitoring_suggestions[:3]
-        )
+        lines.extend(f"- {item}" for item in context.monitoring_suggestions[:3])
         lines.extend(
             [
                 "",
@@ -691,76 +700,81 @@ def render_markdown_report(context: ReportContext) -> str:
                 "",
             ]
         )
+    client_name = context.engagement.client_name if context.engagement else "Not linked"
+    authorization_status = (
+        context.engagement.authorization_status
+        if context.engagement
+        else "not_provided"
+    )
+    scope_notes = (
+        context.investigation.scope_notes or "No scope review notes stored."
+    )
     lines.extend(
         [
-        f"Workflow status: {context.investigation.status}",
-        f"Investigation risk: {context.investigation_risk_category} "
-        f"({context.investigation_risk_score}/100)",
-        f"Case owner: {context.investigation.owner_id}",
-        f"Reviewer: {context.investigation.reviewer_id or 'Unassigned'}",
-        f"Members: {len(context.members)}",
-        f"Assigned analysts: {_assigned_analyst_count(context.members)}",
-        f"Watchers: {_watcher_count(context.members)}",
-        f"Open escalations: {len(context.escalations)}",
-        f"Priority: {context.investigation.priority}",
-        (
-            "Due date: "
-            f"{context.investigation.due_date or 'No investigation due date set'}"
-        ),
-        "Tags: " + (", ".join(tag.name for tag in context.tags) or "None"),
-        "",
-        "### Business Impact",
-        "",
-        context.business_impact,
-        "",
-        "### Severity Heatmap",
-        "",
-        f"- Critical: {context.severity_heatmap['critical']}",
-        f"- High: {context.severity_heatmap['high']}",
-        f"- Medium: {context.severity_heatmap['medium']}",
-        f"- Low: {context.severity_heatmap['low']}",
-        f"- Info: {context.severity_heatmap['info']}",
-        f"- Risk score: {context.risk_summary['highest_score']}",
-        f"- Open remediation tasks: {context.remediation_progress['open']}",
-        f"- Validated findings: {context.remediation_progress['validated_findings']}",
-        f"- Unresolved findings: {context.remediation_progress['unresolved_findings']}",
-        f"- Accepted risks: {context.remediation_progress['accepted_risk_findings']}",
-        f"- Completed playbooks: {context.remediation_progress['playbooks_completed']}",
-        f"- Triage score: {context.operations_summary['triage_score']}/100",
-        f"- Triage category: {context.operations_summary['triage_category']}",
-        (
-            "- Remediation completion: "
-            f"{context.operations_summary['remediation_completion_percent']}%"
-        ),
-        "",
-        "## Scope and Authorization",
-        "",
-        f"Engagement: {_engagement_label(context)}",
-        "",
-        (
-            "Client: "
-            f"{context.engagement.client_name if context.engagement else 'Not linked'}"
-        ),
-        "",
-        (
-            "Engagement authorization status: "
-            f"{context.engagement.authorization_status if context.engagement else 'not_provided'}"
-        ),
-        "",
-        f"Authorization: {context.investigation.authorization_statement}",
-        "",
-        f"Scope: {context.investigation.scope_definition or 'No scope note provided.'}",
-        "",
-        (
-            "Investigation scope review: "
-            f"{context.investigation.scope_review_status}"
-        ),
-        "",
-        (
-            "Scope notes: "
-            f"{context.investigation.scope_notes or 'No scope review notes stored.'}"
-        ),
-        "",
+            f"Workflow status: {context.investigation.status}",
+            f"Investigation risk: {context.investigation_risk_category} "
+            f"({context.investigation_risk_score}/100)",
+            f"Case owner: {context.investigation.owner_id}",
+            f"Reviewer: {context.investigation.reviewer_id or 'Unassigned'}",
+            f"Members: {len(context.members)}",
+            f"Assigned analysts: {_assigned_analyst_count(context.members)}",
+            f"Watchers: {_watcher_count(context.members)}",
+            f"Open escalations: {len(context.escalations)}",
+            f"Priority: {context.investigation.priority}",
+            (
+                "Due date: "
+                f"{context.investigation.due_date or 'No investigation due date set'}"
+            ),
+            "Tags: " + (", ".join(tag.name for tag in context.tags) or "None"),
+            "",
+            "### Business Impact",
+            "",
+            context.business_impact,
+            "",
+            "### Severity Heatmap",
+            "",
+            f"- Critical: {context.severity_heatmap['critical']}",
+            f"- High: {context.severity_heatmap['high']}",
+            f"- Medium: {context.severity_heatmap['medium']}",
+            f"- Low: {context.severity_heatmap['low']}",
+            f"- Info: {context.severity_heatmap['info']}",
+            f"- Risk score: {context.risk_summary['highest_score']}",
+            f"- Open remediation tasks: {context.remediation_progress['open']}",
+            f"- Validated findings: "
+            f"{context.remediation_progress['validated_findings']}",
+            f"- Unresolved findings: "
+            f"{context.remediation_progress['unresolved_findings']}",
+            f"- Accepted risks: "
+            f"{context.remediation_progress['accepted_risk_findings']}",
+            f"- Completed playbooks: "
+            f"{context.remediation_progress['playbooks_completed']}",
+            f"- Triage score: {context.operations_summary['triage_score']}/100",
+            f"- Triage category: {context.operations_summary['triage_category']}",
+            (
+                "- Remediation completion: "
+                f"{context.operations_summary['remediation_completion_percent']}%"
+            ),
+            "",
+            "## Scope and Authorization",
+            "",
+            f"Engagement: {_engagement_label(context)}",
+            "",
+            f"Client: {client_name}",
+            "",
+            f"Engagement authorization status: {authorization_status}",
+            "",
+            f"Authorization: {context.investigation.authorization_statement}",
+            "",
+            f"Scope: "
+            f"{context.investigation.scope_definition or 'No scope note provided.'}",
+            "",
+            (
+                "Investigation scope review: "
+                f"{context.investigation.scope_review_status}"
+            ),
+            "",
+            f"Scope notes: {scope_notes}",
+            "",
         ]
     )
     lines.extend(["### Approved Engagement Scope", ""])
@@ -787,7 +801,8 @@ def render_markdown_report(context: ReportContext) -> str:
             "",
             (
                 "This report uses stored passive recon entities, threat intelligence "
-                "findings, correlation findings, and local defensive knowledge citations."
+                "findings, correlation findings, and local defensive knowledge "
+                "citations."
             ),
             "",
             "## Key Findings",
@@ -821,9 +836,7 @@ def render_markdown_report(context: ReportContext) -> str:
     )
     if "threat_intelligence" in context.enabled_sections:
         if context.threat_intelligence_summary:
-            lines.extend(
-                f"- {item}" for item in context.threat_intelligence_summary
-            )
+            lines.extend(f"- {item}" for item in context.threat_intelligence_summary)
         else:
             lines.append(
                 "- No evidence-backed threat intelligence indicators, campaigns, "
@@ -836,9 +849,7 @@ def render_markdown_report(context: ReportContext) -> str:
     if context.review_workflow_summary:
         lines.extend(f"- {item}" for item in context.review_workflow_summary)
     else:
-        lines.append(
-            "- No formal case review workflow metadata is currently stored."
-        )
+        lines.append("- No formal case review workflow metadata is currently stored.")
     lines.extend(["", "### Case Closure and Deliverables", ""])
     if context.closure_workflow_summary:
         lines.extend(f"- {item}" for item in context.closure_workflow_summary)
@@ -990,9 +1001,7 @@ def render_markdown_report(context: ReportContext) -> str:
             lines.append("- No case handoffs are stored.")
         lines.extend(["", "### Recurring Infrastructure", ""])
         if context.recurring_infrastructure:
-            lines.extend(
-                f"- {item}" for item in context.recurring_infrastructure
-            )
+            lines.extend(f"- {item}" for item in context.recurring_infrastructure)
         else:
             lines.append(
                 "- No recurring infrastructure overlaps are visible to this user."
@@ -1009,9 +1018,7 @@ def render_markdown_report(context: ReportContext) -> str:
         if context.related_investigations:
             lines.extend(f"- {item}" for item in context.related_investigations)
         else:
-            lines.append(
-                "- No accessible investigations share stored infrastructure."
-            )
+            lines.append("- No accessible investigations share stored infrastructure.")
 
     lines.extend(["", "## Remediation Tracking", ""])
     lines.extend(
@@ -1049,8 +1056,7 @@ def render_markdown_report(context: ReportContext) -> str:
                 for step in playbook_run.steps:
                     note = f" - {step.analyst_note}" if step.analyst_note else ""
                     lines.append(
-                        f"  - {step.status}: {step.title} "
-                        f"[{step.step_type}]{note}"
+                        f"  - {step.status}: {step.title} [{step.step_type}]{note}"
                     )
     else:
         lines.append("- No defensive playbook runs are stored.")
@@ -1084,15 +1090,12 @@ def render_markdown_report(context: ReportContext) -> str:
             lines.append("- No executive analyst notes are currently stored.")
         lines.extend(["", "### Ownership and Escalations", ""])
         lines.append(f"- Primary owner: {context.investigation.owner_id}")
-        lines.append(
-            f"- Assigned analysts: {_assigned_analyst_count(context.members)}"
-        )
+        lines.append(f"- Assigned analysts: {_assigned_analyst_count(context.members)}")
         lines.append(f"- Watchers: {_watcher_count(context.members)}")
         if context.escalations:
             for escalation in context.escalations[:5]:
                 lines.append(
-                    f"- {escalation.level.replace('_', ' ')}: "
-                    f"{escalation.reason}"
+                    f"- {escalation.level.replace('_', ' ')}: {escalation.reason}"
                 )
         else:
             lines.append("- No operational escalations are stored.")
@@ -1121,14 +1124,10 @@ def render_markdown_report(context: ReportContext) -> str:
         else:
             lines.append("- No Sigma reference matched the stored evidence.")
         lines.extend(["", "### Monitoring Suggestions", ""])
-        lines.extend(
-            f"- {item}" for item in context.monitoring_suggestions
-        )
+        lines.extend(f"- {item}" for item in context.monitoring_suggestions)
     if context.report_type == "remediation":
         lines.extend(["", "## Prioritized Defensive Controls", ""])
-        lines.extend(
-            f"- {item}" for item in context.prioritized_controls
-        )
+        lines.extend(f"- {item}" for item in context.prioritized_controls)
         lines.extend(["", "### Monitoring Gaps", ""])
         if context.monitoring_gaps:
             lines.extend(f"- {item}" for item in context.monitoring_gaps)
@@ -1169,10 +1168,28 @@ def render_markdown_report(context: ReportContext) -> str:
     if context.knowledge_citations:
         lines.extend(["", "### Knowledge Citations", ""])
         for citation in context.knowledge_citations:
-            lines.append(
+            citation_line = (
                 f"- [{citation.id}] {citation.framework}: {citation.title} "
                 f"({citation.source})"
             )
+            details = [
+                f"publisher: {citation.publisher}" if citation.publisher else None,
+                f"section: {citation.section}" if citation.section else None,
+                f"page: {citation.page_number}" if citation.page_number else None,
+                f"document: {citation.relative_name}"
+                if citation.relative_name
+                else None,
+                f"trust: {citation.trust_level}" if citation.trust_level else None,
+                f"verification: {citation.verification_status}"
+                if citation.verification_status
+                else None,
+                f"reference: {citation.canonical_url}"
+                if citation.canonical_url
+                else None,
+            ]
+            if any(details):
+                citation_line += " — " + "; ".join(item for item in details if item)
+            lines.append(citation_line)
     if context.report_type == "evidence_appendix":
         lines.extend(["", "### Defensive Framework References", ""])
         if context.framework_references:
@@ -1198,9 +1215,7 @@ def _report_language(metadata: dict[str, Any] | None) -> str:
     return "es" if metadata and metadata.get("language") == "es" else "en"
 
 
-def _localize_report_output(
-    markdown: str, html: str, language: str
-) -> tuple[str, str]:
+def _localize_report_output(markdown: str, html: str, language: str) -> tuple[str, str]:
     if language != "es":
         return (
             markdown.rstrip()
@@ -1219,10 +1234,14 @@ def _localize_report_output(
         "Top risks": "Riesgos principales",
         "Immediate remediation priorities": "Prioridades inmediatas de remediación",
         "Investigation readiness": "Preparación de la investigación",
-        "Key infrastructure observations": "Observaciones principales de infraestructura",
+        "Key infrastructure observations": (
+            "Observaciones principales de infraestructura"
+        ),
         "Defensive Posture": "Postura defensiva",
         "Monitoring Priorities": "Prioridades de monitoreo",
-        "Recurring Infrastructure and Risk Indicators": "Infraestructura recurrente e indicadores de riesgo",
+        "Recurring Infrastructure and Risk Indicators": (
+            "Infraestructura recurrente e indicadores de riesgo"
+        ),
         "Business Impact": "Impacto comercial",
         "Severity Heatmap": "Mapa de severidad",
         "Scope and Authorization": "Alcance y autorización",
@@ -1291,6 +1310,7 @@ async def _build_context(
     report_type: str,
     *,
     enabled_sections: list[str] | None = None,
+    selected_knowledge_ids: list[uuid.UUID] | None = None,
 ) -> ReportContext:
     findings = await _findings(db, investigation.id)
     evidence = await _finding_evidence(db, [finding.id for finding in findings])
@@ -1328,12 +1348,13 @@ async def _build_context(
         user,
         investigation.id,
     )
-    operations_summary, recurring_infrastructure = (
-        await get_investigation_operational_snapshot(
-            db,
-            user,
-            investigation.id,
-        )
+    (
+        operations_summary,
+        recurring_infrastructure,
+    ) = await get_investigation_operational_snapshot(
+        db,
+        user,
+        investigation.id,
     )
     related_investigations = await _related_investigations(
         db,
@@ -1342,6 +1363,9 @@ async def _build_context(
         recon_entities,
     )
     knowledge_citations = _knowledge_citations(findings, recon_entities)
+    knowledge_citations.extend(
+        await _selected_knowledge_citations(db, selected_knowledge_ids or [])
+    )
     evidence_items = _evidence_items(findings)
     knowledge_items = _knowledge_items(knowledge_citations)
     mappings = [
@@ -1395,10 +1419,7 @@ async def _build_context(
     )
     closure_workflow_summary = await closure_report_summary(db, investigation)
     defensive_confidence = (
-        round(
-            sum(finding.confidence_score for finding in findings)
-            / len(findings)
-        )
+        round(sum(finding.confidence_score for finding in findings) / len(findings))
         if findings
         else 0
     )
@@ -1430,8 +1451,7 @@ async def _build_context(
         knowledge_citations=knowledge_citations,
         framework_mappings=mappings,
         recommendations=(
-            _recommendations(findings, knowledge_citations)
-            + endpoint_recommendations
+            _recommendations(findings, knowledge_citations) + endpoint_recommendations
         ),
         defensive_posture=(
             f"{detection_coverage.category.title()} detection visibility "
@@ -1872,6 +1892,89 @@ def _knowledge_citations(
     return list(citations.values())[:10]
 
 
+def _report_knowledge_ids(metadata: dict[str, Any] | None) -> list[uuid.UUID]:
+    raw_ids = (metadata or {}).get("selected_knowledge_document_ids", [])
+    if not isinstance(raw_ids, list):
+        return []
+    parsed: list[uuid.UUID] = []
+    for item in raw_ids[:20]:
+        try:
+            parsed.append(uuid.UUID(str(item)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    return list(dict.fromkeys(parsed))
+
+
+async def _selected_knowledge_citations(
+    db: AsyncSession,
+    document_ids: list[uuid.UUID],
+) -> list[KnowledgeCitation]:
+    ids = list(dict.fromkeys(document_ids))[:20]
+    if not ids:
+        return []
+    result = await db.execute(
+        select(KnowledgeDocument, KnowledgeSource)
+        .join(KnowledgeSource, KnowledgeDocument.source_id == KnowledgeSource.id)
+        .where(
+            KnowledgeDocument.id.in_(ids),
+            KnowledgeSource.status != "disabled",
+            KnowledgeDocument.document_status.in_(
+                ("ready", "sensitive_content_warning")
+            ),
+        )
+    )
+    rows = result.all()
+    if len(rows) != len(ids):
+        raise ValueError(
+            "One or more selected Knowledge references are unavailable or not indexed."
+        )
+    chunks_result = await db.execute(
+        select(KnowledgeChunk)
+        .where(KnowledgeChunk.document_id.in_(ids))
+        .order_by(KnowledgeChunk.document_id, KnowledgeChunk.chunk_index)
+    )
+    chunks_by_document: dict[uuid.UUID, KnowledgeChunk] = {}
+    for chunk in chunks_result.scalars():
+        chunks_by_document.setdefault(chunk.document_id, chunk)
+    by_id = {document.id: (document, source) for document, source in rows}
+    citations: list[KnowledgeCitation] = []
+    for document_id in ids:
+        document, source = by_id[document_id]
+        citation_chunk = chunks_by_document.get(document_id)
+        chunk_metadata = citation_chunk.embedding_metadata if citation_chunk else {}
+        heading = chunk_metadata.get("heading_path")
+        section = (
+            " > ".join(str(item) for item in heading if item)
+            if isinstance(heading, list)
+            else str(heading)
+            if heading
+            else None
+        )
+        page = chunk_metadata.get("page_number")
+        citations.append(
+            KnowledgeCitation(
+                id=f"knowledge:{document.id}",
+                document_id=str(document.id),
+                chunk_id=str(citation_chunk.id) if citation_chunk else "",
+                title=document.title,
+                source=f"{source.name} · {document.relative_name or document.title}",
+                framework="Local Knowledge",
+                category=document.category,
+                confidence=1.0 if source.verification_status == "verified" else 0.75,
+                source_id=str(source.id),
+                relative_name=document.relative_name,
+                section=section,
+                page_number=page if isinstance(page, int) and page > 0 else None,
+                publisher=source.publisher,
+                canonical_url=source.canonical_url,
+                trust_level=source.trust_level,
+                verification_status=source.verification_status,
+                explicit_selection=True,
+            )
+        )
+    return citations
+
+
 def _evidence_items(findings: list[Finding]) -> list[EvidenceItem]:
     return [
         EvidenceItem(
@@ -1936,9 +2039,7 @@ async def _case_review_summary(
         select(CaseReview).where(CaseReview.investigation_id == investigation_id)
     )
     review = result.scalar_one_or_none()
-    approved_reports = sum(
-        report.approval_status == "approved" for report in reports
-    )
+    approved_reports = sum(report.approval_status == "approved" for report in reports)
     pending_reports = sum(
         report.approval_status == "pending_approval" for report in reports
     )
@@ -1947,8 +2048,7 @@ async def _case_review_summary(
             finding.validation_status == "validated" for finding in findings
         ),
         "pending": sum(
-            finding.validation_status == "validation_pending"
-            for finding in findings
+            finding.validation_status == "validation_pending" for finding in findings
         ),
         "accepted_risk": sum(
             finding.validation_status == "accepted_risk" for finding in findings
@@ -2040,8 +2140,7 @@ def _indicator_summary(
     threat_findings: list[ThreatFinding],
 ) -> list[str]:
     indicators = [
-        f"{entity.entity_type}: {entity.value}"
-        for entity in recon_entities[:10]
+        f"{entity.entity_type}: {entity.value}" for entity in recon_entities[:10]
     ]
     indicators.extend(
         f"{finding.provider}: {finding.target_type} {finding.target_value} "
@@ -2072,9 +2171,9 @@ def _analyst_notes(notes: list[InvestigationNote]) -> list[str]:
     ]
     analyst_notes.extend(
         [
-        "Report generation used stored investigation data only.",
-        "No LLM calls, live provider requests, crawling, or active scanning ran.",
-        "Validate owners, scope, and remediation status before external sharing.",
+            "Report generation used stored investigation data only.",
+            "No LLM calls, live provider requests, crawling, or active scanning ran.",
+            "Validate owners, scope, and remediation status before external sharing.",
         ]
     )
     return analyst_notes
@@ -2089,9 +2188,7 @@ def _remediation_progress(
         "total": len(tasks),
         "completed": sum(1 for task in tasks if task.status == "completed"),
         "blocked": sum(1 for task in tasks if task.status == "blocked"),
-        "open": sum(
-            1 for task in tasks if task.status != "completed"
-        ),
+        "open": sum(1 for task in tasks if task.status != "completed"),
         "overdue": sum(1 for task in tasks if _task_overdue(task)),
         "validated_findings": sum(
             1 for finding in findings if finding.status == "validated"
@@ -2102,9 +2199,7 @@ def _remediation_progress(
             if finding.status in {"new", "under_review", "accepted_risk"}
         ),
         "accepted_risk_findings": sum(
-            1
-            for finding in findings
-            if finding.remediation_status == "accepted_risk"
+            1 for finding in findings if finding.remediation_status == "accepted_risk"
         ),
         "remediated_findings": sum(
             1 for finding in findings if finding.remediation_status == "remediated"
@@ -2163,7 +2258,8 @@ async def _report_endpoint_posture(
             values.add(value)
     if not values:
         return (
-            "No endpoint posture assessment is linked to an exact investigation target.",
+            "No endpoint posture assessment is linked to an exact "
+            "investigation target.",
             [],
         )
     rows = list(
@@ -2180,7 +2276,8 @@ async def _report_endpoint_posture(
     )
     if not rows:
         return (
-            "No endpoint posture assessment is linked to an exact investigation target.",
+            "No endpoint posture assessment is linked to an exact "
+            "investigation target.",
             [],
         )
     asset_ids = [posture.lan_asset_id for posture, _asset in rows]
@@ -2486,10 +2583,10 @@ def _quality_warnings(context: ReportContext) -> list[ReportQualityWarning]:
         in {"technical", "evidence_appendix", "operational_dashboard"}
         and enabled.intersection({"evidence_chains", "recurring_evidence"})
         and (
-        not context.recon_entities
-        or not any(
-            entity.last_seen >= recent_cutoff for entity in context.recon_entities
-        )
+            not context.recon_entities
+            or not any(
+                entity.last_seen >= recent_cutoff for entity in context.recon_entities
+            )
         )
     ):
         warnings.append(
@@ -2611,12 +2708,10 @@ def _report_focus(report_type: str) -> str:
             "and citations."
         ),
         "remediation": (
-            "Remediation ownership, due dates, verification notes, and unresolved "
-            "risk."
+            "Remediation ownership, due dates, verification notes, and unresolved risk."
         ),
         "evidence_appendix": (
-            "Evidence chains, bookmarks, local citations, and traceable raw "
-            "references."
+            "Evidence chains, bookmarks, local citations, and traceable raw references."
         ),
         "compliance_mapping": (
             "Findings mapped to defensive frameworks and their remediation status."

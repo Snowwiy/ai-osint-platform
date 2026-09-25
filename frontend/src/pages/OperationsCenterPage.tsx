@@ -228,7 +228,7 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
 
       <section className="mt-5">
-        <BackgroundJobsPanel data={jobs.data} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
+        <BackgroundJobsPanel data={jobs.data} knowledgeIndex={status.data?.knowledge_index} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
       </section>
 
       <section className="mt-5">
@@ -310,8 +310,9 @@ function ApplicationRuntimePanel({ status, t }: { status: NativeRuntimePayload |
   </section>;
 }
 
-function BackgroundJobsPanel({ data, loading, filters, onFilters, onAction, t }: {
+function BackgroundJobsPanel({ data, knowledgeIndex, loading, filters, onFilters, onAction, t }: {
   data: BackgroundJobsResponse | undefined;
+  knowledgeIndex: OperationsStatusResponse["knowledge_index"] | undefined;
   loading: boolean;
   filters: BackgroundJobFilters;
   onFilters: (filters: BackgroundJobFilters) => void;
@@ -325,6 +326,10 @@ function BackgroundJobsPanel({ data, loading, filters, onFilters, onAction, t }:
   return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("Background Jobs")}>
     <h2 className="text-lg font-semibold">{t("Background Jobs")}</h2>
     <p className="text-sm text-raven-muted">{t("Engine")}: {data?.backend === "native" ? "Native PostgreSQL" : "Celery compatibility"} · {t("Worker health")}: {t(data?.worker_health ?? "unavailable")} · {t("Queue depth")}: {data?.queue_depth ?? 0} · {t("Oldest queued")}: {safeDate(data?.oldest_queued_at)?.toLocaleString() ?? "—"}</p>
+    {knowledgeIndex ? <div className="mt-3 rounded border border-raven-border bg-raven-panelSoft p-3" aria-label={t("Knowledge index health")}>
+      <p className="text-sm font-medium">{t("Knowledge index")}: {t(knowledgeIndex.health)}</p>
+      <p className="mt-1 text-xs text-raven-muted">{t("Sources")}: {knowledgeIndex.sources} · {t("Documents")}: {knowledgeIndex.documents} · {t("Indexed chunks")}: {knowledgeIndex.chunks} · {t("Failed documents")}: {knowledgeIndex.failed_documents} · {t("Offline sources")}: {knowledgeIndex.offline_sources} · {t("Active indexing jobs")}: {knowledgeIndex.active_jobs} · {t("Last sync")}: {safeDate(knowledgeIndex.last_sync_at)?.toLocaleString() ?? "—"}</p>
+    </div> : null}
     <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       {(["job_type", "status", "priority", "worker", "investigation_id", "asset_id", "requested_by_user_id"] as const).map(key => <label key={key} className="text-xs text-raven-muted">{t(key === "job_type" ? "Type" : key === "requested_by_user_id" ? "Requested by" : key === "investigation_id" ? "Investigation" : key === "asset_id" ? "Asset" : key === "priority" ? "Priority" : key === "worker" ? "Worker" : "Status")}
         <input aria-label={key} value={filters[key] ?? ""} onChange={event => onFilters({ ...filters, [key]: event.target.value })} className="mt-1 w-full rounded border border-raven-border bg-raven-bg px-2 py-1 text-raven-text" />

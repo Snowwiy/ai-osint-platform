@@ -79,9 +79,18 @@ class KnowledgeCitation:
     chunk_id: str
     title: str
     source: str
-    framework: KnowledgeFramework
+    framework: str
     category: str
     confidence: float
+    source_id: str | None = None
+    relative_name: str | None = None
+    section: str | None = None
+    page_number: int | None = None
+    publisher: str | None = None
+    canonical_url: str | None = None
+    trust_level: str | None = None
+    verification_status: str | None = None
+    explicit_selection: bool = False
 
 
 @dataclass(frozen=True)
@@ -118,15 +127,10 @@ class LocalKnowledgeRetriever:
             if framework_filter is None or document.framework in framework_filter
         ]
         chunks = [
-            chunk
-            for document in documents
-            for chunk in _chunk_document(document)
+            chunk for document in documents for chunk in _chunk_document(document)
         ]
         query_tokens = _tokens(clean_query)
-        scored = [
-            _score_chunk(chunk, clean_query, query_tokens)
-            for chunk in chunks
-        ]
+        scored = [_score_chunk(chunk, clean_query, query_tokens) for chunk in chunks]
         matches = [
             chunk
             for chunk in sorted(
@@ -351,11 +355,7 @@ def _framework(value: str | None) -> KnowledgeFramework | None:
 def _tags(value: str | None) -> list[str]:
     if not value:
         return []
-    return [
-        tag.strip().lower()
-        for tag in value.split(",")
-        if tag.strip()
-    ]
+    return [tag.strip().lower() for tag in value.split(",") if tag.strip()]
 
 
 def _confidence(value: str | None) -> float:

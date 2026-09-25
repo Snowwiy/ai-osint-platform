@@ -26,6 +26,30 @@ PostgreSQL runtime utilities are bundled and invoked by their validated paths;
 the app does not search `PATH` or invoke a shell. Docker and Python/Vite
 development workflows remain available as separate profiles.
 
+## Local Knowledge library
+
+Administrators can add selected files from an Obsidian vault or upload supported
+local references in **Knowledge**. RavenTech copies the selected files into its
+private local storage and indexes Markdown, TXT, PDF, DOCX, HTML, JSON, and CSV.
+It never scans neighboring folders or follows vault symlinks. Frontmatter and
+tags are descriptive metadata; they cannot set RavenTech trust or verification.
+New sources default to `unknown` trust and `unverified` status.
+
+Search results show a stable local citation with source, relative filename,
+heading/page when available, tags, trust, and verification. Keyword search works
+without a vector model. A local vector index is optional and no model downloads
+or external AI uploads occur automatically. Canonical source URLs are stored as
+metadata and are not fetched. Explicitly selected Knowledge references can be
+included in a report; sensitive-content warnings require an additional report
+confirmation. Report citations contain no absolute vault path.
+
+The imported data is a snapshot. To include later vault changes, select the
+updated files again and synchronize the source. Removing a Knowledge source
+requires confirmation and removes only RavenTech's verified managed copy/index;
+the original vault and selected files remain untouched. Source metadata,
+trust/review changes, syncs, and removal are audited without recording content.
+See [LOCAL_KNOWLEDGE.md](LOCAL_KNOWLEDGE.md) for the complete operator guide.
+
 ## Prerequisites
 
 - Windows 10 or 11 with Microsoft Edge WebView2 Runtime, or a supported Linux

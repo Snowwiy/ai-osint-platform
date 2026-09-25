@@ -67,12 +67,23 @@ async def _service_observation(db: AsyncSession, payload: dict[str, str]) -> str
     return await run_native_service_observation(db)
 
 
+async def _knowledge_source_sync(db: AsyncSession, payload: dict[str, str]) -> str:
+    from app.services.knowledge.source_service import sync_knowledge_source
+
+    result = await sync_knowledge_source(db, uuid.UUID(payload["source_id"]))
+    return (
+        f"Knowledge source sync completed: {result['indexed']} indexed, "
+        f"{result['unchanged']} unchanged, {result['failed']} failed."
+    )
+
+
 HANDLERS: dict[str, Handler] = {
     "posture.recompute": _posture,
     "recommendations.recompute": _posture,
     "monitoring.refresh": _monitoring,
     "monitoring.lan_discovery": _lan_discovery,
     "monitoring.service_observation": _service_observation,
+    "knowledge.source.sync": _knowledge_source_sync,
 }
 HANDLER_TIMEOUT_SECONDS = {
     "monitoring.refresh": 30,
@@ -80,6 +91,7 @@ HANDLER_TIMEOUT_SECONDS = {
     "recommendations.recompute": 90,
     "monitoring.lan_discovery": 600,
     "monitoring.service_observation": 600,
+    "knowledge.source.sync": 600,
 }
 
 
@@ -224,10 +236,7 @@ async def process_one(worker_id: str) -> bool:
 
 
 async def run_worker() -> None:
-    if (
-        settings.background_engine != "native"
-        or not settings.NATIVE_WORKER_ENABLED
-    ):
+    if settings.background_engine != "native" or not settings.NATIVE_WORKER_ENABLED:
         raise RuntimeError("Native worker mode is not enabled.")
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     stop = asyncio.Event()
