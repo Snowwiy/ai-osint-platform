@@ -1288,6 +1288,118 @@ Requisito: El sistema deberá ofrecer o aplicar restringir ai integrada a análi
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de perfil de permisos. Caso de prueba: AI-10.
 
+### FR-AI-011 — Exponer un registro de herramientas de solo lectura
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar exponer un registro de herramientas de solo lectura. Criterio de aceptación: El catálogo contiene solo herramientas codificadas como lectura y reporta cero herramientas de escritura.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas del registro fijo. Caso de prueba: AI-11.
+
+### FR-AI-012 — Validar cada solicitud contra su esquema
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar validar cada solicitud contra su esquema. Criterio de aceptación: Campos adicionales, IDs desconocidos, límites excesivos y tipos inválidos se rechazan antes de acceder a servicios.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de esquema y entradas límite. Caso de prueba: AI-12.
+
+### FR-AI-013 — Aplicar RBAC y alcance a herramientas
+
+Subsistema: Autorización AI.
+
+Requisito: El sistema deberá ofrecer o aplicar aplicar rbac y alcance a herramientas. Criterio de aceptación: Cada herramienta conserva el rol y alcance de RavenTech; investigaciones no accesibles responden como no encontradas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API de rol y membresía. Caso de prueba: AI-13.
+
+### FR-AI-014 — Limitar volumen y duración de herramientas
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar limitar volumen y duración de herramientas. Criterio de aceptación: Llamadas, filas, duración, resultados y frecuencia por usuario/sesión/herramienta tienen límites deterministas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de presupuesto, timeout y rate limit. Caso de prueba: AI-14.
+
+### FR-AI-015 — Devolver evidencia con procedencia
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar devolver evidencia con procedencia. Criterio de aceptación: Los resultados identifican fuente, ID estable, fecha, confianza, frescura y alcance cuando están disponibles.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de envelope y citas. Caso de prueba: AI-15.
+
+### FR-AI-016 — Sanear evidencia antes de persistirla o compartirla
+
+Subsistema: Privacidad AI.
+
+Requisito: El sistema deberá ofrecer o aplicar sanear evidencia antes de persistirla o compartirla. Criterio de aceptación: Tokens, URLs con credenciales, rutas locales, argumentos, banners y claves sensibles no aparecen en resultados ni auditoría.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de secretos y rutas. Caso de prueba: AI-16.
+
+### FR-AI-017 — Ejecutar herramientas solo mediante el protocolo fijo
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar ejecutar herramientas solo mediante el protocolo fijo. Criterio de aceptación: Solo se acepta un envelope JSON registrado por turno; solicitudes malformadas o rondas adicionales no se ejecutan.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de protocolo y segunda ronda. Caso de prueba: AI-17.
+
+### FR-AI-018 — Requerir consentimiento por turno para evidencia remota
+
+Subsistema: Privacidad AI.
+
+Requisito: El sistema deberá ofrecer o aplicar requerir consentimiento por turno para evidencia remota. Criterio de aceptación: Sin aprobación explícita, el proveedor remoto recibe chat y contexto seleccionado, pero no resultados operativos de herramientas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API/UI de consentimiento. Caso de prueba: AI-18.
+
+### FR-AI-019 — Presentar análisis por hechos, hipótesis y recomendaciones
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar presentar análisis por hechos, hipótesis y recomendaciones. Criterio de aceptación: El contexto diferencia hechos de RavenTech e interpretación del modelo y limita las citas a evidencia suministrada.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de plantilla y panel de evidencia. Caso de prueba: AI-19.
+
+### FR-AI-020 — Ofrecer flujos de análisis acotados
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar ofrecer flujos de análisis acotados. Criterio de aceptación: Los flujos de host, recursos, servicios, puertos, LAN, activo, postura, alerta e investigación seleccionan bundles fijos.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de bundles de solo lectura. Caso de prueba: AI-20.
+
+### FR-AI-021 — Mostrar actividad de herramientas en la sesión
+
+Subsistema: Consola AI y auditoría.
+
+Requisito: El sistema deberá ofrecer o aplicar mostrar actividad de herramientas en la sesión. Criterio de aceptación: La sesión conserva actividad resumida, IDs de evidencia y errores seguros sin guardar cargas telemétricas completas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de persistencia y UI. Caso de prueba: AI-21.
+
+### FR-AI-022 — Etiquetar inventario de escritorio no atestado
+
+Subsistema: Gateway de herramientas AI.
+
+Requisito: El sistema deberá ofrecer o aplicar etiquetar inventario de escritorio no atestado. Criterio de aceptación: Los procesos y servicios aportados por Tauri se marcan como informados por cliente y no verificados por backend.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de procedencia del inventario. Caso de prueba: AI-22.
+
+### FR-AI-023 — Mantener salud del producto independiente de AI
+
+Subsistema: Operations Center.
+
+Requisito: El sistema deberá ofrecer o aplicar mantener salud del producto independiente de ai. Criterio de aceptación: Fallo del gateway, modelo o proveedor degrada solo el subsistema AI y no la readiness central.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de estado y readiness. Caso de prueba: AI-23.
+
+### FR-AI-024 — Informar estado operativo del gateway
+
+Subsistema: Operations Center.
+
+Requisito: El sistema deberá ofrecer o aplicar informar estado operativo del gateway. Criterio de aceptación: El estado administrativo muestra herramientas registradas, solo lectura, cero escrituras, actividad y fallos seguros.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de contrato y RBAC. Caso de prueba: AI-24.
+
 ### FR-BACK-001 — Crear respaldo local
 
 Subsistema: Respaldo.
@@ -1486,6 +1598,30 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba UI/contra
 Datos Knowledge se delimitan como evidencia no confiable y el perfil de chat no admite ejecución de herramientas.
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de prompt-injection/permisos. Caso de prueba: AI-NFR-04. Criterio: Las instrucciones dentro de extractos no amplían permisos ni autorizan acciones operativas.
+
+### NFR-AI-005 — Registro cerrado de herramientas
+
+La interfaz operativa del modelo solo admite IDs y handlers estáticos de lectura; no resuelve nombres de funciones o endpoints dinámicos.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección estática y pruebas de denegación. Caso de prueba: AI-NFR-05. Criterio: No se ejecutan shell, SQL, Python, archivos, HTTP arbitrario, administración remota ni acciones de escritura.
+
+### NFR-AI-006 — Límites de ejecución y memoria
+
+Cada turno limita llamadas, filas, tiempo, frecuencia y tamaño serializado de evidencia.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de budget, rate limit y resultado. Caso de prueba: AI-NFR-06. Criterio: Solicitudes repetidas, saturación, timeout o cancelación no producen loops ni resultados sin límite.
+
+### NFR-AI-007 — Consentimiento remoto granular
+
+La autorización para transmitir evidencia operativa a un modelo remoto aplica a un turno y a categorías visibles.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba de flujo remoto con y sin consentimiento. Caso de prueba: AI-NFR-07. Criterio: Sin consentimiento no se ejecuta ni comparte evidencia operativa con el proveedor remoto.
+
+### NFR-AI-008 — Minimización de auditoría AI
+
+La auditoría conserva identificadores, resultado, duración y conteos seguros sin payload crudo de herramienta.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de registros y pruebas de sanitización. Caso de prueba: AI-NFR-08. Criterio: Los metadatos no contienen prompts completos, telemetría, secretos ni rutas locales.
 
 ### NFR-KNOW-001 — Privacidad local de Knowledge
 
@@ -1833,6 +1969,20 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-AI-008 | Generar una transferencia defensiva | Consola AI | Windows/Linux | Implementado | Prueba de plantilla/quoting | AI-08 | El prompt y comando OpenCode se generan con datos saneados y se copian sin lanzar terminal ni ejecutarse. |
 | FR-AI-009 | Mostrar estado AI sin degradar el core | Operations Center | Windows/Linux | Implementado | Pruebas de contrato/RBAC | AI-09 | Diagnóstico de OpenCode/modelos es administrativo, saneado y opcional para la salud central del producto. |
 | FR-AI-010 | Restringir AI integrada a análisis de chat | Gateway de modelos AI | Windows/Linux | Implementado | Prueba de perfil de permisos | AI-10 | El perfil niega herramientas de shell, archivos, procesos, web y MCP y usa un workspace neutral fuera del repositorio. |
+| FR-AI-011 | Exponer un registro de herramientas de solo lectura | Gateway de herramientas AI | Windows/Linux | Implementado | Pruebas del registro fijo | AI-11 | El catálogo contiene solo herramientas codificadas como lectura y reporta cero herramientas de escritura. |
+| FR-AI-012 | Validar cada solicitud contra su esquema | Gateway de herramientas AI | Windows/Linux | Implementado | Pruebas de esquema y entradas límite | AI-12 | Campos adicionales, IDs desconocidos, límites excesivos y tipos inválidos se rechazan antes de acceder a servicios. |
+| FR-AI-013 | Aplicar RBAC y alcance a herramientas | Autorización AI | Windows/Linux | Implementado | Pruebas API de rol y membresía | AI-13 | Cada herramienta conserva el rol y alcance de RavenTech; investigaciones no accesibles responden como no encontradas. |
+| FR-AI-014 | Limitar volumen y duración de herramientas | Gateway de herramientas AI | Windows/Linux | Implementado | Pruebas de presupuesto, timeout y rate limit | AI-14 | Llamadas, filas, duración, resultados y frecuencia por usuario/sesión/herramienta tienen límites deterministas. |
+| FR-AI-015 | Devolver evidencia con procedencia | Gateway de herramientas AI | Windows/Linux | Implementado | Pruebas de envelope y citas | AI-15 | Los resultados identifican fuente, ID estable, fecha, confianza, frescura y alcance cuando están disponibles. |
+| FR-AI-016 | Sanear evidencia antes de persistirla o compartirla | Privacidad AI | Windows/Linux | Implementado | Pruebas de secretos y rutas | AI-16 | Tokens, URLs con credenciales, rutas locales, argumentos, banners y claves sensibles no aparecen en resultados ni auditoría. |
+| FR-AI-017 | Ejecutar herramientas solo mediante el protocolo fijo | Gateway de herramientas AI | Windows/Linux | Implementado | Pruebas de protocolo y segunda ronda | AI-17 | Solo se acepta un envelope JSON registrado por turno; solicitudes malformadas o rondas adicionales no se ejecutan. |
+| FR-AI-018 | Requerir consentimiento por turno para evidencia remota | Privacidad AI | Windows/Linux | Implementado | Pruebas API/UI de consentimiento | AI-18 | Sin aprobación explícita, el proveedor remoto recibe chat y contexto seleccionado, pero no resultados operativos de herramientas. |
+| FR-AI-019 | Presentar análisis por hechos, hipótesis y recomendaciones | Consola AI | Windows/Linux | Implementado | Pruebas de plantilla y panel de evidencia | AI-19 | El contexto diferencia hechos de RavenTech e interpretación del modelo y limita las citas a evidencia suministrada. |
+| FR-AI-020 | Ofrecer flujos de análisis acotados | Consola AI | Windows/Linux | Implementado | Pruebas de bundles de solo lectura | AI-20 | Los flujos de host, recursos, servicios, puertos, LAN, activo, postura, alerta e investigación seleccionan bundles fijos. |
+| FR-AI-021 | Mostrar actividad de herramientas en la sesión | Consola AI y auditoría | Windows/Linux | Implementado | Pruebas de persistencia y UI | AI-21 | La sesión conserva actividad resumida, IDs de evidencia y errores seguros sin guardar cargas telemétricas completas. |
+| FR-AI-022 | Etiquetar inventario de escritorio no atestado | Gateway de herramientas AI | Windows/Linux | Implementado | Prueba de procedencia del inventario | AI-22 | Los procesos y servicios aportados por Tauri se marcan como informados por cliente y no verificados por backend. |
+| FR-AI-023 | Mantener salud del producto independiente de AI | Operations Center | Windows/Linux | Implementado | Pruebas de estado y readiness | AI-23 | Fallo del gateway, modelo o proveedor degrada solo el subsistema AI y no la readiness central. |
+| FR-AI-024 | Informar estado operativo del gateway | Operations Center | Windows/Linux | Implementado | Pruebas de contrato y RBAC | AI-24 | El estado administrativo muestra herramientas registradas, solo lectura, cero escrituras, actividad y fallos seguros. |
 | FR-BACK-001 | Crear respaldo local | Respaldo | Windows/Linux | Parcial | Prueba de integración aislada | BACK-01 | Las operaciones existentes usan ruta controlada y registran resultado seguro. |
 | FR-BACK-002 | Validar respaldo | Recuperación | Windows/Linux | Parcial | Prueba de validación | BACK-02 | La validación no sobreescribe base activa y comunica limitaciones. |
 | FR-BACK-003 | Restaurar con control | Recuperación | Windows/Linux | Parcial | Ensayo fuera de producción | BACK-03 | Toda restauración requiere acción administrativa explícita y objetivo aislado. |
@@ -1852,6 +2002,10 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-AI-002 | Conexión local acotada | No funcional | Windows/Linux | Especificado | Pruebas de URL, workspace y recursos | AI-NFR-02 | No se usa destino LAN/público ni el cwd/repositorio como directorio de proyecto OpenCode. |
 | NFR-AI-003 | Transferencia explícita de contexto | No funcional | Windows/Linux | Especificado | Prueba UI/contrato de contexto | AI-NFR-03 | No se carga vault, base de datos, inventario o logs completos automáticamente. |
 | NFR-AI-004 | Aislamiento de instrucciones no confiables | No funcional | Windows/Linux | Especificado | Pruebas de prompt-injection/permisos | AI-NFR-04 | Las instrucciones dentro de extractos no amplían permisos ni autorizan acciones operativas. |
+| NFR-AI-005 | Registro cerrado de herramientas | No funcional | Windows/Linux | Especificado | Inspección estática y pruebas de denegación | AI-NFR-05 | No se ejecutan shell, SQL, Python, archivos, HTTP arbitrario, administración remota ni acciones de escritura. |
+| NFR-AI-006 | Límites de ejecución y memoria | No funcional | Windows/Linux | Especificado | Pruebas de budget, rate limit y resultado | AI-NFR-06 | Solicitudes repetidas, saturación, timeout o cancelación no producen loops ni resultados sin límite. |
+| NFR-AI-007 | Consentimiento remoto granular | No funcional | Windows/Linux | Especificado | Prueba de flujo remoto con y sin consentimiento | AI-NFR-07 | Sin consentimiento no se ejecuta ni comparte evidencia operativa con el proveedor remoto. |
+| NFR-AI-008 | Minimización de auditoría AI | No funcional | Windows/Linux | Especificado | Inspección de registros y pruebas de sanitización | AI-NFR-08 | Los metadatos no contienen prompts completos, telemetría, secretos ni rutas locales. |
 | NFR-KNOW-001 | Privacidad local de Knowledge | No funcional | Windows/Linux | Especificado | Inspección de red y pruebas de configuración | KNOW-NFR-01 | La ingestión, indexación y búsqueda funcionan sin solicitudes de red a proveedores de IA. |
 | NFR-KNOW-002 | Límite de lectura del vault | No funcional | Windows/Linux | Especificado | Pruebas de traversal/enlaces | KNOW-NFR-02 | Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican. |
 | NFR-KNOW-003 | Parser acotado y no ejecutable | No funcional | Windows/Linux | Especificado | Pruebas de parser y carga malformada | KNOW-NFR-03 | Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos. |

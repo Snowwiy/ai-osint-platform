@@ -9,7 +9,6 @@ import type {
   AiCatalogResponse,
   AiOperationsStatus,
   AiContextExcerpt,
-  AiExecutionMode,
   AiKnowledgePolicy,
   AiMessageResult,
   AiModelTestResponse,
@@ -2483,10 +2482,24 @@ export async function deleteAiSession(id: string): Promise<void> {
   return request(`/ai/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export async function sendAiMessage(id: string, content: string, knowledgeCitationIds: string[], contextPolicy: AiKnowledgePolicy): Promise<AiMessageResult> {
+export type AiWorkflow = "analyze_server" | "analyze_resource_usage" | "analyze_services" | "analyze_ports" | "analyze_lan" | "analyze_asset" | "explain_posture" | "explain_alert" | "analyze_investigation";
+export type AiMessageOptions = { workflow?: AiWorkflow; workflowScopeId?: string; desktopInventory?: unknown; allowRemoteToolContext?: boolean };
+
+export async function getAiTools(): Promise<{ items: Array<Record<string, unknown>>; total: number; read_only_count: number; write_count: 0 }> {
+  return request("/ai/tools");
+}
+
+export async function executeAiTool(toolId: string, arguments_: Record<string, unknown>, desktopInventory?: unknown): Promise<Record<string, unknown>> {
+  return request("/ai/tools/execute", {
+    method: "POST",
+    body: JSON.stringify({ tool_id: toolId, arguments: arguments_, desktop_inventory: desktopInventory ?? null }),
+  });
+}
+
+export async function sendAiMessage(id: string, content: string, knowledgeCitationIds: string[], contextPolicy: AiKnowledgePolicy, options: AiMessageOptions = {}): Promise<AiMessageResult> {
   return request(`/ai/sessions/${encodeURIComponent(id)}/messages`, {
     method: "POST",
-    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy }),
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
   });
 }
 
@@ -2496,6 +2509,7 @@ export async function sendAiMessageStream(
   knowledgeCitationIds: string[],
   contextPolicy: AiKnowledgePolicy,
   onDelta: (text: string) => void,
+  options: AiMessageOptions = {},
 ): Promise<void> {
   const path = `/ai/sessions/${encodeURIComponent(id)}/messages/stream`;
   const headers = new Headers(buildHeaders({ body: "{}" }));
@@ -2504,7 +2518,7 @@ export async function sendAiMessageStream(
     method: "POST",
     headers,
     credentials: "include",
-    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy }),
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
   });
   if (!response.ok) {
     const error = await apiError(response, path);

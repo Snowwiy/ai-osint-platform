@@ -6,7 +6,8 @@ import json
 import time
 import uuid
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -37,6 +38,7 @@ from app.schemas.ai_gateway import (
     AiSessionCreate,
     AiSessionRename,
     AiSessionView,
+    AiToolExecuteRequest,
 )
 from app.services.ai.gateway_service import (
     AiStreamSanitizer,
@@ -58,6 +60,19 @@ from app.services.ai.gateway_service import (
     session_view,
 )
 from app.services.ai.opencode_adapter import ModelRecord, OpenCodeAdapter
+from app.services.ai.tool_gateway import (
+    NativeInventory,
+    build_evidence_followup,
+    build_tool_aware_prompt,
+    execute_model_tool_calls,
+    execute_tool,
+    parse_model_tool_request,
+    registered_tools,
+    workflow_calls,
+)
+from app.services.ai.tool_gateway import (
+    sanitize_text as sanitize_tool_text,
+)
 from app.services.audit import record_event
 
 router = APIRouter(
@@ -67,6 +82,69 @@ router = APIRouter(
 )
 _CHAT_ROLES = {"admin", "analyst"}
 _ACTIVE_STREAMS: dict[uuid.UUID, asyncio.Event] = {}
+_SAFE_TOOL_ERROR_CODES = {
+    "unknown_tool",
+    "authorization_denied",
+    "invalid_arguments",
+    "rate_limited",
+    "cancelled",
+    "timeout",
+    "scope_denied",
+    "not_found",
+    "tool_unavailable",
+    "tool_budget_exceeded",
+    "turn_row_budget_exceeded",
+}
+
+
+@router.get("/tools")
+async def list_ai_tools_endpoint(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, object]:
+    _require_chat_role(current_user)
+    items = registered_tools(current_user)
+    return {
+        "items": items,
+        "total": len(items),
+        "read_only_count": sum(bool(item["read_only"]) for item in items),
+        "write_count": 0,
+        "shell_available": False,
+        "sql_available": False,
+        "filesystem_available": False,
+        "protocol": (
+            "RavenTech bounded JSON tool request; OpenCode built-in tools remain denied"
+        ),
+    }
+
+
+@router.post("/tools/execute")
+async def execute_ai_tool_endpoint(
+    body: AiToolExecuteRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, object]:
+    _require_chat_role(current_user)
+    inventory: NativeInventory | None = None
+    if body.desktop_inventory is not None:
+        try:
+            inventory = NativeInventory.model_validate(body.desktop_inventory)
+        except Exception:
+            raise HTTPException(
+                status_code=422,
+                detail="Desktop inventory did not match the bounded read-only schema.",
+            ) from None
+    result = await execute_tool(
+        db,
+        current_user,
+        body.tool_id,
+        body.arguments,
+        native_inventory=inventory,
+        request=request,
+        redis=getattr(request.app.state, "redis", None),
+    )
+    await db.commit()
+    return result
 
 
 @router.get("/runtime")
@@ -108,6 +186,61 @@ async def ai_operations_status_endpoint(
             .limit(1)
         )
     ).scalar_one_or_none()
+    last_tool_activity = (
+        await db.execute(
+            select(AuditLog.timestamp)
+            .where(AuditLog.action.like("ai.tool_%"))
+            .order_by(AuditLog.timestamp.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    last_successful_tool = (
+        await db.execute(
+            select(AuditLog.timestamp)
+            .where(AuditLog.action == "ai.tool_completed")
+            .order_by(AuditLog.timestamp.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    last_tool_failure = (
+        await db.execute(
+            select(AuditLog.event_metadata)
+            .where(AuditLog.action.in_(("ai.tool_denied", "ai.tool_failed")))
+            .order_by(AuditLog.timestamp.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    last_tool_error = (
+        last_tool_failure.get("safe_error_code")
+        if isinstance(last_tool_failure, dict)
+        else None
+    )
+    if last_tool_error not in _SAFE_TOOL_ERROR_CODES:
+        last_tool_error = None
+    tool_gateway_degraded = last_tool_error in {"timeout", "tool_unavailable"}
+    hour_ago = datetime.now(UTC) - timedelta(hours=1)
+    tool_requests_last_hour = int(
+        (
+            await db.execute(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.action.in_(
+                        ("ai.tool_completed", "ai.tool_denied", "ai.tool_failed")
+                    ),
+                    AuditLog.timestamp >= hour_ago,
+                )
+            )
+        ).scalar_one()
+    )
+    denied_tool_attempts = int(
+        (
+            await db.execute(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.action == "ai.tool_denied",
+                    AuditLog.timestamp >= hour_ago,
+                )
+            )
+        ).scalar_one()
+    )
     preferences = await get_preferences(db, current_user.id)
     available = sum(item.available for item in models)
     connected_local = sum(
@@ -131,6 +264,15 @@ async def ai_operations_status_endpoint(
         last_successful_inference=last_inference,
         degraded=not bool(runtime.get("available")) and connected_local == 0,
         message=str(runtime.get("message", "AI integration is optional.")),
+        tool_gateway_status="degraded" if tool_gateway_degraded else "healthy",
+        registered_tools=len(registered_tools(current_user)),
+        read_only_tool_count=len(registered_tools(current_user)),
+        write_tool_count=0,
+        last_tool_activity=last_tool_activity,
+        last_successful_tool=last_successful_tool,
+        last_tool_error=last_tool_error,
+        tool_requests_last_hour=tool_requests_last_hour,
+        denied_tool_attempts=denied_tool_attempts,
     )
 
 
@@ -457,6 +599,10 @@ async def send_ai_message_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> AiMessageResult:
     _require_chat_role(current_user)
+    try:
+        _validate_requested_workflow(body.workflow, body.workflow_scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     session_result = await db.execute(
         select(AiSession)
         .where(AiSession.id == session_id, AiSession.owner_id == current_user.id)
@@ -533,14 +679,18 @@ async def send_ai_message_endpoint(
             "model_id": model.model_id,
             "execution_type": session.execution_type,
             "context_source_count": len(sources),
+            "workflow": body.workflow,
+            "remote_tool_evidence_consent": bool(
+                body.allow_remote_tool_context and model.remote and not model.local
+            ),
         },
     )
     await db.commit()
-    prompt = build_context_prompt(content, sources)
     try:
-        assistant_content = await _complete_session(
-            get_adapter(), session, model, prompt
+        assistant_content, tool_results = await _run_ai_turn(
+            db, request, current_user, session, model, content, sources, body
         )
+        _attach_tool_evidence(user_message, tool_results)
         await db.refresh(session)
         assistant_status = "completed"
         if session.status == "cancelled":
@@ -578,10 +728,12 @@ async def send_ai_message_endpoint(
             },
         )
         await db.flush()
+        await db.refresh(session)
+        completed_view = await session_view(db, session)
         return AiMessageResult(
             session_id=session.id,
-            user_message=(await session_view(db, session)).messages[-2],
-            assistant_message=(await session_view(db, session)).messages[-1],
+            user_message=completed_view.messages[-2],
+            assistant_message=completed_view.messages[-1],
             sources=sources,
         )
     except Exception as exc:
@@ -657,6 +809,10 @@ async def stream_ai_message_endpoint(
     sources = await load_selected_context(
         db, body.knowledge_citation_ids, body.context_policy
     )
+    try:
+        _validate_requested_workflow(body.workflow, body.workflow_scope_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     content = sanitize_ai_text(body.content, max_chars=settings.AI_MESSAGE_MAX_CHARS)
     if not content:
         raise HTTPException(
@@ -701,13 +857,90 @@ async def stream_ai_message_endpoint(
     await db.commit()
     cancellation = asyncio.Event()
     _ACTIVE_STREAMS[session.id] = cancellation
-    prompt = build_context_prompt(content, sources)
     adapter = get_adapter()
 
     async def generate() -> AsyncIterator[str]:
         stream_sanitizer = AiStreamSanitizer(max_chars=20_000)
         finished = False
         try:
+            use_tool_turn = body.workflow is not None or (
+                model.supports_tools is True
+                and (not model.remote or model.local or body.allow_remote_tool_context)
+            )
+            if use_tool_turn:
+                final_text, tool_results = await _run_ai_turn(
+                    db,
+                    request,
+                    current_user,
+                    session,
+                    model,
+                    content,
+                    sources,
+                    body,
+                    cancel_event=cancellation,
+                )
+                _attach_tool_evidence(user_message, tool_results)
+                if cancellation.is_set():
+                    final_text = "Generation cancelled."
+                stream_sanitizer = AiStreamSanitizer(max_chars=20_000)
+                for offset in range(0, len(final_text), 240):
+                    if cancellation.is_set():
+                        break
+                    safe_chunk = stream_sanitizer.feed(
+                        final_text[offset : offset + 240]
+                    )
+                    if safe_chunk:
+                        yield _sse("delta", {"text": safe_chunk})
+                final_delta, sanitized_output = stream_sanitizer.finish()
+                if final_delta:
+                    yield _sse("delta", {"text": final_delta})
+                await db.refresh(session)
+                cancelled = cancellation.is_set() or session.status == "cancelled"
+                final_text = sanitize_ai_text(sanitized_output, max_chars=20_000)
+                if cancelled and not final_text:
+                    final_text = "Generation cancelled."
+                assistant = AiMessage(
+                    session_id=session.id,
+                    sequence=await next_message_sequence(db, session.id),
+                    role="assistant",
+                    content=final_text,
+                    status="cancelled" if cancelled else "completed",
+                    provider_id=model.provider_id,
+                    model_id=model.model_id,
+                    execution_type=session.execution_type,
+                    context_sources=user_message.context_sources,
+                    supplied_citations=user_message.supplied_citations,
+                )
+                db.add(assistant)
+                session.status = "cancelled" if cancelled else "ready"
+                await _audit(
+                    db,
+                    request,
+                    current_user,
+                    "ai.message_cancelled" if cancelled else "ai.message_completed",
+                    resource_id=session.id,
+                    metadata={
+                        "provider_id": model.provider_id,
+                        "model_id": model.model_id,
+                        "execution_type": session.execution_type,
+                        "response_sha256": hashlib.sha256(
+                            final_text.encode("utf-8")
+                        ).hexdigest(),
+                        "tool_count": len(tool_results),
+                    },
+                )
+                await db.commit()
+                finished = True
+                yield _sse(
+                    "done",
+                    {
+                        "status": session.status,
+                        "citations": user_message.supplied_citations,
+                    },
+                )
+                return
+
+            prompt = build_context_prompt(content, sources)
             if model.provider_id in {"ollama", "lmstudio"}:
                 chunks = adapter.stream_local(
                     model.provider_id, model.model_id, prompt, cancellation
@@ -1004,6 +1237,163 @@ async def _complete_session(
     return await adapter.complete(
         session.external_session_id, provider_id, model_id, prompt
     )
+
+
+def _validate_requested_workflow(
+    workflow: str | None, scope_id: uuid.UUID | None
+) -> None:
+    if workflow is None:
+        return
+    try:
+        workflow_calls(workflow, scope_id)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from None
+
+
+async def _run_ai_turn(
+    db: AsyncSession,
+    request: Request,
+    user: User,
+    session: AiSession,
+    model: ModelRecord,
+    content: str,
+    sources: list[Any],
+    body: AiMessageRequest,
+    *,
+    cancel_event: asyncio.Event | None = None,
+) -> tuple[str, list[dict[str, Any]]]:
+    adapter = get_adapter()
+    native_inventory: NativeInventory | None = None
+    if body.desktop_inventory is not None:
+        try:
+            native_inventory = NativeInventory.model_validate(body.desktop_inventory)
+        except Exception:
+            native_inventory = None
+
+    is_remote_model = model.remote and not model.local
+    may_request_tools = body.workflow is not None or model.supports_tools is True
+    if is_remote_model and may_request_tools and not body.allow_remote_tool_context:
+        response = await _complete_session(
+            adapter, session, model, build_context_prompt(content, sources)
+        )
+        return response, []
+
+    if body.workflow is not None:
+        calls = workflow_calls(body.workflow, body.workflow_scope_id)
+        results = await execute_model_tool_calls(
+            db,
+            user,
+            calls,
+            native_inventory=native_inventory,
+            request=request,
+            session_id=session.id,
+            redis=getattr(request.app.state, "redis", None),
+            cancel_event=cancel_event,
+        )
+        if cancel_event is not None and cancel_event.is_set():
+            return "Generation cancelled.", results
+        prompt = build_evidence_followup(content, results)
+        return await _complete_session(adapter, session, model, prompt), results
+
+    prepared_prompt = build_context_prompt(content, sources)
+    if model.supports_tools is not True:
+        return await _complete_session(adapter, session, model, prepared_prompt), []
+
+    first_response = await _complete_session(
+        adapter, session, model, build_tool_aware_prompt(content, sources, user)
+    )
+    request_data = parse_model_tool_request(first_response)
+    if request_data is None:
+        if "<raventech_tool_request>" in first_response.casefold():
+            return (
+                "The model returned an invalid RavenTech tool request. "
+                "No tool was executed.",
+                [],
+            )
+        return first_response, []
+    results = await execute_model_tool_calls(
+        db,
+        user,
+        request_data.tool_calls,
+        native_inventory=native_inventory,
+        request=request,
+        session_id=session.id,
+        redis=getattr(request.app.state, "redis", None),
+        cancel_event=cancel_event,
+    )
+    if cancel_event is not None and cancel_event.is_set():
+        return "Generation cancelled.", results
+    final_response = await _complete_session(
+        adapter, session, model, build_evidence_followup(content, results)
+    )
+    if parse_model_tool_request(final_response) is not None:
+        final_response = (
+            "The RavenTech read-only tool request limit was reached. The evidence "
+            "returned in this turn is shown below; no additional request was executed."
+        )
+    return final_response, results
+
+
+def _attach_tool_evidence(
+    message: AiMessage, tool_results: list[dict[str, Any]]
+) -> None:
+    sources = list(message.context_sources or [])
+    citations = list(message.supplied_citations or [])
+    for result in tool_results:
+        tool_id = str(result.get("tool", "raventech"))[:100]
+        evidence_references: list[dict[str, Any]] = []
+        for item in result.get("evidence", [])[:10]:
+            if not isinstance(item, dict) or not item.get("id"):
+                continue
+            raw_scope = item.get("scope")
+            scope: dict[str, str] = {}
+            if isinstance(raw_scope, dict):
+                scope_type = raw_scope.get("type")
+                if isinstance(scope_type, str) and scope_type in {
+                    "primary_host",
+                    "global",
+                    "investigation",
+                    "lan_asset",
+                }:
+                    scope["type"] = str(scope_type)
+                for key in ("investigation_id", "asset_id", "alert_id"):
+                    raw_id = raw_scope.get(key)
+                    if isinstance(raw_id, str):
+                        try:
+                            scope[key] = str(uuid.UUID(raw_id))
+                        except ValueError:
+                            continue
+            reference = {
+                "id": sanitize_tool_text(str(item.get("id", "")), max_chars=160),
+                "source_type": sanitize_tool_text(
+                    str(item.get("source_type", "unknown")), max_chars=80
+                ),
+                "timestamp": sanitize_tool_text(
+                    str(item.get("timestamp", "")), max_chars=40
+                ) or None,
+                "freshness": sanitize_tool_text(
+                    str(item.get("freshness", "unknown")), max_chars=48
+                ),
+                "confidence": sanitize_tool_text(
+                    str(item.get("confidence", "unknown")), max_chars=24
+                ),
+                "scope": scope,
+            }
+            evidence_references.append(reference)
+        evidence_ids = [item["id"] for item in evidence_references]
+        sources.append(
+            {
+                "kind": "tool_activity",
+                "tool_id": tool_id,
+                "success": bool(result.get("success")),
+                "evidence_ids": evidence_ids,
+                "evidence_references": evidence_references,
+                "safe_error_code": result.get("safe_error_code"),
+            }
+        )
+        citations.extend(evidence_ids)
+    message.context_sources = sources[:100]
+    message.supplied_citations = list(dict.fromkeys(citations))[:100]
 
 
 async def _audit(

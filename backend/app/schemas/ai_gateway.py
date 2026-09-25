@@ -32,6 +32,15 @@ class AiOperationsStatus(BaseModel):
     last_successful_inference: datetime | None = None
     degraded: bool
     message: str
+    tool_gateway_status: Literal["healthy", "degraded"] = "healthy"
+    registered_tools: int = 0
+    read_only_tool_count: int = 0
+    write_tool_count: Literal[0] = 0
+    last_tool_activity: datetime | None = None
+    last_successful_tool: datetime | None = None
+    last_tool_error: str | None = Field(default=None, max_length=60)
+    tool_requests_last_hour: int = Field(default=0, ge=0)
+    denied_tool_attempts: int = Field(default=0, ge=0)
 
 
 class AiProvider(BaseModel):
@@ -106,6 +115,23 @@ class AiMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=12_000)
     knowledge_citation_ids: list[str] = Field(default_factory=list, max_length=5)
     context_policy: KnowledgeContextPolicy = "verified_only"
+    workflow: (
+        Literal[
+            "analyze_server",
+            "analyze_resource_usage",
+            "analyze_services",
+            "analyze_ports",
+            "analyze_lan",
+            "analyze_asset",
+            "explain_posture",
+            "explain_alert",
+            "analyze_investigation",
+        ]
+        | None
+    ) = None
+    workflow_scope_id: uuid.UUID | None = None
+    desktop_inventory: dict[str, Any] | None = Field(default=None, max_length=5)
+    allow_remote_tool_context: bool = False
 
     @field_validator("content")
     @classmethod
@@ -172,6 +198,7 @@ class AiSessionView(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: list[AiMessageView] = Field(default_factory=list)
+    tool_activity: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class AiMessageResult(BaseModel):
@@ -179,6 +206,12 @@ class AiMessageResult(BaseModel):
     user_message: AiMessageView
     assistant_message: AiMessageView
     sources: list[AiContextExcerpt]
+
+
+class AiToolExecuteRequest(BaseModel):
+    tool_id: str = Field(min_length=1, max_length=100)
+    arguments: dict[str, Any] = Field(default_factory=dict, max_length=20)
+    desktop_inventory: dict[str, Any] | None = Field(default=None, max_length=5)
 
 
 class AiModelTestRequest(BaseModel):

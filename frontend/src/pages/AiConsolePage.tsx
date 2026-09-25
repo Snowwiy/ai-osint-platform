@@ -1,7 +1,6 @@
 import {
   Archive,
   Bot,
-  Check,
   Copy,
   Pencil,
   Plus,
@@ -14,6 +13,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { PageHeader } from "../components/PageHeader";
@@ -27,15 +27,17 @@ import {
   deleteAiSession,
   getAiCatalog,
   getAiPreferences,
+  getAiTools,
   getAiSession,
   listAiSessions,
   previewAiKnowledgeContext,
   refreshAiCatalog,
   renameAiSession,
-  sendAiMessage,
   sendAiMessageStream,
   testAiModel,
   updateAiPreferences,
+  getAccessToken,
+  type AiWorkflow,
 } from "../lib/api";
 import type {
   AiExecutionMode,
@@ -44,6 +46,7 @@ import type {
   AiPromptHandoffResponse,
   AiSessionView,
 } from "../types";
+import { resolveAiEvidenceDestination } from "../lib/aiEvidence.js";
 import { useAuth } from "../lib/useAuth";
 import { useI18n } from "../lib/i18n";
 
@@ -53,6 +56,7 @@ const knowledgePolicies: AiKnowledgePolicy[] = ["verified_only", "trusted_plus",
 export function AiConsolePage(): JSX.Element {
   const { t } = useI18n();
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const queryClient = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -67,6 +71,9 @@ export function AiConsolePage(): JSX.Element {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [modelFilter, setModelFilter] = useState<"all" | "free" | "local" | "remote" | "tools" | "reasoning">("all");
   const [handoffResult, setHandoffResult] = useState<AiPromptHandoffResponse | null>(null);
+  const [workflow, setWorkflow] = useState<AiWorkflow | undefined>();
+  const [workflowScopeId, setWorkflowScopeId] = useState("");
+  const [allowRemoteToolContext, setAllowRemoteToolContext] = useState(false);
 
   const catalog = useQuery({
     queryKey: ["ai-catalog"],
@@ -85,6 +92,25 @@ export function AiConsolePage(): JSX.Element {
     queryFn: listAiSessions,
     staleTime: 10_000,
     retry: 1,
+  });
+  const toolCatalog = useQuery({
+    queryKey: ["ai-tools"],
+    queryFn: getAiTools,
+    staleTime: 60_000,
+    retry: 1,
+  });
+  const desktopInventory = useQuery({
+    queryKey: ["ai-desktop-inventory"],
+    queryFn: async () => {
+      const core = nativeCore();
+      const token = getAccessToken();
+      if (!core || !token) return null;
+      return core.invoke("get_local_host_inventory", { token });
+    },
+    enabled: Boolean(isAdmin && hasNativeCore()),
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    retry: false,
   });
   const activeSession = useQuery({
     queryKey: ["ai-session", activeId],
@@ -117,7 +143,16 @@ export function AiConsolePage(): JSX.Element {
   const sessionModel = session
     ? models.find((model) => model.id === `${session.provider_id}/${session.model_id}`) ?? null
     : null;
-  const isAdmin = user?.role === "admin";
+  const remoteToolContextAvailable = Boolean(
+    sessionModel?.remote
+      && !sessionModel.local
+      && (workflow || sessionModel.supports_tools === true),
+  );
+  const requiresRemoteToolConsent = Boolean(
+    sessionModel?.remote
+      && !sessionModel.local
+      && workflow,
+  );
 
   const refreshMutation = useMutation({
     mutationFn: refreshAiCatalog,
@@ -149,12 +184,25 @@ export function AiConsolePage(): JSX.Element {
   const sendMutation = useMutation({
     mutationFn: () => {
       if (!activeId) throw new Error(t("Start a new chat before sending a message"));
+      if (["analyze_asset", "explain_alert", "analyze_investigation"].includes(workflow ?? "") && !isUuid(workflowScopeId)) {
+        throw new Error(t("Enter a valid selected record ID for this workflow"));
+      }
+      if (requiresRemoteToolConsent && !allowRemoteToolContext) {
+        throw new Error(t("Approve the remote evidence preview before sending this turn"));
+      }
       setStreamingText("");
-      return sendAiMessageStream(activeId, draft, selectedCitationIds, contextPolicy, (delta) => setStreamingText((current) => current + delta));
+      return sendAiMessageStream(activeId, draft, selectedCitationIds, contextPolicy, (delta) => setStreamingText((current) => current + delta), {
+        workflow,
+        workflowScopeId: workflowScopeId || undefined,
+        desktopInventory: desktopInventory.data ?? undefined,
+        allowRemoteToolContext,
+      });
     },
     onSuccess: async () => {
       setDraft("");
       setStreamingText("");
+      setWorkflow(undefined);
+      setAllowRemoteToolContext(false);
       await queryClient.invalidateQueries({ queryKey: ["ai-session", activeId] });
       await queryClient.invalidateQueries({ queryKey: ["ai-sessions"] });
     },
@@ -260,6 +308,22 @@ export function AiConsolePage(): JSX.Element {
     setContextPolicy(item.context_policy);
     setSelectedCitationIds([]);
   };
+  const prepareWorkflow = (kind: AiWorkflow): void => {
+    setWorkflow(kind);
+    setAllowRemoteToolContext(false);
+    const prompt = {
+      analyze_server: "Analyze the primary RavenTech server using current evidence. Separate facts, interpretations, hypotheses, and manual recommendations.",
+      analyze_resource_usage: "Analyze current host resource usage using bounded metrics, top processes, recent timeline evidence, and verified Knowledge where relevant.",
+      analyze_services: "Analyze existing local service inventory, deterministic posture, recent changes, and relevant Knowledge. Do not change service state.",
+      analyze_ports: "Review existing local listening port observations and relevant policy evidence. An open port alone is not a vulnerability.",
+      analyze_lan: "Analyze the existing authorized LAN inventory. Do not initiate discovery or service checks.",
+      analyze_asset: "Analyze the selected LAN asset from stored observations and endpoint telemetry.",
+      explain_posture: "Explain the current deterministic RavenTech Security Posture and its evidence.",
+      explain_alert: "Explain the selected alert and identify the evidence and uncertainty.",
+      analyze_investigation: "Summarize the selected investigation using accessible findings and timeline evidence.",
+    } satisfies Record<AiWorkflow, string>;
+    setDraft(prompt[kind]);
+  };
   const toggleCitation = (citationId: string): void => {
     setSelectedCitationIds((selected) => selected.includes(citationId)
       ? selected.filter((item) => item !== citationId)
@@ -347,6 +411,15 @@ export function AiConsolePage(): JSX.Element {
                       {session.status === "running" ? <button type="button" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending} className="inline-flex items-center gap-1 rounded-md border border-raven-border px-2 py-1.5 text-xs"><Square size={12} />{t("Cancel")}</button> : null}
                     </div>
                   </div>
+                  <div className="border-b border-raven-border px-4 py-3">
+                    <div className="flex flex-wrap gap-2" aria-label={t("Read-only analysis workflows")}>
+                      {(["analyze_server", "analyze_resource_usage", "analyze_services", "analyze_ports", "analyze_lan", "analyze_asset", "explain_posture", "explain_alert", "analyze_investigation"] as const).map((kind) => <button key={kind} type="button" onClick={() => prepareWorkflow(kind)} disabled={session.status === "running"} className={`rounded border px-2 py-1.5 text-xs ${workflow === kind ? "border-raven-violet text-raven-violet" : "border-raven-border hover:bg-raven-panelSoft"}`}>
+                        {t(({ analyze_server: "Analyze Server", analyze_resource_usage: "Analyze Resource Usage", analyze_services: "Analyze Services", analyze_ports: "Analyze Ports", analyze_lan: "Analyze LAN", analyze_asset: "Analyze Asset", explain_posture: "Explain Posture", explain_alert: "Explain Alert", analyze_investigation: "Analyze Investigation" })[kind])}
+                      </button>)}
+                    </div>
+                    {workflow ? <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-raven-muted"><span>{t("Prepared context workflow")}: {workflow.replace(/_/g, " ")}</span>{["analyze_asset", "explain_alert", "analyze_investigation"].includes(workflow) ? <input value={workflowScopeId} onChange={(event) => { setWorkflowScopeId(event.target.value); setAllowRemoteToolContext(false); }} aria-label={t("Selected asset, alert, or investigation ID")} placeholder={t("Selected record ID")} className="min-w-56 flex-1 rounded border border-raven-border bg-raven-bg px-2 py-1.5" /> : null}<button type="button" onClick={() => { setWorkflow(undefined); setAllowRemoteToolContext(false); }} className="rounded border border-raven-border px-2 py-1">{t("Clear")}</button></div> : null}
+                    <p className="mt-2 text-[11px] text-raven-muted">{t("Only fixed read-only RavenTech tools are available. No shell, SQL, filesystem, scanning, or write actions.")}</p>
+                  </div>
                   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                     {(session.messages ?? []).map((message) => (
                       <article key={message.id} className={`max-w-[92%] rounded-xl p-3 ${message.role === "user" ? "ml-auto bg-raven-violet/20" : "bg-raven-panelSoft"}`}>
@@ -354,6 +427,7 @@ export function AiConsolePage(): JSX.Element {
                         <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
                         {message.role === "assistant" && message.citation_validation?.unverified_response_references.length ? <p className="mt-2 text-xs text-amber-300">{t("Unverified citation references")}: {message.citation_validation.unverified_response_references.join(", ")}</p> : null}
                         {message.supplied_citations.length ? <div className="mt-2 border-t border-raven-border pt-2 text-xs text-raven-muted"><span className="font-semibold">{t("Sources used")}: </span>{message.supplied_citations.join(", ")}</div> : null}
+                        {message.context_sources.some((item) => item.kind === "tool_activity") ? <ToolEvidencePanel sources={message.context_sources.filter((item) => item.kind === "tool_activity")} translate={t} /> : null}
                       </article>
                     ))}
                     {streamingText ? <article className="max-w-[92%] rounded-xl bg-raven-panelSoft p-3" aria-live="polite"><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-raven-muted">{t("AI-generated analysis")} · {session.provider_id}/{session.model_id}</p><p className="whitespace-pre-wrap text-sm leading-6">{streamingText}</p></article> : null}
@@ -361,6 +435,10 @@ export function AiConsolePage(): JSX.Element {
                     {session.status === "failed" ? <p role="status" className="text-sm text-amber-300">{t("The provider request failed. Your session is preserved and RavenTech core services remain available.")}</p> : null}
                   </div>
                   <div className="border-t border-raven-border p-4">
+                    {remoteToolContextAvailable ? <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs">
+                      <label className="flex items-start gap-2 font-medium"><input type="checkbox" checked={allowRemoteToolContext} onChange={(event) => setAllowRemoteToolContext(event.target.checked)} /><span>{t("Allow this remote model to receive read-only RavenTech evidence for this turn")}</span></label>
+                      <p className="mt-2 text-raven-muted">{t("Preview: host metrics, process and service summaries, listener observations, authorized LAN metadata, deterministic posture, alerts, timeline entries, and only the Knowledge excerpts selected below. No commands, credentials, raw banners, or write actions are shared.")}</p>
+                    </div> : null}
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={contextPreviewOpen} onChange={(event) => { setContextPreviewOpen(event.target.checked); if (!event.target.checked) setSelectedCitationIds([]); }} />{t("Use Knowledge context")}</label>
                       {contextPreviewOpen ? <div className="flex items-center gap-2"><select value={contextPolicy} onChange={(event) => { setContextPolicy(event.target.value as AiKnowledgePolicy); setSelectedCitationIds([]); }} className="rounded border border-raven-border bg-raven-bg px-2 py-1 text-xs">{knowledgePolicies.map((policy) => <option key={policy} value={policy}>{knowledgePolicyLabel(policy, t)}</option>)}</select><button type="button" onClick={() => previewMutation.mutate()} disabled={!draft.trim() || previewMutation.isPending} className="rounded border border-raven-border px-2 py-1 text-xs disabled:opacity-50">{previewMutation.isPending ? t("Preparing preview") : t("Preview sources")}</button></div> : null}
@@ -373,7 +451,7 @@ export function AiConsolePage(): JSX.Element {
                       <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (draft.trim() && session.status !== "running") sendMutation.mutate(); } }} rows={3} maxLength={12_000} placeholder={t("Ask a question or request analysis...")} className="min-h-20 flex-1 resize-y rounded-lg border border-raven-border bg-raven-bg px-3 py-2 text-sm outline-none focus:border-raven-violet" disabled={session.status === "running"} />
                       <button type="button" onClick={() => sendMutation.mutate()} disabled={!draft.trim() || session.status === "running" || sendMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-raven-violet px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Send size={15} />{t("Send")}</button>
                     </div>
-                    <p className="mt-2 text-xs text-raven-muted">{t("AI-generated analysis is separate from verified RavenTech evidence. Only selected Knowledge excerpts are shared with the selected model.")}</p>
+                    <p className="mt-2 text-xs text-raven-muted">{t("AI-generated analysis is separate from verified RavenTech evidence. Selected Knowledge excerpts are shared with the selected model; remote operational evidence requires turn-specific approval.")}</p>
                   </div>
                 </>
               ) : (
@@ -398,7 +476,10 @@ export function AiConsolePage(): JSX.Element {
               <StatusLine label={t("Local providers")} value={String(catalog.data?.providers.filter((provider) => provider.local && provider.connected).length ?? 0)} />
               <StatusLine label={t("Remote providers")} value={String(catalog.data?.providers.filter((provider) => provider.remote && provider.connected).length ?? 0)} />
               <StatusLine label={t("Execution policy")} value={modeLabel(mode, t)} />
+              <StatusLine label={t("Read-only tools")} value={`${toolCatalog.data?.read_only_count ?? 0} · ${t("writes disabled")}`} />
             </div>
+            {session?.tool_activity?.length ? <div className="mt-4 border-t border-raven-border pt-3"><h3 className="text-sm font-semibold">{t("Tool activity")}</h3><ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-xs">{session.tool_activity.map((activity, index) => <li key={`${activity.timestamp}-${index}`} className="rounded border border-raven-border p-2"><span className="font-medium">{activity.tool_id}</span><span className="ml-2 text-raven-muted">{t(activity.outcome)} · {activity.duration_ms ?? "—"} ms</span>{activity.safe_error_code ? <span className="ml-2 text-amber-300">{activity.safe_error_code}</span> : null}</li>)}</ul></div> : null}
+            <div className="mt-3 text-xs text-raven-muted">{t("Desktop inventory")}: {desktopInventory.data ? t("available") : t("not supplied")}</div>
             <div className="mt-4 space-y-2 border-t border-raven-border pt-3">
               <label className="block text-xs text-raven-muted">{t("Preferred local model")}
                 <select value={preferences.data?.preferred_local_model_id ?? ""} onChange={(event) => updatePreferredModel("preferred_local_model_id", event.target.value)} className="mt-1 w-full rounded border border-raven-border bg-raven-bg px-2 py-1 text-sm">
@@ -458,4 +539,82 @@ function knowledgePolicyLabel(policy: AiKnowledgePolicy, translate: (value: stri
   if (policy === "verified_only") return translate("Verified only");
   if (policy === "trusted_plus") return translate("Trusted and reviewed");
   return translate("All enabled sources");
+}
+
+type NativeCore = { invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
+function nativeCore(): NativeCore | null {
+  try {
+    const current = window as Window & { __TAURI__?: { core?: NativeCore } };
+    const parent = window.parent !== window
+      ? window.parent as Window & { __TAURI__?: { core?: NativeCore } }
+      : undefined;
+    return current.__TAURI__?.core ?? parent?.__TAURI__?.core ?? null;
+  } catch {
+    return null;
+  }
+}
+function hasNativeCore(): boolean { return nativeCore() !== null; }
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+type EvidenceReference = {
+  id: string;
+  source_type: string;
+  timestamp: string | null;
+  confidence: string;
+  freshness: string;
+  scope: Record<string, unknown>;
+};
+
+function ToolEvidencePanel({
+  sources,
+  translate,
+}: {
+  sources: Array<Record<string, unknown>>;
+  translate: (value: string) => string;
+}): JSX.Element {
+  return (
+    <div className="mt-2 rounded border border-raven-border p-2 text-xs" aria-label={translate("Evidence panel")}>
+      <strong>{translate("Evidence and tool activity")}</strong>
+      {sources.map((source, index) => {
+        const references = Array.isArray(source.evidence_references)
+          ? source.evidence_references.filter(isEvidenceReference).slice(0, 10)
+          : [];
+        const fallbackIds = Array.isArray(source.evidence_ids)
+          ? source.evidence_ids.filter((value): value is string => typeof value === "string").slice(0, 10)
+          : [];
+        return (
+          <div key={`${String(source.tool_id)}-${index}`} className="mt-2 border-t border-raven-border pt-2">
+            <p className="text-raven-muted">
+              {String(source.tool_id)} · {source.success ? translate("completed") : translate("unavailable")}
+            </p>
+            {references.length ? <ul className="mt-1 space-y-1">
+              {references.map((reference) => {
+                const destination = resolveAiEvidenceDestination(reference.id, reference.scope);
+                return <li key={reference.id} className="break-words text-raven-muted">
+                  {destination
+                    ? <Link to={destination} title={translate("Open source page")} className="text-raven-violet underline">{reference.id}</Link>
+                    : <span>{reference.id}</span>}
+                  <span> · {reference.source_type} · {translate("Confidence")}: {translate(reference.confidence)} · {translate("Freshness")}: {translate(reference.freshness)}</span>
+                  {reference.timestamp ? <span> · {translate("Timestamp")}: {reference.timestamp}</span> : null}
+                </li>;
+              })}
+            </ul> : fallbackIds.length ? <p className="mt-1 break-words text-raven-muted">{fallbackIds.join(", ")}</p> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function isEvidenceReference(value: unknown): value is EvidenceReference {
+  if (!value || typeof value !== "object") return false;
+  const item = value as Partial<EvidenceReference>;
+  return typeof item.id === "string"
+    && typeof item.source_type === "string"
+    && (item.timestamp === null || typeof item.timestamp === "string")
+    && typeof item.confidence === "string"
+    && typeof item.freshness === "string"
+    && Boolean(item.scope && typeof item.scope === "object");
 }

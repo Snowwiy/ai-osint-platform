@@ -3217,6 +3217,15 @@ export interface AiOperationsStatus {
   last_successful_inference: string | null;
   degraded: boolean;
   message: string;
+  tool_gateway_status: "healthy" | "degraded";
+  registered_tools: number;
+  read_only_tool_count: number;
+  write_tool_count: 0;
+  last_tool_activity: string | null;
+  last_successful_tool: string | null;
+  last_tool_error: string | null;
+  tool_requests_last_hour: number;
+  denied_tool_attempts: number;
 }
 
 export interface AiProvider {
@@ -3307,6 +3316,15 @@ export interface AiSessionView {
   created_at: string;
   updated_at: string;
   messages: AiMessageView[];
+  tool_activity: Array<{
+    tool_id: string;
+    outcome: string;
+    safe_error_code: string | null;
+    duration_ms: number | null;
+    result_count: number | null;
+    evidence_count: number | null;
+    timestamp: string;
+  }>;
 }
 
 export interface AiMessageResult {

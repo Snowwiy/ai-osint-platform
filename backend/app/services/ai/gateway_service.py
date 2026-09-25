@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.ai_session import AiMessage, AiModelPreference, AiSession
+from app.models.audit_log import AuditLog
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
 from app.models.knowledge_source import KnowledgeSource
@@ -536,6 +537,34 @@ async def session_view(db: AsyncSession, session: AiSession) -> AiSessionView:
                 message.content, message.supplied_citations
             )
         views.append(AiMessageView.model_validate(view_data))
+    audit_result = await db.execute(
+        select(AuditLog)
+        .where(
+            AuditLog.resource_id == session.id,
+            AuditLog.action.in_(
+                ("ai.tool_completed", "ai.tool_denied", "ai.tool_failed")
+            ),
+        )
+        .order_by(AuditLog.timestamp.desc())
+        .limit(30)
+    )
+    tool_activity: list[dict[str, Any]] = []
+    for event in audit_result.scalars().all():
+        metadata = (
+            event.event_metadata if isinstance(event.event_metadata, dict) else {}
+        )
+        tool_activity.append(
+            {
+                "tool_id": str(metadata.get("tool_id", "unknown"))[:100],
+                "outcome": str(metadata.get("outcome", "failed"))[:20],
+                "safe_error_code": str(metadata.get("safe_error_code", ""))[:60]
+                or None,
+                "duration_ms": metadata.get("duration_ms"),
+                "result_count": metadata.get("result_count"),
+                "evidence_count": metadata.get("evidence_count"),
+                "timestamp": event.timestamp,
+            }
+        )
     return AiSessionView(
         id=session.id,
         title=session.title,
@@ -548,6 +577,7 @@ async def session_view(db: AsyncSession, session: AiSession) -> AiSessionView:
         created_at=session.created_at,
         updated_at=session.updated_at,
         messages=views,
+        tool_activity=list(reversed(tool_activity)),
     )
 
 

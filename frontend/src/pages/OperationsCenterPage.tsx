@@ -316,6 +316,18 @@ function AiOperationsPanel({ data, loading, t }: { data: AiOperationsStatus | un
         {[[t("OpenCode runtime"), t(data.runtime_status)], [t("Available models"), String(data.available_models)], [t("Local providers"), String(data.local_providers)], [t("Remote providers"), String(data.remote_providers)]]
           .map(([label, value]) => <div key={label} className="rounded border border-raven-border p-3"><span className="block text-xs text-raven-muted">{label}</span><strong className="mt-1 block text-sm">{value}</strong></div>)}
       </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          [t("Tool Gateway"), t(data.tool_gateway_status)],
+          [t("Registered read-only tools"), `${data.read_only_tool_count}/${data.registered_tools}`],
+          [t("Write tools"), String(data.write_tool_count)],
+          [t("Tool requests last hour"), String(data.tool_requests_last_hour)],
+          [t("Denied tool attempts"), String(data.denied_tool_attempts)],
+          [t("Last successful tool"), safeDate(data.last_successful_tool)?.toLocaleString() ?? "—"],
+          [t("Last safe tool error"), data.last_tool_error ?? "—"],
+          [t("Last tool activity"), safeDate(data.last_tool_activity)?.toLocaleString() ?? "—"],
+        ].map(([label, value]) => <div key={label} className="rounded border border-raven-border p-3"><span className="block text-xs text-raven-muted">{label}</span><strong className="mt-1 block break-words text-sm">{value}</strong></div>)}
+      </div>
       <p className="mt-3 text-sm text-raven-muted">{t("Selected model")}: {data.selected_model_id ?? "—"} · {t("Last model refresh")}: {safeDate(data.last_model_refresh)?.toLocaleString() ?? "—"} · {t("Last successful inference")}: {safeDate(data.last_successful_inference)?.toLocaleString() ?? "—"}</p>
       <p className={`mt-2 text-sm ${data.degraded ? "text-amber-300" : "text-raven-muted"}`} role="status">{data.degraded ? t("AI integration degraded; RavenTech core remains available.") : t(data.message)}</p>
     </> : <p className="mt-3 text-sm text-raven-muted">{t("AI integration status is unavailable or disabled. RavenTech core remains available.")}</p>}

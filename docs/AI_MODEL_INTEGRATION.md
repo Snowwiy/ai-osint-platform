@@ -1,7 +1,8 @@
 # AI Model Integration
 
-RavenTech AI is an optional, chat-only analysis feature for authorized
-administrators and analysts. It does not participate in RavenTech backend,
+RavenTech AI is an optional evidence-aware analysis feature for authorized
+administrators and analysts. Its fixed Tool Gateway is read-only and does not
+participate in RavenTech backend,
 monitoring, investigation, or native-worker readiness. If no provider is
 available, core RavenTech workflows continue normally.
 
@@ -91,14 +92,21 @@ Audit records identify actions and safe metadata/digests, not prompt bodies,
 provider credentials, or full responses. Operations Center provider/model
 diagnostics are administrator-only and do not return secrets.
 
-## Chat-only permission boundary
+## Read-only tool boundary
 
 The OpenCode request uses a RavenTech system policy and explicitly denies all
-generic tools, including shell/bash, read/write/edit/apply-patch, external
-directories, task/process execution, web search/fetch, skills, and MCP. The
-neutral app-owned workspace prevents normal RavenTech AI sessions from inheriting
-the operator's current project or repository. Integrated AI cannot stop
-services, terminate processes, modify files/configuration, change firewall
+OpenCode-native tools, including shell/bash, read/write/edit/apply-patch,
+external directories, task/process execution, web search/fetch, skills, and MCP.
+When a tool-capable model requests current RavenTech evidence, it can use only
+the fixed read-only Tool Gateway registry. The gateway applies RBAC, strict
+schemas, scoped access, rate limits, timeouts, result limits, sanitization,
+provenance, and metadata-only audit. Read-only tool results are sent to a remote
+model only after turn-specific operator consent. See
+[AI_TOOL_GATEWAY.md](AI_TOOL_GATEWAY.md) for the registry and evidence contract.
+
+The neutral app-owned workspace prevents normal RavenTech AI sessions from
+inheriting the operator's current project or repository. Integrated AI cannot
+stop services, terminate processes, modify files/configuration, change firewall
 rules, scan networks, or execute remote commands. AI output remains advisory and
 requires human review.
 

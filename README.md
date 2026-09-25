@@ -56,7 +56,8 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Local Knowledge library for operator-selected Obsidian vault files and reference documents, with source provenance, trust/review metadata, bounded incremental indexing, keyword search, and optional local vector retrieval
 - Optional in-app AI Console connected to a loopback OpenCode server or detected
   local Ollama/LM Studio endpoints; provider/model availability is discovered
-  dynamically and core workflows remain usable without AI
+  dynamically, current RavenTech evidence is available through a bounded,
+  read-only tool gateway, and core workflows remain usable without AI
 - Knowledge ingestion, indexing, filtering, and citation work without an external AI service. Imported content remains local and is added to reports only when the operator explicitly selects references.
 - Operations Center with health, diagnostics, backups, restore dry-run validation
 - Local Monitoring Center with service telemetry, RBAC-aware investigation
