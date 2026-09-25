@@ -68,6 +68,7 @@ from app.models.monitoring_policy import (
 )
 from app.models.monitoring_triage import MonitoringAlertTriage
 from app.models.notification import Notification
+from app.models.operational_analysis import OperationalAnalysis
 from app.models.playbook import (
     DefensivePlaybook,
     PlaybookRun,
@@ -154,6 +155,7 @@ __all__ = [
     "LanServiceObservation",
     "VulnerabilityBaselineFinding",
     "Notification",
+    "OperationalAnalysis",
     "MonitoringPolicy",
     "AlertSuppression",
     "MaintenanceWindow",

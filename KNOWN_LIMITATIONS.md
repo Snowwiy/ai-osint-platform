@@ -469,6 +469,19 @@ TCP connect only measures reachability at observation time. A port number or san
 
 Posture/recommendation recomputation, monitoring summary refresh, and selected Knowledge source synchronization have native handlers. Reports, recon, quality scans, alert/notification maintenance, threat intelligence, and evidence processing retain their current paths. Celery configuration and Redis remain for compatibility. PostgreSQL remains required; Docker is still supported but is not required by the packaged desktop runtime. Cancellation is cooperative and long-running handlers use explicit safe checkpoints.
 
+## Evidence-aware AI analysis
+
+The deterministic Evidence Analysis panel can summarize persisted ServerHost
+and LAN telemetry, service observations, timeline changes, alerts, posture,
+investigation findings, and explicitly retrieved local Knowledge references.
+It uses bounded windows of at most seven days. Metric baselines require at least
+three historical samples; missing history is surfaced as a data gap. Process
+and Windows service inventory supplied by the desktop is a current snapshot,
+not a historical series. Process CPU history is not persisted, so process
+correlation can identify candidates but cannot establish cause. LAN metrics are
+available only where an authorized agent reports them. Confidence is advisory,
+and no model output or time correlation proves compromise or causation.
+
 ## Phase 5BJ limits
 
 Redis/Celery independence applies to `RUNTIME_PROFILE=desktop` at the application layer. The native scheduler covers monitoring summary refresh; request-driven reports, recon, notification, data-quality, evidence, and maintenance flows remain synchronous. Knowledge source sync is an allowlisted native job. The optional SlowAPI store is process-local in native mode; required failed-login throttling uses PostgreSQL.

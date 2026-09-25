@@ -711,3 +711,12 @@ Windows portable/installer packages include Windows x86_64 backend, worker, and 
 - [ ] Native worker accepts only `knowledge.source.sync` with a source ID, not paths or document contents.
 - [ ] Operations reports bounded Knowledge health/count/status data without document text.
 - [ ] SRS source/PDF, traceability, page count, signature, metadata, secret scan, private-path scan, and visual QA pass.
+
+## Evidence-aware AI analysis
+
+- [ ] Deterministic analysis builds bounded, timestamped bundles for host, resource, service, port, LAN, asset, alert, posture, investigation, and global-attention workflows.
+- [ ] Metric trends require adequate baseline samples; empty/stale sources remain explicit data gaps and do not become fabricated findings.
+- [ ] Correlations are deduplicated, scoped, time-bounded, confidence-labeled, and described as non-causal; contradictory process timing is visible.
+- [ ] Saved analysis history respects user ownership/RBAC; rerun and comparison use stored evidence and expose bundle hashes.
+- [ ] Process/service inventory drops command lines and sensitive fields; user-supplied inventory is labeled current client evidence.
+- [ ] English/Spanish labels, production build, read-only Tool Gateway, and Knowledge reference provenance are checked.

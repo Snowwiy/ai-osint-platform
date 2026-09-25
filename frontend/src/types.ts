@@ -3349,6 +3349,93 @@ export interface AiPromptHandoffResponse {
   content_hash: string;
 }
 
+export type EvidenceAnalysisWorkflow =
+  | "host_current" | "host_changes" | "host_resource" | "host_services" | "host_ports"
+  | "lan_current" | "lan_changes" | "asset_current" | "asset_changes"
+  | "alert_context" | "posture_context" | "investigation_context" | "global_attention";
+export type EvidenceAnalysisWindow = "15m" | "1h" | "6h" | "12h" | "24h" | "7d";
+export type EvidenceAnalysisResource = "cpu" | "memory" | "disk";
+export interface EvidenceAnalysisRequest {
+  workflow: EvidenceAnalysisWorkflow;
+  window: EvidenceAnalysisWindow;
+  resource?: EvidenceAnalysisResource;
+  scope_id?: string;
+  desktop_inventory?: Record<string, unknown>;
+}
+export interface EvidenceAnalysisRecord {
+  id?: string;
+  evidence_id?: string;
+  kind?: string;
+  title?: string;
+  summary?: string;
+  candidate?: string;
+  label?: string;
+  confidence?: string;
+  reason?: string;
+  source?: string;
+  observed_at?: string | null;
+  target_url?: string | null;
+  [key: string]: unknown;
+}
+export interface EvidenceAnalysisResult {
+  analysis_type: EvidenceAnalysisWorkflow;
+  summary: string;
+  confidence: "high" | "medium" | "low" | "insufficient";
+  quality: "high" | "medium" | "low";
+  facts: EvidenceAnalysisRecord[];
+  changes: EvidenceAnalysisRecord[];
+  correlations: EvidenceAnalysisRecord[];
+  hypotheses: EvidenceAnalysisRecord[];
+  recommendations: EvidenceAnalysisRecord[];
+  data_gaps: string[];
+  uncertainties: string[];
+  knowledge: EvidenceAnalysisRecord[];
+  metrics: Record<string, Record<string, unknown>>;
+  processes: EvidenceAnalysisRecord[];
+  services: EvidenceAnalysisRecord[];
+  ports: EvidenceAnalysisRecord[];
+  assets: EvidenceAnalysisRecord[];
+  alerts: EvidenceAnalysisRecord[];
+  posture: EvidenceAnalysisRecord[];
+  bundle: Record<string, unknown>;
+  truncated?: boolean;
+}
+export interface EvidenceAnalysisView {
+  id: string;
+  workflow: EvidenceAnalysisWorkflow;
+  scope_type: string;
+  scope_id: string | null;
+  generated_at: string;
+  window: Record<string, unknown>;
+  status: "completed" | "completed_with_warnings";
+  summary: string;
+  confidence: "high" | "medium" | "low" | "insufficient";
+  evidence_count: number;
+  bundle_sha256: string;
+  result: EvidenceAnalysisResult;
+  model_metadata: Record<string, unknown>;
+  deduplicated?: boolean;
+}
+export interface EvidenceAnalysisListItem {
+  id: string;
+  workflow: string;
+  scope_type: string;
+  scope_id: string | null;
+  generated_at: string;
+  status: string;
+  summary: string;
+  confidence: "high" | "medium" | "low" | "insufficient";
+  evidence_count: number;
+  bundle_sha256: string;
+}
+export interface EvidenceAnalysisComparison {
+  first_analysis_id: string;
+  second_analysis_id: string;
+  same_bundle: boolean;
+  summary: string;
+  differences: string[];
+}
+
 export type MonitoringStatus = "healthy" | "degraded" | "unavailable";
 export type MonitoringSeverity = "info" | "warning" | "critical";
 

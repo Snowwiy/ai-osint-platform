@@ -74,6 +74,25 @@ Copy OpenCode prompt/command only copies text to the clipboard; RavenTech does n
 launch a terminal or execute the copied command. See
 [AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md).
 
+### Deterministic evidence analysis
+
+The **Evidence analysis** panel in RavenTech AI provides model-independent
+workflows for the local server, CPU/memory/disk, services, listening ports, LAN,
+selected assets, alerts, posture, and accessible investigations. Choose a
+bounded time window; asset, alert, posture, and investigation workflows also
+require the corresponding record ID. Results separate observed facts, changes,
+correlations, possible contributors, manual recommendations, Knowledge
+references, and data gaps. The saved history supports reruns and comparisons.
+
+Confidence reflects the amount and quality of stored evidence. A metric baseline
+is reported as insufficient until enough prior samples exist. Process and
+service inventory supplied by the desktop is marked current-only and is not
+treated as historical telemetry. A temporal correlation or high-usage process
+is a hypothesis, not proof of root cause. Analyses are read-only; they do not
+start discovery, change investigations, control services, or execute commands.
+Remote model use remains subject to the existing per-turn evidence consent and
+context preview.
+
 ## Prerequisites
 
 - Windows 10 or 11 with Microsoft Edge WebView2 Runtime, or a supported Linux

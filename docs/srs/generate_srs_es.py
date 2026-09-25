@@ -32,7 +32,7 @@ PDF = ROOT / "docs" / "deliverables" / "RavenTech_OSINT_SRS_v1.0_ES.pdf"
 PRODUCT = "RavenTech OSINT"
 PRODUCT_VERSION = "5.0.0-rc6"
 DOCUMENT_VERSION = "1.0"
-ISSUE_DATE = date(2026, 9, 24).isoformat()
+ISSUE_DATE = date(2026, 9, 25).isoformat()
 STATUS = "Especificación para candidato de lanzamiento"
 
 
@@ -1613,6 +1613,146 @@ add(
     ],
 )
 add(
+    "ANL",
+    [
+        (
+            "Construir bundles de evidencia operativa",
+            "Análisis operativo AI",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Prueba de bundle y procedencia",
+            "ANL-01",
+            "Cada bundle incluye alcance, ventana temporal, hechos, cambios, fuentes, brechas, confianza y hash sin convertir datos actuales en historia.",
+        ),
+        (
+            "Aplicar ventanas históricas acotadas",
+            "Análisis histórico",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de límites de ventana",
+            "ANL-02",
+            "Ventanas relativas y fechas explícitas se acotan a siete días y rechazan límites inválidos o futuros.",
+        ),
+        (
+            "Calcular tendencias con baseline suficiente",
+            "Análisis de recursos",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas deterministas de métricas",
+            "ANL-03",
+            "CPU, memoria y disco exponen muestra actual, estadísticos, delta y tendencia; con menos de tres muestras previas el baseline indica datos insuficientes.",
+        ),
+        (
+            "Correlacionar cambios por tiempo y alcance",
+            "Correlación de evidencia",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de agrupación y deduplicación",
+            "ANL-04",
+            "Solo cambios observados en el mismo alcance y dentro de cinco minutos se agrupan; la explicación declara que correlación no prueba causalidad.",
+        ),
+        (
+            "Presentar candidatos de contribución como hipótesis",
+            "Análisis de causa probable",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de hipótesis y contradicción temporal",
+            "ANL-05",
+            "Los procesos correlacionados se presentan como posibles contribuyentes y se incluye evidencia contradictoria cuando su inicio es posterior a la muestra elevada.",
+        ),
+        (
+            "Distinguir hechos, hipótesis y recomendaciones",
+            "Consola AI",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de contrato y presentación",
+            "ANL-06",
+            "Los hechos apuntan a observaciones con fuente/tiempo; las hipótesis indican confianza y la guía recomienda verificaciones manuales sin ejecutar acciones.",
+        ),
+        (
+            "Explicar brechas y suficiencia de evidencia",
+            "Calidad de análisis",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de evidencia vacía, parcial y stale",
+            "ANL-07",
+            "La falta de telemetría, baseline, historial o Knowledge se muestra como brecha y reduce confianza; no se inventan valores ausentes.",
+        ),
+        (
+            "Analizar el estado actual e histórico del servidor",
+            "Análisis de servidor",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas API/unitarias del flujo host",
+            "ANL-08",
+            "El flujo reúne métricas persistidas, cambios, servicios, puertos, postura, alertas e inventario local señalado como aportado por el cliente.",
+        ),
+        (
+            "Analizar LAN y activos autorizados",
+            "Análisis LAN",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de alcance y clasificación",
+            "ANL-09",
+            "El análisis usa solo activos y observaciones almacenados y visibles al usuario; distingue evidencia actual, histórica y ausente.",
+        ),
+        (
+            "Explicar contexto de alertas y postura",
+            "Análisis de alertas y postura",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de autorización y contexto temporal",
+            "ANL-10",
+            "La explicación consulta el evento seleccionado y datos dentro de su alcance; recomendaciones siguen siendo asesoría y no alteran el estado.",
+        ),
+        (
+            "Analizar investigaciones accesibles",
+            "Análisis de investigaciones",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas RBAC y membresía de caso",
+            "ANL-11",
+            "El análisis respeta acceso de investigación y resume hallazgos/entidades existentes sin crear ni modificar registros del caso.",
+        ),
+        (
+            "Conservar historial de análisis propio",
+            "Historial de análisis",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de persistencia y propiedad",
+            "ANL-12",
+            "Cada análisis conserva usuario, alcance, ventana, estado, resumen, conteo, hash y resultado saneado; analistas no leen el historial de otros.",
+        ),
+        (
+            "Repetir y comparar análisis guardados",
+            "Comparación histórica",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de rerun y diff determinista",
+            "ANL-13",
+            "La comparación señala cambios de métricas, evidencia, cambios y brechas solo cuando están en los bundles persistidos, con periodo y hash visibles.",
+        ),
+        (
+            "Enriquecer con referencias Knowledge locales",
+            "Consola AI y Knowledge",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de recuperación y procedencia",
+            "ANL-14",
+            "Referencias locales relevantes conservan IDs y confianza; su ausencia se declara como brecha y el contenido no se comparte con modelos automáticamente.",
+        ),
+        (
+            "Mantener el análisis exclusivamente de lectura",
+            "Seguridad AI",
+            "Windows/Linux",
+            IMPLEMENTED,
+            "Pruebas de denegación de acciones",
+            "ANL-15",
+            "Los flujos no ejecutan comandos, consultas SQL arbitrarias, cambios de archivos, descubrimiento, administración remota ni acciones de remediación.",
+        ),
+    ],
+)
+add(
     "BACK",
     [
         (
@@ -1880,6 +2020,51 @@ add_nfr(
             "Pruebas de disponibilidad y relink",
             "KNOW-NFR-04",
             "La indisponibilidad no elimina índice ni cambia silenciosamente la ubicación de origen.",
+        ),
+    ],
+)
+add_nfr(
+    "ANL",
+    [
+        (
+            "Tamaño y consultas acotados",
+            "Las consultas, ventanas, cantidad de evidencia y tamaño serializado de un bundle tienen límites deterministas.",
+            "Windows/Linux",
+            "Pruebas de límite e inspección de consultas",
+            "ANL-NFR-01",
+            "Un rango mayor de siete días, una colección excesiva o un resultado mayor a 64 KiB se rechaza o trunca de forma declarada.",
+        ),
+        (
+            "Procedencia temporal explícita",
+            "Cada observación que sustenta un análisis conserva fuente y timestamp/frescura cuando están disponibles.",
+            "Windows/Linux",
+            "Pruebas de contrato de evidencia",
+            "ANL-NFR-02",
+            "La UI distingue información actual, reciente, histórica, stale y no disponible.",
+        ),
+        (
+            "No afirmar causalidad sin evidencia",
+            "La correlación temporal y los candidatos de proceso nunca se presentan como causa confirmada sin prueba determinante.",
+            "Windows/Linux",
+            "Pruebas adversariales deterministas",
+            "ANL-NFR-03",
+            "Las hipótesis tienen lenguaje condicional, confianza y soporte/contradicción asociado.",
+        ),
+        (
+            "Minimizar y sanear datos operativos",
+            "El almacenamiento y la interfaz omiten credenciales, argumentos, banners crudos, rutas privadas y cargas sensibles.",
+            "Windows/Linux",
+            "Pruebas de sanitización de resultados",
+            "ANL-NFR-04",
+            "Las pruebas de secretos y de inventario no encuentran los valores señuelo en resultados ni metadatos.",
+        ),
+        (
+            "Análisis sin efecto operativo",
+            "La correlación, rerun y comparación consultan evidencia y persisten solo el resultado analítico autorizado.",
+            "Windows/Linux",
+            "Pruebas de solo lectura y diff de estado",
+            "ANL-NFR-05",
+            "No se ejecutan acciones locales/remotas ni se cambian activos, investigaciones, alertas, configuración o servicios.",
         ),
     ],
 )
@@ -2217,6 +2402,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
         [
             "Los hallazgos conservan procedencia, confianza, timestamps y referencias a evidencia. La correlación relaciona observaciones almacenadas dentro del ámbito visible; no afirma compromiso o causalidad sin evidencia.",
             "La cronología une cambios relevantes del caso y monitoreo. Eventos repetidos se deduplican. Servicio abierto esperado se presenta como observación, no vulnerabilidad automática.",
+            "El analista puede generar bundles de solo lectura para servidor, recursos, servicios, puertos, LAN, activos, alertas, postura e investigaciones; consultar cambios e historial acotado; comparar resultados guardados; y revisar hipótesis, evidencia contradictoria, recomendaciones manuales, procedencia, confianza y brechas. El análisis determinista funciona sin un modelo AI disponible.",
         ],
     ),
     (
@@ -2355,7 +2541,7 @@ SECTIONS: list[tuple[str, list[str]]] = [
         "34. Referencias y control documental",
         [
             "Fuentes de producto consultadas: README, arquitectura, API, esquema de datos, modelo de seguridad, manual de operador, documentación de runtime nativo y PostgreSQL administrado, monitoreo local/LAN, postura de endpoints, límites conocidos, checklist final y validadores de paquete incluidos en el repositorio.",
-            "El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-24. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.",
+            f"El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión {ISSUE_DATE}. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.",
         ],
     ),
 ]
@@ -2382,7 +2568,7 @@ def build_markdown() -> str:
         "## Control de cambios",
         "| Versión | Fecha | Cambio | Estado |",
         "|---|---|---|---|",
-        f"| {DOCUMENT_VERSION} | {ISSUE_DATE} | Actualización de requisitos verificables de descubrimiento LAN y visibilidad de activos | Candidato de lanzamiento |",
+        f"| {DOCUMENT_VERSION} | {ISSUE_DATE} | Actualización de requisitos verificables de análisis AI basado en evidencia e historial operativo | Candidato de lanzamiento |",
         "",
         "## Contenido",
     ]
@@ -2799,7 +2985,7 @@ def build_pdf() -> None:
     story += [
         Paragraph("Control documental", styles["Heading1Custom"]),
         Paragraph(
-            "Versión 1.0 · Emisión inicial · Candidato de lanzamiento RC6 · Responsable: Ingeniería de producto RavenTech OSINT.",
+            "Versión 1.0 · Revisión de requisitos operativos AI · Candidato de lanzamiento RC6 · Responsable: Ingeniería de producto RavenTech OSINT.",
             styles["BodyCustom"],
         ),
         Paragraph(
@@ -2817,7 +3003,7 @@ def build_pdf() -> None:
                 [
                     DOCUMENT_VERSION,
                     ISSUE_DATE,
-                    "Especificación inicial del producto y trazabilidad",
+                    "Requisitos de análisis AI basado en evidencia e historial operativo",
                     "RC6",
                 ],
             ],

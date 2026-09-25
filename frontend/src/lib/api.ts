@@ -15,6 +15,10 @@ import type {
   AiPreferences,
   AiPromptHandoffResponse,
   AiSessionView,
+  EvidenceAnalysisComparison,
+  EvidenceAnalysisListItem,
+  EvidenceAnalysisRequest,
+  EvidenceAnalysisView,
   AnalysisResponse,
   AuthorizationEvidence,
   AuthorizationEvidenceCreateRequest,
@@ -2580,6 +2584,40 @@ export async function createAiPromptHandoff(kind: "recommendation" | "asset" | "
 
 export async function auditAiPromptCopy(contentHash: string, contentType: "prompt" | "command" = "prompt"): Promise<void> {
   return request("/ai/prompt-handoff/copied", { method: "POST", body: JSON.stringify({ content_hash: contentHash, content_type: contentType }) });
+}
+
+export async function runEvidenceAnalysis(
+  input: EvidenceAnalysisRequest,
+): Promise<EvidenceAnalysisView> {
+  return request("/ai/analysis/run", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listEvidenceAnalyses(): Promise<EvidenceAnalysisListItem[]> {
+  return request("/ai/analysis/history?limit=30");
+}
+
+export async function getEvidenceAnalysis(id: string): Promise<EvidenceAnalysisView> {
+  return request(`/ai/analysis/${encodeURIComponent(id)}`);
+}
+
+export async function rerunEvidenceAnalysis(id: string): Promise<EvidenceAnalysisView> {
+  return request(`/ai/analysis/${encodeURIComponent(id)}/rerun`, { method: "POST" });
+}
+
+export async function compareEvidenceAnalyses(
+  firstAnalysisId: string,
+  secondAnalysisId: string,
+): Promise<EvidenceAnalysisComparison> {
+  return request("/ai/analysis/compare", {
+    method: "POST",
+    body: JSON.stringify({
+      first_analysis_id: firstAnalysisId,
+      second_analysis_id: secondAnalysisId,
+    }),
+  });
 }
 
 export async function getIocGuidance(query?: string): Promise<IOCGuidanceResponse> {

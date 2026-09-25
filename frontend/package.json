@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "lint": "eslint .",
+    "test:ai-evidence": "node --test tests/ai-evidence.test.mjs",
     "test:i18n": "node --test tests/i18n.test.mjs",
     "test:monitoring": "node --test tests/monitoring-runtime.test.mjs"
   },

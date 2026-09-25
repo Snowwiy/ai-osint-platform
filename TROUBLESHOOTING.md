@@ -325,6 +325,13 @@ before archiving or deleting its session. For remote execution, review the
 destination and selected Knowledge excerpts. Never paste provider keys, tokens,
 database URLs, or passwords into chat.
 
+The **Evidence analysis** panel is deterministic and does not need OpenCode or
+another model. If it reports low confidence or no trends, review its **Data gaps
+and uncertainty** section and the selected time window. A reliable metric
+baseline needs at least three prior samples; desktop process/service inventory
+is current-only. Confirm Monitoring telemetry is recent, then rerun the bounded
+analysis. Access-denied and out-of-scope records are intentionally not exposed.
+
 ## Demo Data Issues
 
 Seed demo data from the backend container:

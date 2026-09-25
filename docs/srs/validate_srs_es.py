@@ -116,6 +116,13 @@ def main() -> int:
         "DOCX",
         "HTML",
         "Markdown",
+        "FR-ANL-001",
+        "FR-ANL-015",
+        "NFR-ANL-001",
+        "NFR-ANL-005",
+        "correlación",
+        "causalidad",
+        "insuficiente",
     ]
     missing_terms = [
         term for term in required if term.casefold() not in pdf_text.casefold()
@@ -140,6 +147,10 @@ def main() -> int:
         raise AssertionError(
             f"Internal history or secret marker found in SRS source: {source_forbidden}"
         )
+    if re.search(r"(?i)\b(?:phase|fase)\s*\d+[a-z]?\b", pdf_text):
+        raise AssertionError("Internal phase identifier found in the SRS PDF")
+    if re.search(r"(?i)\b(?:phase|fase)\s*\d+[a-z]?\b", source):
+        raise AssertionError("Internal phase identifier found in the SRS source")
     if re.search(
         r"(?i)(password|api[_ -]?key|access[_ -]?token|jwt[_ -]?secret)\s*[:=]\s*\S+",
         pdf_text,
@@ -156,7 +167,7 @@ def main() -> int:
         raise AssertionError("PDF page numbers are missing from content pages.")
     readme = README.read_text(encoding="utf-8")
     readme_forbidden = [
-        r"\bphase\s*5[A-Z]{0,2}\b",
+        r"\b(?:phase|fase)\s*\d+[A-Z]{0,2}\b",
         r"\bCodex\b",
         r"\bClaude\b",
         r"prompt history",

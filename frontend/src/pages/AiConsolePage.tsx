@@ -18,6 +18,7 @@ import { Link } from "react-router-dom";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { PageHeader } from "../components/PageHeader";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
+import { EvidenceAnalysisPanel } from "../components/EvidenceAnalysisPanel";
 import {
   archiveAiSession,
   auditAiPromptCopy,
@@ -343,6 +344,12 @@ export function AiConsolePage(): JSX.Element {
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
       <p className="-mt-4 mb-4 text-sm text-raven-muted">{t("Chat and evidence-aware analysis using explicitly selected local Knowledge context.")}</p>
+
+      <EvidenceAnalysisPanel
+        translate={t}
+        isAdmin={isAdmin}
+        desktopInventory={desktopInventory.data}
+      />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-4">

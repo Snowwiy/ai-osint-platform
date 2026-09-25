@@ -58,6 +58,9 @@ RavenTech OSINT packages that workflow into one local-first platform:
   local Ollama/LM Studio endpoints; provider/model availability is discovered
   dynamically, current RavenTech evidence is available through a bounded,
   read-only tool gateway, and core workflows remain usable without AI
+- Deterministic server and LAN evidence analysis with bounded historical
+  comparisons, resource trends, timestamped correlations, confidence, data gaps,
+  and reviewable root-cause hypotheses; analysis never performs remediation
 - Knowledge ingestion, indexing, filtering, and citation work without an external AI service. Imported content remains local and is added to reports only when the operator explicitly selects references.
 - Operations Center with health, diagnostics, backups, restore dry-run validation
 - Local Monitoring Center with service telemetry, RBAC-aware investigation
@@ -117,6 +120,12 @@ them; remote execution displays the destination before a request. RavenTech AI i
 chat and analysis only: tool execution, file changes, shell commands, and remote
 administration are disabled. See
 [AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md) for setup and data handling.
+The Evidence Analysis panel works without a model and builds timestamped,
+bounded bundles from authorized RavenTech records. It separates observed facts
+from hypotheses, highlights missing or stale evidence, and compares saved
+analyses using recorded metrics and changes. Process inventory supplied by the
+desktop is current-only evidence; RavenTech does not infer historical process
+behavior when it has not been stored.
 
 Obsidian vaults are selected locally and retained as private, read-only source
 locations for operator-triggered incremental sync. Individual document uploads

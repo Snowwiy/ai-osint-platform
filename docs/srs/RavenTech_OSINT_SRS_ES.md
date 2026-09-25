@@ -5,7 +5,7 @@
 - Versión del documento: 1.0
 - Versión del producto: 5.0.0-rc6
 - Estado: Especificación para candidato de lanzamiento
-- Fecha: 2026-09-24
+- Fecha: 2026-09-25
 - Idioma: español
 
 > Especificación basada en las capacidades actuales del candidato de producto. Los elementos futuros se identifican explícitamente como no implementados.
@@ -13,7 +13,7 @@
 ## Control de cambios
 | Versión | Fecha | Cambio | Estado |
 |---|---|---|---|
-| 1.0 | 2026-09-24 | Actualización de requisitos verificables de descubrimiento LAN y visibilidad de activos | Candidato de lanzamiento |
+| 1.0 | 2026-09-25 | Actualización de requisitos verificables de análisis AI basado en evidencia e historial operativo | Candidato de lanzamiento |
 
 ## Contenido
 - 1. Propósito y alcance
@@ -1400,6 +1400,126 @@ Requisito: El sistema deberá ofrecer o aplicar informar estado operativo del ga
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de contrato y RBAC. Caso de prueba: AI-24.
 
+### FR-ANL-001 — Construir bundles de evidencia operativa
+
+Subsistema: Análisis operativo AI.
+
+Requisito: El sistema deberá ofrecer o aplicar construir bundles de evidencia operativa. Criterio de aceptación: Cada bundle incluye alcance, ventana temporal, hechos, cambios, fuentes, brechas, confianza y hash sin convertir datos actuales en historia.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de bundle y procedencia. Caso de prueba: ANL-01.
+
+### FR-ANL-002 — Aplicar ventanas históricas acotadas
+
+Subsistema: Análisis histórico.
+
+Requisito: El sistema deberá ofrecer o aplicar aplicar ventanas históricas acotadas. Criterio de aceptación: Ventanas relativas y fechas explícitas se acotan a siete días y rechazan límites inválidos o futuros.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de límites de ventana. Caso de prueba: ANL-02.
+
+### FR-ANL-003 — Calcular tendencias con baseline suficiente
+
+Subsistema: Análisis de recursos.
+
+Requisito: El sistema deberá ofrecer o aplicar calcular tendencias con baseline suficiente. Criterio de aceptación: CPU, memoria y disco exponen muestra actual, estadísticos, delta y tendencia; con menos de tres muestras previas el baseline indica datos insuficientes.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas deterministas de métricas. Caso de prueba: ANL-03.
+
+### FR-ANL-004 — Correlacionar cambios por tiempo y alcance
+
+Subsistema: Correlación de evidencia.
+
+Requisito: El sistema deberá ofrecer o aplicar correlacionar cambios por tiempo y alcance. Criterio de aceptación: Solo cambios observados en el mismo alcance y dentro de cinco minutos se agrupan; la explicación declara que correlación no prueba causalidad.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de agrupación y deduplicación. Caso de prueba: ANL-04.
+
+### FR-ANL-005 — Presentar candidatos de contribución como hipótesis
+
+Subsistema: Análisis de causa probable.
+
+Requisito: El sistema deberá ofrecer o aplicar presentar candidatos de contribución como hipótesis. Criterio de aceptación: Los procesos correlacionados se presentan como posibles contribuyentes y se incluye evidencia contradictoria cuando su inicio es posterior a la muestra elevada.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de hipótesis y contradicción temporal. Caso de prueba: ANL-05.
+
+### FR-ANL-006 — Distinguir hechos, hipótesis y recomendaciones
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar distinguir hechos, hipótesis y recomendaciones. Criterio de aceptación: Los hechos apuntan a observaciones con fuente/tiempo; las hipótesis indican confianza y la guía recomienda verificaciones manuales sin ejecutar acciones.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de contrato y presentación. Caso de prueba: ANL-06.
+
+### FR-ANL-007 — Explicar brechas y suficiencia de evidencia
+
+Subsistema: Calidad de análisis.
+
+Requisito: El sistema deberá ofrecer o aplicar explicar brechas y suficiencia de evidencia. Criterio de aceptación: La falta de telemetría, baseline, historial o Knowledge se muestra como brecha y reduce confianza; no se inventan valores ausentes.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de evidencia vacía, parcial y stale. Caso de prueba: ANL-07.
+
+### FR-ANL-008 — Analizar el estado actual e histórico del servidor
+
+Subsistema: Análisis de servidor.
+
+Requisito: El sistema deberá ofrecer o aplicar analizar el estado actual e histórico del servidor. Criterio de aceptación: El flujo reúne métricas persistidas, cambios, servicios, puertos, postura, alertas e inventario local señalado como aportado por el cliente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API/unitarias del flujo host. Caso de prueba: ANL-08.
+
+### FR-ANL-009 — Analizar LAN y activos autorizados
+
+Subsistema: Análisis LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar analizar lan y activos autorizados. Criterio de aceptación: El análisis usa solo activos y observaciones almacenados y visibles al usuario; distingue evidencia actual, histórica y ausente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de alcance y clasificación. Caso de prueba: ANL-09.
+
+### FR-ANL-010 — Explicar contexto de alertas y postura
+
+Subsistema: Análisis de alertas y postura.
+
+Requisito: El sistema deberá ofrecer o aplicar explicar contexto de alertas y postura. Criterio de aceptación: La explicación consulta el evento seleccionado y datos dentro de su alcance; recomendaciones siguen siendo asesoría y no alteran el estado.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de autorización y contexto temporal. Caso de prueba: ANL-10.
+
+### FR-ANL-011 — Analizar investigaciones accesibles
+
+Subsistema: Análisis de investigaciones.
+
+Requisito: El sistema deberá ofrecer o aplicar analizar investigaciones accesibles. Criterio de aceptación: El análisis respeta acceso de investigación y resume hallazgos/entidades existentes sin crear ni modificar registros del caso.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas RBAC y membresía de caso. Caso de prueba: ANL-11.
+
+### FR-ANL-012 — Conservar historial de análisis propio
+
+Subsistema: Historial de análisis.
+
+Requisito: El sistema deberá ofrecer o aplicar conservar historial de análisis propio. Criterio de aceptación: Cada análisis conserva usuario, alcance, ventana, estado, resumen, conteo, hash y resultado saneado; analistas no leen el historial de otros.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de persistencia y propiedad. Caso de prueba: ANL-12.
+
+### FR-ANL-013 — Repetir y comparar análisis guardados
+
+Subsistema: Comparación histórica.
+
+Requisito: El sistema deberá ofrecer o aplicar repetir y comparar análisis guardados. Criterio de aceptación: La comparación señala cambios de métricas, evidencia, cambios y brechas solo cuando están en los bundles persistidos, con periodo y hash visibles.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de rerun y diff determinista. Caso de prueba: ANL-13.
+
+### FR-ANL-014 — Enriquecer con referencias Knowledge locales
+
+Subsistema: Consola AI y Knowledge.
+
+Requisito: El sistema deberá ofrecer o aplicar enriquecer con referencias knowledge locales. Criterio de aceptación: Referencias locales relevantes conservan IDs y confianza; su ausencia se declara como brecha y el contenido no se comparte con modelos automáticamente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de recuperación y procedencia. Caso de prueba: ANL-14.
+
+### FR-ANL-015 — Mantener el análisis exclusivamente de lectura
+
+Subsistema: Seguridad AI.
+
+Requisito: El sistema deberá ofrecer o aplicar mantener el análisis exclusivamente de lectura. Criterio de aceptación: Los flujos no ejecutan comandos, consultas SQL arbitrarias, cambios de archivos, descubrimiento, administración remota ni acciones de remediación.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de denegación de acciones. Caso de prueba: ANL-15.
+
 ### FR-BACK-001 — Crear respaldo local
 
 Subsistema: Respaldo.
@@ -1441,6 +1561,7 @@ El alcance no incluye escaneo de puertos público, barrido de Internet, autentic
 
 Los hallazgos conservan procedencia, confianza, timestamps y referencias a evidencia. La correlación relaciona observaciones almacenadas dentro del ámbito visible; no afirma compromiso o causalidad sin evidencia.
 La cronología une cambios relevantes del caso y monitoreo. Eventos repetidos se deduplican. Servicio abierto esperado se presenta como observación, no vulnerabilidad automática.
+El analista puede generar bundles de solo lectura para servidor, recursos, servicios, puertos, LAN, activos, alertas, postura e investigaciones; consultar cambios e historial acotado; comparar resultados guardados; y revisar hipótesis, evidencia contradictoria, recomendaciones manuales, procedencia, confianza y brechas. El análisis determinista funciona sin un modelo AI disponible.
 
 ## 16. Informes
 
@@ -1646,6 +1767,36 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de parse
 Una fuente no disponible permanece offline hasta que el operador la religa mediante el selector nativo.
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de disponibilidad y relink. Caso de prueba: KNOW-NFR-04. Criterio: La indisponibilidad no elimina índice ni cambia silenciosamente la ubicación de origen.
+
+### NFR-ANL-001 — Tamaño y consultas acotados
+
+Las consultas, ventanas, cantidad de evidencia y tamaño serializado de un bundle tienen límites deterministas.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de límite e inspección de consultas. Caso de prueba: ANL-NFR-01. Criterio: Un rango mayor de siete días, una colección excesiva o un resultado mayor a 64 KiB se rechaza o trunca de forma declarada.
+
+### NFR-ANL-002 — Procedencia temporal explícita
+
+Cada observación que sustenta un análisis conserva fuente y timestamp/frescura cuando están disponibles.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de contrato de evidencia. Caso de prueba: ANL-NFR-02. Criterio: La UI distingue información actual, reciente, histórica, stale y no disponible.
+
+### NFR-ANL-003 — No afirmar causalidad sin evidencia
+
+La correlación temporal y los candidatos de proceso nunca se presentan como causa confirmada sin prueba determinante.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas adversariales deterministas. Caso de prueba: ANL-NFR-03. Criterio: Las hipótesis tienen lenguaje condicional, confianza y soporte/contradicción asociado.
+
+### NFR-ANL-004 — Minimizar y sanear datos operativos
+
+El almacenamiento y la interfaz omiten credenciales, argumentos, banners crudos, rutas privadas y cargas sensibles.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de sanitización de resultados. Caso de prueba: ANL-NFR-04. Criterio: Las pruebas de secretos y de inventario no encuentran los valores señuelo en resultados ni metadatos.
+
+### NFR-ANL-005 — Análisis sin efecto operativo
+
+La correlación, rerun y comparación consultan evidencia y persisten solo el resultado analítico autorizado.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de solo lectura y diff de estado. Caso de prueba: ANL-NFR-05. Criterio: No se ejecutan acciones locales/remotas ni se cambian activos, investigaciones, alertas, configuración o servicios.
 
 ### NFR-REL-001 — Inicio ordenado
 
@@ -1983,6 +2134,21 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-AI-022 | Etiquetar inventario de escritorio no atestado | Gateway de herramientas AI | Windows/Linux | Implementado | Prueba de procedencia del inventario | AI-22 | Los procesos y servicios aportados por Tauri se marcan como informados por cliente y no verificados por backend. |
 | FR-AI-023 | Mantener salud del producto independiente de AI | Operations Center | Windows/Linux | Implementado | Pruebas de estado y readiness | AI-23 | Fallo del gateway, modelo o proveedor degrada solo el subsistema AI y no la readiness central. |
 | FR-AI-024 | Informar estado operativo del gateway | Operations Center | Windows/Linux | Implementado | Pruebas de contrato y RBAC | AI-24 | El estado administrativo muestra herramientas registradas, solo lectura, cero escrituras, actividad y fallos seguros. |
+| FR-ANL-001 | Construir bundles de evidencia operativa | Análisis operativo AI | Windows/Linux | Implementado | Prueba de bundle y procedencia | ANL-01 | Cada bundle incluye alcance, ventana temporal, hechos, cambios, fuentes, brechas, confianza y hash sin convertir datos actuales en historia. |
+| FR-ANL-002 | Aplicar ventanas históricas acotadas | Análisis histórico | Windows/Linux | Implementado | Pruebas de límites de ventana | ANL-02 | Ventanas relativas y fechas explícitas se acotan a siete días y rechazan límites inválidos o futuros. |
+| FR-ANL-003 | Calcular tendencias con baseline suficiente | Análisis de recursos | Windows/Linux | Implementado | Pruebas deterministas de métricas | ANL-03 | CPU, memoria y disco exponen muestra actual, estadísticos, delta y tendencia; con menos de tres muestras previas el baseline indica datos insuficientes. |
+| FR-ANL-004 | Correlacionar cambios por tiempo y alcance | Correlación de evidencia | Windows/Linux | Implementado | Pruebas de agrupación y deduplicación | ANL-04 | Solo cambios observados en el mismo alcance y dentro de cinco minutos se agrupan; la explicación declara que correlación no prueba causalidad. |
+| FR-ANL-005 | Presentar candidatos de contribución como hipótesis | Análisis de causa probable | Windows/Linux | Implementado | Pruebas de hipótesis y contradicción temporal | ANL-05 | Los procesos correlacionados se presentan como posibles contribuyentes y se incluye evidencia contradictoria cuando su inicio es posterior a la muestra elevada. |
+| FR-ANL-006 | Distinguir hechos, hipótesis y recomendaciones | Consola AI | Windows/Linux | Implementado | Pruebas de contrato y presentación | ANL-06 | Los hechos apuntan a observaciones con fuente/tiempo; las hipótesis indican confianza y la guía recomienda verificaciones manuales sin ejecutar acciones. |
+| FR-ANL-007 | Explicar brechas y suficiencia de evidencia | Calidad de análisis | Windows/Linux | Implementado | Pruebas de evidencia vacía, parcial y stale | ANL-07 | La falta de telemetría, baseline, historial o Knowledge se muestra como brecha y reduce confianza; no se inventan valores ausentes. |
+| FR-ANL-008 | Analizar el estado actual e histórico del servidor | Análisis de servidor | Windows/Linux | Implementado | Pruebas API/unitarias del flujo host | ANL-08 | El flujo reúne métricas persistidas, cambios, servicios, puertos, postura, alertas e inventario local señalado como aportado por el cliente. |
+| FR-ANL-009 | Analizar LAN y activos autorizados | Análisis LAN | Windows/Linux | Implementado | Pruebas de alcance y clasificación | ANL-09 | El análisis usa solo activos y observaciones almacenados y visibles al usuario; distingue evidencia actual, histórica y ausente. |
+| FR-ANL-010 | Explicar contexto de alertas y postura | Análisis de alertas y postura | Windows/Linux | Implementado | Pruebas de autorización y contexto temporal | ANL-10 | La explicación consulta el evento seleccionado y datos dentro de su alcance; recomendaciones siguen siendo asesoría y no alteran el estado. |
+| FR-ANL-011 | Analizar investigaciones accesibles | Análisis de investigaciones | Windows/Linux | Implementado | Pruebas RBAC y membresía de caso | ANL-11 | El análisis respeta acceso de investigación y resume hallazgos/entidades existentes sin crear ni modificar registros del caso. |
+| FR-ANL-012 | Conservar historial de análisis propio | Historial de análisis | Windows/Linux | Implementado | Pruebas de persistencia y propiedad | ANL-12 | Cada análisis conserva usuario, alcance, ventana, estado, resumen, conteo, hash y resultado saneado; analistas no leen el historial de otros. |
+| FR-ANL-013 | Repetir y comparar análisis guardados | Comparación histórica | Windows/Linux | Implementado | Pruebas de rerun y diff determinista | ANL-13 | La comparación señala cambios de métricas, evidencia, cambios y brechas solo cuando están en los bundles persistidos, con periodo y hash visibles. |
+| FR-ANL-014 | Enriquecer con referencias Knowledge locales | Consola AI y Knowledge | Windows/Linux | Implementado | Pruebas de recuperación y procedencia | ANL-14 | Referencias locales relevantes conservan IDs y confianza; su ausencia se declara como brecha y el contenido no se comparte con modelos automáticamente. |
+| FR-ANL-015 | Mantener el análisis exclusivamente de lectura | Seguridad AI | Windows/Linux | Implementado | Pruebas de denegación de acciones | ANL-15 | Los flujos no ejecutan comandos, consultas SQL arbitrarias, cambios de archivos, descubrimiento, administración remota ni acciones de remediación. |
 | FR-BACK-001 | Crear respaldo local | Respaldo | Windows/Linux | Parcial | Prueba de integración aislada | BACK-01 | Las operaciones existentes usan ruta controlada y registran resultado seguro. |
 | FR-BACK-002 | Validar respaldo | Recuperación | Windows/Linux | Parcial | Prueba de validación | BACK-02 | La validación no sobreescribe base activa y comunica limitaciones. |
 | FR-BACK-003 | Restaurar con control | Recuperación | Windows/Linux | Parcial | Ensayo fuera de producción | BACK-03 | Toda restauración requiere acción administrativa explícita y objetivo aislado. |
@@ -2010,6 +2176,11 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-KNOW-002 | Límite de lectura del vault | No funcional | Windows/Linux | Especificado | Pruebas de traversal/enlaces | KNOW-NFR-02 | Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican. |
 | NFR-KNOW-003 | Parser acotado y no ejecutable | No funcional | Windows/Linux | Especificado | Pruebas de parser y carga malformada | KNOW-NFR-03 | Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos. |
 | NFR-KNOW-004 | Reenlace local explícito | No funcional | Windows/Linux | Especificado | Pruebas de disponibilidad y relink | KNOW-NFR-04 | La indisponibilidad no elimina índice ni cambia silenciosamente la ubicación de origen. |
+| NFR-ANL-001 | Tamaño y consultas acotados | No funcional | Windows/Linux | Especificado | Pruebas de límite e inspección de consultas | ANL-NFR-01 | Un rango mayor de siete días, una colección excesiva o un resultado mayor a 64 KiB se rechaza o trunca de forma declarada. |
+| NFR-ANL-002 | Procedencia temporal explícita | No funcional | Windows/Linux | Especificado | Pruebas de contrato de evidencia | ANL-NFR-02 | La UI distingue información actual, reciente, histórica, stale y no disponible. |
+| NFR-ANL-003 | No afirmar causalidad sin evidencia | No funcional | Windows/Linux | Especificado | Pruebas adversariales deterministas | ANL-NFR-03 | Las hipótesis tienen lenguaje condicional, confianza y soporte/contradicción asociado. |
+| NFR-ANL-004 | Minimizar y sanear datos operativos | No funcional | Windows/Linux | Especificado | Pruebas de sanitización de resultados | ANL-NFR-04 | Las pruebas de secretos y de inventario no encuentran los valores señuelo en resultados ni metadatos. |
+| NFR-ANL-005 | Análisis sin efecto operativo | No funcional | Windows/Linux | Especificado | Pruebas de solo lectura y diff de estado | ANL-NFR-05 | No se ejecutan acciones locales/remotas ni se cambian activos, investigaciones, alertas, configuración o servicios. |
 | NFR-REL-001 | Inicio ordenado | No funcional | Windows/Linux | Especificado | Prueba de supervisor | REL-01 | Fallo de dependencia evita estado Ready y no borra datos. |
 | NFR-REL-002 | Cierre cooperativo | No funcional | Windows/Linux | Especificado | Prueba de ciclo | REL-02 | Procesos ajenos permanecen activos. |
 | NFR-REL-003 | Recuperación no destructiva | No funcional | Windows/Linux | Especificado | Prueba de rutas | REL-03 | No se elimina ni reinicializa un directorio ambiguo. |
@@ -2046,7 +2217,7 @@ Activo: dispositivo/red autorizado representado en Monitoring. Agente: proceso a
 ## 34. Referencias y control documental
 
 Fuentes de producto consultadas: README, arquitectura, API, esquema de datos, modelo de seguridad, manual de operador, documentación de runtime nativo y PostgreSQL administrado, monitoreo local/LAN, postura de endpoints, límites conocidos, checklist final y validadores de paquete incluidos en el repositorio.
-El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-24. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
+El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-25. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
 
 
 ## Anexo A. Criterios de aceptación ejecutables
