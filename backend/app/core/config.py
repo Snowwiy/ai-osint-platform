@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     OPENAI_API_KEY: str = ""
+    OPENCODE_SERVER_PORT: int = 4096
+    AI_MODEL_CATALOG_CACHE_SECONDS: int = 60
+    AI_SESSION_MAX_SESSIONS: int = 100
+    AI_SESSION_MAX_MESSAGES: int = 100
+    AI_MESSAGE_MAX_CHARS: int = 12_000
     OBSIDIAN_WIKI_PATH: str = ""
 
     REPORT_COMPANY_NAME: str = "RavenTech"

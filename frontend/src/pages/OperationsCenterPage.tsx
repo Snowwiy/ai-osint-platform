@@ -17,6 +17,7 @@ import { PageHeader } from "../components/PageHeader";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner } from "../components/ToastBanner";
 import {
+  getAiOperationsStatus,
   downloadOperationsBackup,
   downloadOperationsDiagnostics,
   getOperationsEnvironment,
@@ -38,6 +39,7 @@ import type {
   DataQualityOverviewResponse,
   OperationsComponentStatus,
   OperationsStatusResponse,
+  AiOperationsStatus,
   RestoreValidationResponse,
   ValidationStatus,
 } from "../types";
@@ -82,6 +84,12 @@ export function OperationsCenterPage(): JSX.Element {
   const environment = useQuery({
     queryKey: ["operations-environment"],
     queryFn: getOperationsEnvironment,
+  });
+  const aiStatus = useQuery({
+    queryKey: ["ai-operations-status"],
+    queryFn: getAiOperationsStatus,
+    retry: 1,
+    refetchInterval: 60_000,
   });
   const quality = useQuery({
     queryKey: ["data-quality-overview"],
@@ -228,6 +236,10 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
 
       <section className="mt-5">
+        <AiOperationsPanel data={aiStatus.data} loading={aiStatus.isLoading} t={t} />
+      </section>
+
+      <section className="mt-5">
         <BackgroundJobsPanel data={jobs.data} knowledgeIndex={status.data?.knowledge_index} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
       </section>
 
@@ -293,6 +305,21 @@ export function OperationsCenterPage(): JSX.Element {
       </section>
     </>
   );
+}
+
+function AiOperationsPanel({ data, loading, t }: { data: AiOperationsStatus | undefined; loading: boolean; t: (value: string) => string }): JSX.Element {
+  return <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-5" aria-label={t("AI model gateway status")}>
+    <h2 className="text-lg font-semibold">{t("AI model gateway")}</h2>
+    <p className="mt-1 text-xs text-raven-muted">{t("Optional component; AI degradation does not affect RavenTech core health.")}</p>
+    {loading ? <p className="mt-3 text-sm text-raven-muted">{t("Loading AI status")}</p> : data ? <>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {[[t("OpenCode runtime"), t(data.runtime_status)], [t("Available models"), String(data.available_models)], [t("Local providers"), String(data.local_providers)], [t("Remote providers"), String(data.remote_providers)]]
+          .map(([label, value]) => <div key={label} className="rounded border border-raven-border p-3"><span className="block text-xs text-raven-muted">{label}</span><strong className="mt-1 block text-sm">{value}</strong></div>)}
+      </div>
+      <p className="mt-3 text-sm text-raven-muted">{t("Selected model")}: {data.selected_model_id ?? "—"} · {t("Last model refresh")}: {safeDate(data.last_model_refresh)?.toLocaleString() ?? "—"} · {t("Last successful inference")}: {safeDate(data.last_successful_inference)?.toLocaleString() ?? "—"}</p>
+      <p className={`mt-2 text-sm ${data.degraded ? "text-amber-300" : "text-raven-muted"}`} role="status">{data.degraded ? t("AI integration degraded; RavenTech core remains available.") : t(data.message)}</p>
+    </> : <p className="mt-3 text-sm text-raven-muted">{t("AI integration status is unavailable or disabled. RavenTech core remains available.")}</p>}
+  </section>;
 }
 
 function ApplicationRuntimePanel({ status, t }: { status: NativeRuntimePayload | null; t: (value: string) => string }): JSX.Element {

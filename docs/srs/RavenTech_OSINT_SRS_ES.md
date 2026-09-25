@@ -72,6 +72,8 @@ Integraciones externas OSINT, cuando están habilitadas, son proveedores de cons
 ## 4. Arquitectura de alto nivel
 
 Tauri es la carcasa nativa, supervisor y proveedor de telemetría del host. El frontend embebido presenta las vistas. FastAPI aplica autenticación, autorización, validación, reglas, persistencia, informes y APIs. PostgreSQL es la dependencia persistente requerida. El worker nativo toma trabajos mediante locking PostgreSQL y ejecuta únicamente handlers allowlist.
+El gateway AI opcional conecta el backend con un servidor OpenCode loopback o proveedores locales soportados. El backend conserva preferencias y sesiones de mensajes visibles; las credenciales quedan en el proveedor. La consola analiza en modo chat con herramientas denegadas y contexto Knowledge explícitamente seleccionado.
+El gateway AI opcional conecta el backend con un servidor OpenCode loopback o proveedores locales soportados. El backend conserva preferencias y sesiones de mensajes visibles; las credenciales quedan en el proveedor. La consola analiza en modo chat con herramientas denegadas y contexto Knowledge explícitamente seleccionado.
 Los agentes ServerHost/LanEndpoint son fuentes de telemetría. No exponen ejecución remota. Observaciones LAN se restringen a segmentos privados autorizados y a checks acotados.
 
 ## 5. Diagrama de arquitectura
@@ -106,6 +108,8 @@ La aceptación limpia Windows/Linux en VM independiente queda separada de las pr
 ## 8. Interfaces de usuario
 
 Vistas principales: tablero, investigaciones, recon pasivo, hallazgos/evidencia, informes, Monitoring Center, LAN Assets, Endpoint Security Posture, Change Timeline, Notifications e Operations Center. El desktop aporta estado de runtime, primer inicio, diagnóstico y configuración local.
+RavenTech AI es una consola opcional para seleccionar proveedor/modelo, revisar ubicación local/remota, previsualizar contexto Knowledge y chatear/cancelar. Copiar un prompt OpenCode no ejecuta una terminal ni una acción.
+RavenTech AI es una consola opcional para seleccionar proveedor/modelo, revisar ubicación local/remota, previsualizar contexto Knowledge y chatear/cancelar. Copiar un prompt OpenCode no ejecuta una terminal ni una acción.
 Los componentes operativos muestran texto y/o icono además del color. Los errores se presentan en lenguaje de usuario con un siguiente paso seguro y sin stack trace, secretos o comandos arbitrarios.
 
 ## 9. Interfaces externas
@@ -116,6 +120,8 @@ El runtime administrado usa binarios PostgreSQL empaquetados; el runtime externo
 ## 10. Modelo de datos y retención
 
 Las entidades de alto nivel incluyen usuario, investigación, membresía, objetivo, trabajo, hallazgo, evidencia, informe, notificación, telemetría, alerta, activo y evento de auditoría. Los identificadores y relaciones se almacenan en PostgreSQL; el esquema se administra mediante Alembic.
+Las preferencias, sesiones y mensajes visibles de AI se relacionan con el usuario autenticado. La base guarda proveedor/modelo y contexto/citas explícitos, no secretos de proveedor ni razonamiento oculto. Los límites de sesiones y mensajes acotan retención operativa.
+Las preferencias, sesiones y mensajes visibles de AI se relacionan con el usuario autenticado. La base guarda proveedor/modelo y contexto/citas explícitos, no secretos de proveedor ni razonamiento oculto. Los límites de sesiones y mensajes acotan retención operativa.
 Los secretos de autenticación se almacenan como hashes o material protegido según el subsistema. Los archivos de informe y respaldos se tratan como datos del operador, no como recursos de paquete. La política de retención depende de configuración y operación disponible; el producto no debe prometer borrado automático no implementado.
 
 ## 11. Requisitos funcionales
@@ -1202,6 +1208,86 @@ Requisito: El sistema deberá ofrecer o aplicar preparar recuperación rag gober
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Revisión de separación y contratos. Caso de prueba: KNOW-13.
 
+### FR-AI-001 — Descubrir proveedores y modelos dinámicamente
+
+Subsistema: Gateway de modelos AI.
+
+Requisito: El sistema deberá ofrecer o aplicar descubrir proveedores y modelos dinámicamente. Criterio de aceptación: El catálogo refleja solo proveedores/modelos informados por OpenCode o los proveedores locales soportados.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de catálogo con fixtures. Caso de prueba: AI-01.
+
+### FR-AI-002 — Clasificar ubicación y costo actual
+
+Subsistema: Gateway de modelos AI.
+
+Requisito: El sistema deberá ofrecer o aplicar clasificar ubicación y costo actual. Criterio de aceptación: Cada modelo disponible distingue local/remoto y free/paid/unknown sin prometer un precio futuro.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de metadatos. Caso de prueba: AI-02.
+
+### FR-AI-003 — Aplicar modo de ejecución elegido
+
+Subsistema: Gateway de modelos AI.
+
+Requisito: El sistema deberá ofrecer o aplicar aplicar modo de ejecución elegido. Criterio de aceptación: Free only y Local only rechazan un modelo que no cumple el modo; no hay fallback pagado silencioso.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de política/API. Caso de prueba: AI-03.
+
+### FR-AI-004 — Persistir preferencias por usuario
+
+Subsistema: Gateway de modelos AI.
+
+Requisito: El sistema deberá ofrecer o aplicar persistir preferencias por usuario. Criterio de aceptación: La selección y el modo pertenecen al usuario autenticado y no guardan credenciales de proveedor.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba PostgreSQL/RBAC. Caso de prueba: AI-04.
+
+### FR-AI-005 — Mantener sesiones de análisis acotadas
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar mantener sesiones de análisis acotadas. Criterio de aceptación: Las sesiones son propias del usuario, conservan solo mensajes visibles saneados y respetan límites configurados.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de persistencia y límites. Caso de prueba: AI-05.
+
+### FR-AI-006 — Transmitir y cancelar una respuesta
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar transmitir y cancelar una respuesta. Criterio de aceptación: Los deltas visibles llegan progresivamente cuando el proveedor lo soporta y la cancelación conserva la conversación.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba SSE/cancelación. Caso de prueba: AI-06.
+
+### FR-AI-007 — Seleccionar y citar contexto Knowledge
+
+Subsistema: Consola AI y Knowledge.
+
+Requisito: El sistema deberá ofrecer o aplicar seleccionar y citar contexto knowledge. Criterio de aceptación: Solo se envían extractos seleccionados y acotados; las citas generadas se validan contra IDs suministrados.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de recuperación y citas. Caso de prueba: AI-07.
+
+### FR-AI-008 — Generar una transferencia defensiva
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar generar una transferencia defensiva. Criterio de aceptación: El prompt y comando OpenCode se generan con datos saneados y se copian sin lanzar terminal ni ejecutarse.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de plantilla/quoting. Caso de prueba: AI-08.
+
+### FR-AI-009 — Mostrar estado AI sin degradar el core
+
+Subsistema: Operations Center.
+
+Requisito: El sistema deberá ofrecer o aplicar mostrar estado ai sin degradar el core. Criterio de aceptación: Diagnóstico de OpenCode/modelos es administrativo, saneado y opcional para la salud central del producto.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de contrato/RBAC. Caso de prueba: AI-09.
+
+### FR-AI-010 — Restringir AI integrada a análisis de chat
+
+Subsistema: Gateway de modelos AI.
+
+Requisito: El sistema deberá ofrecer o aplicar restringir ai integrada a análisis de chat. Criterio de aceptación: El perfil niega herramientas de shell, archivos, procesos, web y MCP y usa un workspace neutral fuera del repositorio.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de perfil de permisos. Caso de prueba: AI-10.
+
 ### FR-BACK-001 — Crear respaldo local
 
 Subsistema: Respaldo.
@@ -1376,6 +1462,30 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba de contra
 El usuario solo ve registros permitidos por rol y membresía.
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas RBAC. Caso de prueba: PRIV-04. Criterio: No hay lectura cruzada de investigaciones sin permiso.
+
+### NFR-AI-001 — Propiedad de credenciales de proveedor
+
+Las credenciales permanecen en OpenCode o el proveedor local y nunca se duplican en la base RavenTech ni en el frontend.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de esquema y payloads. Caso de prueba: AI-NFR-01. Criterio: Los registros AI conservan identificadores/preferencias, nunca valores de credenciales.
+
+### NFR-AI-002 — Conexión local acotada
+
+La integración de OpenCode/Ollama/LM Studio solo conecta con endpoints loopback y el workspace AI es neutral.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de URL, workspace y recursos. Caso de prueba: AI-NFR-02. Criterio: No se usa destino LAN/público ni el cwd/repositorio como directorio de proyecto OpenCode.
+
+### NFR-AI-003 — Transferencia explícita de contexto
+
+El operador ve el destino local/remoto y selecciona extractos antes de enviarlos.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba UI/contrato de contexto. Caso de prueba: AI-NFR-03. Criterio: No se carga vault, base de datos, inventario o logs completos automáticamente.
+
+### NFR-AI-004 — Aislamiento de instrucciones no confiables
+
+Datos Knowledge se delimitan como evidencia no confiable y el perfil de chat no admite ejecución de herramientas.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de prompt-injection/permisos. Caso de prueba: AI-NFR-04. Criterio: Las instrucciones dentro de extractos no amplían permisos ni autorizan acciones operativas.
 
 ### NFR-KNOW-001 — Privacidad local de Knowledge
 
@@ -1713,6 +1823,16 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-KNOW-011 | Aislar ingestión de archivos | Seguridad y privacidad | Windows/Linux | Implementado | Pruebas de límites y rutas | KNOW-11 | La ingestión copia archivos elegidos, rechaza traversal/enlaces inseguros, no ejecuta contenido y no envía texto a proveedores externos automáticamente. |
 | FR-KNOW-012 | Indexar sin servicio externo de IA | Conocimiento local | Windows/Linux | Implementado | Prueba sin modelo/vector disponible | KNOW-12 | El índice PostgreSQL y la búsqueda por palabras permanecen disponibles cuando no existe modelo local de embeddings. |
 | FR-KNOW-013 | Preparar recuperación RAG gobernada | Conocimiento local | Windows/Linux | Implementado | Revisión de separación y contratos | KNOW-13 | La recuperación expone referencias y metadatos de confianza; el material importado no se incorpora a prompts externos automáticamente. |
+| FR-AI-001 | Descubrir proveedores y modelos dinámicamente | Gateway de modelos AI | Windows/Linux | Implementado | Pruebas de catálogo con fixtures | AI-01 | El catálogo refleja solo proveedores/modelos informados por OpenCode o los proveedores locales soportados. |
+| FR-AI-002 | Clasificar ubicación y costo actual | Gateway de modelos AI | Windows/Linux | Implementado | Pruebas de metadatos | AI-02 | Cada modelo disponible distingue local/remoto y free/paid/unknown sin prometer un precio futuro. |
+| FR-AI-003 | Aplicar modo de ejecución elegido | Gateway de modelos AI | Windows/Linux | Implementado | Pruebas de política/API | AI-03 | Free only y Local only rechazan un modelo que no cumple el modo; no hay fallback pagado silencioso. |
+| FR-AI-004 | Persistir preferencias por usuario | Gateway de modelos AI | Windows/Linux | Implementado | Prueba PostgreSQL/RBAC | AI-04 | La selección y el modo pertenecen al usuario autenticado y no guardan credenciales de proveedor. |
+| FR-AI-005 | Mantener sesiones de análisis acotadas | Consola AI | Windows/Linux | Implementado | Pruebas de persistencia y límites | AI-05 | Las sesiones son propias del usuario, conservan solo mensajes visibles saneados y respetan límites configurados. |
+| FR-AI-006 | Transmitir y cancelar una respuesta | Consola AI | Windows/Linux | Implementado | Prueba SSE/cancelación | AI-06 | Los deltas visibles llegan progresivamente cuando el proveedor lo soporta y la cancelación conserva la conversación. |
+| FR-AI-007 | Seleccionar y citar contexto Knowledge | Consola AI y Knowledge | Windows/Linux | Implementado | Pruebas de recuperación y citas | AI-07 | Solo se envían extractos seleccionados y acotados; las citas generadas se validan contra IDs suministrados. |
+| FR-AI-008 | Generar una transferencia defensiva | Consola AI | Windows/Linux | Implementado | Prueba de plantilla/quoting | AI-08 | El prompt y comando OpenCode se generan con datos saneados y se copian sin lanzar terminal ni ejecutarse. |
+| FR-AI-009 | Mostrar estado AI sin degradar el core | Operations Center | Windows/Linux | Implementado | Pruebas de contrato/RBAC | AI-09 | Diagnóstico de OpenCode/modelos es administrativo, saneado y opcional para la salud central del producto. |
+| FR-AI-010 | Restringir AI integrada a análisis de chat | Gateway de modelos AI | Windows/Linux | Implementado | Prueba de perfil de permisos | AI-10 | El perfil niega herramientas de shell, archivos, procesos, web y MCP y usa un workspace neutral fuera del repositorio. |
 | FR-BACK-001 | Crear respaldo local | Respaldo | Windows/Linux | Parcial | Prueba de integración aislada | BACK-01 | Las operaciones existentes usan ruta controlada y registran resultado seguro. |
 | FR-BACK-002 | Validar respaldo | Recuperación | Windows/Linux | Parcial | Prueba de validación | BACK-02 | La validación no sobreescribe base activa y comunica limitaciones. |
 | FR-BACK-003 | Restaurar con control | Recuperación | Windows/Linux | Parcial | Ensayo fuera de producción | BACK-03 | Toda restauración requiere acción administrativa explícita y objetivo aislado. |
@@ -1728,6 +1848,10 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-PRIV-002 | Retención | No funcional | Windows/Linux | Especificado | Revisión de política | PRIV-02 | La interfaz no promete borrado automático no existente. |
 | NFR-PRIV-003 | Transparencia de inferencia | No funcional | Windows/Linux | Especificado | Prueba de contrato | PRIV-03 | Inferencia de dispositivo/OS no aparece como hecho de alta certeza sin agente. |
 | NFR-PRIV-004 | Separación de datos | No funcional | Windows/Linux | Especificado | Pruebas RBAC | PRIV-04 | No hay lectura cruzada de investigaciones sin permiso. |
+| NFR-AI-001 | Propiedad de credenciales de proveedor | No funcional | Windows/Linux | Especificado | Inspección de esquema y payloads | AI-NFR-01 | Los registros AI conservan identificadores/preferencias, nunca valores de credenciales. |
+| NFR-AI-002 | Conexión local acotada | No funcional | Windows/Linux | Especificado | Pruebas de URL, workspace y recursos | AI-NFR-02 | No se usa destino LAN/público ni el cwd/repositorio como directorio de proyecto OpenCode. |
+| NFR-AI-003 | Transferencia explícita de contexto | No funcional | Windows/Linux | Especificado | Prueba UI/contrato de contexto | AI-NFR-03 | No se carga vault, base de datos, inventario o logs completos automáticamente. |
+| NFR-AI-004 | Aislamiento de instrucciones no confiables | No funcional | Windows/Linux | Especificado | Pruebas de prompt-injection/permisos | AI-NFR-04 | Las instrucciones dentro de extractos no amplían permisos ni autorizan acciones operativas. |
 | NFR-KNOW-001 | Privacidad local de Knowledge | No funcional | Windows/Linux | Especificado | Inspección de red y pruebas de configuración | KNOW-NFR-01 | La ingestión, indexación y búsqueda funcionan sin solicitudes de red a proveedores de IA. |
 | NFR-KNOW-002 | Límite de lectura del vault | No funcional | Windows/Linux | Especificado | Pruebas de traversal/enlaces | KNOW-NFR-02 | Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican. |
 | NFR-KNOW-003 | Parser acotado y no ejecutable | No funcional | Windows/Linux | Especificado | Pruebas de parser y carga malformada | KNOW-NFR-03 | Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos. |

@@ -3190,6 +3190,147 @@ export interface KnowledgeDocumentDetail extends KnowledgeDocumentSummary {
   }>;
 }
 
+export type AiExecutionMode = "free_only" | "local_only" | "any_configured";
+export type AiKnowledgePolicy = "verified_only" | "trusted_plus" | "all_allowed";
+
+export interface AiRuntimeStatus {
+  available: boolean;
+  status: "available" | "server_stopped" | "not_installed" | "unsupported";
+  version: string | null;
+  integration: string;
+  loopback_only: boolean;
+  message: string;
+  provider_count?: number;
+  available_model_count?: number;
+  dependency?: "optional";
+}
+
+export interface AiOperationsStatus {
+  dependency: "optional";
+  runtime_status: string;
+  runtime_available: boolean;
+  available_models: number;
+  local_providers: number;
+  remote_providers: number;
+  selected_model_id: string | null;
+  last_model_refresh: string | null;
+  last_successful_inference: string | null;
+  degraded: boolean;
+  message: string;
+}
+
+export interface AiProvider {
+  id: string;
+  name: string;
+  category: string;
+  connected: boolean;
+  local: boolean;
+  remote: boolean;
+  status: string;
+}
+
+export interface AiModel {
+  id: string;
+  provider_id: string;
+  model_id: string;
+  display_name: string;
+  available: boolean;
+  local: boolean;
+  remote: boolean;
+  free_status: "provider_reported_free" | "paid" | "unknown" | "local";
+  context_window: number | null;
+  supports_tools: boolean | null;
+  supports_vision: boolean | null;
+  supports_reasoning: boolean | null;
+  supports_streaming: boolean | null;
+  metadata_source: string;
+  last_discovered_at: string;
+}
+
+export interface AiCatalogResponse {
+  runtime: AiRuntimeStatus;
+  providers: AiProvider[];
+  models: AiModel[];
+  refreshed_at: string;
+  warning: string | null;
+  recommended_model_id: string | null;
+}
+
+export interface AiPreferences {
+  selected_model_id: string | null;
+  preferred_local_model_id: string | null;
+  preferred_free_model_id: string | null;
+  execution_mode: AiExecutionMode;
+}
+
+export interface AiContextExcerpt {
+  citation_id: string;
+  document_id: string;
+  chunk_id: string;
+  title: string;
+  source: string;
+  trust_level: string;
+  verification_status: string;
+  excerpt: string;
+}
+
+export interface AiCitationValidation {
+  supplied: string[];
+  matched_response_references: string[];
+  unverified_response_references: string[];
+}
+
+export interface AiMessageView {
+  id: string;
+  sequence: number;
+  role: "user" | "assistant";
+  content: string;
+  status: string;
+  provider_id: string | null;
+  model_id: string | null;
+  execution_type: "local" | "remote" | null;
+  context_sources: Array<Record<string, unknown>>;
+  supplied_citations: string[];
+  citation_validation: AiCitationValidation | null;
+  created_at: string;
+}
+
+export interface AiSessionView {
+  id: string;
+  title: string;
+  provider_id: string;
+  model_id: string;
+  execution_type: "local" | "remote";
+  context_policy: AiKnowledgePolicy;
+  status: "ready" | "running" | "failed" | "cancelled";
+  archived: boolean;
+  created_at: string;
+  updated_at: string;
+  messages: AiMessageView[];
+}
+
+export interface AiMessageResult {
+  session_id: string;
+  user_message: AiMessageView;
+  assistant_message: AiMessageView;
+  sources: AiContextExcerpt[];
+}
+
+export interface AiModelTestResponse {
+  available: boolean;
+  latency_ms: number | null;
+  model_id: string;
+  response: string | null;
+  error: string | null;
+}
+
+export interface AiPromptHandoffResponse {
+  prompt: string;
+  command: string | null;
+  citations: string[];
+  content_hash: string;
+}
+
 export type MonitoringStatus = "healthy" | "degraded" | "unavailable";
 export type MonitoringSeverity = "info" | "warning" | "critical";
 

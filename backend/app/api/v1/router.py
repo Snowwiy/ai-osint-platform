@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin,
+    ai_gateway,
     analysis,
     analytics,
     auth,
@@ -35,6 +36,7 @@ from app.api.v1 import (
 )
 
 api_router = APIRouter()
+api_router.include_router(ai_gateway.router)
 api_router.include_router(admin.router, tags=["admin"])
 api_router.include_router(analysis.router)
 api_router.include_router(analytics.router)

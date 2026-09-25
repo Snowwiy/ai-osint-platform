@@ -99,6 +99,7 @@ const topNav: NavigationItem[] = [
     feature: "enable_report_exports",
   },
   { label: "Knowledge", to: "/knowledge", icon: Search },
+  { label: "RavenTech AI", to: "/ai", icon: BrainCircuit, feature: "enable_ai_analysis" },
   { label: "Inbox", to: "/notifications", icon: Bell },
   { label: "Monitoring", to: "/monitoring", icon: MonitorCog },
 ];
@@ -163,7 +164,9 @@ export function AppShell(): JSX.Element {
   });
   const featureFlags = features.data?.feature_flags;
   const enabledTopNav = topNav.filter(
-    (item) => !item.feature || featureFlags?.[item.feature] !== false,
+    (item) =>
+      (!item.feature || featureFlags?.[item.feature] !== false) &&
+      (item.to !== "/ai" || user?.role === "admin" || user?.role === "analyst"),
   );
   const enabledInvestigationNav = investigationNav.filter(
     (item) => !item.feature || featureFlags?.[item.feature] !== false,

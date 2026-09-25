@@ -54,7 +54,9 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Playbooks, remediation workflow, case review, report approval, and audit trail
 - HTML, Markdown, PDF, and DOCX report exports
 - Local Knowledge library for operator-selected Obsidian vault files and reference documents, with source provenance, trust/review metadata, bounded incremental indexing, keyword search, and optional local vector retrieval
-- Optional AI analysis with deterministic fallback when the provider is unavailable
+- Optional in-app AI Console connected to a loopback OpenCode server or detected
+  local Ollama/LM Studio endpoints; provider/model availability is discovered
+  dynamically and core workflows remain usable without AI
 - Knowledge ingestion, indexing, filtering, and citation work without an external AI service. Imported content remains local and is added to reports only when the operator explicitly selects references.
 - Operations Center with health, diagnostics, backups, restore dry-run validation
 - Local Monitoring Center with service telemetry, RBAC-aware investigation
@@ -104,6 +106,16 @@ The backend owns authorization, persistence, report generation, workflow logic,
 and deterministic intelligence services. The frontend consumes existing API
 contracts and presents analyst, executive, governance, and operations views.
 Packaged desktop startup is supervised by Tauri. Source development can use Docker Compose, Vite, and the Celery compatibility profile.
+
+The optional AI Console uses the local OpenCode HTTP server for configured
+providers and can discover local Ollama or LM Studio models. Provider credentials
+remain in their owning provider/OpenCode configuration. The selector distinguishes
+local and remote execution and applies the selected cost/privacy mode. Knowledge
+excerpts are retrieved locally and sent only when an analyst explicitly selects
+them; remote execution displays the destination before a request. RavenTech AI is
+chat and analysis only: tool execution, file changes, shell commands, and remote
+administration are disabled. See
+[AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md) for setup and data handling.
 
 Obsidian vaults are selected locally and retained as private, read-only source
 locations for operator-triggered incremental sync. Individual document uploads

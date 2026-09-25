@@ -6,6 +6,7 @@ from app.models.agent_management import (
     ExpectedServiceBaseline,
 )
 from app.models.ai_analysis import AiAnalysis
+from app.models.ai_session import AiMessage, AiModelPreference, AiSession
 from app.models.audit_log import AuditLog
 from app.models.background_job import (
     BackgroundJob,
@@ -98,6 +99,9 @@ from app.models.user import User
 
 __all__ = [
     "AiAnalysis",
+    "AiMessage",
+    "AiModelPreference",
+    "AiSession",
     "AgentEnrollmentToken",
     "AssetGroup",
     "AssetGroupMembership",

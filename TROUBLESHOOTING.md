@@ -310,6 +310,21 @@ Expected AI degraded behavior:
 - Feature-flag disabled AI should return a clean disabled/degraded state, not a
   raw stack trace.
 
+For **RavenTech AI**, check the page's OpenCode status and refresh the dynamic
+provider/model catalog. An installed OpenCode CLI with a stopped server remains
+optional and does not affect backend readiness; use OpenCode's documented server
+setup and keep it bound to loopback. If OpenCode is absent, configured Ollama or
+LM Studio loopback models may still be discovered, and prompt handoff remains
+copy-only. Provider-reported free pricing may change; `Free only` refuses models
+not currently reported free, while `Local only` refuses remote models. Select
+another model or change modes explicitly rather than expecting a paid fallback.
+
+If a model disappeared, the saved conversation is retained; refresh the catalog
+and start a new session with another available model. Cancel a running response
+before archiving or deleting its session. For remote execution, review the
+destination and selected Knowledge excerpts. Never paste provider keys, tokens,
+database URLs, or passwords into chat.
+
 ## Demo Data Issues
 
 Seed demo data from the backend container:

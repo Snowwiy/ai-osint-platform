@@ -50,6 +50,30 @@ the original vault and selected files remain untouched. Source metadata,
 trust/review changes, syncs, and removal are audited without recording content.
 See [LOCAL_KNOWLEDGE.md](LOCAL_KNOWLEDGE.md) for the complete operator guide.
 
+## Optional AI Console
+
+Open **RavenTech AI** to select an available model, review whether execution is
+local or remote, choose the cost/privacy mode, and start a user-owned chat. AI is
+optional; investigations, monitoring, Knowledge search, and deterministic
+findings remain available when no model is configured. The default mode uses a
+local model or a model the provider currently reports as free. A provider's
+reported price can change; RavenTech does not guarantee future pricing.
+
+Provider authentication stays in OpenCode or the local provider. RavenTech does
+not ask for or store provider keys. Before a remote request, the page identifies
+the provider and indicates that it receives the message and any context you
+explicitly select. Knowledge context defaults to verified excerpts and can be
+previewed before use; a complete vault or database is never uploaded. Treat model
+output as analysis for human review, not verified telemetry or authorization.
+
+Sessions retain sanitized user-visible messages in the local RavenTech database,
+are scoped to the signed-in user, and have bounded history. Model changes apply
+to a new session; a missing model does not delete an existing transcript. The
+integrated OpenCode profile denies shell, filesystem, process, web, and MCP tools.
+Copy OpenCode prompt/command only copies text to the clipboard; RavenTech does not
+launch a terminal or execute the copied command. See
+[AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md).
+
 ## Prerequisites
 
 - Windows 10 or 11 with Microsoft Edge WebView2 Runtime, or a supported Linux

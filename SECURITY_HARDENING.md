@@ -29,6 +29,24 @@ URLs in tracked files are restricted to explicit local/CI examples and
 historical documentation placeholders. Repeat the checks in
 `SECRETS_AUDIT_CHECKLIST.md` before any future hosting review.
 
+## Optional AI model gateway
+
+RavenTech AI is feature-gated and is never a core-runtime dependency. OpenCode
+and supported direct local-model connections are restricted to loopback.
+OpenCode provider credentials stay in OpenCode's credential store; RavenTech
+stores only provider/model identifiers, preferences, and sanitized user-visible
+chat messages. Provider credentials are not exposed to React or persisted in AI
+records.
+
+Integrated OpenCode requests use a RavenTech-owned neutral workspace and an
+explicit deny-all tool profile for shell, file access/modification, process, web,
+and MCP tools. Only the user message and explicitly selected, bounded Knowledge
+excerpts are included. Remote execution identifies the destination in the UI.
+Secret filtering is defense in depth, not a guarantee that arbitrary operator
+text is safe to send externally; operators must review the destination and
+selected context. Audit records use action metadata and content digests instead
+of full prompts or responses. Model output remains untrusted analysis.
+
 ## Environment Separation
 
 Use separate configuration for:

@@ -373,3 +373,16 @@ Obsidian links and bounded embeds, hashes, incremental reconciliation, source
 removal, path/symlink containment, search filters, trust metadata, explicit
 report citations, and Operations Center counters. A live operator vault was
 not accessed.
+
+## Optional AI model gateway acceptance
+
+The AI Console is feature-gated and does not affect native desktop readiness.
+OpenCode and local-model discovery are loopback-only. OpenCode CLI 1.18.32 was
+detected and its `serve`, `models`, and `run` help commands were available, but
+the local server was stopped and the OpenCode auth inventory had no configured
+providers. Ollama, LM Studio, and vLLM loopback endpoints were unavailable, so
+live inference and a live remote-data transfer were **NOT RUN**. Provider
+catalog, policy, sessions, cancellation, Knowledge context, redaction, copy-only
+handoff, role, audit, and Operations Center behavior are covered with
+deterministic fixtures and isolated API tests. No paid request was made. The
+Spanish SRS is regenerated from its source and validated separately.

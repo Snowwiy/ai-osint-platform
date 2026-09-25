@@ -11,6 +11,7 @@ import { LoadingBlock } from "./components/StateBlock";
 const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module) => ({ default: module.AdminAuditPage })));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage").then((module) => ({ default: module.AdminSettingsPage })));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage").then((module) => ({ default: module.AdminUsersPage })));
+const AiConsolePage = lazy(() => import("./pages/AiConsolePage").then((module) => ({ default: module.AiConsolePage })));
 const AnalystWorkloadPage = lazy(() => import("./pages/AnalystWorkloadPage").then((module) => ({ default: module.AnalystWorkloadPage })));
 const AnalysisPage = lazy(() => import("./pages/AnalysisPage").then((module) => ({ default: module.AnalysisPage })));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage").then((module) => ({ default: module.BookmarksPage })));
@@ -123,6 +124,14 @@ const router = createBrowserRouter([
           {
             path: "admin/demo-checklist",
             element: <AdminOnly><DemoChecklistPage /></AdminOnly>,
+          },
+          {
+            path: "ai",
+            element: (
+              <FeatureGate feature="enable_ai_analysis">
+                <AiConsolePage />
+              </FeatureGate>
+            ),
           },
           { path: "investigations", element: <InvestigationsPage /> },
           { path: "engagements", element: <EngagementsPage /> },

@@ -6,6 +6,16 @@ import type {
   AdminOverviewResponse,
   AdminSettingsResponse,
   AdminSettingsUpdate,
+  AiCatalogResponse,
+  AiOperationsStatus,
+  AiContextExcerpt,
+  AiExecutionMode,
+  AiKnowledgePolicy,
+  AiMessageResult,
+  AiModelTestResponse,
+  AiPreferences,
+  AiPromptHandoffResponse,
+  AiSessionView,
   AnalysisResponse,
   AuthorizationEvidence,
   AuthorizationEvidenceCreateRequest,
@@ -2421,6 +2431,141 @@ export async function getDetectionKnowledge(
 
 export async function getFrameworkKnowledge(): Promise<FrameworkKnowledgeResponse> {
   return request<FrameworkKnowledgeResponse>("/knowledge/frameworks");
+}
+
+export async function getAiCatalog(): Promise<AiCatalogResponse> {
+  return request("/ai/models");
+}
+
+export async function getAiOperationsStatus(): Promise<AiOperationsStatus> {
+  return request("/ai/operations-status");
+}
+
+export async function refreshAiCatalog(): Promise<AiCatalogResponse> {
+  return request("/ai/models/refresh", { method: "POST" });
+}
+
+export async function getAiPreferences(): Promise<AiPreferences> {
+  return request("/ai/preferences");
+}
+
+export async function updateAiPreferences(values: AiPreferences): Promise<AiPreferences> {
+  return request("/ai/preferences", { method: "PUT", body: JSON.stringify(values) });
+}
+
+export async function listAiSessions(): Promise<AiSessionView[]> {
+  return request("/ai/sessions");
+}
+
+export async function getAiSession(id: string): Promise<AiSessionView> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}`);
+}
+
+export async function createAiSession(modelId: string, title = "New AI chat", contextPolicy: AiKnowledgePolicy = "verified_only"): Promise<AiSessionView> {
+  return request("/ai/sessions", {
+    method: "POST",
+    body: JSON.stringify({ model_id: modelId, title, context_policy: contextPolicy }),
+  });
+}
+
+export async function renameAiSession(id: string, title: string): Promise<AiSessionView> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function archiveAiSession(id: string): Promise<AiSessionView> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}/archive`, { method: "POST" });
+}
+
+export async function deleteAiSession(id: string): Promise<void> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function sendAiMessage(id: string, content: string, knowledgeCitationIds: string[], contextPolicy: AiKnowledgePolicy): Promise<AiMessageResult> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy }),
+  });
+}
+
+export async function sendAiMessageStream(
+  id: string,
+  content: string,
+  knowledgeCitationIds: string[],
+  contextPolicy: AiKnowledgePolicy,
+  onDelta: (text: string) => void,
+): Promise<void> {
+  const path = `/ai/sessions/${encodeURIComponent(id)}/messages/stream`;
+  const headers = new Headers(buildHeaders({ body: "{}" }));
+  headers.set("Accept", "text/event-stream");
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy }),
+  });
+  if (!response.ok) {
+    const error = await apiError(response, path);
+    handleAuthFailure(error, {});
+    throw error;
+  }
+  if (!response.body) throw new ApiError("Streaming response is unavailable.", 502, path);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let eventName = "message";
+  const consume = (block: string): void => {
+    const dataLines: string[] = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith("event:")) eventName = line.slice(6).trim();
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+    }
+    if (!dataLines.length) return;
+    let payload: { text?: unknown; message?: unknown } = {};
+    try { payload = JSON.parse(dataLines.join("\n")) as typeof payload; } catch { return; }
+    if (eventName === "delta" && typeof payload.text === "string") onDelta(payload.text);
+    if (eventName === "error") throw new ApiError(typeof payload.message === "string" ? payload.message : "AI provider request failed.", 502, path);
+    eventName = "message";
+  };
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    let boundary = buffer.search(/\r?\n\r?\n/);
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      const separator = buffer.slice(boundary).match(/^\r?\n\r?\n/)?.[0] ?? "\n\n";
+      buffer = buffer.slice(boundary + separator.length);
+      consume(block);
+      boundary = buffer.search(/\r?\n\r?\n/);
+    }
+    if (done) break;
+  }
+  if (buffer.trim()) consume(buffer);
+}
+
+export async function cancelAiGeneration(id: string): Promise<{ cancelled: boolean; provider_cancelled?: boolean }> {
+  return request(`/ai/sessions/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+}
+
+export async function previewAiKnowledgeContext(query: string, policy: AiKnowledgePolicy): Promise<{ policy: AiKnowledgePolicy; items: AiContextExcerpt[]; total_included: number; message: string }> {
+  return request("/ai/context/preview", { method: "POST", body: JSON.stringify({ query, policy }) });
+}
+
+export async function testAiModel(modelId: string): Promise<AiModelTestResponse> {
+  return request("/ai/models/test", { method: "POST", body: JSON.stringify({ model_id: modelId }) });
+}
+
+export async function createAiPromptHandoff(kind: "recommendation" | "asset" | "investigation", title: string, summary: string, citations: string[], modelId?: string): Promise<AiPromptHandoffResponse> {
+  return request("/ai/prompt-handoff", {
+    method: "POST",
+    body: JSON.stringify({ kind, title, facts: summary ? { Summary: summary } : {}, citations, model_id: modelId ?? null }),
+  });
+}
+
+export async function auditAiPromptCopy(contentHash: string, contentType: "prompt" | "command" = "prompt"): Promise<void> {
+  return request("/ai/prompt-handoff/copied", { method: "POST", body: JSON.stringify({ content_hash: contentHash, content_type: contentType }) });
 }
 
 export async function getIocGuidance(query?: string): Promise<IOCGuidanceResponse> {
