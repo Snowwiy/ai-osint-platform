@@ -23,8 +23,8 @@ from app.schemas.monitoring import (
 )
 from app.services.local_monitoring import (
     _overall_monitoring_status,
-    _retire_recovered_alerts,
     _reset_agent_telemetry_for_tests,
+    _retire_recovered_alerts,
     get_monitoring_alerts,
 )
 from httpx import AsyncClient
@@ -474,9 +474,12 @@ async def test_server_host_registers_asset_and_ingests_safe_neighbors(
     refreshed = await client.get(
         "/api/v1/monitoring/lan/assets", headers=admin_headers
     )
-    assert approved_gateway.status_code == 200
-    assert approved_gateway.json()["trust_state"] == "authorized"
-    assert refreshed.json()["needs_review"] == 0
+    assert approved_gateway.status_code == 403
+    assert (
+        approved_gateway.json()["detail"]["code"]
+        == "human_approval_gateway_required"
+    )
+    assert refreshed.json()["needs_review"] == 1
     assert refreshed.json()["unauthorized"] == 0
 
 

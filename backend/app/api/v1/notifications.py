@@ -3,9 +3,11 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_role
+from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.notification import (
     NotificationActionResponse,
@@ -66,6 +68,28 @@ async def mark_notification_read_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> NotificationActionResponse:
+    notification = (
+        await db.execute(
+            select(Notification).where(
+                Notification.id == notification_id,
+                Notification.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if (
+        notification is not None
+        and notification.notification_type == "monitoring_alert"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "human_approval_gateway_required",
+                "message": (
+                    "Monitoring alert acknowledgement requires an approved "
+                    "Action Gateway proposal."
+                ),
+            },
+        )
     try:
         return await mark_notification_read(db, current_user, notification_id)
     except NotificationNotFoundError as exc:
@@ -78,6 +102,28 @@ async def dismiss_notification_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> NotificationActionResponse:
+    notification = (
+        await db.execute(
+            select(Notification).where(
+                Notification.id == notification_id,
+                Notification.user_id == current_user.id,
+            )
+        )
+    ).scalar_one_or_none()
+    if (
+        notification is not None
+        and notification.notification_type == "monitoring_alert"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "human_approval_gateway_required",
+                "message": (
+                    "Monitoring alerts cannot be dismissed outside the Action "
+                    "Gateway."
+                ),
+            },
+        )
     try:
         return await dismiss_notification(db, current_user, notification_id)
     except NotificationNotFoundError as exc:

@@ -74,6 +74,33 @@ def test_tool_schemas_reject_extra_fields_and_unbounded_arguments() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("action_id", "message", "expected"),
+    [
+        ("raventech.service.start", "Please start RavenTech Test Service", True),
+        ("raventech.service.start", "Inicia RavenTech Test Service", True),
+        ("raventech.service.stop", "Please disable RavenTech Test Service", False),
+        ("raventech.service.stop", "Please stop RavenTech Test Service", True),
+        ("raventech.service.restart", "Please reboot RavenTech Test Service", False),
+        ("raventech.service.restart", "Please restart RavenTech Test Service", True),
+        ("raventech.service.restart", "yes", False),
+        ("raventech.service.restart", "Do not restart this service", False),
+        ("raventech.service.restart", "No reiniciar este servicio", False),
+        ("raventech.service.stop", "I can't stop that service", False),
+        ("raventech.lan.asset.needs_review", "Please review this asset", False),
+        (
+            "raventech.lan.asset.needs_review",
+            "Marcar para revisión este activo",
+            True,
+        ),
+    ],
+)
+def test_action_proposal_requires_specific_current_user_intent(
+    action_id: str, message: str, expected: bool
+) -> None:
+    assert gateway._explicit_action_request(message, action_id) is expected
+
+
 def test_sanitizer_removes_secret_fields_values_urls_jwts_and_paths() -> None:
     secret_jwt = "eyJabcdefghijk.abcdefghijk.abcdefghijk"
     payload = gateway._sanitize(

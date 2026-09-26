@@ -9,6 +9,23 @@ Phase 5AA makes no hosting, deployment, DNS, or Supabase changes and introduces 
 RavenTech OSINT is a defensive investigation workspace. This guide focuses on
 safe internal operation, governance, and supportability.
 
+## Human-approved action boundary
+
+All supported local operational changes use the fixed Action Gateway registry.
+The gateway applies RBAC, target and protected-object checks, deterministic risk,
+short-lived proposal-hash-bound approval, a current target snapshot, replay
+prevention, a target lock, and post-action verification. AI has a separate
+proposal-only capability after an explicit action request; it has no approval or
+execution capability. Chat content, model confidence, and administrator role do
+not satisfy approval.
+
+No generic shell, PowerShell, Bash, SQL, dynamic import, arbitrary executable,
+remote service/process control, or endpoint-agent command execution is available.
+Local service/process operations are constrained to current enumerated inventory
+and refuse protected objects. LAN operations act only on RavenTech records or
+existing bounded private-network jobs. The global Action Gateway switch invalidates
+pending work when disabled. See [ACTION_GATEWAY.md](ACTION_GATEWAY.md).
+
 ## Secret Management
 
 - Never commit `.env`.

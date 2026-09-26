@@ -36,6 +36,8 @@ class AiOperationsStatus(BaseModel):
     registered_tools: int = 0
     read_only_tool_count: int = 0
     write_tool_count: Literal[0] = 0
+    action_proposal_tool_count: int = Field(default=0, ge=0, le=1)
+    execution_tool_count: Literal[0] = 0
     last_tool_activity: datetime | None = None
     last_successful_tool: datetime | None = None
     last_tool_error: str | None = Field(default=None, max_length=60)

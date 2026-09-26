@@ -1,5 +1,18 @@
 # RavenTech OSINT Known Limitations
 
+## Approved operations
+
+Service and process operations are intentionally limited to the primary local
+host and depend on the native provider, current inventory, OS permissions, and
+protected-target policy. No remote action or general command capability exists.
+LAN discovery/service refresh uses existing bounded private-network jobs. AI can
+prepare a proposal only after explicit action-specific user intent and cannot
+approve or execute it. The proposal UI displays supplied evidence references;
+operators should open and confirm the referenced record before approval. Some
+platforms may expose inventory read-only when native action permissions or APIs
+are unavailable. Harmless disposable-service live acceptance may remain NOT RUN
+when no safe fixture service exists.
+
 Phase 5BM adds a managed PostgreSQL 16 runtime for fresh native desktop installs while retaining configured external PostgreSQL. Clean-machine Windows/Linux acceptance remains outstanding; Linux service actions require systemd D-Bus and OS permission, with unavailable facilities reported as unavailable. Linux shared-library requirements vary by distribution. Native-safe backup/restore integration for managed PostgreSQL remains partial. See [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md), [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), and [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md).
 
 ## Current packaged desktop profile (Phase 5BN)

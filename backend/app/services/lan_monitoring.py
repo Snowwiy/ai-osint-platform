@@ -2447,8 +2447,14 @@ async def _observe_configured_services(
         observation.services.sort(key=lambda item: item.port)
 
 
-async def run_native_service_observation(db: AsyncSession) -> str:
-    """Check configured TCP ports on explicitly authorized, monitored assets only."""
+async def run_native_service_observation(
+    db: AsyncSession, *, asset_id: uuid.UUID | None = None
+) -> str:
+    """Check configured TCP ports on authorized, monitored assets only.
+
+    Action-approved requests may provide one asset ID. Scheduled cycles omit it
+    and retain the existing bounded multi-asset behavior.
+    """
     if not settings.LAN_MONITORING_ENABLED or not settings.LAN_SERVICE_CHECK_ENABLED:
         return "Configured TCP service observations are disabled."
     if not await _try_advisory_lock(db, 5):
@@ -2462,14 +2468,16 @@ async def run_native_service_observation(db: AsyncSession) -> str:
             "Service observations are limited because no authorized route is "
             "available."
         )
+    asset_query = select(LanAsset).where(
+        LanAsset.is_authorized.is_(True),
+        LanAsset.monitoring_enabled.is_(True),
+    )
+    if asset_id is not None:
+        asset_query = asset_query.where(LanAsset.id == asset_id)
     rows = list(
         (
             await db.execute(
-                select(LanAsset)
-                .where(
-                    LanAsset.is_authorized.is_(True),
-                    LanAsset.monitoring_enabled.is_(True),
-                )
+                asset_query
                 .order_by(LanAsset.last_seen.desc().nullslast())
                 .limit(settings.LAN_SERVICE_CHECK_MAX_HOSTS * 2)
             )
@@ -2478,6 +2486,8 @@ async def run_native_service_observation(db: AsyncSession) -> str:
         .all()
     )
     observations: list[LanDiscoveryObservation] = []
+    if asset_id is not None and not rows:
+        return "The requested asset is no longer authorized for service observation."
     for asset in rows:
         try:
             address = validate_allowed_ip(asset.ip_address)
@@ -2506,7 +2516,11 @@ async def run_native_service_observation(db: AsyncSession) -> str:
                 db,
                 asset=service_asset,
                 observation=service,
-                source="scheduled_native_service_check",
+                source=(
+                    "approved_native_service_check"
+                    if asset_id is not None
+                    else "scheduled_native_service_check"
+                ),
                 observed_at=observed_at,
             )
             created += 1

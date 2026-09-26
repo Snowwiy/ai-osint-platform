@@ -118,11 +118,18 @@ async def test_agent_registration_heartbeat_revoke_and_inventory(
     updated = await client.patch(
         f"/api/v1/monitoring/agents/{asset_id}",
         headers=admin_headers,
-        json={"owner": "Blue Team", "criticality": "critical", "monitoring_enabled": False},
+        json={"owner": "Blue Team", "criticality": "critical"},
     )
     assert updated.status_code == 200
     assert updated.json()["owner"] == "Blue Team"
-    assert updated.json()["monitoring_enabled"] is False
+    assert updated.json()["monitoring_enabled"] is True
+    trust_update = await client.patch(
+        f"/api/v1/monitoring/agents/{asset_id}",
+        headers=admin_headers,
+        json={"monitoring_enabled": False},
+    )
+    assert trust_update.status_code == 403
+    assert trust_update.json()["detail"]["code"] == "human_approval_gateway_required"
 
     revoked = await client.post(
         f"/api/v1/monitoring/agent-tokens/{created.json()['id']}/revoke",

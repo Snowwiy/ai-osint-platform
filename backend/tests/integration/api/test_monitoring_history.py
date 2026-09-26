@@ -4,10 +4,6 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from httpx import AsyncClient
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import settings
 from app.models.lan_monitoring import LanAsset, LanAssetTelemetry
 from app.models.monitoring_history import MonitoringChangeEvent
@@ -21,27 +17,45 @@ from app.schemas.monitoring import (
 )
 from app.services.local_monitoring import get_monitoring_alerts
 from app.services.monitoring_history import (
+    reconcile_asset_state_changes,
     record_agent_telemetry_changes,
     record_asset_observation_changes,
     record_change,
     record_service_observation,
-    reconcile_asset_state_changes,
 )
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def test_new_asset_change_event_and_history_rbac(
     client: AsyncClient,
+    db: AsyncSession,
     admin_headers: dict[str, str],
     analyst_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _enable_lan(monkeypatch)
-    response = await client.post(
-        "/api/v1/monitoring/lan/discover",
-        headers=admin_headers,
-        json={"observations": [{"ip_address": "192.168.0.160", "source": "static"}]},
+    asset = LanAsset(
+        ip_address="192.168.0.160",
+        source="host_neighbor_table",
+        status="online",
+        is_authorized=False,
+        last_seen=datetime.now(UTC),
     )
-    assert response.status_code == 200
+    db.add(asset)
+    await db.flush()
+    await record_asset_observation_changes(
+        db,
+        asset=asset,
+        created=True,
+        old_status=None,
+        old_hostname=None,
+        old_mac=None,
+        source="native_host_provider",
+        detected_at=datetime.now(UTC),
+    )
+    await db.commit()
 
     changes = await client.get(
         "/api/v1/monitoring/changes?event_type=asset_discovered",
@@ -144,7 +158,11 @@ async def test_agent_stale_and_resumed_changes(db: AsyncSession) -> None:
         .scalars()
         .all()
     )
-    assert {"agent_stale", "agent_resumed", "cpu_percent_threshold_crossed"} <= event_types
+    assert {
+        "agent_stale",
+        "agent_resumed",
+        "cpu_percent_threshold_crossed",
+    } <= event_types
 
 
 async def test_asset_offline_and_online_transitions(db: AsyncSession) -> None:

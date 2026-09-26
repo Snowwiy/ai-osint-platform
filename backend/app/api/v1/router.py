@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    actions,
     admin,
     ai_analysis,
     ai_gateway,
@@ -37,6 +38,7 @@ from app.api.v1 import (
 )
 
 api_router = APIRouter()
+api_router.include_router(actions.router)
 api_router.include_router(ai_gateway.router)
 api_router.include_router(ai_analysis.router)
 api_router.include_router(admin.router, tags=["admin"])

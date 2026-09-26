@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-async def test_local_host_actions_require_admin_and_confirmation(
+async def test_legacy_local_host_write_authorization_requires_action_gateway(
     client: AsyncClient,
     admin_headers: dict[str, str],
     analyst_headers: dict[str, str],
@@ -23,22 +23,22 @@ async def test_local_host_actions_require_admin_and_confirmation(
     assert (
         await client.post(path, headers=analyst_headers, json=body)
     ).status_code == 403
-    assert (
-        await client.post(
-            path, headers=admin_headers, json={**body, "confirmed": False}
-        )
-    ).status_code == 400
+    denied = await client.post(
+        path, headers=admin_headers, json={**body, "confirmed": False}
+    )
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "human_approval_gateway_required"
     assert (
         await client.post(
             path, headers=admin_headers, json={**body, "action": "remote_terminate"}
         )
     ).status_code == 422
-    assert (await client.post(path, headers=admin_headers, json=body)).json() == {
-        "authorized": True
-    }
+    assert (
+        await client.post(path, headers=admin_headers, json=body)
+    ).status_code == 403
 
 
-async def test_inventory_admin_gate_and_sanitized_result(
+async def test_inventory_admin_gate_and_legacy_result_endpoint_is_disabled(
     client: AsyncClient,
     admin_headers: dict[str, str],
     db: AsyncSession,
@@ -72,7 +72,8 @@ async def test_inventory_admin_gate_and_sanitized_result(
             "resulting_state": "failed",
         },
     )
-    assert result.status_code == 200
+    assert result.status_code == 403
+    assert result.json()["detail"]["code"] == "human_approval_gateway_required"
     audit = (
         (
             await db.execute(
@@ -82,13 +83,11 @@ async def test_inventory_admin_gate_and_sanitized_result(
         .scalars()
         .first()
     )
-    assert audit is not None
-    assert "command_line" not in str(audit.event_metadata)
-
+    assert audit is None
 
 
 @pytest.mark.parametrize("action", ["service_start", "service_stop", "service_restart"])
-async def test_service_actions_require_admin_confirmation(
+async def test_legacy_service_actions_require_action_gateway_proposal(
     client: AsyncClient,
     admin_headers: dict[str, str],
     analyst_headers: dict[str, str],
@@ -99,14 +98,9 @@ async def test_service_actions_require_admin_confirmation(
     assert (
         await client.post(path, headers=analyst_headers, json=body)
     ).status_code == 403
-    assert (
-        await client.post(
-            path, headers=admin_headers, json={**body, "confirmed": False}
-        )
-    ).status_code == 400
-    assert (
-        await client.post(path, headers=admin_headers, json=body)
-    ).status_code == 200
+    response = await client.post(path, headers=admin_headers, json=body)
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "human_approval_gateway_required"
 
 
 @pytest.mark.parametrize(
@@ -118,7 +112,7 @@ async def test_service_actions_require_admin_confirmation(
         ("process_terminate", "local_process.terminated"),
     ],
 )
-async def test_success_events_are_sanitized_without_host_actions(
+async def test_legacy_result_endpoint_cannot_forge_action_events(
     client: AsyncClient,
     admin_headers: dict[str, str],
     db: AsyncSession,
@@ -136,23 +130,21 @@ async def test_success_events_are_sanitized_without_host_actions(
             "resulting_state": "stopped",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
     audit = (
         (await db.execute(select(AuditLog).where(AuditLog.action == event)))
         .scalars()
         .first()
     )
-    assert audit is not None
-    assert "command_line" not in str(audit.event_metadata)
-    if action.startswith("service_"):
-        timeline_type = {
-            "service_start": "windows_service_started",
-            "service_stop": "windows_service_stopped",
-            "service_restart": "windows_service_restarted",
-        }[action]
-        rows = list((await db.execute(select(MonitoringChangeEvent).where(
-            MonitoringChangeEvent.event_type == timeline_type,
-        ))).scalars().all())
-        assert len(rows) == 1
-        assert rows[0].old_value == "running"
-        assert rows[0].new_value == "stopped"
+    assert audit is None
+    assert not list(
+        (
+            await db.execute(
+                select(MonitoringChangeEvent).where(
+                    MonitoringChangeEvent.source == "local_desktop",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )

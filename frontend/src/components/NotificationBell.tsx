@@ -169,23 +169,31 @@ function NotificationPreview({
           </p>
           <p className="mt-2 text-[11px] text-raven-muted">{label(item.notification_type)} · {new Date(item.created_at).toLocaleString()}</p>
         </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded border border-raven-border p-1 text-raven-muted hover:border-raven-violet hover:text-raven-text"
-          aria-label="Dismiss notification"
-        >
-          <X className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        {item.notification_type === "monitoring_alert" ? (
+          <Link to="/notifications" onClick={onOpen} className="rounded border border-raven-border px-2 py-1 text-xs text-raven-cyan">Review</Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded border border-raven-border p-1 text-raven-muted hover:border-raven-violet hover:text-raven-text"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onRead}
-          className="rounded border border-raven-border px-2 py-1 text-xs text-raven-muted hover:border-raven-violet hover:text-raven-text"
-        >
-          Mark read
-        </button>
+        {item.notification_type === "monitoring_alert" ? (
+          <span className="text-xs text-amber-100">Acknowledgement requires Action Gateway approval.</span>
+        ) : (
+          <button
+            type="button"
+            onClick={onRead}
+            className="rounded border border-raven-border px-2 py-1 text-xs text-raven-muted hover:border-raven-violet hover:text-raven-text"
+          >
+            Mark read
+          </button>
+        )}
         {item.action_url ? (
           <Link
             to={safeInternalRoute(item.action_url, "/notifications")}

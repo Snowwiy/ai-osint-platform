@@ -19,7 +19,6 @@ from app.core.dependencies import (
 )
 from app.models.background_job import (
     BackgroundJob,
-    BackgroundJobEvent,
     NativeWorkerHeartbeat,
 )
 from app.models.user import User
@@ -213,34 +212,15 @@ async def retry_background_job_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    job = (
-        await db.execute(
-            select(BackgroundJob).where(BackgroundJob.id == job_id).with_for_update()
-        )
-    ).scalar_one_or_none()
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found.")
-    if not _job_view(job)["can_retry"]:
-        raise HTTPException(status_code=409, detail="Job is not eligible for retry.")
-    job.status = "queued"
-    job.scheduled_at = datetime.now(UTC)
-    job.next_retry_at = None
-    db.add(
-        BackgroundJobEvent(
-            job_id=job.id,
-            event_type="retry_scheduled",
-            detail="Operator queued a bounded retry.",
-        )
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "human_approval_gateway_required",
+            "message": (
+                "Background job retry requires an approved Action Gateway proposal."
+            ),
+        },
     )
-    await record_event(
-        db,
-        action="background_job.retry",
-        actor_id=current_user.id,
-        resource_type="background_job",
-        resource_id=job.id,
-        metadata={"job_type": job.job_type},
-    )
-    return _job_view(job)
 
 
 @router.get("/operations/status", response_model=OperationsStatusResponse)

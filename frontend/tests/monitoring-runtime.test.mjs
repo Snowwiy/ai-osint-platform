@@ -125,8 +125,10 @@ test("Phase 5BG local controls and classification stay bounded and bilingual", (
   for (const filter of ["windows", "linux", "android", "ios", "mobile", "tablet", "server", "router", "iot", "unknown"]) {
     assert.ok(lan.includes(`"${filter}"`), `missing classification filter: ${filter}`);
   }
-  assert.match(localHost, /window\.confirm/);
-  assert.match(localHost, /creationTicks: item\.creationTicks/);
+  assert.match(localHost, /createActionProposal/);
+  assert.match(localHost, /approveActionProposal/);
+  assert.match(localHost, /aria-modal="true"/);
+  assert.match(localHost, /creation_ticks: item\.creationTicks/);
   assert.match(localHost, /getAccessToken/);
   assert.doesNotMatch(localHost, /commandLine|environmentVariables|shell:/);
 });

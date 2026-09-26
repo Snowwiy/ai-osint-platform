@@ -1,25 +1,25 @@
 from __future__ import annotations
 
-import json
 import ipaddress
+import json
 import uuid
 from datetime import UTC, datetime
 
 import pytest
 from app.core.config import settings
-from app.models.audit_log import AuditLog
 from app.models.agent_management import ExpectedServiceBaseline
+from app.models.background_job import BackgroundJob
 from app.models.lan_monitoring import LanAsset, LanServiceObservation
 from app.models.monitoring_history import MonitoringChangeEvent
 from app.models.notification import Notification
 from app.models.user import User
+from app.schemas.lan_monitoring import LanDiscoveryObservation, LanServiceInput
 from app.schemas.monitoring import (
     MonitoringAssetsResponse,
     MonitoringServicesResponse,
     MonitoringSystemResponse,
 )
 from app.services import lan_monitoring
-from app.schemas.lan_monitoring import LanDiscoveryObservation
 from app.services.lan_monitoring import (
     LanAssetIdentityConflictError,
     LanConfigurationError,
@@ -31,17 +31,16 @@ from app.services.lan_monitoring import (
     validate_allowed_cidr,
     validate_allowed_ip,
 )
+from app.services.local_monitoring import get_monitoring_alerts
+from app.services.monitoring_history import record_service_observation
 from app.services.native_lan_provider import (
     NativeInterface,
     NativeLanSnapshot,
     NativeNeighbor,
     NativeRoute,
 )
-from app.schemas.lan_monitoring import LanServiceInput
-from app.services.monitoring_history import record_service_observation
-from app.services.local_monitoring import get_monitoring_alerts
 from httpx import AsyncClient
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -66,7 +65,8 @@ async def test_lan_monitoring_is_disabled_by_default(
     assert listing.json()["enabled"] is False
     assert listing.json()["docker_limited"] is True
     assert "agent_token" not in json.dumps(listing.json()).lower()
-    assert discovery.status_code == 409
+    assert discovery.status_code == 403
+    assert discovery.json()["detail"]["code"] == "human_approval_gateway_required"
     assert agent.status_code == 503
 
 
@@ -136,14 +136,14 @@ async def test_manual_router_observation_fields_are_validated_and_persisted(
             }],
         },
     )
-    assert response.status_code == 200
-    listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
-    item = next(value for value in listing.json()["items"] if value["ip_address"] == "192.168.50.22")
-    assert item["is_authorized"] is True
-    assert item["connection_medium"] == "wifi"
-    assert item["connection_medium_source"] == "router_observation"
-    assert "Interface: wifi" in item["notes"]
-    assert "Connection: wireless" in item["notes"]
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "human_approval_gateway_required"
+    listing = await client.get(
+        "/api/v1/monitoring/lan/assets", headers=admin_headers
+    )
+    assert "192.168.50.22" not in {
+        value["ip_address"] for value in listing.json()["items"]
+    }
 
 
 async def test_native_observation_preserves_manual_asset_fields_and_ip_conflicts(
@@ -266,8 +266,9 @@ async def test_native_lan_scheduler_starts_once_and_deduplicates(
     assert second is None
 
 
-async def test_admin_can_create_and_update_authorized_lan_asset(
+async def test_legacy_asset_discovery_and_trust_writes_require_action_gateway(
     client: AsyncClient,
+    db: AsyncSession,
     admin_headers: dict[str, str],
     analyst_headers: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -288,8 +289,20 @@ async def test_admin_can_create_and_update_authorized_lan_asset(
             ],
         },
     )
-    assert discovery.status_code == 200
-    assert discovery.json()["assets_created"] == 1
+    assert discovery.status_code == 403
+    assert discovery.json()["detail"]["code"] == "human_approval_gateway_required"
+
+    asset_record = LanAsset(
+        ip_address="192.168.0.20",
+        mac_address="00:11:22:33:44:55",
+        hostname="lab-endpoint",
+        source="host_neighbor_table",
+        is_authorized=False,
+        monitoring_enabled=False,
+        status="online",
+    )
+    db.add(asset_record)
+    await db.commit()
 
     listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
     analyst_listing = await client.get(
@@ -298,7 +311,9 @@ async def test_admin_can_create_and_update_authorized_lan_asset(
     missing = await client.get(
         f"/api/v1/monitoring/lan/assets/{uuid.uuid4()}", headers=admin_headers
     )
-    asset = listing.json()["items"][0]
+    asset = next(
+        item for item in listing.json()["items"] if item["id"] == str(asset_record.id)
+    )
     forbidden = await client.patch(
         f"/api/v1/monitoring/lan/assets/{asset['id']}",
         headers=analyst_headers,
@@ -309,13 +324,20 @@ async def test_admin_can_create_and_update_authorized_lan_asset(
         headers=admin_headers,
         json={"is_authorized": True, "notes": "Approved lab endpoint."},
     )
+    notes_update = await client.patch(
+        f"/api/v1/monitoring/lan/assets/{asset['id']}",
+        headers=admin_headers,
+        json={"notes": "Reviewed lab endpoint."},
+    )
 
     assert forbidden.status_code == 403
     assert analyst_listing.status_code == 403
     assert missing.status_code == 404
-    assert updated.status_code == 200
-    assert updated.json()["is_authorized"] is True
-    assert updated.json()["notes"] == "Approved lab endpoint."
+    assert updated.status_code == 403
+    assert updated.json()["detail"]["code"] == "human_approval_gateway_required"
+    assert notes_update.status_code == 200
+    assert notes_update.json()["is_authorized"] is False
+    assert notes_update.json()["notes"] == "Reviewed lab endpoint."
 
 
 async def test_agent_token_registration_and_telemetry(
@@ -502,22 +524,43 @@ async def test_service_baseline_classification_and_event_dedupe(
     for port in (443, 6379):
         for sample in (1, 2):
             await record_service_observation(
-                db, asset=asset,
-                observation=LanServiceInput(port=port, status="open", confidence=75),
-                source="test_safe_tcp", observed_at=datetime(2026, 1, sample, tzinfo=UTC),
+                db,
+                asset=asset,
+                observation=LanServiceInput(
+                    port=port, status="open", confidence=75
+                ),
+                source="test_safe_tcp",
+                observed_at=datetime(2026, 1, sample, tzinfo=UTC),
             )
     await db.commit()
-    response = await client.get(f"/api/v1/monitoring/lan/assets/{asset.id}/services", headers=admin_headers)
+    response = await client.get(
+        f"/api/v1/monitoring/lan/assets/{asset.id}/services",
+        headers=admin_headers,
+    )
     assert response.status_code == 200
     items = {item["port"]: item for item in response.json()["items"]}
-    assert (items[443]["expectation"], items[443]["advisory_severity"]) == ("expected", "healthy")
-    assert (items[6379]["expectation"], items[6379]["advisory_severity"]) == ("unexpected", "critical")
+    assert (items[443]["expectation"], items[443]["advisory_severity"]) == (
+        "expected",
+        "healthy",
+    )
+    assert (items[6379]["expectation"], items[6379]["advisory_severity"]) == (
+        "unexpected",
+        "critical",
+    )
     assert "policy explicitly" in items[6379]["advisory_reason"]
     assert all(item["banner_hint"] is None for item in items.values())
-    events = list((await db.execute(select(MonitoringChangeEvent).where(
-        MonitoringChangeEvent.asset_id == asset.id,
-        MonitoringChangeEvent.event_type == "service_opened",
-    ))).scalars().all())
+    events = list(
+        (
+            await db.execute(
+                select(MonitoringChangeEvent).where(
+                    MonitoringChangeEvent.asset_id == asset.id,
+                    MonitoringChangeEvent.event_type == "service_opened",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     assert len(events) == 2
     critical_events = list((await db.execute(select(MonitoringChangeEvent).where(
         MonitoringChangeEvent.asset_id == asset.id,
@@ -595,48 +638,52 @@ async def test_lan_alerts_are_deduplicated(
     assert count == 2
 
 
-async def test_docker_fallback_and_risky_service_indicator(
+async def test_legacy_discovery_is_gated_and_risky_service_indicator_remains_visible(
     client: AsyncClient,
     admin_headers: dict[str, str],
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _enable_lan(monkeypatch)
-    from app.services import lan_monitoring
-
-    monkeypatch.setattr(lan_monitoring, "_read_container_arp", lambda _network: [])
-    empty = await client.post(
+    gated = await client.post(
         "/api/v1/monitoring/lan/discover", headers=admin_headers, json={}
     )
-    assert empty.status_code == 200
-    assert "Docker" in empty.json()["limitation"]
-
-    # Clear the persisted rate-limit event to run a deterministic supplied observation.
-    await db.execute(
-        delete(AuditLog).where(AuditLog.action == "lan.discovery.executed")
+    assert gated.status_code == 403
+    assert gated.json()["detail"]["code"] == "human_approval_gateway_required"
+    asset = LanAsset(
+        ip_address="192.168.0.88",
+        status="online",
+        source="router",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.flush()
+    await record_service_observation(
+        db,
+        asset=asset,
+        observation=LanServiceInput(
+            port=3389,
+            protocol="tcp",
+            status="open",
+            service_name="rdp",
+            confidence=95,
+        ),
+        source="test_safe_tcp",
+        observed_at=datetime.now(UTC),
     )
     await db.commit()
-    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
-    observed = await client.post(
-        "/api/v1/monitoring/lan/discover",
-        headers=admin_headers,
-        json={
-            "observations": [
-                {
-                    "ip_address": "192.168.0.88",
-                    "source": "router",
-                    "services": [{"port": 3389, "protocol": "tcp", "status": "open"}],
-                }
-            ]
-        },
-    )
-    assert observed.status_code == 200
     listing = await client.get("/api/v1/monitoring/lan/assets", headers=admin_headers)
-    indicators = listing.json()["items"][0]["risk_indicators"]
+    item = next(
+        value
+        for value in listing.json()["items"]
+        if value["id"] == str(asset.id)
+    )
+    indicators = item["risk_indicators"]
     assert any(item["key"] == "risky_service_3389" for item in indicators)
 
 
-async def test_safe_discovery_prefers_stored_host_neighbor_observations(
+async def test_manual_discovery_endpoint_requires_approved_action_gateway(
     client: AsyncClient,
     admin_headers: dict[str, str],
     db: AsyncSession,
@@ -644,8 +691,6 @@ async def test_safe_discovery_prefers_stored_host_neighbor_observations(
 ) -> None:
     _enable_lan(monkeypatch)
     monkeypatch.setattr(settings, "LAN_DISCOVERY_PING_ENABLED", True)
-    from app.services import lan_monitoring
-
     observed = LanAsset(
         ip_address="192.168.0.91",
         mac_address="AA:BB:CC:DD:EE:91",
@@ -657,20 +702,14 @@ async def test_safe_discovery_prefers_stored_host_neighbor_observations(
     )
     db.add(observed)
     await db.commit()
-    monkeypatch.setattr(lan_monitoring, "_read_container_arp", lambda _network: [])
-
-    async def unexpected_ping(_network):
-        raise AssertionError("ping must not run when a fresh passive observation exists")
-
-    monkeypatch.setattr(lan_monitoring, "_ping_network", unexpected_ping)
     response = await client.post(
         "/api/v1/monitoring/lan/discover", headers=admin_headers, json={}
     )
 
-    assert response.status_code == 200
-    assert response.json()["observations_received"] == 1
-    assert response.json()["assets_updated"] == 1
-    assert response.json()["service_observations_created"] == 0
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "human_approval_gateway_required"
+    await db.refresh(observed)
+    assert observed.last_seen is not None
 
 
 async def test_manual_service_check_is_disabled_by_default_and_admin_only(
@@ -701,19 +740,18 @@ async def test_manual_service_check_is_disabled_by_default_and_admin_only(
         headers=analyst_headers,
     )
 
-    assert disabled.status_code == 409
+    assert disabled.status_code == 403
+    assert disabled.json()["detail"]["code"] == "human_approval_gateway_required"
     assert forbidden.status_code == 403
     assert "secret" not in json.dumps(disabled.json()).lower()
 
 
-async def test_manual_service_check_records_safe_ssh_observations(
+async def test_service_observation_refresh_requires_approved_action_gateway(
     client: AsyncClient,
     admin_headers: dict[str, str],
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.services import lan_monitoring
-
     _enable_lan(monkeypatch)
     monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
     monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_PORTS", "22,2222")
@@ -727,15 +765,45 @@ async def test_manual_service_check_records_safe_ssh_observations(
     db.add(asset)
     await db.commit()
 
-    async def fake_observation(_ip_address: str, port: int):
-        banner = b"SSH-2.0-test secret=must-not-leak" if port == 2222 else b""
-        return _classify_service(port, banner)
-
-    monkeypatch.setattr(lan_monitoring, "_tcp_service_observation", fake_observation)
     checked = await client.post(
         f"/api/v1/monitoring/lan/assets/{asset.id}/service-check",
         headers=admin_headers,
     )
+    assert checked.status_code == 403
+    assert checked.json()["detail"]["code"] == "human_approval_gateway_required"
+
+    proposal = await client.post(
+        "/api/v1/actions/proposals",
+        headers=admin_headers,
+        json={
+            "action_id": "raventech.lan.services.refresh",
+            "target_id": str(asset.id),
+            "parameters": {"asset_id": str(asset.id)},
+            "reason": "Operator requested a bounded service observation proposal.",
+        },
+    )
+    assert proposal.status_code == 201
+    proposal_id = proposal.json()["id"]
+    approved = await client.post(
+        f"/api/v1/actions/proposals/{proposal_id}/approve",
+        headers=admin_headers,
+        json={},
+    )
+    assert approved.status_code == 200
+    dispatched = await client.post(
+        f"/api/v1/actions/proposals/{proposal_id}/execute",
+        headers=admin_headers,
+    )
+    assert dispatched.status_code == 200
+    job = (
+        await db.execute(
+            select(BackgroundJob).where(
+                BackgroundJob.job_type == "monitoring.service_observation.asset",
+                BackgroundJob.asset_id == asset.id,
+            )
+        )
+    ).scalar_one()
+    assert job.status in {"queued", "scheduled", "running", "completed"}
     services = await client.get(
         f"/api/v1/monitoring/lan/assets/{asset.id}/services",
         headers=admin_headers,
@@ -752,18 +820,67 @@ async def test_manual_service_check_records_safe_ssh_observations(
         .all()
     )
 
-    assert checked.status_code == 200
-    assert checked.json()["ports_checked"] == 2
     assert services.status_code == 200
-    assert {item["service_name"] for item in services.json()["items"]} == {"ssh"}
-    nonstandard = next(
-        item for item in services.json()["items"] if item["port"] == 2222
+    assert services.json()["total"] == 0
+    assert observations == []
+
+
+async def test_approved_service_observation_is_limited_to_target_asset(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _enable_lan(monkeypatch)
+    monkeypatch.setattr(settings, "LAN_SERVICE_CHECK_ENABLED", True)
+    monkeypatch.setattr(settings, "RUNTIME_PROFILE", "docker")
+    target = LanAsset(
+        ip_address="192.168.0.74",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
     )
-    assert nonstandard["non_standard_ssh"] is True
-    assert nonstandard["service_label"] == "possible SSH service"
-    assert nonstandard["banner_hint"] == "SSH protocol banner detected"
-    assert "must-not-leak" not in json.dumps(services.json())
-    assert len(observations) == 2
+    other = LanAsset(
+        ip_address="192.168.0.75",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add_all([target, other])
+    await db.flush()
+    observed_asset_ids: list[uuid.UUID] = []
+
+    async def allow_cycle(_db: AsyncSession, _lock_id: int) -> bool:
+        return True
+
+    async def observe_configured_ports(
+        observations: list[LanDiscoveryObservation],
+    ) -> None:
+        for observation in observations:
+            observation.services.append(
+                LanServiceInput(port=22, service_name="ssh", status="open")
+            )
+
+    async def record_for_asset(
+        _db: AsyncSession,
+        *,
+        asset: LanAsset,
+        observation: LanServiceInput,
+        source: str,
+        observed_at: datetime,
+    ) -> None:
+        observed_asset_ids.append(asset.id)
+
+    monkeypatch.setattr(lan_monitoring, "_try_advisory_lock", allow_cycle)
+    monkeypatch.setattr(
+        lan_monitoring, "_observe_configured_services", observe_configured_ports
+    )
+    monkeypatch.setattr(
+        lan_monitoring, "record_service_observation", record_for_asset
+    )
+
+    await lan_monitoring.run_native_service_observation(db, asset_id=target.id)
+
+    assert observed_asset_ids == [target.id]
 
 
 def test_ssh_classification_standard_and_nonstandard_ports() -> None:

@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { PageHeader } from "../components/PageHeader";
+import { ActionGatewayPanel } from "../components/ActionGatewayPanel";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import { EvidenceAnalysisPanel } from "../components/EvidenceAnalysisPanel";
 import {
@@ -483,7 +484,9 @@ export function AiConsolePage(): JSX.Element {
               <StatusLine label={t("Local providers")} value={String(catalog.data?.providers.filter((provider) => provider.local && provider.connected).length ?? 0)} />
               <StatusLine label={t("Remote providers")} value={String(catalog.data?.providers.filter((provider) => provider.remote && provider.connected).length ?? 0)} />
               <StatusLine label={t("Execution policy")} value={modeLabel(mode, t)} />
-              <StatusLine label={t("Read-only tools")} value={`${toolCatalog.data?.read_only_count ?? 0} · ${t("writes disabled")}`} />
+              <StatusLine label={t("Read-only tools")} value={String(toolCatalog.data?.read_only_count ?? 0)} />
+              <StatusLine label={t("Action proposal tools")} value={String(toolCatalog.data?.action_proposal_tool_count ?? 0)} />
+              <StatusLine label={t("Execution tools exposed to model")} value="0" />
             </div>
             {session?.tool_activity?.length ? <div className="mt-4 border-t border-raven-border pt-3"><h3 className="text-sm font-semibold">{t("Tool activity")}</h3><ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-xs">{session.tool_activity.map((activity, index) => <li key={`${activity.timestamp}-${index}`} className="rounded border border-raven-border p-2"><span className="font-medium">{activity.tool_id}</span><span className="ml-2 text-raven-muted">{t(activity.outcome)} · {activity.duration_ms ?? "—"} ms</span>{activity.safe_error_code ? <span className="ml-2 text-amber-300">{activity.safe_error_code}</span> : null}</li>)}</ul></div> : null}
             <div className="mt-3 text-xs text-raven-muted">{t("Desktop inventory")}: {desktopInventory.data ? t("available") : t("not supplied")}</div>
@@ -501,6 +504,7 @@ export function AiConsolePage(): JSX.Element {
             </div>
             {isAdmin ? <p className="mt-3 text-xs text-raven-muted">{t("Model tests send only a harmless READY prompt and are limited to local or provider-reported free models.")}</p> : null}
           </section>
+          <div id="ai-action-gateway"><ActionGatewayPanel /></div>
           <section className="rounded-xl border border-raven-border bg-raven-panel p-4">
             <h2 className="font-semibold">{t("Data destination")}</h2>
             <p className="mt-2 text-sm text-raven-muted">{selectedModel?.local ? t("Execution stays with the detected local provider endpoint.") : selectedModel ? t("This model is remote. The selected provider receives the message and any explicitly selected context.") : t("Choose a model to review its local or remote execution label.")}</p>
@@ -591,11 +595,13 @@ function ToolEvidencePanel({
         const fallbackIds = Array.isArray(source.evidence_ids)
           ? source.evidence_ids.filter((value): value is string => typeof value === "string").slice(0, 10)
           : [];
+        const actionProposal = isActionProposalCard(source.action_proposal_card);
         return (
           <div key={`${String(source.tool_id)}-${index}`} className="mt-2 border-t border-raven-border pt-2">
             <p className="text-raven-muted">
               {String(source.tool_id)} · {source.success ? translate("completed") : translate("unavailable")}
             </p>
+            {actionProposal ? <div className="mt-2 rounded border border-amber-300/30 bg-amber-300/5 p-2"><p>{translate("Pending human review")} · {translate(actionProposal.risk_level)} · {actionProposal.target_display_name}</p><Link to="#ai-action-gateway" className="mt-1 inline-block font-medium text-raven-violet underline">{translate("Review action proposal")}</Link></div> : null}
             {references.length ? <ul className="mt-1 space-y-1">
               {references.map((reference) => {
                 const destination = resolveAiEvidenceDestination(reference.id, reference.scope);
@@ -613,6 +619,13 @@ function ToolEvidencePanel({
       })}
     </div>
   );
+}
+
+function isActionProposalCard(value: unknown): { proposal_id: string; action_id: string; target_display_name: string; risk_level: "low" | "medium" | "high" | "blocked"; status: "awaiting_approval" } | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  if (typeof item.proposal_id !== "string" || !isUuid(item.proposal_id) || typeof item.action_id !== "string" || !item.action_id.startsWith("raventech.") || typeof item.target_display_name !== "string" || item.status !== "awaiting_approval" || !["low", "medium", "high", "blocked"].includes(String(item.risk_level))) return null;
+  return { proposal_id: item.proposal_id, action_id: item.action_id, target_display_name: item.target_display_name, risk_level: item.risk_level as "low" | "medium" | "high" | "blocked", status: "awaiting_approval" };
 }
 
 function isEvidenceReference(value: unknown): value is EvidenceReference {

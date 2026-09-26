@@ -1520,6 +1520,150 @@ Requisito: El sistema deberá ofrecer o aplicar mantener el análisis exclusivam
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de denegación de acciones. Caso de prueba: ANL-15.
 
+### FR-ACT-001 — Registrar acciones con ejecutores fijos
+
+Subsistema: Action Gateway.
+
+Requisito: El sistema deberá ofrecer o aplicar registrar acciones con ejecutores fijos. Criterio de aceptación: Solo identificadores enumerados se aceptan; no hay resolución dinámica de comandos, módulos o ejecutables.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Inspección de registry y pruebas API. Caso de prueba: ACT-01.
+
+### FR-ACT-002 — Crear propuesta inerte
+
+Subsistema: Action Gateway.
+
+Requisito: El sistema deberá ofrecer o aplicar crear propuesta inerte. Criterio de aceptación: La propuesta conserva actor, origen, objetivo, parámetros limitados, razón, riesgo, precondiciones y expiración, sin modificar el objetivo.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API y de persistencia. Caso de prueba: ACT-02.
+
+### FR-ACT-003 — Vincular aprobación al hash de propuesta
+
+Subsistema: Aprobación humana.
+
+Requisito: El sistema deberá ofrecer o aplicar vincular aprobación al hash de propuesta. Criterio de aceptación: SHA-256 canónico incluye acción, objetivo, parámetros, precondiciones y snapshot; cualquier alteración invalida aprobación.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de integridad. Caso de prueba: ACT-03.
+
+### FR-ACT-004 — Exigir aprobación humana reciente y explícita
+
+Subsistema: Aprobación humana.
+
+Requisito: El sistema deberá ofrecer o aplicar exigir aprobación humana reciente y explícita. Criterio de aceptación: Un usuario autenticado crea una aprobación de un solo uso y TTL breve; texto del chat, incluido yes, nunca aprueba.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de RBAC/expiración. Caso de prueba: ACT-04.
+
+### FR-ACT-005 — Revalidar snapshot antes de aprobación local
+
+Subsistema: Política y precondiciones.
+
+Requisito: El sistema deberá ofrecer o aplicar revalidar snapshot antes de aprobación local. Criterio de aceptación: La UI vuelve a enumerar el objetivo local; la discrepancia impide aprobar y requiere propuesta nueva.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas Tauri/API. Caso de prueba: ACT-05.
+
+### FR-ACT-006 — Revalidar objetivo inmediatamente antes de ejecución
+
+Subsistema: Política y precondiciones.
+
+Requisito: El sistema deberá ofrecer o aplicar revalidar objetivo inmediatamente antes de ejecución. Criterio de aceptación: Un estado, PID, nombre o identidad de proceso distinto al snapshot aprobado impide la ejecución.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de cambio de estado. Caso de prueba: ACT-06.
+
+### FR-ACT-007 — Controlar servicio local enumerado
+
+Subsistema: Remediación local.
+
+Requisito: El sistema deberá ofrecer o aplicar controlar servicio local enumerado. Criterio de aceptación: Start/stop/restart usan SCM o provider local permitido y verifican estado posterior; servicios protegidos se bloquean.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de provider simulado. Caso de prueba: ACT-07.
+
+### FR-ACT-008 — Terminar proceso por identidad estable
+
+Subsistema: Remediación local.
+
+Requisito: El sistema deberá ofrecer o aplicar terminar proceso por identidad estable. Criterio de aceptación: Solo un proceso local no protegido coincide por PID, nombre y hora de inicio/creación; nunca se termina por PID aislado.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de proceso temporal y PID reutilizado. Caso de prueba: ACT-08.
+
+### FR-ACT-009 — Reconocer alerta existente
+
+Subsistema: Alertas.
+
+Requisito: El sistema deberá ofrecer o aplicar reconocer alerta existente. Criterio de aceptación: La alerta seleccionada permanece en historial y solo cambia a leída después de acción aprobada.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de aprobación y estado. Caso de prueba: ACT-09.
+
+### FR-ACT-010 — Aplicar decisión de confianza LAN
+
+Subsistema: Monitoring LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar aplicar decisión de confianza lan. Criterio de aceptación: Authorize/reject/needs-review operan solo en activo existente y verifican un estado representable por su fuente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de baseline/snapshot. Caso de prueba: ACT-10.
+
+### FR-ACT-011 — Solicitar discovery LAN limitado
+
+Subsistema: Monitoring LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar solicitar discovery lan limitado. Criterio de aceptación: Solo CIDR privados configurados y el handler de discovery existente se encolan; no se aceptan redes suministradas libremente.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de job allowlist. Caso de prueba: ACT-11.
+
+### FR-ACT-012 — Solicitar observación de servicio autorizada
+
+Subsistema: Monitoring LAN.
+
+Requisito: El sistema deberá ofrecer o aplicar solicitar observación de servicio autorizada. Criterio de aceptación: Solo activo autorizado usa puertos, límites y comprobaciones TCP existentes; no se autentica ni envían comandos.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de autorización y job. Caso de prueba: ACT-12.
+
+### FR-ACT-013 — Solicitar recálculo de postura o reintento seguro
+
+Subsistema: Operaciones.
+
+Requisito: El sistema deberá ofrecer o aplicar solicitar recálculo de postura o reintento seguro. Criterio de aceptación: Solo asset/job existente y handler permitido con precondiciones actuales puede encolarse.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de handler/job allowlist. Caso de prueba: ACT-13.
+
+### FR-ACT-014 — Verificar postcondición y registrar resultado
+
+Subsistema: Auditoría y cronología.
+
+Requisito: El sistema deberá ofrecer o aplicar verificar postcondición y registrar resultado. Criterio de aceptación: El resultado indica verificado/fallido con razón segura y actor aprobador; la cronología no afirma éxito no verificado.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de verificación y timeline. Caso de prueba: ACT-14.
+
+### FR-ACT-015 — Impedir replay y acciones concurrentes
+
+Subsistema: Idempotencia y concurrencia.
+
+Requisito: El sistema deberá ofrecer o aplicar impedir replay y acciones concurrentes. Criterio de aceptación: La aprobación se consume una vez y un lease bloquea acciones nativas simultáneas sobre el mismo objetivo.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de replay y lock. Caso de prueba: ACT-15.
+
+### FR-ACT-016 — Permitir al modelo proponer sin ejecutar
+
+Subsistema: Consola AI.
+
+Requisito: El sistema deberá ofrecer o aplicar permitir al modelo proponer sin ejecutar. Criterio de aceptación: AI puede crear como máximo una propuesta pendiente tras petición explícita; tools de aprobación/ejecución expuestas al modelo son cero.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas con modelo simulado. Caso de prueba: ACT-16.
+
+### FR-ACT-017 — Desactivar globalmente el Action Gateway
+
+Subsistema: Política administrativa.
+
+Requisito: El sistema deberá ofrecer o aplicar desactivar globalmente el action gateway. Criterio de aceptación: Solo un administrador cambia el switch y las propuestas/aprobaciones pendientes se invalidan al deshabilitarlo.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API/RBAC. Caso de prueba: ACT-17.
+
+### FR-ACT-018 — Rechazar endpoints operativos que evaden aprobación
+
+Subsistema: Política de ejecución.
+
+Requisito: El sistema deberá ofrecer o aplicar rechazar endpoints operativos que evaden aprobación. Criterio de aceptación: Rutas legacy de writes locales, acknowledgement, decisiones LAN, checks y retry directo devuelven denegación segura.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API negativas. Caso de prueba: ACT-18.
+
 ### FR-BACK-001 — Crear respaldo local
 
 Subsistema: Respaldo.
@@ -1611,6 +1755,7 @@ Cierre: worker -> backend -> cierre de actividad DB -> PostgreSQL propio -> lock
 ## 23. Auditoría, administración y respaldos
 
 Las operaciones administrativas y cambios relevantes se registran con actor, tipo, recurso, hora y resultado saneados. No se registran argumentos sensibles no recogidos. El acceso a auditoría sigue RBAC.
+Las acciones operativas admitidas atraviesan una registry fija, RBAC, política determinista, objetivo protegido, snapshot, aprobación humana con hash SHA-256, caducidad y uso único. Antes de ejecutar se vuelve a validar el objetivo y estado; el resultado solo se marca completado si la postcondición se verifica. Los eventos registran actor aprobador, resultado seguro y vínculo de cronología.
 Backup/restore se considera parcial y explícitamente acotado a utilidades existentes y revisión humana. Una prueba dry-run no certifica recuperación de producción. Las pruebas usan una DB aislada.
 
 ## 24. Conocimiento: capacidad actual y límites
@@ -1671,6 +1816,36 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas simulada
 No incluye brute force, credential testing, explotación, escaneo público ni persistencia.
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Revisión de seguridad. Caso de prueba: SEC-08. Criterio: Capacidad no está implementada ni se activa por configuración.
+
+### NFR-ACT-001 — Aprobación sin inferencia conversacional
+
+Ningún mensaje, confianza del modelo, modo local, rol admin o aprobación previa sustituye una aprobación humana específica y fresca.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de chat y API negativa. Caso de prueba: ACT-NFR-01. Criterio: AI no aprueba ni ejecuta; chat yes no cambia estado.
+
+### NFR-ACT-002 — Alcance de ejecutores
+
+Los ejecutores se limitan a operaciones fijas locales o handlers internos allowlist.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección estática/API. Caso de prueba: ACT-NFR-02. Criterio: No shell, eval/exec, import dinámico, ejecutable arbitrario ni operación remota.
+
+### NFR-ACT-003 — Denegar objetivos protegidos por defecto
+
+Objetivos de SO, desktop y runtime RavenTech protegidos; identidad incompleta o ambigua se rechaza.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas provider simuladas. Caso de prueba: ACT-NFR-03. Criterio: Proceso/service desconocido no es accionable y PID reutilizado se rechaza.
+
+### NFR-ACT-004 — Revalidación fail-safe
+
+Una discrepancia de snapshot, expiry, hash, role, policy o precondición impide ejecutar.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de conflicto y expiración. Caso de prueba: ACT-NFR-04. Criterio: La respuesta no ejecuta el objetivo y pide propuesta/aprobación nueva cuando aplique.
+
+### NFR-ACT-005 — Auditoría saneada
+
+La propuesta, actor aprobador, efecto y resultado se auditan sin persistir credenciales ni argumentos sensibles.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Escaneo de esquema y tests de secretos. Caso de prueba: ACT-NFR-05. Criterio: Los logs y metadata excluyen JWT, contraseñas, tokens, argumentos y comandos.
 
 ### NFR-PRIV-001 — Minimización
 
@@ -1945,7 +2120,8 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba UI/contra
 ## 26. Seguridad, privacidad y límites de red
 
 La plataforma es defensiva y de uso autorizado. La autenticación y RBAC limitan acceso. PostgreSQL administrado no se expone a LAN/público. La telemetría minimiza datos. Los secretos no aparecen en UI/logs/manifest/reportes.
-No se implementa ejecución arbitraria de shell/Python, eval/exec, importación dinámica desde payload, ejecución remota, SSH/WinRM/WMI/PsExec, task kill o servicio remoto, router automation, firewall changes, escaneo público, brute force, credential testing, explotación, persistence/autostart o updater automático.
+No se implementa shell/Python arbitrario, eval/exec, importación dinámica desde payload, ejecución remota, SSH/WinRM/WMI/PsExec, control remoto de procesos/servicios, router automation, firewall changes, escaneo público, brute force, credential testing, explotación, escalación de privilegios, persistence/autostart o updater automático. Solo se permite terminar un proceso no protegido en el host local cuando pasa por Action Gateway, identidad estable, aprobación fresca y verificación.
+La IA conserva tools de lectura y puede crear una sola propuesta pendiente tras una petición actual explícita; no existen tools de aprobación/ejecución. Un chat afirmativo no representa consentimiento operativo.
 
 ## 27. Disponibilidad, rendimiento y recuperación
 
@@ -2149,6 +2325,24 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-ANL-013 | Repetir y comparar análisis guardados | Comparación histórica | Windows/Linux | Implementado | Pruebas de rerun y diff determinista | ANL-13 | La comparación señala cambios de métricas, evidencia, cambios y brechas solo cuando están en los bundles persistidos, con periodo y hash visibles. |
 | FR-ANL-014 | Enriquecer con referencias Knowledge locales | Consola AI y Knowledge | Windows/Linux | Implementado | Pruebas de recuperación y procedencia | ANL-14 | Referencias locales relevantes conservan IDs y confianza; su ausencia se declara como brecha y el contenido no se comparte con modelos automáticamente. |
 | FR-ANL-015 | Mantener el análisis exclusivamente de lectura | Seguridad AI | Windows/Linux | Implementado | Pruebas de denegación de acciones | ANL-15 | Los flujos no ejecutan comandos, consultas SQL arbitrarias, cambios de archivos, descubrimiento, administración remota ni acciones de remediación. |
+| FR-ACT-001 | Registrar acciones con ejecutores fijos | Action Gateway | Windows/Linux | Implementado | Inspección de registry y pruebas API | ACT-01 | Solo identificadores enumerados se aceptan; no hay resolución dinámica de comandos, módulos o ejecutables. |
+| FR-ACT-002 | Crear propuesta inerte | Action Gateway | Windows/Linux | Implementado | Pruebas API y de persistencia | ACT-02 | La propuesta conserva actor, origen, objetivo, parámetros limitados, razón, riesgo, precondiciones y expiración, sin modificar el objetivo. |
+| FR-ACT-003 | Vincular aprobación al hash de propuesta | Aprobación humana | Windows/Linux | Implementado | Pruebas de integridad | ACT-03 | SHA-256 canónico incluye acción, objetivo, parámetros, precondiciones y snapshot; cualquier alteración invalida aprobación. |
+| FR-ACT-004 | Exigir aprobación humana reciente y explícita | Aprobación humana | Windows/Linux | Implementado | Pruebas de RBAC/expiración | ACT-04 | Un usuario autenticado crea una aprobación de un solo uso y TTL breve; texto del chat, incluido yes, nunca aprueba. |
+| FR-ACT-005 | Revalidar snapshot antes de aprobación local | Política y precondiciones | Windows/Linux | Implementado | Pruebas Tauri/API | ACT-05 | La UI vuelve a enumerar el objetivo local; la discrepancia impide aprobar y requiere propuesta nueva. |
+| FR-ACT-006 | Revalidar objetivo inmediatamente antes de ejecución | Política y precondiciones | Windows/Linux | Implementado | Pruebas de cambio de estado | ACT-06 | Un estado, PID, nombre o identidad de proceso distinto al snapshot aprobado impide la ejecución. |
+| FR-ACT-007 | Controlar servicio local enumerado | Remediación local | Windows/Linux | Implementado | Pruebas de provider simulado | ACT-07 | Start/stop/restart usan SCM o provider local permitido y verifican estado posterior; servicios protegidos se bloquean. |
+| FR-ACT-008 | Terminar proceso por identidad estable | Remediación local | Windows/Linux | Implementado | Pruebas de proceso temporal y PID reutilizado | ACT-08 | Solo un proceso local no protegido coincide por PID, nombre y hora de inicio/creación; nunca se termina por PID aislado. |
+| FR-ACT-009 | Reconocer alerta existente | Alertas | Windows/Linux | Implementado | Pruebas de aprobación y estado | ACT-09 | La alerta seleccionada permanece en historial y solo cambia a leída después de acción aprobada. |
+| FR-ACT-010 | Aplicar decisión de confianza LAN | Monitoring LAN | Windows/Linux | Implementado | Pruebas de baseline/snapshot | ACT-10 | Authorize/reject/needs-review operan solo en activo existente y verifican un estado representable por su fuente. |
+| FR-ACT-011 | Solicitar discovery LAN limitado | Monitoring LAN | Windows/Linux | Implementado | Prueba de job allowlist | ACT-11 | Solo CIDR privados configurados y el handler de discovery existente se encolan; no se aceptan redes suministradas libremente. |
+| FR-ACT-012 | Solicitar observación de servicio autorizada | Monitoring LAN | Windows/Linux | Implementado | Prueba de autorización y job | ACT-12 | Solo activo autorizado usa puertos, límites y comprobaciones TCP existentes; no se autentica ni envían comandos. |
+| FR-ACT-013 | Solicitar recálculo de postura o reintento seguro | Operaciones | Windows/Linux | Implementado | Pruebas de handler/job allowlist | ACT-13 | Solo asset/job existente y handler permitido con precondiciones actuales puede encolarse. |
+| FR-ACT-014 | Verificar postcondición y registrar resultado | Auditoría y cronología | Windows/Linux | Implementado | Pruebas de verificación y timeline | ACT-14 | El resultado indica verificado/fallido con razón segura y actor aprobador; la cronología no afirma éxito no verificado. |
+| FR-ACT-015 | Impedir replay y acciones concurrentes | Idempotencia y concurrencia | Windows/Linux | Implementado | Pruebas de replay y lock | ACT-15 | La aprobación se consume una vez y un lease bloquea acciones nativas simultáneas sobre el mismo objetivo. |
+| FR-ACT-016 | Permitir al modelo proponer sin ejecutar | Consola AI | Windows/Linux | Implementado | Pruebas con modelo simulado | ACT-16 | AI puede crear como máximo una propuesta pendiente tras petición explícita; tools de aprobación/ejecución expuestas al modelo son cero. |
+| FR-ACT-017 | Desactivar globalmente el Action Gateway | Política administrativa | Windows/Linux | Implementado | Pruebas API/RBAC | ACT-17 | Solo un administrador cambia el switch y las propuestas/aprobaciones pendientes se invalidan al deshabilitarlo. |
+| FR-ACT-018 | Rechazar endpoints operativos que evaden aprobación | Política de ejecución | Windows/Linux | Implementado | Pruebas API negativas | ACT-18 | Rutas legacy de writes locales, acknowledgement, decisiones LAN, checks y retry directo devuelven denegación segura. |
 | FR-BACK-001 | Crear respaldo local | Respaldo | Windows/Linux | Parcial | Prueba de integración aislada | BACK-01 | Las operaciones existentes usan ruta controlada y registran resultado seguro. |
 | FR-BACK-002 | Validar respaldo | Recuperación | Windows/Linux | Parcial | Prueba de validación | BACK-02 | La validación no sobreescribe base activa y comunica limitaciones. |
 | FR-BACK-003 | Restaurar con control | Recuperación | Windows/Linux | Parcial | Ensayo fuera de producción | BACK-03 | Toda restauración requiere acción administrativa explícita y objetivo aislado. |
@@ -2160,6 +2354,11 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-SEC-006 | Alcance de red | No funcional | Windows/Linux | Especificado | Pruebas de política | SEC-06 | Direcciones fuera de alcance no reciben checks TCP/ICMP. |
 | NFR-SEC-007 | Control destructivo | No funcional | Windows/Linux | Especificado | Pruebas simuladas | SEC-07 | No se termina proceso protegido ni se controla objeto remoto. |
 | NFR-SEC-008 | Defensa exclusivamente | No funcional | Windows/Linux | Especificado | Revisión de seguridad | SEC-08 | Capacidad no está implementada ni se activa por configuración. |
+| NFR-ACT-001 | Aprobación sin inferencia conversacional | No funcional | Windows/Linux | Especificado | Pruebas de chat y API negativa | ACT-NFR-01 | AI no aprueba ni ejecuta; chat yes no cambia estado. |
+| NFR-ACT-002 | Alcance de ejecutores | No funcional | Windows/Linux | Especificado | Inspección estática/API | ACT-NFR-02 | No shell, eval/exec, import dinámico, ejecutable arbitrario ni operación remota. |
+| NFR-ACT-003 | Denegar objetivos protegidos por defecto | No funcional | Windows/Linux | Especificado | Pruebas provider simuladas | ACT-NFR-03 | Proceso/service desconocido no es accionable y PID reutilizado se rechaza. |
+| NFR-ACT-004 | Revalidación fail-safe | No funcional | Windows/Linux | Especificado | Pruebas de conflicto y expiración | ACT-NFR-04 | La respuesta no ejecuta el objetivo y pide propuesta/aprobación nueva cuando aplique. |
+| NFR-ACT-005 | Auditoría saneada | No funcional | Windows/Linux | Especificado | Escaneo de esquema y tests de secretos | ACT-NFR-05 | Los logs y metadata excluyen JWT, contraseñas, tokens, argumentos y comandos. |
 | NFR-PRIV-001 | Minimización | No funcional | Windows/Linux | Especificado | Revisión de campos | PRIV-01 | No se recolectan argumentos, entorno o datos de navegador por defecto. |
 | NFR-PRIV-002 | Retención | No funcional | Windows/Linux | Especificado | Revisión de política | PRIV-02 | La interfaz no promete borrado automático no existente. |
 | NFR-PRIV-003 | Transparencia de inferencia | No funcional | Windows/Linux | Especificado | Prueba de contrato | PRIV-03 | Inferencia de dispositivo/OS no aparece como hecho de alta certeza sin agente. |
@@ -2232,3 +2431,4 @@ El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0
 | AT-06 | Recon | Smoke pasivo autorizado conserva entidades válidas y advierte fallas parciales. |
 | AT-07 | Linux core | Debian 13 x86_64 WSL2: paquete actual, arranque Tauri empaquetado, PostgreSQL administrado, migraciones, backend/worker y APIs autenticadas; no implica GUI visual ni clean-machine. |
 | AT-08 | Esquema | Una cabeza Alembic; current=head; check sin drift. |
+| AT-09 | Action Gateway | Propuesta hash-bound, aprobación RBAC humana, snapshot actual, bloqueo de protección, replay/expiry y postcondición verificada; AI proposal-only. |

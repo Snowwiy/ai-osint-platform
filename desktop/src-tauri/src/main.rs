@@ -318,6 +318,41 @@ fn local_admin_post(token: &str, path: &str, body: &Value) -> bool {
         == Some(true)
 }
 
+fn local_admin_action_request(token: &str, method: &str, path: &str, body: Option<&Value>) -> Result<Value, String> {
+    if token.len() < 20
+        || token.len() > 8192
+        || !token.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+        || !matches!(method, "GET" | "POST")
+        || !path.starts_with("/api/v1/actions/proposals/")
+        || path.len() > 220
+        || !path.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'-'))
+    {
+        return Err("Invalid Action Gateway request".to_owned());
+    }
+    let address = LOOPBACK.parse::<SocketAddr>().map_err(|_| "Local backend address is unavailable".to_owned())?;
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(3))
+        .map_err(|_| "Local Action Gateway is unavailable".to_owned())?;
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
+    let payload = body.map(Value::to_string).unwrap_or_default();
+    let request = format!(
+        "{method} {path} HTTP/1.1\r\nHost: localhost:8000\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+        payload.len()
+    );
+    stream.write_all(request.as_bytes()).map_err(|_| "Action Gateway request failed".to_owned())?;
+    let mut bytes = Vec::new();
+    stream.take(16_384).read_to_end(&mut bytes).map_err(|_| "Action Gateway response could not be read".to_owned())?;
+    let response = String::from_utf8_lossy(&bytes);
+    let Some((headers, response_body)) = response.split_once("\r\n\r\n") else {
+        return Err("Action Gateway returned an invalid response".to_owned());
+    };
+    let code = headers.lines().next().and_then(|line| line.split_whitespace().nth(1)).and_then(|value| value.parse::<u16>().ok());
+    if code != Some(200) {
+        return Err("Action Gateway refused or could not complete the approved operation".to_owned());
+    }
+    serde_json::from_str::<Value>(response_body).map_err(|_| "Action Gateway returned an invalid response".to_owned())
+}
+
 fn authorize_host(token: &str, action: &str, target: &str, confirmed: bool) -> bool {
     local_admin_post(
         token,
@@ -326,37 +361,6 @@ fn authorize_host(token: &str, action: &str, target: &str, confirmed: bool) -> b
             "action": action, "target": target, "confirmed": confirmed,
         }),
     )
-}
-
-fn audit_host_result(
-    token: &str,
-    action: &str,
-    target: &str,
-    result: &Result<local_host::ActionResult, String>,
-) -> bool {
-    let (previous, resulting) = match result {
-        Ok(value) => (
-            value.previous_state.as_str(),
-            value.resulting_state.as_str(),
-        ),
-        Err(_) => ("unknown", "failed"),
-    };
-    local_admin_post(
-        token,
-        "/api/v1/monitoring/local-host/result",
-        &serde_json::json!({
-            "action": action, "target": target, "success": result.is_ok(),
-            "previous_state": previous, "resulting_state": resulting,
-        }),
-    )
-}
-
-fn require_exact_confirmation(expected: &str, supplied: &str) -> Result<(), String> {
-    if supplied == expected {
-        Ok(())
-    } else {
-        Err("Target confirmation did not match".to_owned())
-    }
 }
 
 #[tauri::command]
@@ -373,59 +377,134 @@ async fn get_local_host_inventory(token: String) -> Result<local_host::HostInven
     .map_err(|_| "Local inventory was interrupted".to_owned())?
 }
 
-#[tauri::command]
-async fn terminate_local_process(
-    token: String,
-    pid: u32,
-    name: String,
-    creation_ticks: String,
-    confirmation: String,
-) -> Result<local_host::ActionResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let target = format!("{name} ({pid})");
-        require_exact_confirmation(&target, &confirmation)?;
-        if !authorize_host(&token, "process_terminate", &target, true) {
-            return Err("Admin authorization was denied".to_owned());
+fn is_uuid_path_component(value: &str) -> bool {
+    value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        })
+}
+
+fn current_local_action_snapshot(action_id: &str, expected: &Value) -> Result<Value, String> {
+    let inventory = local_host::inventory();
+    if !inventory.available {
+        return Err("Local host provider is unavailable".to_owned());
+    }
+    if action_id.starts_with("raventech.service.") {
+        let name = expected.get("name").and_then(Value::as_str).ok_or("Service identity is unavailable")?;
+        let item = inventory.services.iter().find(|service| service.name == name).ok_or("Service is no longer in local inventory")?;
+        Ok(serde_json::json!({
+            "name": item.name,
+            "display_name": item.display_name,
+            "state": item.state,
+            "pid": item.pid,
+            "start_type": item.start_type,
+            "action_available": item.action_available,
+        }))
+    } else if action_id == "raventech.process.terminate" {
+        let pid = expected.get("pid").and_then(Value::as_u64).ok_or("Process identity is unavailable")? as u32;
+        let item = inventory.processes.iter().find(|process| process.pid == pid).ok_or("Process has already exited")?;
+        Ok(serde_json::json!({
+            "pid": item.pid,
+            "name": item.name,
+            "started_at_unix": item.started_at_unix,
+            "creation_ticks": item.creation_ticks,
+            "action_available": item.action_available,
+        }))
+    } else {
+        Err("Action is not registered for local host execution".to_owned())
+    }
+}
+
+fn execute_approved_local_action(token: &str, proposal_id: &str) -> Result<local_host::ActionResult, String> {
+    if !is_uuid_path_component(proposal_id) {
+        return Err("Invalid action proposal identifier".to_owned());
+    }
+    let prefix = format!("/api/v1/actions/proposals/{proposal_id}");
+    let preview = local_admin_action_request(token, "GET", &format!("{prefix}/native-preview"), None)?;
+    let action_id = preview.get("action_id").and_then(Value::as_str).ok_or("Action proposal is incomplete")?;
+    let expected_snapshot = preview.get("target_snapshot").cloned().ok_or("Action target identity is unavailable")?;
+    let current_snapshot = current_local_action_snapshot(action_id, &expected_snapshot)?;
+    if current_snapshot != expected_snapshot {
+        return Err("Local target state changed after approval; create a fresh proposal".to_owned());
+    }
+    let claim = local_admin_action_request(token, "POST", &format!("{prefix}/claim-local"), Some(&serde_json::json!({"current_snapshot": current_snapshot})))?;
+    if claim.get("action_id").and_then(Value::as_str) != Some(action_id) {
+        return Err("Approved action identity changed".to_owned());
+    }
+    let post_claim_snapshot = current_local_action_snapshot(action_id, &expected_snapshot)?;
+    if post_claim_snapshot != current_snapshot {
+        let observed = post_claim_snapshot
+            .get("state")
+            .and_then(Value::as_str)
+            .unwrap_or("identity_changed");
+        let completion_body = serde_json::json!({
+            "success": false,
+            "observed_state": observed,
+            "safe_error_code": "identity_changed",
+        });
+        let _ = local_admin_action_request(token, "POST", &format!("{prefix}/complete-local"), Some(&completion_body));
+        return Err("Local target changed during approval claim; no action was performed".to_owned());
+    }
+    let result = if action_id == "raventech.process.terminate" {
+        let pid = current_snapshot.get("pid").and_then(Value::as_u64).ok_or("Process identity is unavailable")? as u32;
+        let name = current_snapshot.get("name").and_then(Value::as_str).ok_or("Process identity is unavailable")?;
+        let ticks = current_snapshot.get("creation_ticks").and_then(Value::as_str).ok_or("Process identity is unavailable")?;
+        local_host::terminate(pid, name, ticks)
+    } else {
+        let name = current_snapshot.get("name").and_then(Value::as_str).ok_or("Service identity is unavailable")?;
+        let operation = match action_id {
+            "raventech.service.start" => "start",
+            "raventech.service.stop" => "stop",
+            "raventech.service.restart" => "restart",
+            _ => return Err("Action is not registered for local host execution".to_owned()),
+        };
+        local_host::service_action(name, operation)
+    };
+    let (succeeded, previous_state, observed_state, safe_code) = match &result {
+        Ok(value) => {
+            let fresh = local_host::inventory();
+            let observed = if action_id == "raventech.process.terminate" {
+                let pid = current_snapshot.get("pid").and_then(Value::as_u64).unwrap_or_default() as u32;
+                let ticks = current_snapshot.get("creation_ticks").and_then(Value::as_str).unwrap_or_default();
+                if fresh.processes.iter().any(|item| item.pid == pid && item.creation_ticks.as_deref() == Some(ticks)) { "running".to_owned() } else { "terminated".to_owned() }
+            } else {
+                let name = current_snapshot.get("name").and_then(Value::as_str).unwrap_or_default();
+                fresh.services.iter().find(|item| item.name == name).map(|item| item.state.clone()).unwrap_or_else(|| "unknown".to_owned())
+            };
+            (true, value.previous_state.clone(), observed, None)
         }
-        let result = local_host::terminate(pid, &name, &creation_ticks);
-        if !audit_host_result(&token, "process_terminate", &target, &result) {
-            return Err("Action outcome could not be audited; refresh local status".to_owned());
+        Err(message) => {
+            let code = if message.to_ascii_lowercase().contains("protect") { "protected_target" }
+                else if message.to_ascii_lowercase().contains("permission") || message.to_ascii_lowercase().contains("denied") { "permission_denied" }
+                else if message.to_ascii_lowercase().contains("identity") || message.to_ascii_lowercase().contains("reused") { "identity_changed" }
+                else if message.to_ascii_lowercase().contains("exited") { "already_exited" }
+                else if message.to_ascii_lowercase().contains("unavailable") { "provider_unavailable" }
+                else if message.to_ascii_lowercase().contains("within") || message.to_ascii_lowercase().contains("timeout") { "timeout" }
+                else { "action_failed" };
+            (false, "unknown".to_owned(), "unknown".to_owned(), Some(code))
         }
-        result
-    })
-    .await
-    .map_err(|_| "Local process action was interrupted".to_owned())?
+    };
+    let completion_body = serde_json::json!({"success": succeeded, "observed_state": observed_state, "safe_error_code": safe_code});
+    local_admin_action_request(token, "POST", &format!("{prefix}/complete-local"), Some(&completion_body))?;
+    match result {
+        Ok(value) if observed_state == claim.get("expected_result").and_then(Value::as_str).unwrap_or("") => Ok(value),
+        Ok(_) => Err("Local action returned, but the expected post-action state was not verified".to_owned()),
+        Err(_) => {
+            let _ = previous_state;
+            Err("Local operating system provider refused or could not complete the approved action".to_owned())
+        }
+    }
 }
 
 #[tauri::command]
-async fn control_local_service(
-    token: String,
-    name: String,
-    display_name: String,
-    action: String,
-    confirmation: String,
-) -> Result<local_host::ActionResult, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let target = format!("{display_name} ({name})");
-        require_exact_confirmation(&target, &confirmation)?;
-        let current = local_host::inventory();
-        if !current.services.iter().any(|item| {
-            item.name == name && item.display_name == display_name && item.action_available
-        }) {
-            return Err("Service is not in the actionable local inventory".to_owned());
-        }
-        let auth_action = format!("service_{action}");
-        if !authorize_host(&token, &auth_action, &target, true) {
-            return Err("Admin authorization was denied".to_owned());
-        }
-        let result = local_host::service_action(&name, &action);
-        if !audit_host_result(&token, &auth_action, &target, &result) {
-            return Err("Action outcome could not be audited; refresh local status".to_owned());
-        }
-        result
-    })
-    .await
-    .map_err(|_| "Local service action was interrupted".to_owned())?
+async fn execute_action_proposal(token: String, proposal_id: String) -> Result<local_host::ActionResult, String> {
+    tauri::async_runtime::spawn_blocking(move || execute_approved_local_action(&token, &proposal_id))
+        .await
+        .map_err(|_| "Local approved action was interrupted".to_owned())?
 }
 
 fn json_probe(path: &str) -> (ProbeResult, Option<Value>) {
@@ -1442,10 +1521,10 @@ mod tests {
     }
 
     #[test]
-    fn host_action_confirmation_is_exact() {
-        assert!(require_exact_confirmation("example.exe (42)", "example.exe (42)").is_ok());
-        assert!(require_exact_confirmation("example.exe (42)", "example.exe (43)").is_err());
-        assert!(require_exact_confirmation("Example (service)", "service").is_err());
+    fn action_gateway_claim_requires_a_uuid_proposal_reference() {
+        assert!(is_uuid_path_component("70a9c674-f7c9-4c5b-b2f5-4cb4687b1162"));
+        assert!(!is_uuid_path_component("../authorize"));
+        assert!(!is_uuid_path_component("70a9c674-f7c9-4c5b-b2f5-4cb4687b116Z"));
     }
 }
 
@@ -1463,8 +1542,7 @@ fn main() {
             get_native_host_metrics,
             select_knowledge_files,
             get_local_host_inventory,
-            terminate_local_process,
-            control_local_service,
+            execute_action_proposal,
             check_platform,
             start_platform,
             stop_platform,

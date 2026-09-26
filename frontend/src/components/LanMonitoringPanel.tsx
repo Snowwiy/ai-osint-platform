@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  discoverLan,
+  createActionProposal,
   getLanAsset,
   getLanAssetHistory,
   getLanServiceHistory,
@@ -11,7 +11,6 @@ import {
   listLanServices,
   listLanTelemetry,
   listEndpointRecommendations,
-  runLanServiceCheck,
   updateLanAsset,
   updateLanAssetCriticality,
 } from "../lib/api";
@@ -20,6 +19,7 @@ import { useI18n } from "../lib/i18n";
 import { useAuth } from "../lib/useAuth";
 import type { LanAsset } from "../types";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "./StateBlock";
+import { ActionGatewayPanel } from "./ActionGatewayPanel";
 import { ToastBanner, type ToastState } from "./ToastBanner";
 import { serviceHealthIcon, serviceHealthTone } from "../lib/serviceHealth";
 import type { LanServiceObservation } from "../types";
@@ -32,7 +32,6 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   const queryClient = useQueryClient();
   const isAdmin = user?.role === "admin";
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [cidr, setCidr] = useState("");
   const [toast, setToast] = useState<ToastState | null>(null);
   const [assetOwner, setAssetOwner] = useState("");
   const [businessFunction, setBusinessFunction] = useState("");
@@ -91,19 +90,18 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     setBusinessFunction(safeString(selected?.business_function));
     setAssetEnvironment(safeString(selected?.environment));
   }, [selected?.id, selected?.owner, selected?.business_function, selected?.environment]);
-  const discovery = useMutation({
-    mutationFn: () => discoverLan(cidr || undefined),
-    onSuccess: async (result) => {
-      setToast({ kind: result.limitation ? "error" : "success", message: result.limitation ?? result.message });
-      await queryClient.invalidateQueries({ queryKey: ["lan-assets"] });
+  const proposeAction = useMutation({
+    mutationFn: createActionProposal,
+    onSuccess: async () => {
+      setToast({ kind: "success", message: "Action proposal created. Review and approve it in the Action Gateway below." });
+      await queryClient.invalidateQueries({ queryKey: ["action-proposals"] });
     },
-    onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "LAN discovery failed." }),
+    onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Action proposal could not be created." }),
   });
   const update = useMutation({
-    mutationFn: ({ asset, changes }: { asset: LanAsset; changes: Parameters<typeof updateLanAsset>[1] }) =>
-      updateLanAsset(asset.id, changes),
+    mutationFn: ({ asset, changes }: { asset: LanAsset; changes: Parameters<typeof updateLanAsset>[1] }) => updateLanAsset(asset.id, changes),
     onSuccess: async (asset) => {
-      setToast({ kind: "success", message: "LAN asset monitoring settings updated." });
+      setToast({ kind: "success", message: "Asset metadata updated." });
       queryClient.setQueryData(["lan-asset", asset.id], asset);
       await queryClient.invalidateQueries({ queryKey: ["lan-assets"] });
     },
@@ -124,15 +122,6 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
     },
     onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Criticality update failed." }),
   });
-  const serviceCheck = useMutation({
-    mutationFn: (assetId: string) => runLanServiceCheck(assetId),
-    onSuccess: async (result) => {
-      setToast({ kind: "success", message: `${result.message} ${result.open_ports} open port(s) observed.` });
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["lan-services", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-service-history", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-asset-history", result.asset_id] }), queryClient.invalidateQueries({ queryKey: ["lan-assets"] })]);
-    },
-    onError: () => setToast({ kind: "error", message: "The authorized service check could not run. Review enablement, authorization, and rate limits." }),
-  });
-
   if (!isAdmin) {
     return <EmptyBlock title="Administrator access required" message="LAN addresses, endpoint telemetry, and authorization controls are restricted to platform administrators." />;
   }
@@ -150,6 +139,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
   return (
     <div className="space-y-4">
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
+      <ActionGatewayPanel />
       <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -162,13 +152,10 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
         </div>
         {!agentsOnly ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            <select value={cidr} onChange={(event) => setCidr(event.target.value)} className="rounded-md border border-raven-border bg-raven-panelSoft px-3 py-2 text-sm">
-              <option value="">Configured default range</option>
-              {safeArray(config?.allowed_cidrs).map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-            <button type="button" onClick={() => discovery.mutate()} disabled={!config?.enabled || discovery.isPending} title={!config?.enabled ? "Enable LAN_MONITORING_ENABLED as an administrator before discovery." : discovery.isPending ? "Authorized discovery is already running." : "Process authorized private-range observations."} className="inline-flex items-center gap-2 rounded-md bg-raven-violet px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
+            <p className="rounded-md border border-raven-border px-3 py-2 text-sm text-raven-muted">Configured authorized private ranges: {safeArray(config?.allowed_cidrs).join(", ") || t("Not configured")}</p>
+            <button type="button" onClick={() => proposeAction.mutate({ action_id: "raventech.lan.discovery.run", origin: "lan_workflow", target_display_name: "Configured authorized private LAN", reason: "Operator requested bounded discovery of the configured authorized private ranges." })} disabled={!config?.enabled || proposeAction.isPending} title={!config?.enabled ? "Enable LAN monitoring in local configuration before requesting discovery." : "Create a proposal for existing bounded private-range discovery."} className="inline-flex items-center gap-2 rounded-md bg-raven-violet px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
               <RadioTower className="h-4 w-4" aria-hidden="true" />
-              {discovery.isPending ? "Checking observations" : "Run safe discovery"}
+              {proposeAction.isPending ? "Preparing proposal" : "Propose safe discovery"}
             </button>
             <button type="button" onClick={() => void listing.refetch()} className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm">
               <RefreshCw className="h-4 w-4" aria-hidden="true" /> Refresh
@@ -224,7 +211,7 @@ export function LanMonitoringPanel({ agentsOnly = false }: { agentsOnly?: boolea
 
       {selected ? (
         <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Endpoint detail · {safeString(selected.hostname, selected.ip_address)}</h2><p className="mt-1 font-mono text-xs text-raven-muted">{selected.ip_address} · {safeString(selected.mac_address, "MAC unavailable")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => update.mutate({ asset: selected, changes: { is_authorized: !selected.is_authorized } })} className="rounded-md border border-raven-border px-3 py-2 text-xs"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />{selected.is_authorized ? "Revoke authorization" : "Authorize asset"}</button><button type="button" onClick={() => update.mutate({ asset: selected, changes: { monitoring_enabled: !selected.monitoring_enabled } })} className="rounded-md border border-raven-border px-3 py-2 text-xs">Monitoring {selected.monitoring_enabled ? "on" : "off"}</button><button type="button" onClick={() => serviceCheck.mutate(selected.id)} disabled={!config?.service_check_enabled || !selected.is_authorized || !selected.monitoring_enabled || serviceCheck.isPending} title={serviceCheckReason(config?.service_check_enabled, selected)} className="rounded-md border border-raven-border px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">{serviceCheck.isPending ? "Checking configured ports" : "Run TCP service check"}</button></div></div>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Endpoint detail · {safeString(selected.hostname, selected.ip_address)}</h2><p className="mt-1 font-mono text-xs text-raven-muted">{selected.ip_address} · {safeString(selected.mac_address, "MAC unavailable")}</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={() => proposeAction.mutate({ action_id: selected.is_authorized && selected.source === "host_neighbor_table" ? "raventech.lan.asset.needs_review" : selected.is_authorized ? "raventech.lan.asset.reject" : "raventech.lan.asset.authorize", origin: "lan_workflow", target_id: selected.id, target_display_name: safeString(selected.hostname, selected.ip_address), reason: selected.is_authorized ? "Operator requested that this discovered asset be marked unauthorized." : "Operator requested authorization of this discovered asset." })} className="rounded-md border border-raven-border px-3 py-2 text-xs"><ShieldCheck className="mr-1 inline h-3.5 w-3.5" />{selected.is_authorized ? selected.source === "host_neighbor_table" ? "Propose needs review" : "Propose rejection" : "Propose authorization"}</button><span className="rounded-md border border-raven-border px-3 py-2 text-xs">Monitoring {selected.monitoring_enabled ? "on" : "off"}</span><button type="button" onClick={() => proposeAction.mutate({ action_id: "raventech.lan.services.refresh", origin: "lan_workflow", target_id: selected.id, target_display_name: safeString(selected.hostname, selected.ip_address), parameters: { asset_id: selected.id }, reason: "Operator requested a bounded refresh of configured service observations for this authorized asset." })} disabled={!config?.service_check_enabled || !selected.is_authorized || !selected.monitoring_enabled || proposeAction.isPending} title={serviceCheckReason(config?.service_check_enabled, selected)} className="rounded-md border border-raven-border px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-50">{proposeAction.isPending ? "Preparing proposal" : "Propose TCP service check"}</button></div></div>
           {!config?.service_check_enabled || !selected.is_authorized || !selected.monitoring_enabled ? <p className="mt-2 text-xs text-amber-100">{serviceCheckReason(config?.service_check_enabled, selected)}</p> : <p className="mt-2 text-xs text-emerald-200">Service-check eligible. TCP connect only; no authentication, commands, brute force, or exploit payloads.</p>}
           <p className="mt-1 text-xs text-raven-muted">Configured TCP ports: {safeArray(config?.service_ports).join(", ") || "see Activation"} · last check {safeDate(selected.last_checked_at)?.toLocaleString() ?? "never"}</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

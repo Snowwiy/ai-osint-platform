@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from app.models.background_job import BackgroundJobEvent
+from app.models.lan_monitoring import LanAsset
 from app.services.background_jobs import (
     JobValidationError,
     cancel_running_job,
@@ -122,6 +123,18 @@ def test_payload_registry_rejects_secrets_and_unknown_jobs() -> None:
     assert validate_payload("monitoring.refresh", {}) == {}
 
 
+def test_approved_asset_service_observation_job_is_target_scoped() -> None:
+    asset_id = uuid.uuid4()
+    assert validate_payload(
+        "monitoring.service_observation.asset", {"asset_id": str(asset_id)}
+    ) == {"asset_id": str(asset_id)}
+    with pytest.raises(JobValidationError):
+        validate_payload(
+            "monitoring.service_observation.asset",
+            {"asset_id": str(asset_id), "all_assets": True},
+        )
+
+
 @pytest.mark.asyncio
 async def test_native_worker_processes_without_redis(
     db: AsyncSession, monkeypatch: pytest.MonkeyPatch
@@ -137,6 +150,52 @@ async def test_native_worker_processes_without_redis(
     await db.refresh(job)
     assert job.status == "completed"
     assert job.result_summary is not None
+
+
+@pytest.mark.asyncio
+async def test_asset_service_observation_handler_is_registered_and_scoped(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app import worker
+    from app.services import lan_monitoring
+
+    asset = LanAsset(
+        ip_address="192.168.50.91",
+        status="online",
+        source="static",
+        is_authorized=True,
+        monitoring_enabled=True,
+    )
+    db.add(asset)
+    await db.flush()
+    asset_id = asset.id
+    job = await enqueue_job(
+        db,
+        "monitoring.service_observation.asset",
+        {"asset_id": str(asset_id)},
+    )
+    await db.commit()
+    assert db.bind is not None
+    factory = async_sessionmaker(db.bind, expire_on_commit=False)
+    observed: list[uuid.UUID | None] = []
+
+    async def observe_one_asset(
+        _db: AsyncSession, *, asset_id: uuid.UUID | None = None
+    ) -> str:
+        observed.append(asset_id)
+        return "Scoped observation completed."
+
+    monkeypatch.setattr(worker, "AsyncSessionLocal", factory)
+    monkeypatch.setattr(
+        lan_monitoring, "run_native_service_observation", observe_one_asset
+    )
+
+    assert await worker.process_one("test-asset-service-worker") is True
+    await db.refresh(job)
+
+    assert "monitoring.service_observation.asset" in worker.HANDLERS
+    assert observed == [asset_id]
+    assert job.status == "completed"
 
 
 @pytest.mark.asyncio

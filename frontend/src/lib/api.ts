@@ -2489,7 +2489,7 @@ export async function deleteAiSession(id: string): Promise<void> {
 export type AiWorkflow = "analyze_server" | "analyze_resource_usage" | "analyze_services" | "analyze_ports" | "analyze_lan" | "analyze_asset" | "explain_posture" | "explain_alert" | "analyze_investigation";
 export type AiMessageOptions = { workflow?: AiWorkflow; workflowScopeId?: string; desktopInventory?: unknown; allowRemoteToolContext?: boolean };
 
-export async function getAiTools(): Promise<{ items: Array<Record<string, unknown>>; total: number; read_only_count: number; write_count: 0 }> {
+export async function getAiTools(): Promise<{ items: Array<Record<string, unknown>>; total: number; read_only_count: number; action_proposal_tool_count: number; write_count: 0 }> {
   return request("/ai/tools");
 }
 
@@ -2632,6 +2632,79 @@ export async function analyzeInvestigation(id: string): Promise<AnalysisResponse
     method: "POST",
     body: JSON.stringify({ investigation_id: id }),
   });
+}
+
+export type ActionProposal = {
+  id: string;
+  action_id: string;
+  requested_by_user_id: string | null;
+  approved_by_user_id: string | null;
+  origin: string;
+  scope_type: string;
+  scope_id: string | null;
+  target_type: string;
+  target_id: string | null;
+  target_display_name: string;
+  target_snapshot: Record<string, unknown>;
+  preconditions: Record<string, unknown>;
+  parameters: Record<string, unknown>;
+  reason: string;
+  supporting_evidence_ids: string[];
+  risk_level: "low" | "medium" | "high" | "blocked";
+  expected_effect: string;
+  possible_impact: string;
+  rollback_guidance: string;
+  status: string;
+  expires_at: string;
+  created_at: string;
+  proposal_hash: string;
+  approval_expires_at: string | null;
+  result_summary: string | null;
+  safe_error_code: string | null;
+  approval_confirmation: string | null;
+};
+
+export type ActionProposalRequest = {
+  action_id: string;
+  origin?: "manual_ui" | "ai_recommendation" | "analysis_workflow" | "alert_workflow" | "posture_workflow" | "lan_workflow" | "investigation_workflow";
+  target_id?: string | null;
+  target_display_name?: string | null;
+  parameters?: Record<string, unknown>;
+  reason: string;
+  supporting_evidence_ids?: string[];
+  target_snapshot?: Record<string, unknown>;
+};
+
+export type ActionProposalList = { items: ActionProposal[]; total: number; enabled: boolean };
+
+export async function listActionProposals(status?: string): Promise<ActionProposalList> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  return request<ActionProposalList>(`/actions/proposals${params.size ? `?${params.toString()}` : ""}`);
+}
+
+export async function createActionProposal(body: ActionProposalRequest): Promise<ActionProposal> {
+  return request<ActionProposal>("/actions/proposals", { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function approveActionProposal(id: string, confirmationText?: string, currentSnapshot?: Record<string, unknown>): Promise<ActionProposal> {
+  return request<ActionProposal>(`/actions/proposals/${id}/approve`, { method: "POST", body: JSON.stringify({ confirmation_text: confirmationText ?? null, current_snapshot: currentSnapshot ?? null }) });
+}
+
+export async function rejectActionProposal(id: string): Promise<ActionProposal> {
+  return request<ActionProposal>(`/actions/proposals/${id}/reject`, { method: "POST" });
+}
+
+export async function executeBackendActionProposal(id: string): Promise<ActionProposal> {
+  return request<ActionProposal>(`/actions/proposals/${id}/execute`, { method: "POST" });
+}
+
+export async function getActionGatewayCapabilities(): Promise<{ enabled: boolean; can_manage_policy: boolean; actions: Array<Record<string, unknown>>; read_tools: number; action_proposal_tools: number; execution_tools_exposed_to_model: 0 }> {
+  return request("/actions/capabilities");
+}
+
+export async function setActionGatewayEnabled(enabled: boolean): Promise<{ enabled: boolean }> {
+  return request("/actions/policy", { method: "PATCH", body: JSON.stringify({ enabled }) });
 }
 
 interface RequestInitWithAuth extends RequestInit {

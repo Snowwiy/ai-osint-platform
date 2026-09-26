@@ -1,5 +1,25 @@
 # Troubleshooting
 
+## Action proposal cannot be approved or executed
+
+- `state_changed_since_proposal` or `state_changed_since_approval`: refresh the
+  local inventory or target record and create a new proposal. Existing approval
+  cannot be reused.
+- `approval_expired`: review current state again and create a new proposal.
+- `protected_target` or `local_target_unavailable`: the target is protected,
+  absent, or not actionable from current local inventory. Do not try a different
+  low-level command.
+- `gateway_disabled`: an administrator disabled the Action Gateway. No pending
+  proposal can execute until an administrator re-enables it and a new proposal
+  is created.
+- `postcondition_not_verified`: RavenTech did not verify the expected result.
+  Inspect the local state before deciding whether a new proposal is appropriate.
+
+AI can create a pending proposal only from an explicit, action-specific request.
+It cannot approve or execute actions, and an affirmative chat message does not
+count as approval. Read [ACTION_GATEWAY.md](ACTION_GATEWAY.md) for the review
+flow and supported scope.
+
 ## Native packaged desktop
 
 Start with the desktop **Local Runtime** panel. It reports Database, Backend,

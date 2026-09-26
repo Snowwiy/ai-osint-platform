@@ -1,5 +1,25 @@
 # RavenTech OSINT Desktop Operator Manual
 
+## Human-approved local actions
+
+Open **Action Gateway** from Operations, Monitoring, Notifications, or the AI
+Console to review supported action proposals. Before approval, verify the target
+identity and snapshot, the preconditions, why the action was proposed, evidence
+references, expected effect, possible impact, risk, recovery guidance, and
+expiration. High-risk actions require the exact phrase shown in the review.
+
+The **Approve and execute** control is an explicit operator action. The model
+cannot approve or run proposals. A stale snapshot, expired approval, changed
+target, missing privilege, or disabled gateway prevents execution. Refresh the
+inventory and create a new proposal instead of reusing an old approval.
+
+The gateway supports a fixed set of local service/process actions and RavenTech
+alert/LAN/job operations. Service/process control applies only to the primary
+local RavenTech host. Protected targets are not actionable. LAN actions update
+RavenTech trust or queue the existing bounded private-network observation jobs;
+they do not issue commands to endpoint agents or network devices. See
+[ACTION_GATEWAY.md](ACTION_GATEWAY.md) for the full scope and safeguards.
+
 For native Windows/Linux backend, worker, and managed PostgreSQL packaging and lifecycle supervision, see [NATIVE_BACKEND_PACKAGING.md](NATIVE_BACKEND_PACKAGING.md), [NATIVE_RUNTIME_SUPERVISOR.md](NATIVE_RUNTIME_SUPERVISOR.md), and [MANAGED_POSTGRESQL_RUNTIME.md](MANAGED_POSTGRESQL_RUNTIME.md). Fresh native installs use a private loopback PostgreSQL runtime; previously configured external databases and Docker compatibility remain supported. Redis/Celery are optional in desktop mode.
 
 Version: `5.0.0-rc6`

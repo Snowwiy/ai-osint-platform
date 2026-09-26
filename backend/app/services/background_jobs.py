@@ -27,6 +27,7 @@ ALLOWED_TYPES = {
     "monitoring.refresh": set(),
     "monitoring.lan_discovery": set(),
     "monitoring.service_observation": set(),
+    "monitoring.service_observation.asset": {"asset_id"},
     "knowledge.source.sync": {"source_id"},
 }
 FORBIDDEN_KEYS = (

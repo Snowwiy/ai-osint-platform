@@ -105,10 +105,15 @@ model only after turn-specific operator consent. See
 [AI_TOOL_GATEWAY.md](AI_TOOL_GATEWAY.md) for the registry and evidence contract.
 
 The neutral app-owned workspace prevents normal RavenTech AI sessions from
-inheriting the operator's current project or repository. Integrated AI cannot
-stop services, terminate processes, modify files/configuration, change firewall
-rules, scan networks, or execute remote commands. AI output remains advisory and
-requires human review.
+inheriting the operator's current project or repository. In addition to fixed
+read-only evidence tools, a separate proposal-only tool may be offered when the
+current user explicitly asks for one specific registered action. It can create
+one pending proposal, but cannot approve or execute it. Local service/process
+proposals must match the supplied current desktop inventory; RavenTech rechecks
+the target before approval and execution. The authenticated operator reviews
+and approves any action in the Action Gateway. Arbitrary file/configuration
+changes, firewall changes, scans, and remote commands remain unavailable. See
+[ACTION_GATEWAY.md](../ACTION_GATEWAY.md).
 
 The console can generate and copy a defensive OpenCode prompt and a correctly
 quoted `opencode run --model ...` command. Copying does not launch a terminal or

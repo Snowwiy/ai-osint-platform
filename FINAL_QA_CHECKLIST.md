@@ -1,5 +1,22 @@
 # RavenTech OSINT Final QA Checklist
 
+## Human-approved Action Gateway
+
+- [ ] Fixed registry contains only the approved action identifiers; no dynamic
+  execution target or command field is accepted.
+- [ ] Proposals show target snapshot, preconditions, reason, risk, expected
+  effect, impact, recovery guidance, expiry, and evidence references.
+- [ ] Approval is explicit, role-checked, hash/snapshot-bound, single-use, and
+  expires; changed targets, replay, and concurrent conflicts fail closed.
+- [ ] Native service/process execution re-enumerates identity and refuses
+  protected objects; tests use mocks/synthetic targets only.
+- [ ] AI proposal tool is available only after a specific current-user request;
+  approvals/execution tools remain absent, including in deterministic workflows.
+- [ ] Legacy direct write paths for covered operations are denied; notifications
+  do not expose direct alert acknowledgement/dismissal controls.
+- [ ] Postcondition results, action audit, and timeline outcome are verified;
+  gateway disable invalidates pending proposals and approvals.
+
 ## Automatic native LAN discovery and agentless inventory
 
 - [ ] Windows and Linux providers enumerate active interfaces, authorized route

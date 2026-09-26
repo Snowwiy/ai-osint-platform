@@ -67,6 +67,16 @@ async def _service_observation(db: AsyncSession, payload: dict[str, str]) -> str
     return await run_native_service_observation(db)
 
 
+async def _asset_service_observation(
+    db: AsyncSession, payload: dict[str, str]
+) -> str:
+    from app.services.lan_monitoring import run_native_service_observation
+
+    return await run_native_service_observation(
+        db, asset_id=uuid.UUID(payload["asset_id"])
+    )
+
+
 async def _knowledge_source_sync(db: AsyncSession, payload: dict[str, str]) -> str:
     from app.services.knowledge.source_service import sync_knowledge_source
 
@@ -83,6 +93,7 @@ HANDLERS: dict[str, Handler] = {
     "monitoring.refresh": _monitoring,
     "monitoring.lan_discovery": _lan_discovery,
     "monitoring.service_observation": _service_observation,
+    "monitoring.service_observation.asset": _asset_service_observation,
     "knowledge.source.sync": _knowledge_source_sync,
 }
 HANDLER_TIMEOUT_SECONDS = {
@@ -91,6 +102,7 @@ HANDLER_TIMEOUT_SECONDS = {
     "recommendations.recompute": 90,
     "monitoring.lan_discovery": 600,
     "monitoring.service_observation": 600,
+    "monitoring.service_observation.asset": 600,
     "knowledge.source.sync": 600,
 }
 

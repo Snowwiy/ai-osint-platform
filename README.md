@@ -58,6 +58,9 @@ RavenTech OSINT packages that workflow into one local-first platform:
   local Ollama/LM Studio endpoints; provider/model availability is discovered
   dynamically, current RavenTech evidence is available through a bounded,
   read-only tool gateway, and core workflows remain usable without AI
+- Human-approved Action Gateway for a fixed set of local service/process,
+  alert, authorized-LAN, posture, and safe-job operations; actions are previewed,
+  role-checked, snapshot-bound, and verified after execution
 - Deterministic server and LAN evidence analysis with bounded historical
   comparisons, resource trends, timestamped correlations, confidence, data gaps,
   and reviewable root-cause hypotheses; analysis never performs remediation
@@ -116,9 +119,10 @@ providers and can discover local Ollama or LM Studio models. Provider credential
 remain in their owning provider/OpenCode configuration. The selector distinguishes
 local and remote execution and applies the selected cost/privacy mode. Knowledge
 excerpts are retrieved locally and sent only when an analyst explicitly selects
-them; remote execution displays the destination before a request. RavenTech AI is
-chat and analysis only: tool execution, file changes, shell commands, and remote
-administration are disabled. See
+them; remote execution displays the destination before a request. RavenTech AI
+uses read-only evidence tools and may prepare one pending action proposal only
+when the current user message explicitly requests a specific registered action.
+The model cannot approve or execute actions. See
 [AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md) for setup and data handling.
 The Evidence Analysis panel works without a model and builds timestamped,
 bounded bundles from authorized RavenTech records. It separates observed facts
@@ -126,6 +130,15 @@ from hypotheses, highlights missing or stale evidence, and compares saved
 analyses using recorded metrics and changes. Process inventory supplied by the
 desktop is current-only evidence; RavenTech does not infer historical process
 behavior when it has not been stored.
+
+### Human-approved local operations
+
+Supported operations use one Action Gateway. The operator reviews the selected
+target, current state, expected effect, impact, risk, expiry, and evidence before
+approving. Service/process actions are limited to the local RavenTech host and
+revalidate the target immediately before execution. Protected targets are
+refused. Remote administration, arbitrary commands, and autonomous remediation
+are unavailable. See [ACTION_GATEWAY.md](ACTION_GATEWAY.md).
 
 Obsidian vaults are selected locally and retained as private, read-only source
 locations for operator-triggered incremental sync. Individual document uploads

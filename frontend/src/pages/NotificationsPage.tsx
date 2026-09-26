@@ -12,10 +12,12 @@ import { Link } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
 import { SavedViewsPanel } from "../components/SavedViewsPanel";
+import { ActionGatewayPanel } from "../components/ActionGatewayPanel";
 import { EmptyBlock, ErrorBlock, LoadingBlock } from "../components/StateBlock";
 import { ToastBanner, type ToastState } from "../components/ToastBanner";
 import {
   dismissNotification,
+  createActionProposal,
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
@@ -128,6 +130,20 @@ export function NotificationsPage(): JSX.Element {
           error instanceof Error ? error.message : "Notifications could not be updated.",
       });
     },
+  });
+  const acknowledgeMutation = useMutation({
+    mutationFn: (item: NotificationItem) => createActionProposal({
+      action_id: "raventech.alert.acknowledge",
+      origin: "alert_workflow",
+      target_id: item.id,
+      target_display_name: safeString(item.title, "Monitoring alert"),
+      reason: "Operator requested acknowledgement of this selected RavenTech alert.",
+    }),
+    onSuccess: async () => {
+      setToast({ kind: "success", message: "Approval proposal created. Review it below before acknowledgement." });
+      await invalidate();
+    },
+    onError: (error) => setToast({ kind: "error", message: error instanceof Error ? error.message : "Alert proposal could not be created." }),
   });
 
   function applyFilters(event: FormEvent<HTMLFormElement>): void {
@@ -323,10 +339,12 @@ export function NotificationsPage(): JSX.Element {
               item={item}
               onRead={() => readMutation.mutate(item.id)}
               onDismiss={() => dismissMutation.mutate(item.id)}
+              onAcknowledge={() => acknowledgeMutation.mutate(item)}
             />
           ))}
         </section>
       ) : null}
+      <ActionGatewayPanel />
     </>
   );
 }
@@ -335,10 +353,12 @@ function NotificationRow({
   item,
   onRead,
   onDismiss,
+  onAcknowledge,
 }: {
   item: NotificationItem;
   onRead: () => void;
   onDismiss: () => void;
+  onAcknowledge: () => void;
 }): JSX.Element {
   const created = safeDate(item.created_at);
   const title = safeString(item.title, "Workflow alert");
@@ -388,7 +408,8 @@ function NotificationRow({
           </dl>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
-          {item.status !== "read" ? (
+          {item.notification_type === "monitoring_alert" && item.status === "unread" ? <button type="button" onClick={onAcknowledge} className="rounded-md border border-amber-300/40 px-3 py-2 text-sm text-amber-100 hover:border-raven-violet">Propose acknowledgement</button> : null}
+          {item.notification_type !== "monitoring_alert" && item.status !== "read" ? (
             <button
               type="button"
               onClick={onRead}
@@ -398,7 +419,7 @@ function NotificationRow({
               Mark read
             </button>
           ) : null}
-          <button
+          {item.notification_type !== "monitoring_alert" ? <button
             type="button"
             onClick={onDismiss}
             disabled={item.status === "dismissed"}
@@ -406,7 +427,7 @@ function NotificationRow({
           >
             <X className="h-4 w-4" aria-hidden="true" />
             Dismiss
-          </button>
+          </button> : null}
           {item.action_url ? (
             <Link
               to={safeInternalRoute(item.action_url, "/notifications")}

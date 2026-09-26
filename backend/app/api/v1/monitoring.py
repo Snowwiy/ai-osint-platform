@@ -4,8 +4,7 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
@@ -13,26 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user, get_db, require_role
 from app.models.user import User
-from app.schemas.lan_monitoring import (
-    LanAgentRegistration,
-    LanAgentRegistrationResponse,
-    LanAgentTelemetryIngest,
-    LanAgentTelemetryResponse,
-    LanAssetListResponse,
-    LanAssetResponse,
-    LanAssetCriticalityUpdate,
-    LanAssetUpdate,
-    LanBootstrapRequest,
-    LanBootstrapStatus,
-    LanDiscoveryRequest,
-    LanDiscoveryResponse,
-    LanOpenPortsResponse,
-    LanServiceCheckResponse,
-    LanServiceListResponse,
-    LanTelemetryListResponse,
-    MonitoringActivationStatus,
-    TargetServiceCheckStatus,
-)
 from app.schemas.agent_management import (
     AgentInventoryItem,
     AgentInventoryResponse,
@@ -60,12 +39,25 @@ from app.schemas.endpoint_posture import (
     RecommendationSeverity,
     RecommendationStatus,
 )
-from app.schemas.vulnerability_baseline import (
-    VulnerabilityBaselineFindingResponse,
-    VulnerabilityBaselineListResponse,
-    VulnerabilityBaselineOverviewResponse,
-    VulnerabilityBaselineRunResponse,
-    VulnerabilityBaselineUpdate,
+from app.schemas.lan_monitoring import (
+    LanAgentRegistration,
+    LanAgentRegistrationResponse,
+    LanAgentTelemetryIngest,
+    LanAgentTelemetryResponse,
+    LanAssetCriticalityUpdate,
+    LanAssetListResponse,
+    LanAssetResponse,
+    LanAssetUpdate,
+    LanBootstrapRequest,
+    LanBootstrapStatus,
+    LanDiscoveryRequest,
+    LanDiscoveryResponse,
+    LanOpenPortsResponse,
+    LanServiceCheckResponse,
+    LanServiceListResponse,
+    LanTelemetryListResponse,
+    MonitoringActivationStatus,
+    TargetServiceCheckStatus,
 )
 from app.schemas.monitoring import (
     AgentTelemetryIngest,
@@ -73,9 +65,17 @@ from app.schemas.monitoring import (
     MonitoringAlertsResponse,
     MonitoringAssetsResponse,
     MonitoringOverviewResponse,
-    MonitoringStartupStatus,
     MonitoringServicesResponse,
+    MonitoringStartupStatus,
     MonitoringSystemResponse,
+)
+from app.schemas.monitoring_history import (
+    AssetHistoryResponse,
+    ChangeSeverity,
+    MonitoringChangeAcknowledgeResponse,
+    MonitoringChangeListResponse,
+    MonitoringChangeOverviewResponse,
+    ServiceHistoryListResponse,
 )
 from app.schemas.monitoring_policy import (
     AlertSuppressionCreate,
@@ -89,14 +89,6 @@ from app.schemas.monitoring_policy import (
     MonitoringPolicyResponse,
     MonitoringPolicyUpdate,
 )
-from app.schemas.monitoring_history import (
-    AssetHistoryResponse,
-    ChangeSeverity,
-    MonitoringChangeAcknowledgeResponse,
-    MonitoringChangeListResponse,
-    MonitoringChangeOverviewResponse,
-    ServiceHistoryListResponse,
-)
 from app.schemas.monitoring_triage import (
     MonitoringTriageAssign,
     MonitoringTriageItem,
@@ -107,21 +99,12 @@ from app.schemas.monitoring_triage import (
     TriageSeverity,
     TriageStatus,
 )
-from app.services.monitoring_policy import (
-    AlertNotFoundError,
-    AlertSuppressionConflictError,
-    MaintenanceWindowNotFoundError,
-    MonitoringPolicyNotFoundError,
-    create_policy,
-    create_window,
-    list_policies,
-    list_windows,
-    suppression_response,
-    suppress_alert,
-    unsuppress_alert,
-    update_policy,
-    update_window,
-    window_response,
+from app.schemas.vulnerability_baseline import (
+    VulnerabilityBaselineFindingResponse,
+    VulnerabilityBaselineListResponse,
+    VulnerabilityBaselineOverviewResponse,
+    VulnerabilityBaselineRunResponse,
+    VulnerabilityBaselineUpdate,
 )
 from app.services.agent_management import (
     AgentCredentialError,
@@ -156,6 +139,35 @@ from app.services.endpoint_posture import (
     resolve_recommendation,
     update_recommendation,
 )
+from app.services.investigation import InvestigationNotFoundError
+from app.services.lan_bootstrap import verify_lan_bootstrap
+from app.services.lan_monitoring import (
+    LanAssetNotFoundError,
+    LanConfigurationError,
+    LanDiscoveryRateLimitedError,
+    LanMonitoringDisabledError,
+    LanServiceCheckDisabledError,
+    get_lan_asset,
+    get_monitoring_activation,
+    get_target_service_check_status,
+    list_asset_services,
+    list_asset_telemetry,
+    list_lan_assets,
+    list_open_ports,
+    register_agent,
+    update_lan_asset,
+)
+from app.services.lan_monitoring import (
+    ingest_agent_telemetry as ingest_lan_agent_telemetry,
+)
+from app.services.local_monitoring import (
+    get_asset_watch,
+    get_monitoring_alerts,
+    get_monitoring_overview,
+    get_service_status,
+    get_system_metrics,
+    ingest_agent_telemetry,
+)
 from app.services.monitoring_history import (
     ChangeAcknowledgement,
     MonitoringChangeAlreadyAcknowledgedError,
@@ -167,6 +179,23 @@ from app.services.monitoring_history import (
     list_changes,
     service_history,
 )
+from app.services.monitoring_policy import (
+    AlertNotFoundError,
+    AlertSuppressionConflictError,
+    MaintenanceWindowNotFoundError,
+    MonitoringPolicyNotFoundError,
+    create_policy,
+    create_window,
+    list_policies,
+    list_windows,
+    suppress_alert,
+    suppression_response,
+    unsuppress_alert,
+    update_policy,
+    update_window,
+    window_response,
+)
+from app.services.monitoring_runtime import get_monitoring_startup_status
 from app.services.monitoring_triage import (
     MonitoringTriageConflictError,
     MonitoringTriageNotFoundError,
@@ -179,39 +208,7 @@ from app.services.monitoring_triage import (
     resolve_triage,
     update_triage,
 )
-from app.services.investigation import InvestigationNotFoundError
 from app.services.target import TargetNotFoundError, get_target
-from app.services.local_monitoring import (
-    get_asset_watch,
-    get_monitoring_alerts,
-    get_monitoring_overview,
-    get_service_status,
-    get_system_metrics,
-    ingest_agent_telemetry,
-)
-from app.services.monitoring_runtime import get_monitoring_startup_status
-from app.services.lan_bootstrap import verify_lan_bootstrap
-from app.services.lan_monitoring import (
-    LanAssetNotFoundError,
-    LanConfigurationError,
-    LanDiscoveryRateLimitedError,
-    LanMonitoringDisabledError,
-    LanServiceCheckDisabledError,
-    check_asset_services,
-    check_target_services,
-    discover_lan,
-    get_lan_asset,
-    get_monitoring_activation,
-    get_target_service_check_status,
-    ingest_agent_telemetry as ingest_lan_agent_telemetry,
-    list_asset_services,
-    list_asset_telemetry,
-    list_lan_assets,
-    list_open_ports,
-    notify_discovery_failure,
-    register_agent,
-    update_lan_asset,
-)
 from app.services.vulnerability_baseline import (
     VulnerabilityBaselineDisabledError,
     VulnerabilityBaselineFindingNotFoundError,
@@ -227,7 +224,14 @@ router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
 
 class LocalHostAuthorization(BaseModel):
-    action: Literal["service_inventory", "process_inventory", "service_start", "service_stop", "service_restart", "process_terminate"]
+    action: Literal[
+        "service_inventory",
+        "process_inventory",
+        "service_start",
+        "service_stop",
+        "service_restart",
+        "process_terminate",
+    ]
     target: str = Field(default="", max_length=255)
     confirmed: bool = False
 
@@ -241,18 +245,36 @@ async def authorize_local_host_action(
     from app.services.audit import record_event
 
     inventory = body.action.endswith("inventory")
-    if not inventory and (not body.confirmed or not body.target.strip()):
-        raise HTTPException(status_code=400, detail="Explicit target confirmation is required")
+    if not inventory:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "human_approval_gateway_required",
+                "message": (
+                    "Local write actions require a fresh approved "
+                    "Action Gateway proposal."
+                ),
+            },
+        )
     await record_event(
-        db, action=f"local_{body.action}.viewed" if inventory else "local_host.action_authorized",
-        actor_id=current_user.id, resource_type="local_host",
-        metadata={"action": body.action, "target": body.target[:80] if not inventory else ""},
+        db,
+        action=f"local_{body.action}.viewed"
+        if inventory
+        else "local_host.action_authorized",
+        actor_id=current_user.id,
+        resource_type="local_host",
+        metadata={
+            "action": body.action,
+            "target": body.target[:80] if not inventory else "",
+        },
     )
     return {"authorized": True}
 
 
 class LocalHostActionResult(BaseModel):
-    action: Literal["service_start", "service_stop", "service_restart", "process_terminate"]
+    action: Literal[
+        "service_start", "service_stop", "service_restart", "process_terminate"
+    ]
     target: str = Field(min_length=1, max_length=255)
     success: bool
     previous_state: str = Field(max_length=40)
@@ -261,52 +283,20 @@ class LocalHostActionResult(BaseModel):
 
 @router.post("/local-host/result")
 async def record_local_host_action_result(
-    body: LocalHostActionResult,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    _body: LocalHostActionResult,
+    _db: AsyncSession = Depends(get_db),
+    _current_user: User = Depends(require_role("admin")),
 ) -> dict[str, bool]:
-    from app.services.audit import record_event
-
-    event = {
-        "service_start": "local_service.started", "service_stop": "local_service.stopped",
-        "service_restart": "local_service.restarted", "process_terminate": "local_process.terminated",
-    }[body.action]
-    await record_event(
-        db, action=event if body.success else "local_host.action_failed",
-        actor_id=current_user.id, resource_type="local_host",
-        metadata={"action": body.action, "target": body.target[:80],
-                  "previous_state": body.previous_state, "resulting_state": body.resulting_state},
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "human_approval_gateway_required",
+            "message": (
+                "Local write results must be recorded against an approved "
+                "Action Gateway proposal."
+            ),
+        },
     )
-    if body.success and body.action.startswith("service_"):
-        from datetime import UTC, datetime, timedelta
-
-        from sqlalchemy import select
-
-        from app.models.monitoring_history import MonitoringChangeEvent
-        from app.services.monitoring_history import record_change
-
-        event_type = {
-            "service_start": "windows_service_started",
-            "service_stop": "windows_service_stopped",
-            "service_restart": "windows_service_restarted",
-        }[body.action]
-        target = body.target[:80]
-        last = (await db.execute(
-            select(MonitoringChangeEvent.id).where(
-                MonitoringChangeEvent.event_type == event_type,
-                MonitoringChangeEvent.title == target,
-                MonitoringChangeEvent.detected_at >= datetime.now(UTC) - timedelta(minutes=2),
-            ).limit(1)
-        )).scalar_one_or_none()
-        if last is None:
-            await record_change(
-                db, asset_id=None, event_type=event_type, severity="info",
-                title=target, description="Confirmed local Windows service action completed.",
-                source="local_desktop", old_value=body.previous_state,
-                new_value=body.resulting_state,
-                metadata={"action": body.action},
-            )
-    return {"recorded": True}
 
 
 @router.get("/posture/overview", response_model=EndpointPostureOverviewResponse)
@@ -771,6 +761,17 @@ async def agent_update_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> AgentInventoryItem:
+    if {"is_authorized", "monitoring_enabled"}.intersection(body.model_fields_set):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "human_approval_gateway_required",
+                "message": (
+                    "Agent trust and monitoring decisions require an approved "
+                    "Action Gateway proposal."
+                ),
+            },
+        )
     return await _safe_agent_management_call(
         update_agent, db, current_user, agent_id, body
     )
@@ -977,18 +978,15 @@ async def lan_discover_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> LanDiscoveryResponse:
-    try:
-        return await _safe_lan_call(discover_lan, db, current_user, body)
-    except HTTPException as exc:
-        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
-            await db.rollback()
-            try:
-                await notify_discovery_failure(db, current_user)
-                await db.flush()
-                await db.commit()
-            except Exception:
-                logger.exception("monitoring.lan failure notification skipped")
-        raise
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "human_approval_gateway_required",
+            "message": (
+                "Manual LAN discovery requires an approved Action Gateway proposal."
+            ),
+        },
+    )
 
 
 @router.patch("/lan/assets/{asset_id}", response_model=LanAssetResponse)
@@ -998,6 +996,17 @@ async def lan_asset_update_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> LanAssetResponse:
+    if {"is_authorized", "monitoring_enabled"}.intersection(body.model_fields_set):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "human_approval_gateway_required",
+                "message": (
+                    "LAN asset trust and monitoring decisions require an approved "
+                    "Action Gateway proposal."
+                ),
+            },
+        )
     return await _safe_lan_call(update_lan_asset, db, current_user, asset_id, body)
 
 
@@ -1066,7 +1075,16 @@ async def lan_asset_service_check_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> LanServiceCheckResponse:
-    return await _safe_lan_call(check_asset_services, db, current_user, asset_id)
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "human_approval_gateway_required",
+            "message": (
+                "Manual service observations require an approved Action Gateway "
+                "proposal."
+            ),
+        },
+    )
 
 
 @router.get(
@@ -1089,8 +1107,16 @@ async def target_service_check_endpoint(
     current_user: User = Depends(require_role("admin")),
     db: AsyncSession = Depends(get_db),
 ) -> LanServiceCheckResponse:
-    target = await _monitoring_target(db, current_user, target_id)
-    return await _safe_lan_call(check_target_services, db, current_user, target)
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "human_approval_gateway_required",
+            "message": (
+                "Manual service observations require an approved Action Gateway "
+                "proposal."
+            ),
+        },
+    )
 
 
 @router.get("/services/open-ports", response_model=LanOpenPortsResponse)

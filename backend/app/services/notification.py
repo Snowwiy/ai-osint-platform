@@ -257,7 +257,8 @@ async def _apply_monitoring_acknowledgement(
             ),
         )
     except (PermissionError, AlertSuppressionConflictError):
-        # Critical and already-suppressed alerts remain visible; acknowledgement still succeeds.
+        # Critical and already-suppressed alerts remain visible; acknowledgement
+        # still succeeds.
         return
 
 
@@ -293,7 +294,10 @@ async def mark_all_notifications_read(
     db: AsyncSession,
     user: User,
 ) -> NotificationMarkAllReadResponse:
-    filters = _notification_filters_for_user(user, status="unread")
+    filters = [
+        *_notification_filters_for_user(user, status="unread"),
+        Notification.notification_type != "monitoring_alert",
+    ]
     result = await db.execute(select(Notification).where(*filters))
     notifications = list(result.scalars().all())
     now = _now()
@@ -312,7 +316,11 @@ async def mark_all_notifications_read(
     return NotificationMarkAllReadResponse(
         updated=len(notifications),
         unread=await unread_count(db, user),
-        message=f"{len(notifications)} notifications marked as read.",
+        message=(
+            f"{len(notifications)} notifications marked as read. "
+            "Monitoring alert acknowledgement requires a reviewed Action Gateway "
+            "proposal."
+        ),
     )
 
 
@@ -372,7 +380,10 @@ async def notify_user_registered(
         notification_type="user_approval_pending",
         severity="warning",
         title="Account approval pending",
-        message=f"{registered_user.username} registered and needs administrator approval.",
+        message=(
+            f"{registered_user.username} registered and needs administrator "
+            "approval."
+        ),
         entity_type="user",
         entity_id=registered_user.id,
         action_url="/admin/users?status=pending",
@@ -397,7 +408,10 @@ async def notify_user_approved(
         notification_type="user_approved",
         severity="success",
         title="Account approved",
-        message="Your RavenTech account is active. You can access assigned defensive workspaces.",
+        message=(
+            "Your RavenTech account is active. You can access assigned defensive "
+            "workspaces."
+        ),
         entity_type="user",
         entity_id=approved_user.id,
         action_url="/",

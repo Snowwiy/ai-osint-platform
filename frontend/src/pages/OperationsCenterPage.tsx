@@ -24,12 +24,14 @@ import {
   getOperationsStatus,
   getBackgroundJobs,
   changeBackgroundJob,
+  createActionProposal,
   getDataQualityOverview,
   getMonitoringActivation,
   listEndpointAgents,
   validateRestoreBackup,
 } from "../lib/api";
 import { LocalOperatorConsole } from "../components/LocalOperatorConsole";
+import { ActionGatewayPanel } from "../components/ActionGatewayPanel";
 import { safeArray, safeDate, safeNumber, safeString } from "../lib/safe";
 import type { FileDownloadResult } from "../lib/api";
 import type { BackgroundJobFilters, BackgroundJobsResponse } from "../lib/api";
@@ -107,9 +109,11 @@ export function OperationsCenterPage(): JSX.Element {
     retry: 1,
   });
   const jobs = useQuery({ queryKey: ["background-jobs", jobFilters], queryFn: () => getBackgroundJobs(jobFilters), refetchInterval: 15000 });
-  const jobAction = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: "cancel" | "retry" }) => changeBackgroundJob(id, action),
-    onSuccess: () => { void jobs.refetch(); },
+  const jobAction = useMutation<unknown, Error, { id: string; action: "cancel" | "retry" }>({
+    mutationFn: ({ id, action }) => action === "retry"
+      ? createActionProposal({ action_id: "raventech.job.retry", origin: "manual_ui", target_id: id, parameters: { job_id: id }, target_display_name: `Background job ${id.slice(0, 8)}`, reason: "Operator requested a bounded retry of this eligible RavenTech background job." })
+      : changeBackgroundJob(id, action),
+    onSuccess: (_result, variables) => { void jobs.refetch(); if (variables.action === "retry") setToast({ kind: "success", message: "Retry proposal created. Review it in the Action Gateway." }); },
     onError: () => { setToast({ kind: "error", message: "Background job action could not be completed." }); },
   });
   const restore = useMutation({
@@ -241,6 +245,10 @@ export function OperationsCenterPage(): JSX.Element {
 
       <section className="mt-5">
         <BackgroundJobsPanel data={jobs.data} knowledgeIndex={status.data?.knowledge_index} loading={jobs.isLoading} filters={jobFilters} onFilters={setJobFilters} onAction={(id, action) => jobAction.mutate({ id, action })} t={t} />
+      </section>
+
+      <section className="mt-5">
+        <ActionGatewayPanel />
       </section>
 
       <section className="mt-5">

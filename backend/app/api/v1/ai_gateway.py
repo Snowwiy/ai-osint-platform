@@ -67,6 +67,7 @@ from app.services.ai.tool_gateway import (
     execute_model_tool_calls,
     execute_tool,
     parse_model_tool_request,
+    registered_action_proposal_tools,
     registered_tools,
     workflow_calls,
 )
@@ -100,14 +101,19 @@ _SAFE_TOOL_ERROR_CODES = {
 @router.get("/tools")
 async def list_ai_tools_endpoint(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
     _require_chat_role(current_user)
     items = registered_tools(current_user)
+    proposal_tools = await registered_action_proposal_tools(db, current_user)
     return {
         "items": items,
+        "action_proposal_tools": proposal_tools,
         "total": len(items),
         "read_only_count": sum(bool(item["read_only"]) for item in items),
         "write_count": 0,
+        "action_proposal_tool_count": len(proposal_tools),
+        "execution_tool_count": 0,
         "shell_available": False,
         "sql_available": False,
         "filesystem_available": False,
@@ -253,6 +259,7 @@ async def ai_operations_status_endpoint(
         for item in providers
         if isinstance(item, dict)
     )
+    proposal_tools = await registered_action_proposal_tools(db, current_user)
     return AiOperationsStatus(
         runtime_status=str(runtime.get("status", "unsupported")),
         runtime_available=bool(runtime.get("available")),
@@ -268,6 +275,8 @@ async def ai_operations_status_endpoint(
         registered_tools=len(registered_tools(current_user)),
         read_only_tool_count=len(registered_tools(current_user)),
         write_tool_count=0,
+        action_proposal_tool_count=len(proposal_tools),
+        execution_tool_count=0,
         last_tool_activity=last_tool_activity,
         last_successful_tool=last_successful_tool,
         last_tool_error=last_tool_error,
@@ -1299,8 +1308,12 @@ async def _run_ai_turn(
     if model.supports_tools is not True:
         return await _complete_session(adapter, session, model, prepared_prompt), []
 
+    proposal_tools = await registered_action_proposal_tools(db, user)
     first_response = await _complete_session(
-        adapter, session, model, build_tool_aware_prompt(content, sources, user)
+        adapter,
+        session,
+        model,
+        build_tool_aware_prompt(content, sources, user, proposal_tools),
     )
     request_data = parse_model_tool_request(first_response)
     if request_data is None:
@@ -1320,6 +1333,8 @@ async def _run_ai_turn(
         session_id=session.id,
         redis=getattr(request.app.state, "redis", None),
         cancel_event=cancel_event,
+        allow_action_proposals=bool(proposal_tools),
+        action_request_text=content,
     )
     if cancel_event is not None and cancel_event.is_set():
         return "Generation cancelled.", results
@@ -1389,11 +1404,43 @@ def _attach_tool_evidence(
                 "evidence_ids": evidence_ids,
                 "evidence_references": evidence_references,
                 "safe_error_code": result.get("safe_error_code"),
+                **_safe_action_proposal_card(tool_id, result.get("proposal_card")),
             }
         )
         citations.extend(evidence_ids)
     message.context_sources = sources[:100]
     message.supplied_citations = list(dict.fromkeys(citations))[:100]
+
+
+def _safe_action_proposal_card(tool_id: str, value: Any) -> dict[str, object]:
+    if tool_id != "raventech.actions.propose" or not isinstance(value, dict):
+        return {}
+    try:
+        proposal_id = str(uuid.UUID(str(value.get("proposal_id", ""))))
+    except ValueError:
+        return {}
+    action_id = value.get("action_id")
+    status_value = value.get("status")
+    risk = value.get("risk_level")
+    if (
+        not isinstance(action_id, str)
+        or not action_id.startswith("raventech.")
+        or status_value != "awaiting_approval"
+        or risk not in {"low", "medium", "high", "blocked"}
+    ):
+        return {}
+    return {
+        "action_proposal_card": {
+            "proposal_id": proposal_id,
+            "action_id": action_id[:100],
+            "target_display_name": sanitize_tool_text(
+                str(value.get("target_display_name", "")), max_chars=180
+            ),
+            "risk_level": risk,
+            "status": status_value,
+            "approval_required": True,
+        }
+    }
 
 
 async def _audit(

@@ -1,3 +1,9 @@
+from app.models.action_gateway import (
+    ActionApproval,
+    ActionGatewayPolicy,
+    ActionProposal,
+    ActionTargetLock,  # noqa: F401
+)
 from app.models.admin_settings import AdminSettings
 from app.models.agent_management import (
     AgentEnrollmentToken,
@@ -108,6 +114,9 @@ __all__ = [
     "AssetGroupMembership",
     "ExpectedServiceBaseline",
     "AdminSettings",
+    "ActionApproval",
+    "ActionGatewayPolicy",
+    "ActionProposal",
     "AuditLog",
     "Base",
     "BackgroundJob",

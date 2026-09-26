@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { getAccessToken } from "../lib/api";
+import { approveActionProposal, createActionProposal, getAccessToken, rejectActionProposal, type ActionProposal } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { coreServiceHealth, localServiceHealth, serviceHealthIcon, serviceHealthTone, type LocalServiceExpectation, type ServiceHealth } from "../lib/serviceHealth";
 
@@ -36,6 +36,9 @@ export function LocalHostPanel({ platformServices, serverHostConnected, nativeRu
   const [sort, setSort] = useState<"cpu" | "memory" | "pid">("cpu");
   const [refreshSeconds, setRefreshSeconds] = useState(15);
   const [feedback, setFeedback] = useState("");
+  const [review, setReview] = useState<ActionProposal | null>(null);
+  const [confirmationText, setConfirmationText] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
   const [expectations, setExpectations] = useState<Record<string, LocalServiceExpectation>>(readExpectations);
   const [healthFilter, setHealthFilter] = useState<ServiceHealth | "all">("all");
   const core = nativeCore();
@@ -80,24 +83,75 @@ export function LocalHostPanel({ platformServices, serverHostConnected, nativeRu
 
   async function terminate(item: Process) {
     if (!core || !token) return;
-    const target = `${item.name} (${item.pid})`;
-    if (!window.confirm(`${t("Terminate local process")}: ${target}?`)) return;
     try {
-      const result = await core.invoke("terminate_local_process", { token, pid: item.pid, name: item.name, creationTicks: item.creationTicks, confirmation: target }) as Result;
-      setFeedback(`${target}: ${result.previousState} → ${result.resultingState}`);
+      const proposal = await createActionProposal({
+        action_id: "raventech.process.terminate",
+        origin: "manual_ui",
+        target_id: String(item.pid),
+        target_display_name: `${item.name} (${item.pid})`,
+        reason: "Operator requested termination of this selected local process.",
+        target_snapshot: { pid: item.pid, name: item.name, started_at_unix: item.startedAtUnix, creation_ticks: item.creationTicks, action_available: item.actionAvailable },
+      });
+      setReview(proposal);
+      setConfirmationText("");
     } catch (error) { setFeedback(String(error)); }
-    await inventory.refetch();
   }
 
   async function serviceAction(item: Service, action: "start" | "stop" | "restart") {
     if (!core || !token) return;
-    const target = `${item.displayName} (${item.name})`;
-    if (!window.confirm(`${t(action)} ${t("local service")}: ${target}?`)) return;
     try {
-      const result = await core.invoke("control_local_service", { token, name: item.name, displayName: item.displayName, action, confirmation: target }) as Result;
-      setFeedback(`${target}: ${result.previousState} → ${result.resultingState}`);
+      const proposal = await createActionProposal({
+        action_id: `raventech.service.${action}`,
+        origin: "manual_ui",
+        target_id: item.name,
+        target_display_name: `${item.displayName} (${item.name})`,
+        reason: `Operator requested ${action} for this selected local service.`,
+        target_snapshot: { name: item.name, display_name: item.displayName, state: item.state, pid: item.pid, start_type: item.startType, action_available: item.actionAvailable },
+      });
+      setReview(proposal);
+      setConfirmationText("");
     } catch (error) { setFeedback(String(error)); }
-    await inventory.refetch();
+  }
+
+  async function approveAndExecute() {
+    if (!core || !token || !review || actionBusy) return;
+    setActionBusy(true);
+    try {
+      const refreshed = await inventory.refetch();
+      const latest = refreshed.data;
+      if (!latest?.available) throw new Error(t("Refresh local inventory before approval."));
+      const expectedName = String(review.target_snapshot.name ?? "");
+      const expectedPid = Number(review.target_snapshot.pid ?? -1);
+      const currentSnapshot = review.target_type === "local_service"
+        ? (() => {
+          const item = latest.services.find((service) => service.name === expectedName);
+          return item ? { name: item.name, display_name: item.displayName, state: item.state, pid: item.pid, start_type: item.startType, action_available: item.actionAvailable } : undefined;
+        })()
+        : (() => {
+          const item = latest.processes.find((process) => process.pid === expectedPid);
+          return item ? { pid: item.pid, name: item.name, started_at_unix: item.startedAtUnix, creation_ticks: item.creationTicks, action_available: item.actionAvailable } : undefined;
+        })();
+      if (!currentSnapshot) throw new Error(t("Local target changed. Create a fresh proposal."));
+      await approveActionProposal(review.id, confirmationText || undefined, currentSnapshot);
+      const result = await core.invoke("execute_action_proposal", { token, proposalId: review.id }) as Result;
+      setFeedback(`${review.target_display_name}: ${result.previousState} → ${result.resultingState}; ${t("Post-action state verified")}`);
+      setReview(null);
+      setConfirmationText("");
+      await inventory.refetch();
+    } catch (error) {
+      setFeedback(String(error));
+      await inventory.refetch();
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function rejectReview() {
+    if (!review) return;
+    try { await rejectActionProposal(review.id); setFeedback(t("Action proposal rejected.")); }
+    catch (error) { setFeedback(String(error)); }
+    setReview(null);
+    setConfirmationText("");
   }
 
   return <div className="space-y-5">
@@ -107,6 +161,14 @@ export function LocalHostPanel({ platformServices, serverHostConnected, nativeRu
       {inventory.data ? <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Summary label={t("Services")} value={inventory.data.services.length} /><Summary label={t("Running services")} value={inventory.data.services.filter((item) => item.state === "running").length} /><Summary label={t("Processes")} value={inventory.data.processes.length} /><Summary label={t("Highest CPU process")} value={topCpu ? `${topCpu.name} ${topCpu.cpuPercent.toFixed(1)}%` : t("Unavailable")} /><Summary label={t("Highest RAM process")} value={topRam ? `${topRam.name} ${bytes(topRam.memoryBytes)}` : t("Unavailable")} /></div> : null}
       {inventory.data ? <p className="mt-2 text-xs text-raven-muted">{inventory.data.detail}</p> : null}
       {feedback ? <p role="status" className="mt-3 rounded border border-raven-border p-2 text-sm">{feedback}</p> : null}
+      {review ? <div role="dialog" aria-modal="true" aria-labelledby="action-review-title" className="mt-4 rounded-lg border border-amber-400/60 bg-raven-panelSoft p-4">
+        <div className="flex items-start justify-between gap-4"><div><h3 id="action-review-title" className="font-semibold">{t("Review action")}: {review.target_display_name}</h3><p className="mt-1 text-sm">{t("Risk")}: <strong className="uppercase">{t(review.risk_level)}</strong> · {t(review.action_id)}</p></div><span aria-label={`${t("Risk")}: ${t(review.risk_level)}`} className="rounded border border-amber-400/60 px-2 py-1 text-xs">{t(review.risk_level)}</span></div>
+        <p className="mt-3 text-sm">{review.reason}</p><p className="mt-2 text-sm"><strong>{t("Expected effect")}:</strong> {review.expected_effect}</p><p className="mt-2 text-sm"><strong>{t("Possible impact")}:</strong> {review.possible_impact}</p><p className="mt-2 text-sm"><strong>{t("Recovery guidance")}:</strong> {review.rollback_guidance}</p>
+        <p className="mt-2 break-all text-xs text-raven-muted">{t("Proposal hash")}: {review.proposal_hash}</p>
+        {review.risk_level === "high" ? <label className="mt-3 block text-sm">{t("Type the exact confirmation to approve")}: <strong className="select-all">{review.approval_confirmation}</strong><input autoComplete="off" value={confirmationText} onChange={(event) => setConfirmationText(event.target.value)} className="mt-1 block w-full rounded border border-raven-border bg-raven-panel px-3 py-2" /></label> : null}
+        <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={actionBusy || (review.risk_level === "high" && confirmationText !== review.approval_confirmation)} onClick={() => void approveAndExecute()} className="rounded bg-raven-violet px-3 py-2 text-sm font-medium disabled:opacity-50">{actionBusy ? t("Processing") : t("Approve and execute")}</button><button type="button" disabled={actionBusy} onClick={() => void rejectReview()} className="rounded border border-raven-border px-3 py-2 text-sm">{t("Reject proposal")}</button><button type="button" disabled={actionBusy} onClick={() => setReview(null)} className="rounded border border-raven-border px-3 py-2 text-sm">{t("Close")}</button></div>
+        <p className="mt-3 text-xs text-raven-muted">{t("AI can recommend actions but cannot approve or execute them. Approval is one-use and expires shortly.")}</p>
+      </div> : null}
       <p className="mt-2 text-xs text-raven-muted">{t("Local desktop only. No remote service or process actions.")}</p>
     </section>
     <section className="rounded-lg border border-raven-border bg-raven-panel/85 p-4"><h2 className="text-lg font-semibold">{t("Server services")}</h2><div className="mt-3 flex flex-wrap gap-2">{(["healthy", "warning", "critical", "neutral"] as const).map((health) => <button key={health} type="button" onClick={() => setHealthFilter(healthFilter === health ? "all" : health)} className={`rounded border px-3 py-2 text-xs ${serviceHealthTone[health]}`} aria-pressed={healthFilter === health}>{serviceHealthIcon[health]} {t(health)}: {serviceRows.filter((row) => row.assessment.health === health).length}</button>)}</div><h3 className="mt-4 font-medium">{t("RavenTech Operations")}</h3><div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{coreRows.map((row) => { const assessment = coreServiceHealth(row.status, row.required, Boolean(snapshot.dataUpdatedAt && Date.now() - snapshot.dataUpdatedAt > refreshSeconds * 3000)); return <div key={row.name} className="rounded border border-raven-border p-3 text-xs"><strong>{row.name}</strong><p className="mt-1">{t("Status")}: {t(row.status)} {row.detail}</p><HealthBadge health={assessment.health} reason={assessment.reason} t={t} /><p className="mt-1 text-raven-muted">{assessment.reason}</p><p className="mt-1 text-raven-muted">{t("Last health check")}: {snapshot.dataUpdatedAt ? new Date(snapshot.dataUpdatedAt).toLocaleString() : t("Unknown")}</p><p className="mt-1 text-raven-muted">{t("Recommended action")}: {assessment.health === "healthy" ? t("Continue monitoring.") : t("Review this component locally.")}</p></div>; })}</div><h3 className="mt-4 font-medium">{t("Docker containers")}</h3><div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{platformServices.filter((item) => ["backend", "database", "redis", "worker"].includes(item.key)).map((item) => <Summary key={item.key} label={item.label} value={item.status} />)}</div><p className="mt-2 text-xs text-raven-muted">{t("Docker restarts use approved RavenTech platform controls; ServerHost restarts are manual; the desktop cannot restart itself during an action.")}</p></section>
