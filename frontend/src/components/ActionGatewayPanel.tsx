@@ -86,13 +86,16 @@ export function ActionGatewayPanel(): JSX.Element {
       <Count label={t("Completed") } value={proposals.data?.items.filter((item) => item.status === "completed").length ?? 0} />
       <Count label={t("Failed or unverified") } value={proposals.data?.items.filter((item) => ["failed", "verification_failed", "completed_with_warnings"].includes(item.status)).length ?? 0} />
     </div>
-    <div className="mt-4 space-y-3">
+    <div className="mt-4"><h3 className="text-sm font-semibold">{t("Action History")}</h3></div>
+    <div className="mt-3 space-y-3">
       {proposals.data?.items.length ? proposals.data.items.map((item) => <article key={item.id} className="rounded border border-raven-border p-3">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-medium">{t(item.action_id)} · {item.target_display_name}</h3><p className="mt-1 text-xs text-raven-muted">{t("Origin")}: {t(item.origin)} · {t("Risk")}: {t(item.risk_level)} · {t("Status")}: {t(item.status)}</p></div><span className={`rounded border px-2 py-1 text-xs ${item.risk_level === "high" ? "border-rose-400/50 text-rose-200" : item.risk_level === "medium" ? "border-amber-400/50 text-amber-100" : "border-raven-border text-raven-muted"}`}>{t(item.risk_level)}</span></div>
+        <p className="mt-1 text-xs text-raven-muted">{t("Requested by")}: {item.requested_by_user_id?.slice(0, 8) ?? t("Unknown")} · {t("Approved by")}: {item.approved_by_user_id?.slice(0, 8) ?? t("Not approved")}</p>
+        <p className="mt-1 text-xs text-raven-muted">{t("Created")}: {new Date(item.created_at).toLocaleString()} · {t("Completed")}: {item.completed_at ? new Date(item.completed_at).toLocaleString() : t("Not completed")}</p>
         <p className="mt-2 text-sm">{item.reason}</p><p className="mt-2 text-xs text-raven-muted">{t("Expected effect")}: {item.expected_effect}</p><p className="mt-1 text-xs text-raven-muted">{t("Possible impact")}: {item.possible_impact}</p>
         {item.status === "awaiting_approval" && enabled ? <div className="mt-3 flex gap-2"><button type="button" onClick={() => { setReview(item); setConfirmation(""); }} className="rounded bg-raven-violet px-3 py-2 text-sm">{t("Review action")}</button><button type="button" disabled={submit.isPending} onClick={() => submit.mutate({ item, decision: "reject" })} className="rounded border border-raven-border px-3 py-2 text-sm">{t("Reject")}</button></div> : null}
         {item.status === "approved" && enabled ? <button type="button" disabled={submit.isPending} onClick={() => submit.mutate({ item, decision: "execute" })} className="mt-3 rounded border border-raven-border px-3 py-2 text-sm">{t("Execute approved action")}</button> : null}
-        {item.result_summary ? <p role="status" className="mt-2 text-sm">{item.result_summary}</p> : null}{item.safe_error_code ? <p className="mt-1 text-xs text-amber-200">{t("Safe error")}: {t(item.safe_error_code)}</p> : null}
+        {item.result_summary ? <p role="status" className="mt-2 text-sm"><strong>{t("Verification")}:</strong> {item.result_summary}</p> : null}{item.safe_error_code ? <p className="mt-1 text-xs text-amber-200">{t("Safe error")}: {t(item.safe_error_code)}</p> : null}
         <p className="mt-2 break-all text-[11px] text-raven-muted">SHA-256: {item.proposal_hash}</p>
       </article>) : <p className="rounded border border-dashed border-raven-border p-4 text-sm text-raven-muted">{t("No action proposals recorded.")}</p>}
     </div>

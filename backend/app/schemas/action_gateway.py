@@ -60,6 +60,7 @@ class ActionProposalView(BaseModel):
     status: str
     expires_at: datetime
     created_at: datetime
+    completed_at: datetime | None = None
     proposal_hash: str
     approval_expires_at: datetime | None = None
     result_summary: str | None = None

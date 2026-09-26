@@ -15,6 +15,11 @@ export const LANGUAGE_STORAGE_KEY = "raventech.language";
 
 const spanish: Record<string, string> = {
   "Action Gateway": "Pasarela de acciones",
+  "Action History": "Historial de acciones",
+  "Approved by": "Aprobado por",
+  "Completed": "Completada",
+  "Not completed": "Sin completar",
+  "Not approved": "Sin aprobar",
   "Every write action needs a fresh human approval. AI execution tools: 0.": "Cada acción de escritura requiere una aprobación humana nueva. Herramientas de ejecución de IA: 0.",
   "Disable Action Gateway": "Desactivar la pasarela de acciones",
   "Enable Action Gateway": "Activar la pasarela de acciones",

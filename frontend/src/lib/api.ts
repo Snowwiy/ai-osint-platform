@@ -2657,6 +2657,7 @@ export type ActionProposal = {
   status: string;
   expires_at: string;
   created_at: string;
+  completed_at: string | null;
   proposal_hash: string;
   approval_expires_at: string | null;
   result_summary: string | null;

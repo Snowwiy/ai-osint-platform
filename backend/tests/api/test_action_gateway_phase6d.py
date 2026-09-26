@@ -130,6 +130,22 @@ async def test_ai_can_create_only_pending_proposal_after_specific_request(
         action_request_text="Please approve and execute the action.",
     )
     assert self_execute[0]["safe_error_code"] == "unknown_tool"
+    self_approve = await execute_model_tool_calls(
+        db,
+        admin_user,
+        [
+            ToolCall(
+                tool="raventech.actions.approve",
+                arguments={
+                    "proposal_id": str(proposals[0].id),
+                    "approved_by_user_id": str(admin_user.id),
+                },
+            )
+        ],
+        allow_action_proposals=True,
+        action_request_text="Please approve this action as the operator.",
+    )
+    assert self_approve[0]["safe_error_code"] == "unknown_tool"
 
 
 @pytest.mark.asyncio
@@ -217,35 +233,58 @@ async def test_ai_native_proposal_uses_supplied_inventory_and_refuses_protected_
 
 @pytest.mark.asyncio
 async def test_native_service_proposal_requires_exact_human_approval_and_one_use_claim(
-    client, admin_headers
+    client, admin_user, admin_headers
 ):
-    created = await client.post(
+    proposal_request = {
+        "action_id": "raventech.service.restart",
+        "target_id": "RavenTechTestService",
+        "target_display_name": "RavenTech Test Service (RavenTechTestService)",
+        "reason": "The local service requires an operator initiated restart.",
+        "target_snapshot": _service_snapshot(),
+    }
+    forged_proposal = await client.post(
         "/api/v1/actions/proposals",
         headers=admin_headers,
         json={
-            "action_id": "raventech.service.restart",
-            "target_id": "RavenTechTestService",
-            "target_display_name": "RavenTech Test Service (RavenTechTestService)",
-            "reason": "The local service requires an operator initiated restart.",
-            "target_snapshot": _service_snapshot(),
+            **proposal_request,
+            "requested_by_user_id": "00000000-0000-0000-0000-000000000000",
+            "approved_by_user_id": "00000000-0000-0000-0000-000000000000",
         },
+    )
+    assert forged_proposal.status_code == 422
+    created = await client.post(
+        "/api/v1/actions/proposals",
+        headers=admin_headers,
+        json=proposal_request,
     )
     assert created.status_code == 201
     proposal = created.json()
+    assert proposal["requested_by_user_id"] == str(admin_user.id)
     assert proposal["status"] == "awaiting_approval"
     assert proposal["risk_level"] == "medium"
     assert len(proposal["proposal_hash"]) == 64
 
-    approved = await client.post(
+    approval_request = {
+        "confirmation_text": None,
+        "current_snapshot": _service_snapshot(),
+    }
+    forged_approval = await client.post(
         f"/api/v1/actions/proposals/{proposal['id']}/approve",
         headers=admin_headers,
         json={
-            "confirmation_text": None,
-            "current_snapshot": _service_snapshot(),
+            **approval_request,
+            "approved_by_user_id": "00000000-0000-0000-0000-000000000000",
         },
+    )
+    assert forged_approval.status_code == 422
+    approved = await client.post(
+        f"/api/v1/actions/proposals/{proposal['id']}/approve",
+        headers=admin_headers,
+        json=approval_request,
     )
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
+    assert approved.json()["approved_by_user_id"] == str(admin_user.id)
     claim = await client.post(
         f"/api/v1/actions/proposals/{proposal['id']}/claim-local",
         headers=admin_headers,
@@ -266,6 +305,16 @@ async def test_native_service_proposal_requires_exact_human_approval_and_one_use
     )
     assert complete.status_code == 200
     assert complete.json()["status"] == "completed"
+    assert complete.json()["completed_at"] is not None
+
+    history = await client.get("/api/v1/actions/proposals", headers=admin_headers)
+    assert history.status_code == 200
+    item = next(row for row in history.json()["items"] if row["id"] == proposal["id"])
+    assert item["requested_by_user_id"] == str(admin_user.id)
+    assert item["approved_by_user_id"] == str(admin_user.id)
+    assert item["created_at"] is not None
+    assert item["completed_at"] is not None
+    assert item["result_summary"]
 
 
 @pytest.mark.asyncio
