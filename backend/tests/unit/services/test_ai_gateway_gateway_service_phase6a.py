@@ -69,6 +69,10 @@ class CatalogAdapter:
     async def discover(self, *, refresh: bool = False):
         return [], self.models
 
+    async def discover_local(self, *, refresh: bool = False):
+        models = [model for model in self.models if model.local]
+        return [], models
+
 
 @pytest.mark.asyncio
 async def test_opencode_unavailable_is_optional_and_does_not_raise(monkeypatch):

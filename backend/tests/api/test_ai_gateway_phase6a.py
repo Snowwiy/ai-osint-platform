@@ -105,7 +105,7 @@ class FakeOpenCodeAdapter:
     ) -> str:
         self.remote_complete_count += 1
         self.last_prompt = prompt
-        return "READY. Evidence is limited."
+        return "READY."
 
     async def complete_local(self, provider_id: str, model_id: str, prompt: str) -> str:
         self.local_complete_count += 1
@@ -389,7 +389,7 @@ async def test_model_test_is_admin_only_and_handoff_is_copy_only(
     )
     assert local_tested.status_code == 200 and local_tested.json()["available"] is True
     assert local_tested.json()["response"] == "READY."
-    assert adapter.local_complete_count == 1
+    assert adapter.local_complete_count == 2
     assert adapter.remote_complete_count == 1
     handoff = await client.post(
         "/api/v1/ai/prompt-handoff",

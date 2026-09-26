@@ -28,6 +28,7 @@ from app.schemas.ai_gateway import (
     KnowledgeContextPolicy,
 )
 from app.services.ai.opencode_adapter import (
+    LOCAL_PROVIDER_IDS,
     LocalOpenCodeAdapter,
     ModelRecord,
     OpenCodeAdapter,
@@ -233,7 +234,7 @@ async def require_allowed_model(
     execution_mode: str,
 ) -> ModelRecord:
     _provider_id, _raw_model_id = split_model_id(model_id)
-    if execution_mode == "offline":
+    if execution_mode == "offline" or _provider_id in LOCAL_PROVIDER_IDS:
         try:
             _providers, models = await adapter.discover_local()
         except AttributeError as exc:
