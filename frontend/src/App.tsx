@@ -12,6 +12,7 @@ const AdminAuditPage = lazy(() => import("./pages/AdminAuditPage").then((module)
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage").then((module) => ({ default: module.AdminSettingsPage })));
 const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage").then((module) => ({ default: module.AdminUsersPage })));
 const AiConsolePage = lazy(() => import("./pages/AiConsolePage").then((module) => ({ default: module.AiConsolePage })));
+const AiModelsPage = lazy(() => import("./pages/AiModelsPage").then((module) => ({ default: module.AiModelsPage })));
 const AnalystWorkloadPage = lazy(() => import("./pages/AnalystWorkloadPage").then((module) => ({ default: module.AnalystWorkloadPage })));
 const AnalysisPage = lazy(() => import("./pages/AnalysisPage").then((module) => ({ default: module.AnalysisPage })));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage").then((module) => ({ default: module.BookmarksPage })));
@@ -130,6 +131,14 @@ const router = createBrowserRouter([
             element: (
               <FeatureGate feature="enable_ai_analysis">
                 <AiConsolePage />
+              </FeatureGate>
+            ),
+          },
+          {
+            path: "ai/models",
+            element: (
+              <FeatureGate feature="enable_ai_analysis">
+                <AiModelsPage />
               </FeatureGate>
             ),
           },

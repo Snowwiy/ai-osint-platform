@@ -5,7 +5,7 @@
 - Versión del documento: 1.0
 - Versión del producto: 5.0.0-rc6
 - Estado: Especificación para candidato de lanzamiento
-- Fecha: 2026-09-25
+- Fecha: 2026-09-26
 - Idioma: español
 
 > Especificación basada en las capacidades actuales del candidato de producto. Los elementos futuros se identifican explícitamente como no implementados.
@@ -13,7 +13,7 @@
 ## Control de cambios
 | Versión | Fecha | Cambio | Estado |
 |---|---|---|---|
-| 1.0 | 2026-09-25 | Actualización de requisitos verificables de análisis AI basado en evidencia e historial operativo | Candidato de lanzamiento |
+| 1.0 | 2026-09-26 | Actualización de runtimes locales, políticas y enrutamiento por tarea, hardware y benchmarks sintéticos | Candidato de lanzamiento |
 
 ## Contenido
 - 1. Propósito y alcance
@@ -72,8 +72,9 @@ Integraciones externas OSINT, cuando están habilitadas, son proveedores de cons
 ## 4. Arquitectura de alto nivel
 
 Tauri es la carcasa nativa, supervisor y proveedor de telemetría del host. El frontend embebido presenta las vistas. FastAPI aplica autenticación, autorización, validación, reglas, persistencia, informes y APIs. PostgreSQL es la dependencia persistente requerida. El worker nativo toma trabajos mediante locking PostgreSQL y ejecuta únicamente handlers allowlist.
-El gateway AI opcional conecta el backend con un servidor OpenCode loopback o proveedores locales soportados. El backend conserva preferencias y sesiones de mensajes visibles; las credenciales quedan en el proveedor. La consola analiza en modo chat con herramientas denegadas y contexto Knowledge explícitamente seleccionado.
-El gateway AI opcional conecta el backend con un servidor OpenCode loopback o proveedores locales soportados. El backend conserva preferencias y sesiones de mensajes visibles; las credenciales quedan en el proveedor. La consola analiza en modo chat con herramientas denegadas y contexto Knowledge explícitamente seleccionado.
+El gateway AI opcional conecta el backend directamente con runtimes locales loopback (Ollama, LM Studio y endpoints explícitos compatibles con OpenAI) o usa OpenCode para proveedores configurados. Conserva preferencias, mensajes visibles y métricas sintéticas de benchmark; las credenciales permanecen en el proveedor.
+Las preferencias del operador determinan Local first, Free only, Local only, Offline AI y el modo de enrutamiento Manual, Recommended o Automatic local only. Los perfiles de tarea pueden fijar un modelo local ya instalado; el gateway conserva el modelo solicitado, modelo realmente usado y razón sin enviar hardware a proveedores remotos.
+Offline AI bloquea descubrimiento e inferencia remotos. La selección local usa inventario instalado y ajuste aproximado de hardware. Herramientas nativas de OpenCode están denegadas; el Tool Gateway conserva sus límites de lectura y el Action Gateway requiere aprobación humana.
 Los agentes ServerHost/LanEndpoint son fuentes de telemetría. No exponen ejecución remota. Observaciones LAN se restringen a segmentos privados autorizados y a checks acotados.
 
 ## 5. Diagrama de arquitectura
@@ -92,6 +93,8 @@ flowchart LR
   API --> C[Casos, OSINT, postura, alertas]
   API --> R[PDF / DOCX / HTML / Markdown]
   API --> K[Referencias de conocimiento actuales]
+  API --> L[Runtime AI local loopback]
+  L --> M[Modelos ya instalados]
 ```
 
 ## 6. Actores y clases de usuario
@@ -108,7 +111,7 @@ La aceptación limpia Windows/Linux en VM independiente queda separada de las pr
 ## 8. Interfaces de usuario
 
 Vistas principales: tablero, investigaciones, recon pasivo, hallazgos/evidencia, informes, Monitoring Center, LAN Assets, Endpoint Security Posture, Change Timeline, Notifications e Operations Center. El desktop aporta estado de runtime, primer inicio, diagnóstico y configuración local.
-RavenTech AI es una consola opcional para seleccionar proveedor/modelo, revisar ubicación local/remota, previsualizar contexto Knowledge y chatear/cancelar. Copiar un prompt OpenCode no ejecuta una terminal ni una acción.
+AI Models presenta perfil local de CPU/RAM/GPU, estado de runtimes, modelos instalados, capacidad reportada, ajuste aproximado, privacidad, rutas por tarea, modo Offline AI, prueba mínima y benchmark sintético/historial. La consola AI permite filtrar modelos y elegir perfil de tarea sin exponer hardware detallado a proveedores remotos.
 RavenTech AI es una consola opcional para seleccionar proveedor/modelo, revisar ubicación local/remota, previsualizar contexto Knowledge y chatear/cancelar. Copiar un prompt OpenCode no ejecuta una terminal ni una acción.
 Los componentes operativos muestran texto y/o icono además del color. Los errores se presentan en lenguaje de usuario con un siguiente paso seguro y sin stack trace, secretos o comandos arbitrarios.
 
@@ -121,7 +124,7 @@ El runtime administrado usa binarios PostgreSQL empaquetados; el runtime externo
 
 Las entidades de alto nivel incluyen usuario, investigación, membresía, objetivo, trabajo, hallazgo, evidencia, informe, notificación, telemetría, alerta, activo y evento de auditoría. Los identificadores y relaciones se almacenan en PostgreSQL; el esquema se administra mediante Alembic.
 Las preferencias, sesiones y mensajes visibles de AI se relacionan con el usuario autenticado. La base guarda proveedor/modelo y contexto/citas explícitos, no secretos de proveedor ni razonamiento oculto. Los límites de sesiones y mensajes acotan retención operativa.
-Las preferencias, sesiones y mensajes visibles de AI se relacionan con el usuario autenticado. La base guarda proveedor/modelo y contexto/citas explícitos, no secretos de proveedor ni razonamiento oculto. Los límites de sesiones y mensajes acotan retención operativa.
+El historial de benchmark conserva tiempos, conteos aproximados, puntajes, avisos y snapshot/hash local del perfil de hardware solo después de iniciarlo. No conserva prompts sintéticos ni respuestas generadas. Los mensajes AI conservan modelo solicitado, modelo real y razón de enrutamiento sin guardar credenciales.
 Los secretos de autenticación se almacenan como hashes o material protegido según el subsistema. Los archivos de informe y respaldos se tratan como datos del operador, no como recursos de paquete. La política de retención depende de configuración y operación disponible; el producto no debe prometer borrado automático no implementado.
 
 ## 11. Requisitos funcionales
@@ -1400,6 +1403,110 @@ Requisito: El sistema deberá ofrecer o aplicar informar estado operativo del ga
 
 Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de contrato y RBAC. Caso de prueba: AI-24.
 
+### FR-AI-025 — Descubrir runtimes locales sin escaneo de puertos
+
+Subsistema: Gateway de runtimes locales.
+
+Requisito: El sistema deberá ofrecer o aplicar descubrir runtimes locales sin escaneo de puertos. Criterio de aceptación: Ollama y LM Studio usan solo sus endpoints loopback conocidos; llama.cpp, vLLM y OpenAI-compatible requieren configuración explícita.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de fixtures de runtime. Caso de prueba: AI-25.
+
+### FR-AI-026 — Clasificar endpoints locales y de red
+
+Subsistema: Seguridad de runtimes AI.
+
+Requisito: El sistema deberá ofrecer o aplicar clasificar endpoints locales y de red. Criterio de aceptación: Solo destinos loopback validados reciben solicitudes; los endpoints LAN/públicos se clasifican y bloquean.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas IPv4, IPv6, DNS y SSRF. Caso de prueba: AI-26.
+
+### FR-AI-027 — Mostrar perfil de hardware disponible
+
+Subsistema: AI Models y hardware local.
+
+Requisito: El sistema deberá ofrecer o aplicar mostrar perfil de hardware disponible. Criterio de aceptación: La vista presenta CPU, memoria, GPU y VRAM únicamente cuando el proveedor local los informa.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Fixtures Windows/Linux y lectura local. Caso de prueba: AI-27.
+
+### FR-AI-028 — Inventariar modelos ya instalados
+
+Subsistema: Catálogo local de modelos.
+
+Requisito: El sistema deberá ofrecer o aplicar inventariar modelos ya instalados. Criterio de aceptación: Modelo, runtime, tamaño, parámetros, cuantización, contexto y capacidades desconocidos permanecen explícitamente desconocidos.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Fixtures de inventario por runtime. Caso de prueba: AI-28.
+
+### FR-AI-029 — Evaluar ajuste aproximado del modelo
+
+Subsistema: Compatibilidad hardware/modelo.
+
+Requisito: El sistema deberá ofrecer o aplicar evaluar ajuste aproximado del modelo. Criterio de aceptación: La compatibilidad usa tamaño informado y memoria disponible, declara que es aproximada y no promete ajuste de contexto/KV-cache.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas deterministas de memoria. Caso de prueba: AI-29.
+
+### FR-AI-030 — Aplicar Offline AI por usuario
+
+Subsistema: Preferencias y política de modelos.
+
+Requisito: El sistema deberá ofrecer o aplicar aplicar offline ai por usuario. Criterio de aceptación: El modo desactiva descubrimiento e inferencia remotos y nunca usa fallback remoto si el modelo local falla.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas API de modo offline. Caso de prueba: AI-30.
+
+### FR-AI-031 — Priorizar modelos locales compatibles
+
+Subsistema: Enrutamiento local-first.
+
+Requisito: El sistema deberá ofrecer o aplicar priorizar modelos locales compatibles. Criterio de aceptación: La selección explícita precede a local preferido/compatible; el remoto gratuito solo se considera si la política permite red.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de recomendación y políticas. Caso de prueba: AI-31.
+
+### FR-AI-032 — Probar un modelo local instalado
+
+Subsistema: Gateway de runtimes locales.
+
+Requisito: El sistema deberá ofrecer o aplicar probar un modelo local instalado. Criterio de aceptación: La prueba local separa READY básico, streaming y JSON fijo; no envía evidencia ni contexto y no ejecuta herramientas, cuyo soporte permanece desconocido.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Prueba de respuesta mínima. Caso de prueba: AI-32.
+
+### FR-AI-033 — Ejecutar benchmarks locales sintéticos
+
+Subsistema: Benchmark de modelos locales.
+
+Requisito: El sistema deberá ofrecer o aplicar ejecutar benchmarks locales sintéticos. Criterio de aceptación: Las pruebas de rendimiento, JSON, evidencia, citas, formato de herramientas, seguridad, español, inglés, Knowledge e inyección son acotadas y nunca ejecutan herramientas.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Fixtures sintéticos de benchmarks. Caso de prueba: AI-33.
+
+### FR-AI-034 — Conservar historial de benchmark sin respuestas
+
+Subsistema: Historial local de modelos.
+
+Requisito: El sistema deberá ofrecer o aplicar conservar historial de benchmark sin respuestas. Criterio de aceptación: Se guardan métricas, puntajes y hash de hardware; no se guardan prompts ni texto de respuesta del benchmark.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Inspección de esquema y persistencia. Caso de prueba: AI-34.
+
+### FR-AI-035 — Aislar la falla de un runtime local
+
+Subsistema: Disponibilidad AI.
+
+Requisito: El sistema deberá ofrecer o aplicar aislar la falla de un runtime local. Criterio de aceptación: Un runtime, modelo, timeout o presión de memoria no degrada análisis determinista ni habilita fallback remoto implícito.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de timeout y falla. Caso de prueba: AI-35.
+
+### FR-AI-036 — Mantener instalación de modelos bajo control del operador
+
+Subsistema: Inventario y configuración local.
+
+Requisito: El sistema deberá ofrecer o aplicar mantener instalación de modelos bajo control del operador. Criterio de aceptación: Descubrir, probar o comparar modelos nunca descarga pesos ni incorpora binarios de runtimes externos.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Inspección de operaciones de runtime y paquete. Caso de prueba: AI-36.
+
+### FR-AI-037 — Enrutar tareas solo a modelos locales instalados
+
+Subsistema: Enrutamiento AI local por tarea.
+
+Requisito: El sistema deberá ofrecer o aplicar enrutar tareas solo a modelos locales instalados. Criterio de aceptación: Los perfiles de tarea permiten rutas locales explícitas o selección automática por hardware y benchmark coincidente; cada mensaje conserva modelo solicitado, modelo real y razón segura.
+
+Plataforma: Windows/Linux. Estado: Implementado. Verificación: Pruebas de selección local y no-fallback remoto. Caso de prueba: AI-37.
+
 ### FR-ANL-001 — Construir bundles de evidencia operativa
 
 Subsistema: Análisis operativo AI.
@@ -1919,6 +2026,48 @@ La auditoría conserva identificadores, resultado, duración y conteos seguros s
 
 Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de registros y pruebas de sanitización. Caso de prueba: AI-NFR-08. Criterio: Los metadatos no contienen prompts completos, telemetría, secretos ni rutas locales.
 
+### NFR-AI-009 — Protección SSRF de runtimes locales
+
+Las solicitudes directas usan HTTP(S) loopback validado, sin redirecciones, proxy de entorno, credenciales en URL ni resolución DNS a LAN/público.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de URL, DNS rebinding y transporte. Caso de prueba: AI-NFR-09. Criterio: Un endpoint externo, alias de red o resolución mixta no recibe una solicitud desde RavenTech.
+
+### NFR-AI-010 — Sin expansión de privilegios de IA local
+
+La inferencia local conserva los límites del Tool Gateway y Action Gateway; el modelo no recibe shell, SQL, filesystem, subprocess o tool de aprobación/ejecución.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de contrato AI/Action Gateway. Caso de prueba: AI-NFR-10. Criterio: Cero herramientas de ejecución se exponen al modelo y toda escritura requiere la aprobación humana ya vigente.
+
+### NFR-AI-011 — Offline AI fail-closed
+
+Con Offline AI habilitado se omite descubrimiento remoto, se deniega inferencia remota y no se activa fallback remoto ante error local.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas API con adaptador remoto centinela. Caso de prueba: AI-NFR-11. Criterio: El contador de llamadas de descubrimiento/inferencia remotos permanece en cero.
+
+### NFR-AI-012 — Privacidad del perfil de hardware
+
+El perfil detallado de hardware permanece local y solo se guarda con el historial local cuando el operador inicia un benchmark.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de prompt y payload remoto. Caso de prueba: AI-NFR-12. Criterio: Ningún proveedor remoto recibe perfil, número de serie o métricas locales de hardware automáticamente.
+
+### NFR-AI-013 — Benchmark sintético acotado
+
+El benchmark usa casos sintéticos fijos, límite por caso y total, cancelación y serialización de tamaño acotado.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de timeout/cancelación y datos almacenados. Caso de prueba: AI-NFR-13. Criterio: Prompts y respuestas no se persisten; timeout, cancelación o memoria insuficiente producen un resultado limitado y seguro.
+
+### NFR-AI-014 — No descargar modelos o runtimes automáticamente
+
+La detección y selección solo usan runtimes configurados y modelos ya instalados; no invocan descargas ni cambian bindings o firewall.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Inspección de llamadas y manifiestos. Caso de prueba: AI-NFR-14. Criterio: Ninguna ruta de refresh, test o benchmark inicia descarga, instalación o exposición en LAN.
+
+### NFR-AI-015 — Enrutamiento local auditable
+
+El modo Automatic local only solo selecciona modelos instalados y loopback; valida fit conservador, puede priorizar resultados benchmark del mismo perfil de hardware y registra modelo solicitado, modelo real y motivo de selección.
+
+Plataforma: Windows/Linux. Estado: Especificado. Verificación: Pruebas de política y serialización de mensajes. Caso de prueba: AI-NFR-15. Criterio: Una selección fallida no invoca descubrimiento ni inferencia remotos y no borra el modelo solicitado de la sesión.
+
 ### NFR-KNOW-001 — Privacidad local de Knowledge
 
 El contenido, fragmentos y metadatos importados permanecen en almacenamiento local y no se envían a proveedores externos automáticamente.
@@ -2122,6 +2271,9 @@ Plataforma: Windows/Linux. Estado: Especificado. Verificación: Prueba UI/contra
 La plataforma es defensiva y de uso autorizado. La autenticación y RBAC limitan acceso. PostgreSQL administrado no se expone a LAN/público. La telemetría minimiza datos. Los secretos no aparecen en UI/logs/manifest/reportes.
 No se implementa shell/Python arbitrario, eval/exec, importación dinámica desde payload, ejecución remota, SSH/WinRM/WMI/PsExec, control remoto de procesos/servicios, router automation, firewall changes, escaneo público, brute force, credential testing, explotación, escalación de privilegios, persistence/autostart o updater automático. Solo se permite terminar un proceso no protegido en el host local cuando pasa por Action Gateway, identidad estable, aprobación fresca y verificación.
 La IA conserva tools de lectura y puede crear una sola propuesta pendiente tras una petición actual explícita; no existen tools de aprobación/ejecución. Un chat afirmativo no representa consentimiento operativo.
+Los runtimes AI directos usan destinos loopback conocidos o configurados y validados. Las direcciones de red externas, redirecciones y resolución localhost fuera de loopback se bloquean; RavenTech no escanea puertos, modifica bindings, crea reglas de firewall ni descarga modelos. Offline AI falla cerrado y no contacta proveedores remotos.
+La inferencia local no concede privilegios del sistema operativo. El modelo no obtiene shell genérico, filesystem, SQL, subprocess ni una vía de aprobación/ejecución; la aprobación humana fresca y el Action Gateway permanecen obligatorios.
+Automatic local only usa exclusivamente inventario loopback ya instalado. Si no hay modelo compatible o está fuera del fit conservador, no recurre a una ruta remota; el operador conserva acceso a las funciones deterministas de RavenTech.
 
 ## 27. Disponibilidad, rendimiento y recuperación
 
@@ -2137,11 +2289,12 @@ El instalador Windows actual es unsigned, modo usuario actual. Linux package se 
 
 Para 5.0.0-rc6, la documentación de aceptación registra prueba Windows empaquetada aislada, PostgreSQL administrado, worker, autenticación, reportes, recon pasivo y flujos de operaciones. La máquina Windows limpia independiente no estaba disponible en esta ejecución y permanece NOT RUN.
 Debian 13 x86_64/WSL registra validación del paquete actual y del arranque Tauri empaquetado con PostgreSQL administrado, migraciones, backend, worker, autenticación, APIs de Monitoring/Operations/Posture/Timeline/Notifications, reportes y recon pasivo. Un reinicio controlado del perfil XDG reutilizó el clúster existente y conservó el marcador y cinco usuarios sintéticos. El inventario local systemd vía D-Bus devolvió unidades; los proveedores nativos de métricas y procesos pasaron pruebas Linux. No se afirma cierre normal de GUI, instalación limpia ni inspección visual de GUI Linux; el resultado es evidencia de runtime Linux en WSL.
+La validación de runtimes/modelos AI puede usar fixtures independientes del proveedor. La inferencia en vivo requiere un runtime y modelo instalados previamente; si no están disponibles, se marca NOT RUN y no se descargan pesos.
 Los criterios detallados se expresan como procedimiento repetible. Una PASS en un entorno no implica certificación en otro. La tabla de trazabilidad remite a los planes de prueba por subsistema.
 
 ## 30. Criterios de aceptación
 
-La release candidata se acepta para pruebas de operador cuando: una sola head Alembic; current=head; sin drift; backend test suite pasa; paquetes cumplen manifiestos/checksums; DB administrada usa SCRAM y loopback; el runtime conserva datos; la UI está embebida; el worker ejecuta handlers allowlist; Redis/Celery no son requisito en perfil desktop; no aparecen secretos.
+La release candidata se acepta para pruebas de operador cuando: una sola head Alembic; current=head; sin drift; backend test suite pasa; paquetes cumplen manifiestos/checksums; DB administrada usa SCRAM y loopback; el runtime conserva datos; la UI está embebida; el worker ejecuta handlers allowlist; Redis/Celery no son requisito en perfil desktop; no aparecen secretos; Offline AI bloquea descubrimiento/inferencia remotos; Automatic local only permanece local y registra el modelo real; los modelos y benchmarks no descargan contenido.
 La aceptación Windows clean-machine se marca separadamente. La aceptación limpia solo se completa en máquina/VM realmente independiente, sin checkout o dependencias de desarrollo. Ningún resultado de WSL puede sustituir esa evidencia.
 Los workflows críticos se verifican con cuentas temporales aleatorias y base aislada: login, profile, refresh rotation, logout/revocation, RBAC, Dashboard, cases, Monitoring, Operations, posture, timeline, notification, report formats y passive recon.
 
@@ -2310,6 +2463,19 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | FR-AI-022 | Etiquetar inventario de escritorio no atestado | Gateway de herramientas AI | Windows/Linux | Implementado | Prueba de procedencia del inventario | AI-22 | Los procesos y servicios aportados por Tauri se marcan como informados por cliente y no verificados por backend. |
 | FR-AI-023 | Mantener salud del producto independiente de AI | Operations Center | Windows/Linux | Implementado | Pruebas de estado y readiness | AI-23 | Fallo del gateway, modelo o proveedor degrada solo el subsistema AI y no la readiness central. |
 | FR-AI-024 | Informar estado operativo del gateway | Operations Center | Windows/Linux | Implementado | Pruebas de contrato y RBAC | AI-24 | El estado administrativo muestra herramientas registradas, solo lectura, cero escrituras, actividad y fallos seguros. |
+| FR-AI-025 | Descubrir runtimes locales sin escaneo de puertos | Gateway de runtimes locales | Windows/Linux | Implementado | Pruebas de fixtures de runtime | AI-25 | Ollama y LM Studio usan solo sus endpoints loopback conocidos; llama.cpp, vLLM y OpenAI-compatible requieren configuración explícita. |
+| FR-AI-026 | Clasificar endpoints locales y de red | Seguridad de runtimes AI | Windows/Linux | Implementado | Pruebas IPv4, IPv6, DNS y SSRF | AI-26 | Solo destinos loopback validados reciben solicitudes; los endpoints LAN/públicos se clasifican y bloquean. |
+| FR-AI-027 | Mostrar perfil de hardware disponible | AI Models y hardware local | Windows/Linux | Implementado | Fixtures Windows/Linux y lectura local | AI-27 | La vista presenta CPU, memoria, GPU y VRAM únicamente cuando el proveedor local los informa. |
+| FR-AI-028 | Inventariar modelos ya instalados | Catálogo local de modelos | Windows/Linux | Implementado | Fixtures de inventario por runtime | AI-28 | Modelo, runtime, tamaño, parámetros, cuantización, contexto y capacidades desconocidos permanecen explícitamente desconocidos. |
+| FR-AI-029 | Evaluar ajuste aproximado del modelo | Compatibilidad hardware/modelo | Windows/Linux | Implementado | Pruebas deterministas de memoria | AI-29 | La compatibilidad usa tamaño informado y memoria disponible, declara que es aproximada y no promete ajuste de contexto/KV-cache. |
+| FR-AI-030 | Aplicar Offline AI por usuario | Preferencias y política de modelos | Windows/Linux | Implementado | Pruebas API de modo offline | AI-30 | El modo desactiva descubrimiento e inferencia remotos y nunca usa fallback remoto si el modelo local falla. |
+| FR-AI-031 | Priorizar modelos locales compatibles | Enrutamiento local-first | Windows/Linux | Implementado | Pruebas de recomendación y políticas | AI-31 | La selección explícita precede a local preferido/compatible; el remoto gratuito solo se considera si la política permite red. |
+| FR-AI-032 | Probar un modelo local instalado | Gateway de runtimes locales | Windows/Linux | Implementado | Prueba de respuesta mínima | AI-32 | La prueba local separa READY básico, streaming y JSON fijo; no envía evidencia ni contexto y no ejecuta herramientas, cuyo soporte permanece desconocido. |
+| FR-AI-033 | Ejecutar benchmarks locales sintéticos | Benchmark de modelos locales | Windows/Linux | Implementado | Fixtures sintéticos de benchmarks | AI-33 | Las pruebas de rendimiento, JSON, evidencia, citas, formato de herramientas, seguridad, español, inglés, Knowledge e inyección son acotadas y nunca ejecutan herramientas. |
+| FR-AI-034 | Conservar historial de benchmark sin respuestas | Historial local de modelos | Windows/Linux | Implementado | Inspección de esquema y persistencia | AI-34 | Se guardan métricas, puntajes y hash de hardware; no se guardan prompts ni texto de respuesta del benchmark. |
+| FR-AI-035 | Aislar la falla de un runtime local | Disponibilidad AI | Windows/Linux | Implementado | Pruebas de timeout y falla | AI-35 | Un runtime, modelo, timeout o presión de memoria no degrada análisis determinista ni habilita fallback remoto implícito. |
+| FR-AI-036 | Mantener instalación de modelos bajo control del operador | Inventario y configuración local | Windows/Linux | Implementado | Inspección de operaciones de runtime y paquete | AI-36 | Descubrir, probar o comparar modelos nunca descarga pesos ni incorpora binarios de runtimes externos. |
+| FR-AI-037 | Enrutar tareas solo a modelos locales instalados | Enrutamiento AI local por tarea | Windows/Linux | Implementado | Pruebas de selección local y no-fallback remoto | AI-37 | Los perfiles de tarea permiten rutas locales explícitas o selección automática por hardware y benchmark coincidente; cada mensaje conserva modelo solicitado, modelo real y razón segura. |
 | FR-ANL-001 | Construir bundles de evidencia operativa | Análisis operativo AI | Windows/Linux | Implementado | Prueba de bundle y procedencia | ANL-01 | Cada bundle incluye alcance, ventana temporal, hechos, cambios, fuentes, brechas, confianza y hash sin convertir datos actuales en historia. |
 | FR-ANL-002 | Aplicar ventanas históricas acotadas | Análisis histórico | Windows/Linux | Implementado | Pruebas de límites de ventana | ANL-02 | Ventanas relativas y fechas explícitas se acotan a siete días y rechazan límites inválidos o futuros. |
 | FR-ANL-003 | Calcular tendencias con baseline suficiente | Análisis de recursos | Windows/Linux | Implementado | Pruebas deterministas de métricas | ANL-03 | CPU, memoria y disco exponen muestra actual, estadísticos, delta y tendencia; con menos de tres muestras previas el baseline indica datos insuficientes. |
@@ -2371,6 +2537,13 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 | NFR-AI-006 | Límites de ejecución y memoria | No funcional | Windows/Linux | Especificado | Pruebas de budget, rate limit y resultado | AI-NFR-06 | Solicitudes repetidas, saturación, timeout o cancelación no producen loops ni resultados sin límite. |
 | NFR-AI-007 | Consentimiento remoto granular | No funcional | Windows/Linux | Especificado | Prueba de flujo remoto con y sin consentimiento | AI-NFR-07 | Sin consentimiento no se ejecuta ni comparte evidencia operativa con el proveedor remoto. |
 | NFR-AI-008 | Minimización de auditoría AI | No funcional | Windows/Linux | Especificado | Inspección de registros y pruebas de sanitización | AI-NFR-08 | Los metadatos no contienen prompts completos, telemetría, secretos ni rutas locales. |
+| NFR-AI-009 | Protección SSRF de runtimes locales | No funcional | Windows/Linux | Especificado | Pruebas de URL, DNS rebinding y transporte | AI-NFR-09 | Un endpoint externo, alias de red o resolución mixta no recibe una solicitud desde RavenTech. |
+| NFR-AI-010 | Sin expansión de privilegios de IA local | No funcional | Windows/Linux | Especificado | Pruebas de contrato AI/Action Gateway | AI-NFR-10 | Cero herramientas de ejecución se exponen al modelo y toda escritura requiere la aprobación humana ya vigente. |
+| NFR-AI-011 | Offline AI fail-closed | No funcional | Windows/Linux | Especificado | Pruebas API con adaptador remoto centinela | AI-NFR-11 | El contador de llamadas de descubrimiento/inferencia remotos permanece en cero. |
+| NFR-AI-012 | Privacidad del perfil de hardware | No funcional | Windows/Linux | Especificado | Inspección de prompt y payload remoto | AI-NFR-12 | Ningún proveedor remoto recibe perfil, número de serie o métricas locales de hardware automáticamente. |
+| NFR-AI-013 | Benchmark sintético acotado | No funcional | Windows/Linux | Especificado | Pruebas de timeout/cancelación y datos almacenados | AI-NFR-13 | Prompts y respuestas no se persisten; timeout, cancelación o memoria insuficiente producen un resultado limitado y seguro. |
+| NFR-AI-014 | No descargar modelos o runtimes automáticamente | No funcional | Windows/Linux | Especificado | Inspección de llamadas y manifiestos | AI-NFR-14 | Ninguna ruta de refresh, test o benchmark inicia descarga, instalación o exposición en LAN. |
+| NFR-AI-015 | Enrutamiento local auditable | No funcional | Windows/Linux | Especificado | Pruebas de política y serialización de mensajes | AI-NFR-15 | Una selección fallida no invoca descubrimiento ni inferencia remotos y no borra el modelo solicitado de la sesión. |
 | NFR-KNOW-001 | Privacidad local de Knowledge | No funcional | Windows/Linux | Especificado | Inspección de red y pruebas de configuración | KNOW-NFR-01 | La ingestión, indexación y búsqueda funcionan sin solicitudes de red a proveedores de IA. |
 | NFR-KNOW-002 | Límite de lectura del vault | No funcional | Windows/Linux | Especificado | Pruebas de traversal/enlaces | KNOW-NFR-02 | Rutas fuera de raíz, symlinks y directorios excluidos no se leen ni modifican. |
 | NFR-KNOW-003 | Parser acotado y no ejecutable | No funcional | Windows/Linux | Especificado | Pruebas de parser y carga malformada | KNOW-NFR-03 | Un archivo malformado falla de forma aislada sin ejecutar macros, scripts ni adjuntos. |
@@ -2407,6 +2580,7 @@ La matriz vincula cada requisito funcional/no funcional con subsistema, platafor
 ## 32. Límites conocidos y evolución
 
 El software es candidato local no firmado; no hay actualización automática. La aceptación Linux clean-machine y la inspección visual/funcional de Tauri GUI Linux deben ejecutarse por separado. El paquete x86_64 y el runtime core fueron validados en Debian 13 WSL2; otras distribuciones no se presumen validadas. Las acciones systemd dependen del entorno/permisos y no se ejercieron en esta ejecución. Capacidades de backup/restore y algunos proveedores OSINT externos también dependen del entorno.
+La detección del hardware depende de los datos que las APIs locales del sistema/runtimes exponen; VRAM libre, backend de cómputo y métricas de GPU pueden quedar desconocidos. El fit es estimado y no garantiza contexto/KV-cache ni ubicación exacta del modelo. Benchmarks sintéticos no sustituyen carga de trabajo representativa ni una medición tokenizada por runtime.
 La ruta del vault Obsidian se conserva de forma privada en la base local para sincronización manual; las cargas de documentos individuales continúan como snapshots administrados. Al mover la base a otro equipo, la ruta original puede quedar offline y requiere relink explícito. No hay OCR ni comprensión de imágenes. La confianza es una declaración revisable, no una prueba automática de veracidad.
 
 ## 33. Glosario
@@ -2416,7 +2590,7 @@ Activo: dispositivo/red autorizado representado en Monitoring. Agente: proceso a
 ## 34. Referencias y control documental
 
 Fuentes de producto consultadas: README, arquitectura, API, esquema de datos, modelo de seguridad, manual de operador, documentación de runtime nativo y PostgreSQL administrado, monitoreo local/LAN, postura de endpoints, límites conocidos, checklist final y validadores de paquete incluidos en el repositorio.
-El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-25. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
+El identificador de documento es RavenTech-OSINT-SRS-ES. Versión documental 1.0; versión de producto 5.0.0-rc6; estado candidato de lanzamiento; idioma español; fecha de emisión 2026-09-26. La próxima revisión debe conservar trazabilidad y distinguir requisitos nuevos de capacidades existentes.
 
 
 ## Anexo A. Criterios de aceptación ejecutables

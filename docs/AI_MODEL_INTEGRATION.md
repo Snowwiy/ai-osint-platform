@@ -8,19 +8,28 @@ available, core RavenTech workflows continue normally.
 
 ## Connections and discovery
 
-RavenTech uses the loopback OpenCode server on `127.0.0.1` for configured
-OpenCode providers and discovers models from the server's current provider
-inventory. OpenCode Zen is available only when already configured in OpenCode.
-RavenTech does not request a Zen or other provider key. OpenCode's executable
-version can be detected without launching its interactive TUI; RavenTech does
-not install, update, or configure OpenCode.
+RavenTech can call installed local runtimes directly: Ollama at
+`127.0.0.1:11434`, LM Studio at `127.0.0.1:1234`, and llama.cpp, vLLM, or another
+OpenAI-compatible local server at an explicitly configured loopback endpoint.
+OpenCode remains an optional orchestration/provider layer for remote providers.
+RavenTech does not request provider credentials or copy them into its database.
+These runtimes are not installed, started, reconfigured, or exposed to LAN by
+RavenTech.
 
-The adapter can also discover Ollama at `127.0.0.1:11434` and LM Studio at
-`127.0.0.1:1234`. Other local providers such as vLLM may be used through an
-OpenCode provider configuration when the current inventory reports them. These
-optional runtimes are not installed or started by RavenTech. All OpenCode
-requests are scoped to an app-owned neutral workspace under RavenTech's native
-runtime directory, never the current working directory or RavenTech source tree.
+Discovery checks only known Ollama/LM Studio loopback defaults and explicitly
+configured endpoints; it does not scan ports. Endpoint validation rejects
+non-loopback IPs and DNS names, blocks credentials/query strings and redirects,
+and pins `localhost` to its resolved loopback address before requests. An
+explicit network-addressed endpoint is labeled as network and blocked from
+local inference. Keep runtime authentication and credential configuration in
+the runtime that owns it; RavenTech does not scrape credentials.
+
+Direct local inference uses the runtime's installed model inventory and its
+native Ollama or OpenAI-compatible API. Model weights are never downloaded by
+discovery, test, or benchmark actions. Setup requires the operator to install
+and start a supported runtime and model separately. All OpenCode requests remain
+scoped to an app-owned neutral workspace under RavenTech's native runtime
+directory, never the current working directory or RavenTech source tree.
 
 OpenCode documents its server as a programmatic HTTP interface, with a loopback
 default and endpoints for health, providers, sessions, messages, asynchronous
@@ -39,16 +48,73 @@ pricing will remain free.
 
 Execution modes are:
 
-- **Free only** (default): local models or remote models currently reported free.
+- **Local first** (new-user default): prefer an explicitly selected or preferred
+  installed local model, then a compatible installed local model. A remote
+  fallback is eligible only when the provider currently reports zero cost.
+- **Free only**: local models or remote models currently reported free, retained
+  from the existing Phase 6A policy.
 - **Local only**: detected local models; remote choices are rejected by the API.
 - **Any configured**: any available configured model, including paid remote
   models, only after the operator explicitly chooses this mode.
+- **Offline AI**: a separate per-user switch that takes precedence over the
+  execution mode. It skips remote provider discovery and blocks remote model
+  inference. If a local model is missing or fails, RavenTech reports that local
+  AI is unavailable and keeps deterministic RavenTech workflows available.
 
-There is no silent fallback from a local/free selection to a paid model. If the
-selected model disappears or its current inventory no longer meets the selected
-mode, RavenTech preserves the session and asks the operator to choose an
-available model. A model change applies to a new chat; RavenTech does not assume
-provider session state is portable.
+Routing honors an explicitly selected model first, then a preferred installed
+local model that passes conservative hardware fit, then another compatible
+installed local model. A provider-reported free remote model is considered only
+when the selected privacy mode permits remote inference. Paid remote models are
+never selected silently. If the selected model disappears or its inventory no
+longer meets the mode, RavenTech preserves the session and asks the operator to
+choose an available model. A model change applies to a new chat.
+
+The separate routing selector offers Manual, Recommended, and Automatic local
+only. Operators can assign installed local models to fast triage, general
+analysis, deep analysis, Knowledge/RAG, tool calling, structured reports,
+bilingual work, and offline tasks. Automatic local routing uses hardware fit
+and matching-hardware benchmark scores when available; it never searches remote
+providers. Each message records its requested model, actual model, and a
+non-sensitive routing reason. If no eligible local model is available, the
+request fails closed with a clear message; normal deterministic RavenTech
+analysis remains available.
+
+## Hardware and model fit
+
+The AI Models page reads local OS, CPU, memory, disk, and available GPU metadata
+through platform APIs and Linux `/proc`/`sysfs` where available. It does not
+collect hardware serials. GPU entries support multiple devices; VRAM, driver,
+and compute backend remain unknown when the platform cannot report them safely.
+Hardware details stay local and are not added to prompts or sent to remote
+providers.
+
+Model inventory fields such as size, parameter count, quantization, context,
+and capabilities are shown only when the runtime reports them. Capability
+states distinguish supported, unsupported, and unknown. Compatibility uses
+reported model size and currently available RAM/VRAM with a conservative weight
+overhead estimate; it is approximate and may not account for model-specific
+placement, quantization behavior, or context/KV-cache requirements. Unknown
+metadata is not inferred from model names or treated as a fit guarantee.
+
+## Local tests and benchmarks
+
+An administrator can run a minimal `READY` model test against an already
+installed local model. It adds no RavenTech operational context. Synthetic
+streaming and fixed JSON checks run only after the operator starts the local
+model test; tool support remains unknown until a safe, supported method can be
+verified, and the test never executes a tool. Synthetic
+benchmarks are separately started and limited to one run per host, ten fixed
+synthetic cases, five seconds per case, and a sixty-second overall limit. They
+measure latency, time to first token, an approximate whitespace token rate,
+memory delta, and deterministic output scores for structured output, evidence,
+citations, tool formatting, action safety, language, Knowledge, and injection
+handling. The tool-format case never executes a tool.
+
+History retains model/runtime identifiers, hardware snapshot hash, score and
+timing metrics, and safe warnings. It does not retain benchmark prompts or model
+outputs. Throughput is an estimate when the runtime does not provide token
+counts. A missing local runtime or model is shown as unavailable; no model is
+downloaded to complete a benchmark.
 
 ## Data destination and Knowledge context
 
@@ -126,13 +192,15 @@ stable citation IDs and is audited by digest only.
    ownership, or start an optional local model service separately.
 2. Keep OpenCode bound to loopback. RavenTech does not widen its bind address or
    CORS policy.
-3. In RavenTech AI, refresh the model catalog and verify provider, availability,
-   Local/Remote, and current cost status.
-4. Choose the execution mode, review the data destination, and select only the
-   context needed for the question.
+3. In AI Models, refresh local runtimes and review runtime status, installed
+   models, reported metadata, hardware fit, and any network endpoint warning.
+4. In the AI Console, choose a model and privacy mode. Enable Offline AI when
+   remote provider discovery and inference must be blocked.
+5. Review the data destination and select only the context needed for the
+   question. Run local model tests or synthetic benchmarks only when needed.
 
-If OpenCode is installed but its server is stopped, AI integration is reported
-unavailable while RavenTech core remains healthy. If OpenCode is absent, local
-Ollama/LM Studio discovery and copy-only prompt handoff remain available. Live
-model inference requires a configured provider/model; tests use synthetic
-provider fixtures and never depend on current model pricing.
+If a local runtime is stopped, RavenTech reports its safe status/reason and the
+core remains usable. An unavailable local model never falls back to a remote
+provider while Offline AI is enabled. In Local only mode, remote model execution
+is rejected. Tests use provider-independent fixtures when no local runtime or
+model is installed; live inference is not run automatically.

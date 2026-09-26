@@ -6,9 +6,39 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-ExecutionMode = Literal["free_only", "local_only", "any_configured"]
+ExecutionMode = Literal["local_first", "free_only", "local_only", "any_configured"]
+RoutingMode = Literal["manual", "recommended", "automatic_local"]
+TaskProfile = Literal[
+    "fast_triage",
+    "general_analyst",
+    "deep_analysis",
+    "knowledge_rag",
+    "tool_calling",
+    "structured_reports",
+    "bilingual",
+    "offline",
+]
 KnowledgeContextPolicy = Literal["verified_only", "trusted_plus", "all_allowed"]
 PromptHandoffKind = Literal["recommendation", "asset", "investigation"]
+RuntimeState = Literal[
+    "available",
+    "unavailable",
+    "starting",
+    "degraded",
+    "incompatible",
+    "authentication_required",
+    "no_models",
+    "unknown",
+]
+CapabilityState = Literal["supported", "unsupported", "unknown"]
+ModelFitState = Literal[
+    "excellent_fit",
+    "good_fit",
+    "marginal",
+    "cpu_fallback",
+    "insufficient_memory",
+    "unknown",
+]
 
 
 class AiRuntimeStatus(BaseModel):
@@ -43,6 +73,11 @@ class AiOperationsStatus(BaseModel):
     last_tool_error: str | None = Field(default=None, max_length=60)
     tool_requests_last_hour: int = Field(default=0, ge=0)
     denied_tool_attempts: int = Field(default=0, ge=0)
+    offline_ai_enabled: bool = False
+    routing_mode: RoutingMode = "manual"
+    installed_local_models: int = Field(default=0, ge=0)
+    available_local_runtimes: int = Field(default=0, ge=0)
+    last_benchmark_at: datetime | None = None
 
 
 class AiProvider(BaseModel):
@@ -71,6 +106,19 @@ class AiModel(BaseModel):
     supports_streaming: bool | None = None
     metadata_source: str
     last_discovered_at: datetime
+    runtime_id: str | None = None
+    installed: bool = True
+    size_bytes: int | None = Field(default=None, ge=0)
+    parameter_count: int | None = Field(default=None, ge=0)
+    quantization: str | None = None
+    architecture: str | None = None
+    capabilities: dict[str, CapabilityState] = Field(default_factory=dict)
+    fit: ModelFitState = "unknown"
+    fit_reason: str = (
+        "Hardware fit is unknown because reported model metadata is incomplete."
+    )
+    estimated_memory_bytes: int | None = Field(default=None, ge=0)
+    estimate_label: str = "Approximate"
 
 
 class AiCatalogResponse(BaseModel):
@@ -86,7 +134,32 @@ class AiPreferences(BaseModel):
     selected_model_id: str | None = None
     preferred_local_model_id: str | None = None
     preferred_free_model_id: str | None = None
-    execution_mode: ExecutionMode = "free_only"
+    execution_mode: ExecutionMode = "local_first"
+    offline_ai_enabled: bool = False
+    routing_mode: RoutingMode = "manual"
+    task_model_routes: dict[str, str] = Field(default_factory=dict, max_length=8)
+
+    @field_validator("task_model_routes")
+    @classmethod
+    def validate_task_model_routes(cls, value: dict[str, str]) -> dict[str, str]:
+        allowed = {
+            "fast_triage",
+            "general_analyst",
+            "deep_analysis",
+            "knowledge_rag",
+            "tool_calling",
+            "structured_reports",
+            "bilingual",
+            "offline",
+        }
+        if any(key not in allowed for key in value):
+            raise ValueError("Task routing contains an unsupported profile.")
+        if any(
+            not isinstance(model_id, str) or len(model_id) > 300
+            for model_id in value.values()
+        ):
+            raise ValueError("Task routing model identifier is invalid.")
+        return value
 
 
 class AiPreferencesUpdate(AiPreferences):
@@ -117,6 +190,7 @@ class AiMessageRequest(BaseModel):
     content: str = Field(min_length=1, max_length=12_000)
     knowledge_citation_ids: list[str] = Field(default_factory=list, max_length=5)
     context_policy: KnowledgeContextPolicy = "verified_only"
+    task_profile: TaskProfile | None = None
     workflow: (
         Literal[
             "analyze_server",
@@ -182,6 +256,8 @@ class AiMessageView(BaseModel):
     provider_id: str | None = None
     model_id: str | None = None
     execution_type: str | None = None
+    requested_model_id: str | None = None
+    routing_reason: str | None = None
     context_sources: list[dict[str, Any]] = Field(default_factory=list)
     supplied_citations: list[str] = Field(default_factory=list)
     citation_validation: AiCitationValidation | None = None
@@ -226,6 +302,9 @@ class AiModelTestResponse(BaseModel):
     model_id: str
     response: str | None = None
     error: str | None = None
+    streaming: CapabilityState = "unknown"
+    structured_output: CapabilityState = "unknown"
+    tools: CapabilityState = "unknown"
 
 
 class AiPromptHandoffRequest(BaseModel):
@@ -246,3 +325,90 @@ class AiPromptHandoffResponse(BaseModel):
 class AiPromptCopyAuditRequest(BaseModel):
     content_hash: str = Field(min_length=64, max_length=64)
     content_type: Literal["prompt", "command"] = "prompt"
+
+
+class AiGpuProfile(BaseModel):
+    gpu_id: str
+    vendor: str | None = None
+    model: str | None = None
+    vram_total_bytes: int | None = Field(default=None, ge=0)
+    vram_available_bytes: int | None = Field(default=None, ge=0)
+    driver_version: str | None = None
+    compute_backend: str | None = None
+    metadata_source: str
+
+
+class AiHardwareProfile(BaseModel):
+    os_name: str
+    os_version: str | None = None
+    architecture: str
+    cpu_model: str | None = None
+    physical_cores: int | None = Field(default=None, ge=0)
+    logical_cores: int | None = Field(default=None, ge=0)
+    system_memory_total_bytes: int | None = Field(default=None, ge=0)
+    system_memory_available_bytes: int | None = Field(default=None, ge=0)
+    disk_free_bytes: int | None = Field(default=None, ge=0)
+    gpus: list[AiGpuProfile] = Field(default_factory=list)
+    readiness: Literal[
+        "cpu_only_capable", "entry_local_ai", "moderate_local_ai", "high_local_ai"
+    ]
+    readiness_reason: str
+    profile_hash: str
+    sampled_at: datetime
+
+
+class AiLocalRuntime(BaseModel):
+    id: str
+    provider_id: str
+    name: str
+    status: RuntimeState
+    endpoint: str
+    version: str | None = None
+    model_count: int = Field(default=0, ge=0)
+    loopback_only: bool = True
+    endpoint_classification: Literal["loopback", "network", "unknown"] = "loopback"
+    capabilities: dict[str, CapabilityState] = Field(default_factory=dict)
+    message: str
+
+
+class AiModelFit(BaseModel):
+    model_id: str
+    fit: ModelFitState
+    fit_reason: str
+    estimated_memory_bytes: int | None = Field(default=None, ge=0)
+    estimate_label: str = "Approximate"
+
+
+class AiLocalAiStatus(BaseModel):
+    hardware: AiHardwareProfile
+    runtimes: list[AiLocalRuntime]
+    models: list[AiModel]
+    installed_model_count: int = Field(ge=0)
+    available_runtime_count: int = Field(ge=0)
+    recommended_model_id: str | None = None
+    offline_ai_enabled: bool = False
+
+
+class AiBenchmarkCreateRequest(BaseModel):
+    model_id: str = Field(min_length=3, max_length=300)
+    include_warmup: bool = True
+
+
+class AiBenchmarkResult(BaseModel):
+    id: uuid.UUID
+    model_id: str
+    runtime_id: str
+    hardware_hash: str
+    profile_version: str
+    status: Literal["pending", "running", "completed", "failed", "cancelled"]
+    started_at: datetime
+    completed_at: datetime | None = None
+    startup_latency_ms: int | None = Field(default=None, ge=0)
+    ttft_ms: int | None = Field(default=None, ge=0)
+    latency_ms: int | None = Field(default=None, ge=0)
+    elapsed_ms: int | None = Field(default=None, ge=0)
+    tokens_per_second: float | None = Field(default=None, ge=0)
+    generated_tokens: int | None = Field(default=None, ge=0)
+    memory_delta_bytes: int | None = None
+    scores: dict[str, float | None] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)

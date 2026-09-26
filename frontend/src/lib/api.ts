@@ -7,11 +7,13 @@ import type {
   AdminSettingsResponse,
   AdminSettingsUpdate,
   AiCatalogResponse,
+  AiBenchmarkResult,
   AiOperationsStatus,
   AiContextExcerpt,
   AiKnowledgePolicy,
   AiMessageResult,
   AiModelTestResponse,
+  AiLocalAiStatus,
   AiPreferences,
   AiPromptHandoffResponse,
   AiSessionView,
@@ -2440,6 +2442,31 @@ export async function getAiCatalog(): Promise<AiCatalogResponse> {
   return request("/ai/models");
 }
 
+export async function getLocalAiStatus(refresh = false): Promise<AiLocalAiStatus> {
+  return request(`/ai/local-ai/status${refresh ? "?refresh=true" : ""}`);
+}
+
+export async function listAiBenchmarks(): Promise<AiBenchmarkResult[]> {
+  return request("/ai/benchmarks");
+}
+
+export async function runAiBenchmark(
+  modelId: string,
+  includeWarmup = true,
+  signal?: AbortSignal,
+): Promise<AiBenchmarkResult> {
+  return request("/ai/benchmarks", {
+    method: "POST",
+    body: JSON.stringify({ model_id: modelId, include_warmup: includeWarmup }),
+    timeoutMs: 65_000,
+    signal,
+  });
+}
+
+export async function deleteAiBenchmark(id: string): Promise<void> {
+  return request(`/ai/benchmarks/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export async function getAiOperationsStatus(): Promise<AiOperationsStatus> {
   return request("/ai/operations-status");
 }
@@ -2487,7 +2514,7 @@ export async function deleteAiSession(id: string): Promise<void> {
 }
 
 export type AiWorkflow = "analyze_server" | "analyze_resource_usage" | "analyze_services" | "analyze_ports" | "analyze_lan" | "analyze_asset" | "explain_posture" | "explain_alert" | "analyze_investigation";
-export type AiMessageOptions = { workflow?: AiWorkflow; workflowScopeId?: string; desktopInventory?: unknown; allowRemoteToolContext?: boolean };
+export type AiMessageOptions = { workflow?: AiWorkflow; taskProfile?: import("../types").AiTaskProfile; workflowScopeId?: string; desktopInventory?: unknown; allowRemoteToolContext?: boolean };
 
 export async function getAiTools(): Promise<{ items: Array<Record<string, unknown>>; total: number; read_only_count: number; action_proposal_tool_count: number; write_count: 0 }> {
   return request("/ai/tools");
@@ -2503,7 +2530,7 @@ export async function executeAiTool(toolId: string, arguments_: Record<string, u
 export async function sendAiMessage(id: string, content: string, knowledgeCitationIds: string[], contextPolicy: AiKnowledgePolicy, options: AiMessageOptions = {}): Promise<AiMessageResult> {
   return request(`/ai/sessions/${encodeURIComponent(id)}/messages`, {
     method: "POST",
-    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, task_profile: options.taskProfile ?? null, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
   });
 }
 
@@ -2522,7 +2549,7 @@ export async function sendAiMessageStream(
     method: "POST",
     headers,
     credentials: "include",
-    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
+    body: JSON.stringify({ content, knowledge_citation_ids: knowledgeCitationIds, context_policy: contextPolicy, task_profile: options.taskProfile ?? null, workflow: options.workflow ?? null, workflow_scope_id: options.workflowScopeId ?? null, desktop_inventory: options.desktopInventory ?? null, allow_remote_tool_context: options.allowRemoteToolContext ?? false }),
   });
   if (!response.ok) {
     const error = await apiError(response, path);
@@ -2718,6 +2745,9 @@ async function request<T>(
   options: RequestInitWithAuth = {},
 ): Promise<T> {
   const controller = new AbortController();
+  const externalAbort = (): void => controller.abort();
+  options.signal?.addEventListener("abort", externalAbort, { once: true });
+  if (options.signal?.aborted) controller.abort();
   const timeout = window.setTimeout(
     () => controller.abort(),
     options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -2740,6 +2770,7 @@ async function request<T>(
     return (await response.json()) as T;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      if (options.signal?.aborted) throw error;
       throw new ApiError(
         "The request timed out before the backend responded.",
         408,
@@ -2756,6 +2787,7 @@ async function request<T>(
     }
     throw error;
   } finally {
+    options.signal?.removeEventListener("abort", externalAbort);
     window.clearTimeout(timeout);
   }
 }

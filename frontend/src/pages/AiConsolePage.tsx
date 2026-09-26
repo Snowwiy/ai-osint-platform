@@ -31,6 +31,7 @@ import {
   getAiPreferences,
   getAiTools,
   getAiSession,
+  listAiBenchmarks,
   listAiSessions,
   previewAiKnowledgeContext,
   refreshAiCatalog,
@@ -47,12 +48,23 @@ import type {
   AiModel,
   AiPromptHandoffResponse,
   AiSessionView,
+  AiTaskProfile,
 } from "../types";
 import { resolveAiEvidenceDestination } from "../lib/aiEvidence.js";
 import { useAuth } from "../lib/useAuth";
 import { useI18n } from "../lib/i18n";
 
-const executionModes: AiExecutionMode[] = ["free_only", "local_only", "any_configured"];
+const executionModes: AiExecutionMode[] = ["local_first", "free_only", "local_only", "any_configured"];
+const taskProfiles: Array<[AiTaskProfile, string]> = [
+  ["fast_triage", "Fast triage"],
+  ["general_analyst", "General analyst"],
+  ["deep_analysis", "Deep analysis"],
+  ["knowledge_rag", "Knowledge / RAG"],
+  ["tool_calling", "Tool calling"],
+  ["structured_reports", "Structured reports"],
+  ["bilingual", "Spanish and English"],
+  ["offline", "Offline"],
+];
 const knowledgePolicies: AiKnowledgePolicy[] = ["verified_only", "trusted_plus", "all_allowed"];
 
 export function AiConsolePage(): JSX.Element {
@@ -71,10 +83,11 @@ export function AiConsolePage(): JSX.Element {
   const [handoffTitle, setHandoffTitle] = useState("");
   const [handoffSummary, setHandoffSummary] = useState("");
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [modelFilter, setModelFilter] = useState<"all" | "free" | "local" | "remote" | "tools" | "reasoning">("all");
+  const [modelFilter, setModelFilter] = useState<"all" | "installed" | "free" | "local" | "remote" | "tools" | "reasoning" | "vision" | "benchmarked" | "recommended" | "offline_ready">("all");
   const [handoffResult, setHandoffResult] = useState<AiPromptHandoffResponse | null>(null);
   const [workflow, setWorkflow] = useState<AiWorkflow | undefined>();
   const [workflowScopeId, setWorkflowScopeId] = useState("");
+  const [taskProfile, setTaskProfile] = useState<AiTaskProfile>("general_analyst");
   const [allowRemoteToolContext, setAllowRemoteToolContext] = useState(false);
 
   const catalog = useQuery({
@@ -82,6 +95,11 @@ export function AiConsolePage(): JSX.Element {
     queryFn: getAiCatalog,
     staleTime: 30_000,
     retry: 1,
+  });
+  const benchmarkHistory = useQuery({
+    queryKey: ["ai-benchmarks"],
+    queryFn: listAiBenchmarks,
+    enabled: modelFilter === "benchmarked",
   });
   const preferences = useQuery({
     queryKey: ["ai-preferences"],
@@ -123,22 +141,31 @@ export function AiConsolePage(): JSX.Element {
   });
 
   const models = catalog.data?.models ?? [];
-  const mode = preferences.data?.execution_mode ?? "free_only";
+  const mode = preferences.data?.execution_mode ?? "local_first";
+  const offlineEnabled = preferences.data?.offline_ai_enabled ?? false;
   const recommendedModel = catalog.data?.recommended_model_id
     ? models.find((model) => model.id === catalog.data?.recommended_model_id && model.available)
     : undefined;
+  const selectedPreferenceModel = models.find((model) => model.id === preferences.data?.selected_model_id);
   const selectedModelId = preferences.data?.selected_model_id
-    ?? (mode === "local_only" && recommendedModel && !recommendedModel.local ? "" : recommendedModel?.id ?? "");
+    && (!offlineEnabled || selectedPreferenceModel?.local)
+    ? preferences.data.selected_model_id
+    : (mode === "local_only" && recommendedModel && !recommendedModel.local ? "" : recommendedModel?.id ?? "");
   const selectedModel = useMemo(
     () => models.find((model) => model.id === selectedModelId) ?? null,
     [models, selectedModelId],
   );
   const visibleModels = models.filter((model) => {
+    if (modelFilter === "installed") return model.installed;
     if (modelFilter === "free") return model.free_status === "provider_reported_free";
     if (modelFilter === "local") return model.local;
     if (modelFilter === "remote") return model.remote;
     if (modelFilter === "tools") return model.supports_tools === true;
     if (modelFilter === "reasoning") return model.supports_reasoning === true;
+    if (modelFilter === "vision") return model.supports_vision === true;
+    if (modelFilter === "recommended") return model.id === catalog.data?.recommended_model_id;
+    if (modelFilter === "offline_ready") return model.local && model.available && !["unknown", "insufficient_memory"].includes(model.fit);
+    if (modelFilter === "benchmarked") return benchmarkHistory.data?.some((result) => result.model_id === model.id) ?? false;
     return true;
   });
   const session = activeSession.data;
@@ -163,8 +190,9 @@ export function AiConsolePage(): JSX.Element {
   });
   const preferenceMutation = useMutation({
     mutationFn: updateAiPreferences,
-    onSuccess: (value) => {
+    onSuccess: async (value) => {
       queryClient.setQueryData(["ai-preferences"], value);
+      await queryClient.invalidateQueries({ queryKey: ["ai-catalog"] });
       setToast({ kind: "success", message: t("AI preferences saved") });
     },
     onError: (error) => setToast({ kind: "error", message: error.message }),
@@ -195,6 +223,7 @@ export function AiConsolePage(): JSX.Element {
       setStreamingText("");
       return sendAiMessageStream(activeId, draft, selectedCitationIds, contextPolicy, (delta) => setStreamingText((current) => current + delta), {
         workflow,
+        taskProfile,
         workflowScopeId: workflowScopeId || undefined,
         desktopInventory: desktopInventory.data ?? undefined,
         allowRemoteToolContext,
@@ -281,8 +310,9 @@ export function AiConsolePage(): JSX.Element {
 
   const canUseModel = (model: AiModel): boolean => {
     if (!model.available) return false;
+    if (offlineEnabled && !model.local) return false;
     if (mode === "local_only") return model.local;
-    if (mode === "free_only") return model.local || model.free_status === "provider_reported_free";
+    if (mode === "free_only" || mode === "local_first") return model.local || model.free_status === "provider_reported_free";
     return true;
   };
   const updateSelectedModel = (modelId: string): void => {
@@ -296,12 +326,20 @@ export function AiConsolePage(): JSX.Element {
     const remainsAllowed = current && (
       nextMode === "any_configured"
       || (nextMode === "local_only" && current.local)
-      || (nextMode === "free_only" && (current.local || current.free_status === "provider_reported_free"))
+      || ((nextMode === "free_only" || nextMode === "local_first") && (current.local || current.free_status === "provider_reported_free"))
     );
     preferenceMutation.mutate({
       ...preferences.data!,
       execution_mode: nextMode,
       selected_model_id: remainsAllowed ? selectedModelId : null,
+    });
+  };
+  const updateOfflineMode = (enabled: boolean): void => {
+    const current = models.find((model) => model.id === selectedModelId);
+    preferenceMutation.mutate({
+      ...preferences.data!,
+      offline_ai_enabled: enabled,
+      selected_model_id: enabled && current && !current.local ? null : selectedModelId || null,
     });
   };
   const chooseActiveSession = (item: AiSessionView): void => {
@@ -338,9 +376,12 @@ export function AiConsolePage(): JSX.Element {
         title={t("RavenTech AI")}
         eyebrow={t("AI Operations")}
         actions={(
-          <button type="button" onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending} className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm hover:bg-raven-panelSoft disabled:opacity-50">
-            <RefreshCw size={15} className={refreshMutation.isPending ? "animate-spin" : ""} />{t("Refresh models")}
-          </button>
+          <>
+            <Link to="/ai/models" className="inline-flex items-center rounded-md border border-raven-border px-3 py-2 text-sm hover:bg-raven-panelSoft">{t("AI Models")}</Link>
+            <button type="button" onClick={() => refreshMutation.mutate()} disabled={refreshMutation.isPending} className="inline-flex items-center gap-2 rounded-md border border-raven-border px-3 py-2 text-sm hover:bg-raven-panelSoft disabled:opacity-50">
+              <RefreshCw size={15} className={refreshMutation.isPending ? "animate-spin" : ""} />{t("Refresh models")}
+            </button>
+          </>
         )}
       />
       {toast ? <ToastBanner toast={toast} onDismiss={() => setToast(null)} /> : null}
@@ -359,7 +400,7 @@ export function AiConsolePage(): JSX.Element {
               <div className="flex min-w-52 flex-1 flex-col gap-1">
                 <label htmlFor="ai-model" className="text-xs font-semibold uppercase tracking-wide text-raven-muted">{t("Model")}</label>
                 <select aria-label={t("Filter models")} value={modelFilter} onChange={(event) => setModelFilter(event.target.value as typeof modelFilter)} className="rounded-md border border-raven-border bg-raven-bg px-2 py-1 text-xs text-raven-text">
-                  {([["all", "All"], ["free", "Free"], ["local", "Local"], ["remote", "Remote"], ["tools", "Tool capable"], ["reasoning", "Reasoning"]] as const).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
+                  {([["all", "All"], ["installed", "Installed"], ["free", "Free"], ["local", "Local"], ["remote", "Remote"], ["tools", "Tool capable"], ["reasoning", "Reasoning"], ["vision", "Vision"], ["benchmarked", "Benchmarked"], ["recommended", "Recommended"], ["offline_ready", "Offline ready"]] as const).map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}
                 </select>
                 <select id="ai-model" value={selectedModelId} onChange={(event) => updateSelectedModel(event.target.value)} className="rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-sm text-raven-text">
                   <option value="">{t("No model selected")}</option>
@@ -377,6 +418,10 @@ export function AiConsolePage(): JSX.Element {
                 <select id="ai-mode" value={mode} onChange={(event) => updateMode(event.target.value as AiExecutionMode)} className="mt-1 w-full rounded-md border border-raven-border bg-raven-bg px-3 py-2 text-sm">
                   {executionModes.map((value) => <option key={value} value={value}>{modeLabel(value, t)}</option>)}
                 </select>
+                <label className="mt-2 flex items-center gap-2 text-xs text-raven-text">
+                  <input type="checkbox" checked={offlineEnabled} onChange={(event) => updateOfflineMode(event.target.checked)} disabled={preferenceMutation.isPending} />
+                  <span>{t("Offline AI Mode")}</span>
+                </label>
               </div>
               {isAdmin ? <button type="button" disabled={!selectedModelId || testMutation.isPending} onClick={() => testMutation.mutate()} className="rounded-md border border-raven-border px-3 py-2 text-sm disabled:opacity-50">{testMutation.isPending ? t("Testing") : t("Test model")}</button> : null}
               <div className="flex items-center gap-2 rounded-full border border-raven-border px-3 py-2 text-xs">
@@ -431,7 +476,7 @@ export function AiConsolePage(): JSX.Element {
                   <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
                     {(session.messages ?? []).map((message) => (
                       <article key={message.id} className={`max-w-[92%] rounded-xl p-3 ${message.role === "user" ? "ml-auto bg-raven-violet/20" : "bg-raven-panelSoft"}`}>
-                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-raven-muted">{message.role === "assistant" ? `${t("AI-generated analysis")} · ${message.provider_id}/${message.model_id}` : t("You")}</p>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-raven-muted">{message.role === "assistant" ? `${t("AI-generated analysis")} · ${message.provider_id}/${message.model_id}${message.routing_reason ? ` · ${t("Routing")}: ${t(routingReasonLabel(message.routing_reason))}` : ""}` : t("You")}</p>
                         <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
                         {message.role === "assistant" && message.citation_validation?.unverified_response_references.length ? <p className="mt-2 text-xs text-amber-300">{t("Unverified citation references")}: {message.citation_validation.unverified_response_references.join(", ")}</p> : null}
                         {message.supplied_citations.length ? <div className="mt-2 border-t border-raven-border pt-2 text-xs text-raven-muted"><span className="font-semibold">{t("Sources used")}: </span>{message.supplied_citations.join(", ")}</div> : null}
@@ -456,6 +501,9 @@ export function AiConsolePage(): JSX.Element {
                       {!previewMutation.data.items.length ? <p className="p-2 text-xs text-raven-muted">{t("No matching Knowledge excerpts")}</p> : null}
                     </div> : null}
                     <div className="flex items-end gap-2">
+                      <label className="flex min-w-44 flex-col gap-1 text-xs text-raven-muted">{t("Task profile")}
+                        <select value={taskProfile} onChange={(event) => setTaskProfile(event.target.value as AiTaskProfile)} className="rounded border border-raven-border bg-raven-bg px-2 py-2 text-sm text-raven-text">{taskProfiles.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select>
+                      </label>
                       <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (draft.trim() && session.status !== "running") sendMutation.mutate(); } }} rows={3} maxLength={12_000} placeholder={t("Ask a question or request analysis...")} className="min-h-20 flex-1 resize-y rounded-lg border border-raven-border bg-raven-bg px-3 py-2 text-sm outline-none focus:border-raven-violet" disabled={session.status === "running"} />
                       <button type="button" onClick={() => sendMutation.mutate()} disabled={!draft.trim() || session.status === "running" || sendMutation.isPending} className="inline-flex items-center gap-2 rounded-lg bg-raven-violet px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Send size={15} />{t("Send")}</button>
                     </div>
@@ -541,9 +589,16 @@ function freeLabel(model: AiModel, translate: (value: string) => string): string
 }
 
 function modeLabel(mode: AiExecutionMode, translate: (value: string) => string): string {
+  if (mode === "local_first") return translate("Local first");
   if (mode === "free_only") return translate("Free only");
   if (mode === "local_only") return translate("Local only");
   return translate("Any configured");
+}
+
+function routingReasonLabel(reason: string): string {
+  if (reason.startsWith("automatic_local:")) return "Task-based local route";
+  if (reason === "recommended_model") return "Recommended model";
+  return "Selected model";
 }
 
 function knowledgePolicyLabel(policy: AiKnowledgePolicy, translate: (value: string) => string): string {

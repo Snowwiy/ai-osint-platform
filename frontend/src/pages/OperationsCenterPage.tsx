@@ -321,7 +321,7 @@ function AiOperationsPanel({ data, loading, t }: { data: AiOperationsStatus | un
     <p className="mt-1 text-xs text-raven-muted">{t("Optional component; AI degradation does not affect RavenTech core health.")}</p>
     {loading ? <p className="mt-3 text-sm text-raven-muted">{t("Loading AI status")}</p> : data ? <>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {[[t("OpenCode runtime"), t(data.runtime_status)], [t("Available models"), String(data.available_models)], [t("Local providers"), String(data.local_providers)], [t("Remote providers"), String(data.remote_providers)]]
+        {[[t(data.offline_ai_enabled ? "Local AI runtime" : "OpenCode runtime"), t(data.runtime_status)], [t("Available models"), String(data.available_models)], [t("Local providers"), String(data.local_providers)], [t("Remote providers"), String(data.remote_providers)], [t("Installed local models"), String(data.installed_local_models)], [t("Available local runtimes"), String(data.available_local_runtimes)], [t("Offline AI"), t(data.offline_ai_enabled ? "Enabled" : "Disabled")], [t("Routing mode"), t(data.routing_mode === "automatic_local" ? "Automatic local only" : data.routing_mode)]]
           .map(([label, value]) => <div key={label} className="rounded border border-raven-border p-3"><span className="block text-xs text-raven-muted">{label}</span><strong className="mt-1 block text-sm">{value}</strong></div>)}
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -336,7 +336,7 @@ function AiOperationsPanel({ data, loading, t }: { data: AiOperationsStatus | un
           [t("Last tool activity"), safeDate(data.last_tool_activity)?.toLocaleString() ?? "—"],
         ].map(([label, value]) => <div key={label} className="rounded border border-raven-border p-3"><span className="block text-xs text-raven-muted">{label}</span><strong className="mt-1 block break-words text-sm">{value}</strong></div>)}
       </div>
-      <p className="mt-3 text-sm text-raven-muted">{t("Selected model")}: {data.selected_model_id ?? "—"} · {t("Last model refresh")}: {safeDate(data.last_model_refresh)?.toLocaleString() ?? "—"} · {t("Last successful inference")}: {safeDate(data.last_successful_inference)?.toLocaleString() ?? "—"}</p>
+      <p className="mt-3 text-sm text-raven-muted">{t("Selected model")}: {data.selected_model_id ?? "—"} · {t("Last model refresh")}: {safeDate(data.last_model_refresh)?.toLocaleString() ?? "—"} · {t("Last successful inference")}: {safeDate(data.last_successful_inference)?.toLocaleString() ?? "—"} · {t("Last benchmark")}: {safeDate(data.last_benchmark_at)?.toLocaleString() ?? "—"}</p>
       <p className={`mt-2 text-sm ${data.degraded ? "text-amber-300" : "text-raven-muted"}`} role="status">{data.degraded ? t("AI integration degraded; RavenTech core remains available.") : t(data.message)}</p>
     </> : <p className="mt-3 text-sm text-raven-muted">{t("AI integration status is unavailable or disabled. RavenTech core remains available.")}</p>}
   </section>;

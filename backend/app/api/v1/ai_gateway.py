@@ -16,13 +16,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db, require_feature
+from app.models.ai_session import AiBenchmarkResult as AiBenchmarkRecord
 from app.models.ai_session import AiMessage, AiSession
 from app.models.audit_log import AuditLog
 from app.models.user import User
 from app.schemas.ai_gateway import (
+    AiBenchmarkCreateRequest,
     AiCatalogResponse,
     AiContextPreviewRequest,
     AiContextPreviewResponse,
+    AiLocalAiStatus,
     AiMessageRequest,
     AiMessageResult,
     AiModelTestRequest,
@@ -39,6 +42,15 @@ from app.schemas.ai_gateway import (
     AiSessionRename,
     AiSessionView,
     AiToolExecuteRequest,
+    CapabilityState,
+)
+from app.schemas.ai_gateway import (
+    AiBenchmarkResult as AiBenchmarkResultView,
+)
+from app.services.ai.benchmark import (
+    PROFILE_VERSION,
+    run_local_benchmark,
+    synthetic_case_count,
 )
 from app.services.ai.gateway_service import (
     AiStreamSanitizer,
@@ -59,7 +71,16 @@ from app.services.ai.gateway_service import (
     save_preferences,
     session_view,
 )
-from app.services.ai.opencode_adapter import ModelRecord, OpenCodeAdapter
+from app.services.ai.hardware_profile import (
+    collect_hardware_profile,
+    evaluate_model_fit,
+)
+from app.services.ai.local_runtime import discover_local_runtimes
+from app.services.ai.opencode_adapter import (
+    LOCAL_PROVIDER_IDS,
+    ModelRecord,
+    OpenCodeAdapter,
+)
 from app.services.ai.tool_gateway import (
     NativeInventory,
     build_evidence_followup,
@@ -96,6 +117,7 @@ _SAFE_TOOL_ERROR_CODES = {
     "tool_budget_exceeded",
     "turn_row_budget_exceeded",
 }
+_BENCHMARK_LOCK = asyncio.Lock()
 
 
 @router.get("/tools")
@@ -156,15 +178,101 @@ async def execute_ai_tool_endpoint(
 @router.get("/runtime")
 async def ai_runtime_endpoint(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
     _require_chat_role(current_user)
     adapter = get_adapter()
+    preferences = await get_preferences(db, current_user.id)
+    if preferences.offline_ai_enabled:
+        providers, models = await _discover_local_catalog(adapter)
+        available = any(provider.get("connected") is True for provider in providers)
+        return {
+            "available": available,
+            "status": "available" if available else "server_stopped",
+            "version": None,
+            "integration": "Direct local runtimes",
+            "loopback_only": True,
+            "message": (
+                "Offline AI is enabled; remote inference and discovery are blocked."
+            ),
+            "provider_count": len(providers),
+            "available_model_count": sum(1 for item in models if item.available),
+            "dependency": "optional",
+        }
     runtime = await adapter.get_runtime()
     providers, models = await adapter.discover()
     runtime["provider_count"] = len(providers)
     runtime["available_model_count"] = sum(1 for item in models if item.available)
     runtime["dependency"] = "optional"
     return runtime
+
+
+@router.get("/local-ai/status", response_model=AiLocalAiStatus)
+async def local_ai_status_endpoint(
+    refresh: bool = False,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AiLocalAiStatus:
+    _require_chat_role(current_user)
+    discoveries = await discover_local_runtimes(refresh=refresh)
+    hardware = collect_hardware_profile()
+    models = [model for runtime in discoveries for model in runtime.models]
+    largest_single_gpu = max(
+        (
+            gpu.vram_available_bytes
+            if gpu.vram_available_bytes is not None
+            else gpu.vram_total_bytes or 0
+            for gpu in hardware.gpus
+        ),
+        default=0,
+    )
+    model_views = []
+    for model in models:
+        fit, reason, estimate = evaluate_model_fit(
+            size_bytes=model.size_bytes,
+            system_memory_available_bytes=hardware.system_memory_available_bytes,
+            gpu_memory_bytes=largest_single_gpu or None,
+        )
+        model_views.append(
+            model_view(model).model_copy(
+                update={
+                    "fit": fit,
+                    "fit_reason": reason,
+                    "estimated_memory_bytes": estimate,
+                }
+            )
+        )
+    fit_rank = {
+        "excellent_fit": 0,
+        "good_fit": 1,
+        "marginal": 2,
+        "cpu_fallback": 3,
+        "unknown": 4,
+        "insufficient_memory": 5,
+    }
+    recommended = next(
+        (
+            item.id
+            for item in sorted(
+                model_views,
+                key=lambda item: (fit_rank[item.fit], item.display_name.casefold()),
+            )
+            if item.available and item.fit not in {"unknown", "insufficient_memory"}
+        ),
+        None,
+    )
+    preferences = await get_preferences(db, current_user.id)
+    return AiLocalAiStatus(
+        hardware=hardware,
+        runtimes=[item.runtime for item in discoveries],
+        models=model_views,
+        installed_model_count=len(model_views),
+        available_runtime_count=sum(
+            item.runtime.status in {"available", "no_models"} for item in discoveries
+        ),
+        recommended_model_id=recommended,
+        offline_ai_enabled=preferences.offline_ai_enabled,
+    )
 
 
 @router.get("/operations-status", response_model=AiOperationsStatus)
@@ -174,8 +282,18 @@ async def ai_operations_status_endpoint(
 ) -> AiOperationsStatus:
     _require_admin(current_user)
     adapter = get_adapter()
-    runtime = await adapter.get_runtime()
-    providers, models = await adapter.discover()
+    preferences = await get_preferences(db, current_user.id)
+    if preferences.offline_ai_enabled:
+        providers, models = await _discover_local_catalog(adapter)
+        connected_local = sum(bool(item.get("connected")) for item in providers)
+        runtime = {
+            "available": connected_local > 0,
+            "status": "available" if connected_local else "server_stopped",
+            "message": "Offline AI is enabled; remote AI discovery is blocked.",
+        }
+    else:
+        runtime = await adapter.get_runtime()
+        providers, models = await adapter.discover()
     last_refresh = (
         await db.execute(
             select(AuditLog.timestamp)
@@ -247,7 +365,6 @@ async def ai_operations_status_endpoint(
             )
         ).scalar_one()
     )
-    preferences = await get_preferences(db, current_user.id)
     available = sum(item.available for item in models)
     connected_local = sum(
         bool(item.get("local")) and bool(item.get("connected"))
@@ -260,6 +377,13 @@ async def ai_operations_status_endpoint(
         if isinstance(item, dict)
     )
     proposal_tools = await registered_action_proposal_tools(db, current_user)
+    local_runtime_inventory = await discover_local_runtimes()
+    installed_local_ids = {
+        model.id
+        for runtime_item in local_runtime_inventory
+        for model in runtime_item.models
+    }
+    installed_local_ids.update(item.id for item in models if item.local)
     return AiOperationsStatus(
         runtime_status=str(runtime.get("status", "unsupported")),
         runtime_available=bool(runtime.get("available")),
@@ -282,15 +406,214 @@ async def ai_operations_status_endpoint(
         last_tool_error=last_tool_error,
         tool_requests_last_hour=tool_requests_last_hour,
         denied_tool_attempts=denied_tool_attempts,
+        offline_ai_enabled=preferences.offline_ai_enabled,
+        routing_mode=preferences.routing_mode,
+        installed_local_models=len(installed_local_ids),
+        available_local_runtimes=sum(
+            item.runtime.status in {"available", "no_models"}
+            for item in local_runtime_inventory
+        ),
+        last_benchmark_at=(
+            await db.execute(
+                select(AiBenchmarkRecord.completed_at)
+                .where(
+                    AiBenchmarkRecord.status == "completed",
+                    AiBenchmarkRecord.completed_at.is_not(None),
+                )
+                .order_by(AiBenchmarkRecord.completed_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none(),
     )
+
+
+async def _automatic_local_model(
+    db: AsyncSession,
+    owner_id: uuid.UUID,
+    preferences: AiPreferences,
+    task_profile: str,
+) -> tuple[ModelRecord | None, str]:
+    """Choose an installed local model deterministically without remote discovery."""
+    _providers, models = await _discover_local_catalog(get_adapter())
+    candidates = [item for item in models if item.local and item.available]
+    if not candidates:
+        return None, f"automatic_local:{task_profile}:no_local_model"
+
+    hardware = collect_hardware_profile()
+    gpu_memory = max(
+        (
+            gpu.vram_available_bytes
+            if gpu.vram_available_bytes is not None
+            else gpu.vram_total_bytes or 0
+            for gpu in hardware.gpus
+        ),
+        default=0,
+    )
+    assigned_id = preferences.task_model_routes.get(task_profile)
+    if assigned_id:
+        assigned = next((item for item in candidates if item.id == assigned_id), None)
+        if assigned is not None:
+            fit, _reason, _estimate = evaluate_model_fit(
+                size_bytes=assigned.size_bytes,
+                system_memory_available_bytes=hardware.system_memory_available_bytes,
+                gpu_memory_bytes=gpu_memory or None,
+            )
+            if fit != "insufficient_memory":
+                return assigned, f"automatic_local:{task_profile}:configured_route"
+    ranked: list[tuple[int, float, int, str, ModelRecord]] = []
+    for item in candidates:
+        fit, _reason, _estimate = evaluate_model_fit(
+            size_bytes=item.size_bytes,
+            system_memory_available_bytes=hardware.system_memory_available_bytes,
+            gpu_memory_bytes=gpu_memory or None,
+        )
+        if fit == "insufficient_memory":
+            continue
+        fit_rank = {
+            "excellent_fit": 0,
+            "good_fit": 1,
+            "marginal": 2,
+            "cpu_fallback": 3,
+            "unknown": 4,
+        }.get(fit, 5)
+        capability_rank = 0
+        if task_profile == "tool_calling":
+            capability_rank = 0 if item.supports_tools is True else 1
+        elif task_profile == "deep_analysis":
+            capability_rank = 0 if item.supports_reasoning is True else 1
+        ranked.append(
+            (fit_rank, 0.0, capability_rank, item.display_name.casefold(), item)
+        )
+    if not ranked:
+        return None, f"automatic_local:{task_profile}:no_compatible_model"
+
+    model_ids = {item.id for item in candidates}
+    benchmark_result = await db.execute(
+        select(AiBenchmarkRecord)
+        .where(
+            AiBenchmarkRecord.owner_id == owner_id,
+            AiBenchmarkRecord.hardware_hash == hardware.profile_hash,
+            AiBenchmarkRecord.status == "completed",
+            AiBenchmarkRecord.model_id.in_(model_ids),
+        )
+        .order_by(AiBenchmarkRecord.started_at.desc())
+        .limit(100)
+    )
+    profile_score_key = {
+        "fast_triage": "basic_chat",
+        "general_analyst": "evidence_grounding",
+        "deep_analysis": "evidence_grounding",
+        "knowledge_rag": "knowledge",
+        "tool_calling": "tool_format",
+        "structured_reports": "structured_output",
+        "bilingual": "spanish",
+        "offline": "evidence_grounding",
+    }.get(task_profile, "evidence_grounding")
+    benchmark_scores: dict[str, float] = {}
+    for row in benchmark_result.scalars().all():
+        if row.model_id in benchmark_scores or not isinstance(row.metrics, dict):
+            continue
+        scores = row.metrics.get("scores")
+        if isinstance(scores, dict):
+            primary_score = scores.get(profile_score_key)
+            if task_profile == "bilingual":
+                other_score = scores.get("english")
+                if isinstance(primary_score, (int, float)) and isinstance(
+                    other_score, (int, float)
+                ):
+                    primary_score = (primary_score + other_score) / 2
+            if isinstance(primary_score, (int, float)):
+                benchmark_scores[row.model_id] = float(primary_score)
+    ranked.sort(
+        key=lambda row: (
+            row[0],
+            -benchmark_scores.get(row[4].id, -1.0),
+            row[2],
+            row[3],
+        )
+    )
+    reason = (
+        f"automatic_local:{task_profile}:hardware_and_benchmark"
+        if ranked[0][4].id in benchmark_scores
+        else f"automatic_local:{task_profile}:hardware_fit"
+    )
+    return ranked[0][4], reason
+
+
+async def _resolve_message_model(
+    db: AsyncSession,
+    owner_id: uuid.UUID,
+    session: AiSession,
+    preferences: AiPreferences,
+    body: AiMessageRequest,
+) -> tuple[ModelRecord, str, str]:
+    requested_model_id = f"{session.provider_id}/{session.model_id}"
+    if preferences.routing_mode == "automatic_local":
+        profile = _requested_task_profile(body)
+        model, reason = await _automatic_local_model(db, owner_id, preferences, profile)
+        if model is None:
+            raise ValueError(
+                "Local AI is unavailable for this task. No remote fallback was used; "
+                "RavenTech deterministic analysis remains available."
+            )
+        session.provider_id = model.provider_id
+        session.model_id = model.model_id
+        session.execution_type = execution_for_model(model)
+        return model, reason, requested_model_id
+
+    if preferences.routing_mode == "recommended":
+        catalog = await _catalog(get_adapter(), refresh=False, preferences=preferences)
+        if not catalog.recommended_model_id:
+            raise ValueError(
+                "No model is currently allowed by the selected privacy policy."
+            )
+        model = await require_allowed_model(
+            get_adapter(),
+            catalog.recommended_model_id,
+            "offline" if preferences.offline_ai_enabled else preferences.execution_mode,
+        )
+        session.provider_id = model.provider_id
+        session.model_id = model.model_id
+        session.execution_type = execution_for_model(model)
+        return model, "recommended_model", requested_model_id
+
+    model = await require_allowed_model(
+        get_adapter(),
+        requested_model_id,
+        "offline" if preferences.offline_ai_enabled else preferences.execution_mode,
+    )
+    return model, "manual_model_selected", requested_model_id
+
+
+def _requested_task_profile(body: AiMessageRequest) -> str:
+    if body.task_profile:
+        return body.task_profile
+    workflow_profile = {
+        "analyze_server": "deep_analysis",
+        "analyze_resource_usage": "fast_triage",
+        "analyze_services": "general_analyst",
+        "analyze_ports": "fast_triage",
+        "analyze_lan": "fast_triage",
+        "analyze_asset": "general_analyst",
+        "explain_posture": "deep_analysis",
+        "explain_alert": "fast_triage",
+        "analyze_investigation": "deep_analysis",
+    }
+    return workflow_profile.get(body.workflow or "", "general_analyst")
 
 
 @router.get("/providers")
 async def ai_providers_endpoint(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
     _require_chat_role(current_user)
-    providers, _models = await get_adapter().discover()
+    adapter = get_adapter()
+    preferences = await get_preferences(db, current_user.id)
+    if preferences.offline_ai_enabled:
+        providers, _models = await _discover_local_catalog(adapter)
+    else:
+        providers, _models = await adapter.discover()
     return {"items": providers}
 
 
@@ -346,15 +669,40 @@ async def update_ai_preferences_endpoint(
     db: AsyncSession = Depends(get_db),
 ) -> AiPreferences:
     _require_chat_role(current_user)
+    existing_preferences = await get_preferences(db, current_user.id)
     if body.selected_model_id:
         try:
             await require_allowed_model(
-                get_adapter(), body.selected_model_id, body.execution_mode
+                get_adapter(),
+                body.selected_model_id,
+                "offline" if body.offline_ai_enabled else body.execution_mode,
             )
         except PermissionError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+    for task_profile, routed_model_id in body.task_model_routes.items():
+        if (
+            not routed_model_id
+            or existing_preferences.task_model_routes.get(task_profile)
+            == routed_model_id
+        ):
+            continue
+        try:
+            routed_model = await require_allowed_model(
+                get_adapter(), routed_model_id, "offline"
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if not routed_model.local:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"Task profile {task_profile} requires an installed local model."
+                ),
+            )
     record = await save_preferences(db, current_user.id, body)
     await _audit(
         db,
@@ -394,9 +742,23 @@ async def test_ai_model_endpoint(
     _require_admin(current_user)
     preferences = await get_preferences(db, current_user.id)
     try:
-        model = await require_allowed_model(
-            get_adapter(), body.model_id, preferences.execution_mode
-        )
+        if preferences.routing_mode == "automatic_local":
+            model, _routing_reason = await _automatic_local_model(
+                db, current_user.id, preferences, "general_analyst"
+            )
+            if model is None:
+                raise ValueError(
+                    "Local AI is unavailable. Automatic local routing will not "
+                    "create or use a remote provider session."
+                )
+        else:
+            model = await require_allowed_model(
+                get_adapter(),
+                body.model_id,
+                "offline"
+                if preferences.offline_ai_enabled
+                else preferences.execution_mode,
+            )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
@@ -410,9 +772,7 @@ async def test_ai_model_endpoint(
             ),
         )
     adapter = get_adapter()
-    prompt = (
-        "Respond with READY and identify only the selected model ID. Do not use tools."
-    )
+    prompt = "Reply with READY only. Do not use tools."
     started = time.perf_counter()
     try:
         content = await _complete_test(adapter, model, prompt)
@@ -422,12 +782,164 @@ async def test_ai_model_endpoint(
             model_id=model.id,
             error="The selected model did not complete the harmless test request.",
         )
+    basic_latency_ms = round((time.perf_counter() - started) * 1000)
+    capabilities = await _test_local_model_capabilities(adapter, model)
+    ready = content.strip().upper().strip(".!\n ") == "READY"
     return AiModelTestResponse(
-        available=True,
-        latency_ms=round((time.perf_counter() - started) * 1000),
+        available=ready,
+        latency_ms=basic_latency_ms,
         model_id=model.id,
         response=sanitize_ai_text(content, max_chars=300),
+        error=None
+        if ready
+        else "The basic output did not match the expected READY response.",
+        **capabilities,
     )
+
+
+@router.get("/benchmarks", response_model=list[AiBenchmarkResultView])
+async def list_ai_benchmarks_endpoint(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[AiBenchmarkResultView]:
+    _require_chat_role(current_user)
+    result = await db.execute(
+        select(AiBenchmarkRecord)
+        .where(AiBenchmarkRecord.owner_id == current_user.id)
+        .order_by(AiBenchmarkRecord.started_at.desc())
+        .limit(50)
+    )
+    return [_benchmark_view(row) for row in result.scalars().all()]
+
+
+@router.post("/benchmarks", response_model=AiBenchmarkResultView)
+async def run_ai_benchmark_endpoint(
+    body: AiBenchmarkCreateRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AiBenchmarkResultView:
+    _require_admin(current_user)
+    if _BENCHMARK_LOCK.locked():
+        raise HTTPException(
+            status_code=409,
+            detail="A local model benchmark is already running on this host.",
+        )
+    preferences = await get_preferences(db, current_user.id)
+    try:
+        model = await require_allowed_model(
+            get_adapter(),
+            body.model_id,
+            "offline" if preferences.offline_ai_enabled else preferences.execution_mode,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not model.local or model.provider_id not in LOCAL_PROVIDER_IDS:
+        raise HTTPException(
+            status_code=403,
+            detail="Benchmarks can run only against an available direct local runtime.",
+        )
+    if _BENCHMARK_LOCK.locked():
+        raise HTTPException(
+            status_code=409,
+            detail="A local model benchmark is already running on this host.",
+        )
+    await _BENCHMARK_LOCK.acquire()
+    try:
+        hardware = collect_hardware_profile()
+        runtime_id = model.runtime_id or model.provider_id
+        row = AiBenchmarkRecord(
+            owner_id=current_user.id,
+            model_id=model.id,
+            runtime_id=runtime_id,
+            hardware_hash=hardware.profile_hash,
+            hardware_snapshot=hardware.model_dump(
+                mode="json", exclude={"sampled_at", "profile_hash"}
+            ),
+            profile_version=PROFILE_VERSION,
+            settings={
+                "warmup": body.include_warmup,
+                "profile_version": PROFILE_VERSION,
+                "case_count": synthetic_case_count(),
+                "case_timeout_seconds": 5,
+                "benchmark_timeout_seconds": 60,
+                "context_size": None,
+                "generation_parameters": {
+                    "temperature": None,
+                    "max_tokens": None,
+                    "source": "Runtime defaults; not reported by adapter.",
+                },
+                "token_count_method": "approximate_whitespace_split_when_unreported",
+                "synthetic_only": True,
+            },
+            metrics={},
+            warnings=[],
+            status="running",
+        )
+        db.add(row)
+        await db.flush()
+        await db.commit()
+        await db.refresh(row)
+        try:
+            outcome = await run_local_benchmark(
+                get_adapter(),
+                provider_id=model.provider_id,
+                model_id=model.model_id,
+                include_warmup=body.include_warmup,
+                is_disconnected=request.is_disconnected,
+            )
+            row.status = str(outcome["status"])
+            row.metrics = outcome["metrics"]
+            row.warnings = outcome["warnings"]
+        except asyncio.CancelledError:
+            row.status = "cancelled"
+            row.warnings = [
+                "Benchmark request was cancelled; no generated text was retained."
+            ]
+        except Exception:
+            row.status = "failed"
+            row.warnings = ["Local benchmark could not complete safely."]
+        row.completed_at = datetime.now(UTC)
+        await _audit(
+            db,
+            request,
+            current_user,
+            "ai.benchmark_completed",
+            resource_id=row.id,
+            metadata={
+                "model_id": row.model_id,
+                "runtime_id": row.runtime_id,
+                "status": row.status,
+                "hardware_hash": row.hardware_hash,
+            },
+        )
+        await db.commit()
+        await db.refresh(row)
+        return _benchmark_view(row)
+    finally:
+        _BENCHMARK_LOCK.release()
+
+
+@router.delete("/benchmarks/{benchmark_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_ai_benchmark_endpoint(
+    benchmark_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    _require_chat_role(current_user)
+    result = await db.execute(
+        select(AiBenchmarkRecord).where(
+            AiBenchmarkRecord.id == benchmark_id,
+            AiBenchmarkRecord.owner_id == current_user.id,
+        )
+    )
+    record = result.scalar_one_or_none()
+    if record is None:
+        raise HTTPException(status_code=404, detail="Benchmark result not found.")
+    await db.delete(record)
+    await db.commit()
 
 
 @router.get("/sessions", response_model=list[AiSessionView])
@@ -471,14 +983,16 @@ async def create_ai_session_endpoint(
     preferences = await get_preferences(db, current_user.id)
     try:
         model = await require_allowed_model(
-            get_adapter(), body.model_id, preferences.execution_mode
+            get_adapter(),
+            body.model_id,
+            "offline" if preferences.offline_ai_enabled else preferences.execution_mode,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     external_session_id: str | None = None
-    if model.provider_id not in {"ollama", "lmstudio"}:
+    if model.provider_id not in LOCAL_PROVIDER_IDS:
         try:
             external_session_id = await get_adapter().create_session(
                 "RavenTech AI chat"
@@ -639,10 +1153,9 @@ async def send_ai_message_endpoint(
             ),
         )
     preferences = await get_preferences(db, current_user.id)
-    model_ref = f"{session.provider_id}/{session.model_id}"
     try:
-        model = await require_allowed_model(
-            get_adapter(), model_ref, preferences.execution_mode
+        model, routing_reason, requested_model_id = await _resolve_message_model(
+            db, current_user.id, session, preferences, body
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -663,6 +1176,8 @@ async def send_ai_message_endpoint(
         provider_id=model.provider_id,
         model_id=model.model_id,
         execution_type=session.execution_type,
+        requested_model_id=requested_model_id,
+        routing_reason=routing_reason,
         context_sources=[
             {
                 "citation_id": item.citation_id,
@@ -689,6 +1204,9 @@ async def send_ai_message_endpoint(
             "execution_type": session.execution_type,
             "context_source_count": len(sources),
             "workflow": body.workflow,
+            "task_profile": _requested_task_profile(body),
+            "requested_model_id": requested_model_id,
+            "routing_reason": routing_reason,
             "remote_tool_evidence_consent": bool(
                 body.allow_remote_tool_context and model.remote and not model.local
             ),
@@ -715,6 +1233,8 @@ async def send_ai_message_endpoint(
             provider_id=model.provider_id,
             model_id=model.model_id,
             execution_type=session.execution_type,
+            requested_model_id=requested_model_id,
+            routing_reason=routing_reason,
             context_sources=user_message.context_sources,
             supplied_citations=user_message.supplied_citations,
         )
@@ -806,10 +1326,9 @@ async def stream_ai_message_endpoint(
             status_code=409, detail="This AI session reached its message limit."
         )
     preferences = await get_preferences(db, current_user.id)
-    model_ref = f"{session.provider_id}/{session.model_id}"
     try:
-        model = await require_allowed_model(
-            get_adapter(), model_ref, preferences.execution_mode
+        model, routing_reason, requested_model_id = await _resolve_message_model(
+            db, current_user.id, session, preferences, body
         )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
@@ -835,6 +1354,8 @@ async def stream_ai_message_endpoint(
         provider_id=model.provider_id,
         model_id=model.model_id,
         execution_type=session.execution_type,
+        requested_model_id=requested_model_id,
+        routing_reason=routing_reason,
         context_sources=[
             {
                 "citation_id": item.citation_id,
@@ -861,6 +1382,9 @@ async def stream_ai_message_endpoint(
             "execution_type": session.execution_type,
             "context_source_count": len(sources),
             "streaming": True,
+            "task_profile": _requested_task_profile(body),
+            "requested_model_id": requested_model_id,
+            "routing_reason": routing_reason,
         },
     )
     await db.commit()
@@ -917,6 +1441,8 @@ async def stream_ai_message_endpoint(
                     provider_id=model.provider_id,
                     model_id=model.model_id,
                     execution_type=session.execution_type,
+                    requested_model_id=requested_model_id,
+                    routing_reason=routing_reason,
                     context_sources=user_message.context_sources,
                     supplied_citations=user_message.supplied_citations,
                 )
@@ -950,7 +1476,7 @@ async def stream_ai_message_endpoint(
                 return
 
             prompt = build_context_prompt(content, sources)
-            if model.provider_id in {"ollama", "lmstudio"}:
+            if model.provider_id in LOCAL_PROVIDER_IDS:
                 chunks = adapter.stream_local(
                     model.provider_id, model.model_id, prompt, cancellation
                 )
@@ -1161,24 +1687,128 @@ async def _catalog(
     refresh: bool,
     preferences: AiPreferences | None = None,
 ) -> AiCatalogResponse:
-    runtime = await adapter.get_runtime()
-    providers, models = await adapter.discover(refresh=refresh)
+    prefs = preferences or AiPreferences()
+    if prefs.offline_ai_enabled:
+        providers, models = await _discover_local_catalog(adapter, refresh=refresh)
+        runtime_available = any(
+            provider.get("connected") is True for provider in providers
+        )
+        runtime: dict[str, Any] = {
+            "available": runtime_available,
+            "status": "available" if runtime_available else "server_stopped",
+            "version": None,
+            "integration": "Direct local runtimes",
+            "loopback_only": True,
+            "message": (
+                "Offline AI is enabled. Only direct loopback runtime discovery "
+                "and inference are allowed."
+                if runtime_available
+                else "Offline AI is enabled. No configured local runtime is "
+                "responding; remote fallback is blocked."
+            ),
+        }
+    else:
+        runtime = await adapter.get_runtime()
+        providers, models = await adapter.discover(refresh=refresh)
+    hardware = (
+        collect_hardware_profile() if any(item.local for item in models) else None
+    )
+    gpu_memory = (
+        max(
+            (
+                gpu.vram_available_bytes
+                if gpu.vram_available_bytes is not None
+                else gpu.vram_total_bytes or 0
+                for gpu in hardware.gpus
+            ),
+            default=0,
+        )
+        if hardware is not None
+        else 0
+    )
+    model_views = []
+    fit_eligible_local_ids: set[str] = set()
+    for model in models:
+        view = model_view(model)
+        if model.local and hardware is not None:
+            fit, reason, estimate = evaluate_model_fit(
+                size_bytes=model.size_bytes,
+                system_memory_available_bytes=hardware.system_memory_available_bytes,
+                gpu_memory_bytes=gpu_memory or None,
+            )
+            view = view.model_copy(
+                update={
+                    "fit": fit,
+                    "fit_reason": reason,
+                    "estimated_memory_bytes": estimate,
+                }
+            )
+            if fit not in {"unknown", "insufficient_memory"}:
+                fit_eligible_local_ids.add(model.id)
+        model_views.append(view)
     return AiCatalogResponse(
         runtime=AiRuntimeStatus.model_validate(runtime),
         providers=[AiProvider.model_validate(item) for item in providers],
-        models=[model_view(item) for item in models],
+        models=model_views,
         refreshed_at=datetime.now(UTC),
         warning=None
         if runtime.get("available") or any(item.local for item in models)
         else (
             "OpenCode and local model runtimes are optional and currently unavailable."
         ),
-        recommended_model_id=_recommended_model_id(models, preferences),
+        recommended_model_id=_recommended_model_id(
+            models, preferences, fit_eligible_local_ids=fit_eligible_local_ids
+        ),
+    )
+
+
+async def _discover_local_catalog(
+    adapter: OpenCodeAdapter, *, refresh: bool = False
+) -> tuple[list[dict[str, Any]], list[ModelRecord]]:
+    try:
+        return await adapter.discover_local(refresh=refresh)
+    except AttributeError:
+        return [], []
+
+
+def _benchmark_view(record: AiBenchmarkRecord) -> AiBenchmarkResultView:
+    metrics = record.metrics if isinstance(record.metrics, dict) else {}
+    raw_scores = metrics.get("scores")
+    scores = (
+        {
+            key: float(value) if isinstance(value, (int, float)) else None
+            for key, value in raw_scores.items()
+        }
+        if isinstance(raw_scores, dict)
+        else {}
+    )
+    warnings = record.warnings if isinstance(record.warnings, list) else []
+    return AiBenchmarkResultView(
+        id=record.id,
+        model_id=record.model_id,
+        runtime_id=record.runtime_id,
+        hardware_hash=record.hardware_hash,
+        profile_version=record.profile_version,
+        status=record.status,  # type: ignore[arg-type]
+        started_at=record.started_at,
+        completed_at=record.completed_at,
+        startup_latency_ms=metrics.get("startup_latency_ms"),
+        ttft_ms=metrics.get("ttft_ms"),
+        latency_ms=metrics.get("latency_ms"),
+        elapsed_ms=metrics.get("elapsed_ms"),
+        tokens_per_second=metrics.get("tokens_per_second"),
+        generated_tokens=metrics.get("generated_tokens"),
+        memory_delta_bytes=metrics.get("memory_delta_bytes"),
+        scores=scores,
+        warnings=[str(item)[:200] for item in warnings[:20]],
     )
 
 
 def _recommended_model_id(
-    models: list[ModelRecord], preferences: AiPreferences | None
+    models: list[ModelRecord],
+    preferences: AiPreferences | None,
+    *,
+    fit_eligible_local_ids: set[str] | None = None,
 ) -> str | None:
     prefs = preferences or AiPreferences()
     if prefs.selected_model_id:
@@ -1189,12 +1819,26 @@ def _recommended_model_id(
             return None
         return (
             selected.id
-            if _model_allowed_by_mode(selected, prefs.execution_mode)
+            if _model_allowed_by_mode(
+                selected,
+                "offline" if prefs.offline_ai_enabled else prefs.execution_mode,
+            )
             else None
         )
-    candidates: list[str | None] = [prefs.preferred_local_model_id]
-    candidates.extend(item.id for item in models if item.local and item.available)
-    if prefs.execution_mode != "local_only":
+    candidates: list[str | None] = [
+        prefs.preferred_local_model_id
+        if fit_eligible_local_ids is None
+        or prefs.preferred_local_model_id in fit_eligible_local_ids
+        else None
+    ]
+    candidates.extend(
+        item.id
+        for item in models
+        if item.local
+        and item.available
+        and (fit_eligible_local_ids is None or item.id in fit_eligible_local_ids)
+    )
+    if prefs.execution_mode != "local_only" and not prefs.offline_ai_enabled:
         candidates.append(prefs.preferred_free_model_id)
         candidates.extend(
             item.id
@@ -1207,15 +1851,18 @@ def _recommended_model_id(
         model = next(
             (item for item in models if item.id == candidate and item.available), None
         )
-        if model is not None and _model_allowed_by_mode(model, prefs.execution_mode):
+        if model is not None and _model_allowed_by_mode(
+            model,
+            "offline" if prefs.offline_ai_enabled else prefs.execution_mode,
+        ):
             return model.id
     return None
 
 
 def _model_allowed_by_mode(model: ModelRecord, execution_mode: str) -> bool:
-    if execution_mode == "local_only":
+    if execution_mode in {"local_only", "offline"}:
         return model.local
-    if execution_mode == "free_only":
+    if execution_mode in {"free_only", "local_first"}:
         return model.local or model.free_status == "provider_reported_free"
     return True
 
@@ -1225,7 +1872,7 @@ async def _complete_test(
 ) -> str:
     provider_id = model.provider_id
     model_id = model.model_id
-    if provider_id in {"ollama", "lmstudio"}:
+    if provider_id in LOCAL_PROVIDER_IDS:
         return await adapter.complete_local(provider_id, model_id, prompt)
     external_id = await adapter.create_session("RavenTech harmless model test")
     try:
@@ -1234,12 +1881,60 @@ async def _complete_test(
         await adapter.close_session(external_id)
 
 
+async def _test_local_model_capabilities(
+    adapter: OpenCodeAdapter, model: ModelRecord
+) -> dict[str, CapabilityState]:
+    if not model.local:
+        return {
+            "streaming": "unknown",
+            "structured_output": "unknown",
+            "tools": "unknown",
+        }
+    streaming: CapabilityState = "unknown"
+    try:
+        stream_text: list[str] = []
+        async with asyncio.timeout(12):
+            async for chunk in adapter.stream_local(
+                model.provider_id,
+                model.model_id,
+                "Reply with READY only. Do not use tools.",
+                asyncio.Event(),
+            ):
+                stream_text.append(chunk)
+                if sum(len(item) for item in stream_text) >= 512:
+                    break
+        streaming = "supported" if stream_text else "unsupported"
+    except Exception:
+        streaming = "unknown"
+
+    structured_output: CapabilityState = "unknown"
+    try:
+        async with asyncio.timeout(12):
+            response = await adapter.complete_local(
+                model.provider_id,
+                model.model_id,
+                'Return only JSON: {"status":"ok","count":2}. Do not use tools.',
+            )
+        structured_output = (
+            "supported"
+            if json.loads(response.strip()) == {"status": "ok", "count": 2}
+            else "unsupported"
+        )
+    except Exception:
+        structured_output = "unknown"
+    return {
+        "streaming": streaming,
+        "structured_output": structured_output,
+        "tools": "unknown",
+    }
+
+
 async def _complete_session(
     adapter: OpenCodeAdapter, session: AiSession, model: ModelRecord, prompt: str
 ) -> str:
     provider_id = model.provider_id
     model_id = model.model_id
-    if provider_id in {"ollama", "lmstudio"}:
+    if provider_id in LOCAL_PROVIDER_IDS:
         return await adapter.complete_local(provider_id, model_id, prompt)
     if not session.external_session_id:
         session.external_session_id = await adapter.create_session("RavenTech AI chat")
@@ -1385,7 +2080,8 @@ def _attach_tool_evidence(
                 ),
                 "timestamp": sanitize_tool_text(
                     str(item.get("timestamp", "")), max_chars=40
-                ) or None,
+                )
+                or None,
                 "freshness": sanitize_tool_text(
                     str(item.get("freshness", "unknown")), max_chars=48
                 ),

@@ -3190,7 +3190,9 @@ export interface KnowledgeDocumentDetail extends KnowledgeDocumentSummary {
   }>;
 }
 
-export type AiExecutionMode = "free_only" | "local_only" | "any_configured";
+export type AiExecutionMode = "local_first" | "free_only" | "local_only" | "any_configured";
+export type AiRoutingMode = "manual" | "recommended" | "automatic_local";
+export type AiTaskProfile = "fast_triage" | "general_analyst" | "deep_analysis" | "knowledge_rag" | "tool_calling" | "structured_reports" | "bilingual" | "offline";
 export type AiKnowledgePolicy = "verified_only" | "trusted_plus" | "all_allowed";
 
 export interface AiRuntimeStatus {
@@ -3226,6 +3228,11 @@ export interface AiOperationsStatus {
   last_tool_error: string | null;
   tool_requests_last_hour: number;
   denied_tool_attempts: number;
+  offline_ai_enabled: boolean;
+  routing_mode: AiRoutingMode;
+  installed_local_models: number;
+  available_local_runtimes: number;
+  last_benchmark_at: string | null;
 }
 
 export interface AiProvider {
@@ -3254,6 +3261,17 @@ export interface AiModel {
   supports_streaming: boolean | null;
   metadata_source: string;
   last_discovered_at: string;
+  runtime_id: string | null;
+  installed: boolean;
+  size_bytes: number | null;
+  parameter_count: number | null;
+  quantization: string | null;
+  architecture: string | null;
+  capabilities: Record<string, "supported" | "unsupported" | "unknown">;
+  fit: "excellent_fit" | "good_fit" | "marginal" | "cpu_fallback" | "insufficient_memory" | "unknown";
+  fit_reason: string;
+  estimated_memory_bytes: number | null;
+  estimate_label: string;
 }
 
 export interface AiCatalogResponse {
@@ -3270,6 +3288,81 @@ export interface AiPreferences {
   preferred_local_model_id: string | null;
   preferred_free_model_id: string | null;
   execution_mode: AiExecutionMode;
+  offline_ai_enabled: boolean;
+  routing_mode: AiRoutingMode;
+  task_model_routes: Partial<Record<AiTaskProfile, string>>;
+}
+
+export interface AiGpuProfile {
+  gpu_id: string;
+  vendor: string | null;
+  model: string | null;
+  vram_total_bytes: number | null;
+  vram_available_bytes: number | null;
+  driver_version: string | null;
+  compute_backend: string | null;
+  metadata_source: string;
+}
+
+export interface AiHardwareProfile {
+  os_name: string;
+  os_version: string | null;
+  architecture: string;
+  cpu_model: string | null;
+  physical_cores: number | null;
+  logical_cores: number | null;
+  system_memory_total_bytes: number | null;
+  system_memory_available_bytes: number | null;
+  disk_free_bytes: number | null;
+  gpus: AiGpuProfile[];
+  readiness: "cpu_only_capable" | "entry_local_ai" | "moderate_local_ai" | "high_local_ai";
+  readiness_reason: string;
+  profile_hash: string;
+  sampled_at: string;
+}
+
+export interface AiLocalRuntime {
+  id: string;
+  provider_id: string;
+  name: string;
+  status: "available" | "unavailable" | "starting" | "degraded" | "incompatible" | "authentication_required" | "no_models" | "unknown";
+  endpoint: string;
+  version: string | null;
+  model_count: number;
+  loopback_only: boolean;
+  endpoint_classification: "loopback" | "network" | "unknown";
+  capabilities: Record<string, "supported" | "unsupported" | "unknown">;
+  message: string;
+}
+
+export interface AiLocalAiStatus {
+  hardware: AiHardwareProfile;
+  runtimes: AiLocalRuntime[];
+  models: AiModel[];
+  installed_model_count: number;
+  available_runtime_count: number;
+  recommended_model_id: string | null;
+  offline_ai_enabled: boolean;
+}
+
+export interface AiBenchmarkResult {
+  id: string;
+  model_id: string;
+  runtime_id: string;
+  hardware_hash: string;
+  profile_version: string;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  started_at: string;
+  completed_at: string | null;
+  startup_latency_ms: number | null;
+  ttft_ms: number | null;
+  latency_ms: number | null;
+  elapsed_ms: number | null;
+  tokens_per_second: number | null;
+  generated_tokens: number | null;
+  memory_delta_bytes: number | null;
+  scores: Record<string, number | null>;
+  warnings: string[];
 }
 
 export interface AiContextExcerpt {
@@ -3298,6 +3391,8 @@ export interface AiMessageView {
   provider_id: string | null;
   model_id: string | null;
   execution_type: "local" | "remote" | null;
+  requested_model_id: string | null;
+  routing_reason: string | null;
   context_sources: Array<Record<string, unknown>>;
   supplied_citations: string[];
   citation_validation: AiCitationValidation | null;
@@ -3340,6 +3435,9 @@ export interface AiModelTestResponse {
   model_id: string;
   response: string | null;
   error: string | null;
+  streaming: "supported" | "unsupported" | "unknown";
+  structured_output: "supported" | "unsupported" | "unknown";
+  tools: "supported" | "unsupported" | "unknown";
 }
 
 export interface AiPromptHandoffResponse {

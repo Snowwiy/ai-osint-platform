@@ -54,10 +54,11 @@ RavenTech OSINT packages that workflow into one local-first platform:
 - Playbooks, remediation workflow, case review, report approval, and audit trail
 - HTML, Markdown, PDF, and DOCX report exports
 - Local Knowledge library for operator-selected Obsidian vault files and reference documents, with source provenance, trust/review metadata, bounded incremental indexing, keyword search, and optional local vector retrieval
-- Optional in-app AI Console connected to a loopback OpenCode server or detected
-  local Ollama/LM Studio endpoints; provider/model availability is discovered
-  dynamically, current RavenTech evidence is available through a bounded,
-  read-only tool gateway, and core workflows remain usable without AI
+- Optional in-app AI Console with direct local runtimes (Ollama, LM Studio,
+  llama.cpp, vLLM, and explicitly configured OpenAI-compatible loopback APIs),
+  hardware-aware installed-model fit, local-first/offline policies,
+  task-specific local routing, and synthetic benchmarks;
+  OpenCode and remote providers remain optional, and core workflows work without AI
 - Human-approved Action Gateway for a fixed set of local service/process,
   alert, authorized-LAN, posture, and safe-job operations; actions are previewed,
   role-checked, snapshot-bound, and verified after execution
@@ -114,16 +115,18 @@ and deterministic intelligence services. The frontend consumes existing API
 contracts and presents analyst, executive, governance, and operations views.
 Packaged desktop startup is supervised by Tauri. Source development can use Docker Compose, Vite, and the Celery compatibility profile.
 
-The optional AI Console uses the local OpenCode HTTP server for configured
-providers and can discover local Ollama or LM Studio models. Provider credentials
-remain in their owning provider/OpenCode configuration. The selector distinguishes
-local and remote execution and applies the selected cost/privacy mode. Knowledge
-excerpts are retrieved locally and sent only when an analyst explicitly selects
-them; remote execution displays the destination before a request. RavenTech AI
-uses read-only evidence tools and may prepare one pending action proposal only
-when the current user message explicitly requests a specific registered action.
-The model cannot approve or execute actions. See
-[AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md) for setup and data handling.
+The optional AI Console can call installed local runtimes directly or use the
+loopback OpenCode server for configured providers. Local runtime discovery uses
+only known loopback defaults or explicitly configured endpoints; RavenTech does
+not scan ports, widen runtime bindings, install runtimes, or download model
+weights. Offline AI blocks remote discovery and inference with no cloud fallback.
+The Models page shows hardware and model metadata as reported, conservative
+approximate memory fit, runtime status, and bounded synthetic benchmark history.
+Provider credentials remain with their owning provider. Knowledge excerpts are
+retrieved locally and sent only when an analyst explicitly selects them. The AI
+tool boundary stays read-only; Action Gateway writes still need human approval.
+See [AI_MODEL_INTEGRATION.md](docs/AI_MODEL_INTEGRATION.md) for setup, routing,
+privacy, and troubleshooting.
 The Evidence Analysis panel works without a model and builds timestamped,
 bounded bundles from authorized RavenTech records. It separates observed facts
 from hypotheses, highlights missing or stale evidence, and compares saved

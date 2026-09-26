@@ -31,10 +31,33 @@ class FakeOpenCodeAdapter:
             metadata_source="deterministic test fixture",
             last_discovered_at=datetime.now(UTC),
         )
+        self.local_model = ModelRecord(
+            id="ollama/local-fixture",
+            provider_id="ollama",
+            model_id="local-fixture",
+            display_name="Synthetic local test model",
+            available=True,
+            local=True,
+            remote=False,
+            free_status="local",
+            context_window=4096,
+            supports_tools=None,
+            supports_vision=None,
+            supports_reasoning=None,
+            supports_streaming=None,
+            metadata_source="deterministic local fixture",
+            last_discovered_at=datetime.now(UTC),
+            runtime_id="ollama",
+        )
         self.stream_started = asyncio.Event()
         self.block_stream = False
         self.last_prompt = ""
         self.cancel_called = False
+        self.remote_discovery_count = 0
+        self.local_discovery_count = 0
+        self.external_session_count = 0
+        self.local_complete_count = 0
+        self.remote_complete_count = 0
 
     async def get_runtime(self):
         return {
@@ -46,6 +69,7 @@ class FakeOpenCodeAdapter:
         }
 
     async def discover(self, *, refresh: bool = False):
+        self.remote_discovery_count += 1
         return [
             {
                 "id": "fixture",
@@ -58,16 +82,33 @@ class FakeOpenCodeAdapter:
             }
         ], [self.model]
 
+    async def discover_local(self, *, refresh: bool = False):
+        self.local_discovery_count += 1
+        return [
+            {
+                "id": "ollama",
+                "name": "Ollama",
+                "category": "ollama",
+                "connected": True,
+                "local": True,
+                "remote": False,
+                "status": "available",
+            }
+        ], [self.local_model]
+
     async def create_session(self, title: str) -> str:
+        self.external_session_count += 1
         return "test-session-123"
 
     async def complete(
         self, session_id: str, provider_id: str, model_id: str, prompt: str
     ) -> str:
+        self.remote_complete_count += 1
         self.last_prompt = prompt
         return "READY. Evidence is limited."
 
     async def complete_local(self, provider_id: str, model_id: str, prompt: str) -> str:
+        self.local_complete_count += 1
         self.last_prompt = prompt
         return "READY."
 
@@ -108,6 +149,7 @@ async def test_model_catalog_preferences_and_paid_policy(
     assert catalog.status_code == 200
     assert catalog.json()["recommended_model_id"] == "fixture/free-model"
     assert catalog.json()["models"][0]["free_status"] == "provider_reported_free"
+    assert adapter.remote_discovery_count == 1
     preferences = await client.put(
         "/api/v1/ai/preferences",
         headers=analyst_headers,
@@ -126,6 +168,57 @@ async def test_model_catalog_preferences_and_paid_policy(
         },
     )
     assert saved.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_offline_ai_uses_only_local_discovery_and_never_opencode_sessions(
+    client, analyst_headers, db, monkeypatch
+):
+    adapter = FakeOpenCodeAdapter()
+    _install_adapter(monkeypatch, adapter)
+    preferences = await client.put(
+        "/api/v1/ai/preferences",
+        headers=analyst_headers,
+        json={
+            "execution_mode": "any_configured",
+            "offline_ai_enabled": True,
+            "selected_model_id": "ollama/local-fixture",
+        },
+    )
+    assert preferences.status_code == 200, preferences.text
+    assert adapter.remote_discovery_count == 0
+
+    catalog = await client.get("/api/v1/ai/models", headers=analyst_headers)
+    assert catalog.status_code == 200, catalog.text
+    assert catalog.json()["runtime"]["integration"] == "Direct local runtimes"
+    assert [item["id"] for item in catalog.json()["models"]] == ["ollama/local-fixture"]
+    assert adapter.remote_discovery_count == 0
+
+    runtime = await client.get("/api/v1/ai/runtime", headers=analyst_headers)
+    providers = await client.get("/api/v1/ai/providers", headers=analyst_headers)
+    assert runtime.status_code == 200
+    assert runtime.json()["integration"] == "Direct local runtimes"
+    assert [item["id"] for item in providers.json()["items"]] == ["ollama"]
+    assert adapter.remote_discovery_count == 0
+
+    created = await client.post(
+        "/api/v1/ai/sessions",
+        headers=analyst_headers,
+        json={"model_id": "ollama/local-fixture", "title": "Offline chat"},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["provider_id"] == "ollama"
+    assert created.json()["execution_type"] == "local"
+    assert adapter.external_session_count == 0
+
+    denied = await client.post(
+        "/api/v1/ai/sessions",
+        headers=analyst_headers,
+        json={"model_id": "fixture/free-model", "title": "Remote attempt"},
+    )
+    assert denied.status_code == 409
+    assert adapter.remote_discovery_count == 0
+    assert adapter.external_session_count == 0
 
 
 @pytest.mark.asyncio
@@ -289,6 +382,15 @@ async def test_model_test_is_admin_only_and_handoff_is_copy_only(
         json={"model_id": "fixture/free-model"},
     )
     assert tested.status_code == 200 and tested.json()["available"] is True
+    local_tested = await client.post(
+        "/api/v1/ai/models/test",
+        headers=admin_headers,
+        json={"model_id": "ollama/local-fixture"},
+    )
+    assert local_tested.status_code == 200 and local_tested.json()["available"] is True
+    assert local_tested.json()["response"] == "READY."
+    assert adapter.local_complete_count == 1
+    assert adapter.remote_complete_count == 1
     handoff = await client.post(
         "/api/v1/ai/prompt-handoff",
         headers=analyst_headers,

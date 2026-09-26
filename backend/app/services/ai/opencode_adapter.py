@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import json
 import re
 import shutil
 import subprocess
 import time
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol, cast
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote
 
 import httpx
 
@@ -53,6 +52,9 @@ _CATALOG_SECRET_RE = re.compile(
     r"(?i)(\b(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|"
     r"password|secret)\b\s*[:=]\s*)([^\s,;]+)"
 )
+LOCAL_PROVIDER_IDS = frozenset(
+    {"ollama", "lmstudio", "llamacpp", "vllm", "openai_compatible_local"}
+)
 
 
 @dataclass(frozen=True)
@@ -72,12 +74,22 @@ class ModelRecord:
     supports_streaming: bool | None
     metadata_source: str
     last_discovered_at: datetime
+    runtime_id: str | None = None
+    size_bytes: int | None = None
+    parameter_count: int | None = None
+    quantization: str | None = None
+    architecture: str | None = None
+    capabilities: dict[str, str] = field(default_factory=dict)
 
 
 class OpenCodeAdapter(Protocol):
     async def get_runtime(self) -> dict[str, Any]: ...
 
     async def discover(
+        self, *, refresh: bool = False
+    ) -> tuple[list[dict[str, Any]], list[ModelRecord]]: ...
+
+    async def discover_local(
         self, *, refresh: bool = False
     ) -> tuple[list[dict[str, Any]], list[ModelRecord]]: ...
 
@@ -188,15 +200,25 @@ class LocalOpenCodeAdapter:
                 providers, models = _models_from_provider_payload(provider_payload)
             except (httpx.HTTPError, ValueError, RuntimeError):
                 pass
-            local_providers, local_models = await _discover_local_models()
-            known = {item.id for item in models}
-            models.extend(item for item in local_models if item.id not in known)
+            local_providers, local_models = await _discover_local_models(
+                refresh=refresh
+            )
+            local_by_id = {item.id: item for item in local_models}
+            models = [local_by_id.pop(item.id, item) for item in models]
+            models.extend(local_by_id.values())
             provider_ids = {item["id"] for item in providers}
             providers.extend(
                 item for item in local_providers if item["id"] not in provider_ids
             )
             self._catalog = (time.monotonic(), providers, models)
             return providers, models
+
+    async def discover_local(
+        self, *, refresh: bool = False
+    ) -> tuple[list[dict[str, Any]], list[ModelRecord]]:
+        from app.services.ai.local_runtime import discover_local_catalog
+
+        return await discover_local_catalog(refresh=refresh)
 
     async def create_session(self, title: str) -> str:
         payload = await self._post_json(
@@ -315,31 +337,30 @@ class LocalOpenCodeAdapter:
                         break
 
     async def complete_local(self, provider_id: str, model_id: str, prompt: str) -> str:
+        if provider_id not in LOCAL_PROVIDER_IDS:
+            raise RuntimeError("This provider is not a supported direct local runtime.")
+        from app.services.ai.local_runtime import local_runtime_endpoint
+
+        endpoint = local_runtime_endpoint(provider_id)
+        messages = [
+            {"role": "system", "content": _SYSTEM_POLICY},
+            {"role": "user", "content": prompt},
+        ]
         if provider_id == "ollama":
             payload = await self._post_json(
-                "http://127.0.0.1:11434/api/chat",
-                {
-                    "model": model_id,
-                    "stream": False,
-                    "messages": [
-                        {"role": "system", "content": _SYSTEM_POLICY},
-                        {"role": "user", "content": prompt},
-                    ],
-                },
+                f"{endpoint}/api/chat",
+                {"model": model_id, "stream": False, "messages": messages},
                 timeout=120.0,
             )
             message = payload.get("message", {}) if isinstance(payload, dict) else {}
             content = message.get("content") if isinstance(message, dict) else None
-        elif provider_id == "lmstudio":
+        else:
             payload = await self._post_json(
-                "http://127.0.0.1:1234/v1/chat/completions",
+                f"{endpoint}/v1/chat/completions",
                 {
                     "model": model_id,
                     "stream": False,
-                    "messages": [
-                        {"role": "system", "content": _SYSTEM_POLICY},
-                        {"role": "user", "content": prompt},
-                    ],
+                    "messages": messages,
                 },
                 timeout=120.0,
             )
@@ -350,8 +371,6 @@ class LocalOpenCodeAdapter:
                 else {}
             )
             content = message.get("content") if isinstance(message, dict) else None
-        else:
-            raise RuntimeError("This provider is not a supported direct local runtime.")
         if isinstance(content, list):
             content = "\n".join(
                 item.get("text", "")
@@ -371,14 +390,17 @@ class LocalOpenCodeAdapter:
         prompt: str,
         cancel_event: asyncio.Event,
     ) -> AsyncIterator[str]:
-        if provider_id not in {"ollama", "lmstudio"}:
+        if provider_id not in LOCAL_PROVIDER_IDS:
             raise RuntimeError("This provider is not a supported direct local runtime.")
+        from app.services.ai.local_runtime import local_runtime_endpoint
+
+        endpoint = local_runtime_endpoint(provider_id)
         url = (
-            "http://127.0.0.1:11434/api/chat"
+            f"{endpoint}/api/chat"
             if provider_id == "ollama"
-            else "http://127.0.0.1:1234/v1/chat/completions"
+            else f"{endpoint}/v1/chat/completions"
         )
-        _require_loopback_url(url)
+        url = _require_loopback_url(url)
         payload: dict[str, Any]
         if provider_id == "ollama":
             payload = {
@@ -487,7 +509,7 @@ class LocalOpenCodeAdapter:
         return response.json()
 
     async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
-        _require_loopback_url(url)
+        url = _require_loopback_url(url)
         timeout = kwargs.pop("timeout", _HTTP_TIMEOUT)
         async with httpx.AsyncClient(
             timeout=timeout, follow_redirects=False, trust_env=False
@@ -617,78 +639,12 @@ def _models_from_provider_payload(
     return providers, models
 
 
-async def _discover_local_models() -> tuple[list[dict[str, Any]], list[ModelRecord]]:
-    providers: list[dict[str, Any]] = []
-    models: list[ModelRecord] = []
-    now = datetime.now(UTC)
-    async with httpx.AsyncClient(
-        timeout=_HTTP_TIMEOUT, follow_redirects=False, trust_env=False
-    ) as client:
-        try:
-            response = await client.get("http://127.0.0.1:11434/api/tags")
-            response.raise_for_status()
-            payload = response.json()
-            entries = payload.get("models", []) if isinstance(payload, dict) else []
-            providers.append(_local_provider("ollama", "Ollama"))
-            for entry in entries:
-                model_id = (
-                    entry.get("name") or entry.get("model")
-                    if isinstance(entry, dict)
-                    else None
-                )
-                if isinstance(model_id, str) and _valid_model_parts("ollama", model_id):
-                    models.append(_local_model("ollama", model_id, model_id, now))
-        except (httpx.HTTPError, ValueError):
-            pass
-        try:
-            response = await client.get("http://127.0.0.1:1234/v1/models")
-            response.raise_for_status()
-            payload = response.json()
-            entries = payload.get("data", []) if isinstance(payload, dict) else []
-            providers.append(_local_provider("lmstudio", "LM Studio"))
-            for entry in entries:
-                model_id = entry.get("id") if isinstance(entry, dict) else None
-                if isinstance(model_id, str) and _valid_model_parts(
-                    "lmstudio", model_id
-                ):
-                    models.append(_local_model("lmstudio", model_id, model_id, now))
-        except (httpx.HTTPError, ValueError):
-            pass
-    return providers, models
+async def _discover_local_models(
+    *, refresh: bool = False
+) -> tuple[list[dict[str, Any]], list[ModelRecord]]:
+    from app.services.ai.local_runtime import discover_local_catalog
 
-
-def _local_provider(provider_id: str, name: str) -> dict[str, Any]:
-    return {
-        "id": provider_id,
-        "name": name,
-        "category": provider_id,
-        "connected": True,
-        "local": True,
-        "remote": False,
-        "status": "available",
-    }
-
-
-def _local_model(
-    provider_id: str, model_id: str, name: str, discovered: datetime
-) -> ModelRecord:
-    return ModelRecord(
-        id=f"{provider_id}/{model_id}",
-        provider_id=provider_id,
-        model_id=model_id,
-        display_name=_safe_catalog_label(name, 200),
-        available=True,
-        local=True,
-        remote=False,
-        free_status="local",
-        context_window=None,
-        supports_tools=None,
-        supports_vision=None,
-        supports_reasoning=None,
-        supports_streaming=None,
-        metadata_source="Local loopback model inventory",
-        last_discovered_at=discovered,
-    )
+    return await discover_local_catalog(refresh=refresh)
 
 
 def _provider_category(provider_id: str, provider: dict[str, Any]) -> str:
@@ -825,17 +781,21 @@ def _url_is_loopback(value: Any) -> bool:
     if not isinstance(value, str) or len(value) > 500:
         return False
     try:
-        parsed = urlsplit(value)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            return False
-        return ipaddress.ip_address(parsed.hostname).is_loopback
+        _require_loopback_url(value)
+        return True
     except ValueError:
-        return parsed.hostname in {"localhost"} if "parsed" in locals() else False
+        return False
 
 
-def _require_loopback_url(url: str) -> None:
-    if not _url_is_loopback(url):
-        raise ValueError("AI integrations may connect only to a loopback endpoint.")
+def _require_loopback_url(url: str) -> str:
+    from app.services.ai.local_runtime import safe_loopback_url
+
+    try:
+        return safe_loopback_url(url)
+    except ValueError as exc:
+        raise ValueError(
+            "AI integrations may connect only to a loopback endpoint."
+        ) from exc
 
 
 def denied_tool_profile() -> dict[str, bool]:

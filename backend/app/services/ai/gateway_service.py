@@ -172,6 +172,13 @@ def model_view(model: ModelRecord) -> AiModel:
         supports_streaming=model.supports_streaming,
         metadata_source=model.metadata_source,
         last_discovered_at=model.last_discovered_at,
+        runtime_id=model.runtime_id,
+        installed=model.local,
+        size_bytes=model.size_bytes,
+        parameter_count=model.parameter_count,
+        quantization=model.quantization,
+        architecture=model.architecture,
+        capabilities=model.capabilities,  # type: ignore[arg-type]
     )
 
 
@@ -194,6 +201,9 @@ async def get_preferences(db: AsyncSession, user_id: uuid.UUID) -> AiPreferences
         preferred_local_model_id=record.preferred_local_model_id,
         preferred_free_model_id=record.preferred_free_model_id,
         execution_mode=record.execution_mode,  # type: ignore[arg-type]
+        offline_ai_enabled=record.offline_ai_enabled,
+        routing_mode=record.routing_mode,  # type: ignore[arg-type]
+        task_model_routes=record.task_model_routes,
     )
 
 
@@ -210,6 +220,9 @@ async def save_preferences(
     record.preferred_local_model_id = preferences.preferred_local_model_id
     record.preferred_free_model_id = preferences.preferred_free_model_id
     record.execution_mode = preferences.execution_mode
+    record.offline_ai_enabled = preferences.offline_ai_enabled
+    record.routing_mode = preferences.routing_mode
+    record.task_model_routes = preferences.task_model_routes
     await db.flush()
     return record
 
@@ -220,19 +233,30 @@ async def require_allowed_model(
     execution_mode: str,
 ) -> ModelRecord:
     _provider_id, _raw_model_id = split_model_id(model_id)
-    _providers, models = await adapter.discover()
+    if execution_mode == "offline":
+        try:
+            _providers, models = await adapter.discover_local()
+        except AttributeError as exc:
+            raise ValueError(
+                "Offline model discovery is unavailable; remote discovery was blocked."
+            ) from exc
+    else:
+        _providers, models = await adapter.discover()
     model = next((item for item in models if item.id == model_id), None)
     if model is None or not model.available:
         raise ValueError(
             "Model unavailable. Refresh the model list or select another model."
         )
-    if execution_mode == "local_only" and not model.local:
-        raise PermissionError("Local-only mode blocks remote model execution.")
-    if execution_mode == "free_only" and not (
+    if execution_mode in {"local_only", "offline"} and not model.local:
+        raise PermissionError(
+            "Offline AI and local-only mode block remote model execution."
+        )
+    if execution_mode in {"free_only", "local_first"} and not (
         model.local or model.free_status == "provider_reported_free"
     ):
         raise PermissionError(
-            "Free-only mode blocks models without current zero-cost provider metadata."
+            "Local-first and free-only modes block remote models without current "
+            "zero-cost provider metadata."
         )
     return model
 
@@ -528,6 +552,8 @@ async def session_view(db: AsyncSession, session: AiSession) -> AiSessionView:
             "provider_id": message.provider_id,
             "model_id": message.model_id,
             "execution_type": message.execution_type,
+            "requested_model_id": message.requested_model_id,
+            "routing_reason": message.routing_reason,
             "context_sources": message.context_sources,
             "supplied_citations": message.supplied_citations,
             "created_at": message.created_at,

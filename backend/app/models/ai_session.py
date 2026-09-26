@@ -27,8 +27,13 @@ class AiModelPreference(Base):
     __tablename__ = "ai_model_preferences"
     __table_args__ = (
         CheckConstraint(
-            "execution_mode IN ('free_only', 'local_only', 'any_configured')",
+            "execution_mode IN ('local_first', 'free_only', 'local_only', "
+            "'any_configured')",
             name="ck_ai_model_preferences_execution_mode",
+        ),
+        CheckConstraint(
+            "routing_mode IN ('manual', 'recommended', 'automatic_local')",
+            name="ck_ai_model_preferences_routing_mode",
         ),
     )
 
@@ -41,7 +46,16 @@ class AiModelPreference(Base):
     preferred_local_model_id: Mapped[str | None] = mapped_column(String(300))
     preferred_free_model_id: Mapped[str | None] = mapped_column(String(300))
     execution_mode: Mapped[str] = mapped_column(
-        String(24), nullable=False, default="free_only", server_default="free_only"
+        String(24), nullable=False, default="local_first", server_default="local_first"
+    )
+    offline_ai_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    routing_mode: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="manual", server_default="manual"
+    )
+    task_model_routes: Mapped[dict[str, str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
@@ -99,6 +113,59 @@ class AiSession(Base):
     )
 
 
+class AiBenchmarkResult(Base):
+    __tablename__ = "ai_benchmark_results"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            name="ck_ai_benchmark_results_status",
+        ),
+        Index(
+            "idx_ai_benchmark_results_owner_started",
+            "owner_id",
+            text("started_at DESC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    model_id: Mapped[str] = mapped_column(String(300), nullable=False)
+    runtime_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    hardware_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    hardware_snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    profile_version: Mapped[str] = mapped_column(
+        String(24), nullable=False, server_default="1.0"
+    )
+    settings: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    metrics: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    warnings: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default="pending"
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
+
 class AiMessage(Base):
     __tablename__ = "ai_messages"
     __table_args__ = (
@@ -129,6 +196,8 @@ class AiMessage(Base):
     provider_id: Mapped[str | None] = mapped_column(String(120))
     model_id: Mapped[str | None] = mapped_column(String(240))
     execution_type: Mapped[str | None] = mapped_column(String(12))
+    requested_model_id: Mapped[str | None] = mapped_column(String(300))
+    routing_reason: Mapped[str | None] = mapped_column(String(120))
     context_sources: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )

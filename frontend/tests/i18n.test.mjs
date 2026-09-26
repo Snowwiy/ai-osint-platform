@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { URL } from "node:url";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -38,6 +39,26 @@ test("major navigation, monitoring and recon labels have Spanish copy", () => {
     '"SSH on non-standard port": "SSH en puerto no estándar"',
   ]) assert.ok(i18n.includes(copy), `missing localized copy: ${copy}`);
   assert.doesNotMatch(i18n, />[a-z]+\.[a-z.]+</);
+});
+
+test("local AI inventory and offline controls have Spanish copy", () => {
+  const i18n = read("src/lib/i18n.tsx");
+  for (const copy of [
+    '"AI Models": "Modelos de IA"',
+    '"Hardware readiness": "Preparación del hardware"',
+    '"Offline AI Mode": "Modo de IA sin conexión"',
+    '"Local first": "Local primero"',
+    '"Automatic local only": "Automático solo local"',
+    '"Routing mode": "Modo de enrutamiento"',
+    '"Fast triage": "Triaje rápido"',
+    '"Task-based local route": "Enrutamiento local por tarea"',
+    '"Remote inference: Blocked": "Inferencia remota: bloqueada"',
+    '"Network endpoint blocked": "Endpoint de red bloqueado"',
+    '"Run synthetic benchmark": "Ejecutar benchmark sintético"',
+    '"Test local model": "Probar modelo local"',
+    '"Offline ready": "Disponible sin conexión"',
+    '"Overall benchmark reached its 60 second time limit.": "El benchmark alcanzó su límite total de 60 segundos."',
+  ]) assert.ok(i18n.includes(copy), `missing localized copy: ${copy}`);
 });
 
 test("report forms send only supported language values and no secrets", () => {
